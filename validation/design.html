@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>예시 화면 — 디자인(정답)</title>
+<style>
+  /* ===== 디자인 시스템 토큰 (정답 기준) ===== */
+  :root {
+    --color-primary: #2563EB;
+    --color-text:    #1F2937;
+    --color-muted:   #6B7280;
+    --color-bg:      #F9FAFB;
+    --color-card:    #FFFFFF;
+    --color-border:  #E5E7EB;
+    --color-fill:    #F3F4F6;
+    --radius:  8px;
+    --space:   16px;
+    --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--color-bg); font-family: var(--font); color: var(--color-text); }
+
+  .app { width: 1440px; margin: 0 auto; background: var(--color-bg); }
+
+  /* 헤더 */
+  .header {
+    height: 64px; padding: 0 24px; background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+  .search {
+    width: 400px; height: 40px; background: var(--color-fill);
+    border: none; border-radius: 8px; padding: 0 12px;
+    font-size: 14px; color: var(--color-text);
+  }
+  .avatar { width: 40px; height: 40px; border-radius: 999px; background: #D1D5DB; }
+
+  /* 본문 */
+  .main { padding: 24px; }
+  .title { font-size: 24px; font-weight: 700; color: var(--color-text); margin-bottom: 24px; }
+
+  .stats { display: flex; gap: 16px; }
+  .card {
+    flex: 1; background: var(--color-card); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card .label { font-size: 13px; color: var(--color-muted); }
+  .card .value { font-size: 28px; font-weight: 700; color: var(--color-text); margin-top: 8px; }
+
+  .content { display: flex; gap: 16px; margin-top: 24px; }
+  .map {
+    width: 800px; height: 360px; background: var(--color-border);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--color-muted); font-size: 14px;
+  }
+  .list {
+    flex: 1; height: 360px; background: var(--color-card);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 16px;
+  }
+  .list li { list-style: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 14px; }
+
+  .footer { margin-top: 24px; }
+  .export-btn {
+    background: var(--color-primary); color: #FFFFFF; border: none;
+    border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <!-- data-qa-root: 측정 기준점 / data-qa-label: 이 파일의 이름표 -->
+  <div class="app" data-qa-root data-qa-label="design">
+
+    <header class="header" data-qa="app/header">
+      <div class="logo" data-qa="header/logo">MyDashboard</div>
+      <input class="search" data-qa="header/search" placeholder="검색" />
+      <div class="avatar" data-qa="header/avatar"></div>
+    </header>
+
+    <main class="main">
+      <h1 class="title" data-qa="page/title">대시보드</h1>
+
+      <section class="stats">
+        <div class="card" data-qa="stat/card-1">
+          <div class="label">방문자</div>
+          <div class="value" data-qa="stat/value-1">12,480</div>
+        </div>
+        <div class="card" data-qa="stat/card-2">
+          <div class="label">신규 가입</div>
+          <div class="value" data-qa="stat/value-2">1,240</div>
+        </div>
+        <div class="card" data-qa="stat/card-3">
+          <div class="label">전환율</div>
+          <div class="value" data-qa="stat/value-3">3.8%</div>
+        </div>
+      </section>
+
+      <section class="content">
+        <!-- 지도: 안쪽 내용은 샘플이라 검수 대상 아님 (위치·크기만 봄) -->
+        <div class="map" data-qa="content/map">［ 지도 영역 · 서울 ］</div>
+        <!-- 리스트: 안쪽 텍스트는 샘플이라 검수 대상 아님 -->
+        <ul class="list" data-qa="content/list">
+          <li>홍길동님이 가입했습니다</li>
+          <li>주문 #1024 결제 완료</li>
+          <li>리뷰 3건이 등록되었습니다</li>
+        </ul>
+      </section>
+
+      <div class="footer">
+        <button class="export-btn" data-qa="action/export-btn">보고서 내보내기</button>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

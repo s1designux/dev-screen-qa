@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>예시 화면 — 개발(실제 구현, 일부러 틀림)</title>
+<style>
+  /* ===== 개발자가 구현한 화면 · 몇 군데 일부러 어긋나게 함 ===== */
+  :root {
+    --color-primary: #2563EB;
+    --color-text:    #1F2937;
+    --color-muted:   #6B7280;
+    --color-bg:      #F9FAFB;
+    --color-card:    #FFFFFF;
+    --color-border:  #E5E7EB;
+    --color-fill:    #F3F4F6;
+    --radius:  8px;
+    --space:   16px;
+    --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--color-bg); font-family: var(--font); color: var(--color-text); }
+
+  .app { width: 1440px; margin: 0 auto; background: var(--color-bg); }
+
+  .header {
+    height: 64px; padding: 0 24px; background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+  .search {
+    width: 320px;          /* ❌ 결함1: 검색창 너비 400→320 (크기·위치 어긋남) */
+    height: 40px; background: var(--color-fill);
+    border: none; border-radius: 8px; padding: 0 12px;
+    font-size: 14px; color: var(--color-text);
+  }
+  .avatar {
+    width: 32px; height: 32px;   /* ❌ 결함2: 아바타 40→32 (크기 어긋남) */
+    border-radius: 999px; background: #D1D5DB;
+  }
+
+  .main { padding: 24px; }
+  .title {
+    font-size: 20px;        /* ❌ 결함3: 제목 24→20 (글자 크기 어긋남) */
+    font-weight: 700; color: var(--color-text); margin-bottom: 24px;
+  }
+
+  .stats { display: flex; gap: 16px; }
+  .card {
+    flex: 1; background: var(--color-card); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card.card-2 {
+    padding: 12px;          /* ❌ 결함4: 2번 카드 안쪽 여백 16→12 */
+    border-radius: 4px;     /* ❌ 결함5: 2번 카드 모서리 8→4 */
+  }
+  .card .label { font-size: 13px; color: var(--color-muted); }
+  .card .value { font-size: 28px; font-weight: 700; color: var(--color-text); margin-top: 8px; }
+  .card .value.value-3 {
+    font-weight: 600;       /* ❌ 결함6: 전환율 숫자 굵기 700→600 */
+    color: var(--color-muted); /* ❌ 결함7: 색상 진한글자→회색 */
+  }
+
+  .content { display: flex; gap: 16px; margin-top: 24px; }
+  .map {
+    width: 800px; height: 360px; background: var(--color-border);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--color-muted); font-size: 14px;
+  }
+  .list {
+    flex: 1; height: 360px; background: var(--color-card);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 16px;
+  }
+  .list li { list-style: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 14px; }
+
+  /* dev에만 있는 추가 요소 */
+  .promo {
+    background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px;
+    padding: 12px 16px; font-size: 13px; color: #92400E; margin-bottom: 16px;
+  }
+
+  .footer { margin-top: 24px; }
+  .export-btn {
+    background: #3B82F6;    /* ❌ 결함8: 버튼 색 #2563EB→#3B82F6 (연한 파랑) */
+    color: #FFFFFF; border: none;
+    border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+    margin-left: 40px;      /* ❌ 결함9: 버튼이 오른쪽으로 40px 밀림 (위치 어긋남) */
+  }
+</style>
+</head>
+<body>
+  <div class="app" data-qa-root data-qa-label="dev">
+
+    <header class="header" data-qa="app/header">
+      <div class="logo" data-qa="header/logo" data-qa-text>MyDashboard</div>
+      <input class="search" data-qa="header/search" placeholder="검색어를 입력하세요" />
+      <div class="avatar" data-qa="header/avatar"></div>
+    </header>
+
+    <main class="main">
+      <h1 class="title" data-qa="page/title" data-qa-text>관리자 대시보드</h1>
+
+      <!-- ❌ 결함10: 디자인에 없는 요소 (dev에만 있음) -->
+      <div class="promo" data-qa="promo/banner">여름 이벤트 진행중! 지금 확인하세요</div>
+
+      <section class="stats">
+        <div class="card" data-qa="stat/card-1">
+          <div class="label">방문자</div>
+          <div class="value" data-qa="stat/value-1" data-qa-text>9,873</div>
+        </div>
+        <div class="card card-2" data-qa="stat/card-2">
+          <div class="label">신규 가입</div>
+          <div class="value" data-qa="stat/value-2" data-qa-text>982</div>
+        </div>
+        <div class="card" data-qa="stat/card-3">
+          <div class="label">전환율</div>
+          <div class="value value-3" data-qa="stat/value-3" data-qa-text>2.1%</div>
+        </div>
+      </section>
+
+      <section class="content">
+        <!-- 지도 안쪽 내용이 디자인과 다름 → 검수에서 무시되어야 정상 -->
+        <div class="map" data-qa="content/map">［ 지도 영역 · 부산 ］</div>
+        <!-- 리스트 안쪽 텍스트가 디자인과 다름 → 무시되어야 정상 -->
+        <ul class="list" data-qa="content/list">
+          <li>김철수님이 로그인했습니다</li>
+          <li>배송 #557 출발</li>
+          <li>문의 1건 접수</li>
+          <li>재고 알림 2건</li>
+        </ul>
+      </section>
+
+      <div class="footer">
+        <button class="export-btn" data-qa="action/export-btn">보고서 내보내기</button>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

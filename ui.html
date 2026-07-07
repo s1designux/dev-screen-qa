@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f7f8fa; --line: #e6e8ec; --text: #1a1c20;
+    --muted: #7b828c; --accent: #3b6cff; --accent-soft: #eaf0ff;
+    --ok: #12a150; --warn: #d98600; --danger: #e5484d; --new: #7c5cff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1f24; --panel: #2a2c33; --line: #3a3d45; --text: #f2f3f5;
+      --muted: #9aa1ac; --accent: #6f92ff; --accent-soft: #2c3350;
+      --ok: #3ec779; --warn: #f0a83a; --danger: #ff6b70; --new: #a48bff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Pretendard", -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 13px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
+  }
+  .wrap { display: flex; flex-direction: column; height: 100vh; }
+  header {
+    padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px;
+  }
+  header .title { font-weight: 700; font-size: 14px; flex: 1; }
+  header .title input {
+    font: inherit; font-weight: 700; font-size: 14px; border: none; background: transparent; color: var(--text);
+    width: 100%; padding: 2px 4px; border-radius: 6px;
+  }
+  header .title input:focus { outline: 2px solid var(--accent-soft); background: var(--panel); }
+  .content { flex: 1; overflow-y: auto; padding: 12px 14px 24px; }
+  .btn {
+    font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 8px; padding: 7px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.ghost { background: transparent; }
+  .btn.small { padding: 4px 8px; font-size: 12px; border-radius: 6px; }
+  .btn.danger { color: var(--danger); }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .spacer { flex: 1; }
+  .muted { color: var(--muted); }
+  .tip { font-size: 11px; color: var(--muted); background: var(--panel); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; }
+
+  /* 진행도 요약 */
+  .summary { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  .chip b { font-weight: 700; }
+
+  /* 화면 카드 */
+  .screen-card {
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer; background: var(--bg);
+  }
+  .screen-card:hover { border-color: var(--accent); }
+  .screen-card.archived { opacity: 0.55; }
+  .screen-card .name { font-weight: 600; flex: 1; }
+  .screen-card .meta { font-size: 11px; color: var(--muted); }
+
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge.blank   { background: var(--panel); color: var(--muted); }
+  .badge.review  { background: #fff3e0; color: var(--warn); }
+  .badge.done    { background: #e7f7ee; color: var(--ok); }
+  .badge.new     { background: #f0ecff; color: var(--new); }
+  .badge.archived{ background: var(--panel); color: var(--muted); }
+  @media (prefers-color-scheme: dark) {
+    .badge.review { background: #3a2f1a; } .badge.done { background: #16341f; } .badge.new { background: #2a2440; }
+  }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); margin-right: 3px; }
+
+  /* 상세 화면 */
+  .detail-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .detail-head .name-in { font: inherit; font-weight: 700; font-size: 15px; border: none; background: transparent; color: var(--text); flex: 1; padding: 3px 4px; border-radius: 6px; }
+  .detail-head .name-in:focus { outline: 2px solid var(--accent-soft); background: var(--panel); }
+  .section { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .section h3 { margin: 0 0 10px; font-size: 12px; text-transform: none; color: var(--muted); font-weight: 700; }
+  label.field { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  select, textarea, input[type=text] {
+    font: inherit; width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;
+  }
+  textarea { resize: vertical; min-height: 44px; }
+
+  .compare { display: flex; gap: 10px; }
+  .compare .col { flex: 1; min-width: 0; }
+  .slotcard {
+    border: 1px dashed var(--line); border-radius: 8px; background: var(--panel); min-height: 90px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); font-size: 12px; padding: 12px; gap: 4px;
+  }
+  .slotcard.filled { border-style: solid; border-color: var(--ok); color: var(--text); }
+  .slotcard.drop.hover { border-color: var(--accent); background: var(--accent-soft); }
+  .slotcard .big { font-size: 20px; }
+  .col .caplabel { font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+
+  /* 버전 이력 */
+  .ver-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); font-size: 12px; }
+  .ver-item:first-child { border-top: none; }
+  .ver-tag { font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .ver-item.current .ver-tag::after { content: " ●"; color: var(--ok); }
+  .ver-note { flex: 1; }
+  .ver-date { color: var(--muted); white-space: nowrap; }
+
+  /* 이슈 */
+  .issue { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+  .issue.done { opacity: 0.7; }
+  .issue .top { display: flex; gap: 6px; align-items: center; }
+  .issue .cat { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .issue .devval { font-family: "SF Mono", Consolas, monospace; font-size: 11px; background: var(--panel); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+  .issue .flow { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; }
+  .step { font-size: 11px; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; color: var(--muted); }
+  .step.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .step.done-step.active { background: var(--ok); border-color: var(--ok); }
+  .drawer-toggle { font-size: 12px; color: var(--accent); cursor: pointer; margin: 6px 0; }
+  .empty { text-align: center; color: var(--muted); padding: 32px 12px; }
+  .empty .big { font-size: 15px; margin-bottom: 6px; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* 자체 입력창(모달) - 피그마 플러그인 창에선 브라우저 기본 prompt/alert/confirm이 동작하지 않아서 직접 만듦 */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px; width: 300px; max-width: 100%; max-height: 80vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+  .modal-box h4 { margin: 0 0 10px; font-size: 14px; }
+  .modal-box p { margin: 0 0 10px; white-space: pre-wrap; font-size: 13px; }
+  .modal-box .mbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .modal-list-item { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; cursor: pointer; font-size: 12px; }
+  .modal-list-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title"><input id="projName" placeholder="프로젝트 이름" /></div>
+    <button class="btn small ghost" id="btnHelp" title="사용법">?</button>
+  </header>
+  <div class="content" id="content"><!-- 여기에 대시보드 / 상세가 그려짐 --></div>
+</div>
+
+<script>
+// ============================================================
+//  UI 로직 (Figma 밖 iframe에서 동작)
+//  ※ 이 창은 "가벼운 관리자"입니다. 디자인/개발화면 이미지 자체는
+//    피그마 캔버스 위 "보드"에 실제로 놓입니다 (전체보기는 피그마
+//    기본 확대·축소를 그대로 쓰면 됩니다: Shift+1).
+// ============================================================
+var parentPost = function (m) { parent.postMessage({ pluginMessage: m }, "*"); };
+function today() { return new Date().toISOString().slice(0, 10); }
+function uid() { return "id" + Date.now().toString(36) + Math.floor(Math.random() * 9999).toString(36); }
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function showErr(text) {
+  var bar = document.getElementById("errbar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "errbar";
+    bar.style.cssText = "background:#e5484d;color:#fff;padding:8px 12px;font-size:12px;white-space:pre-wrap;cursor:pointer";
+    bar.title = "클릭하면 닫힙니다";
+    bar.onclick = function () { bar.remove(); };
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+  bar.textContent = "⚠ 오류: " + text;
+}
+window.onerror = function (m, src, line) { showErr(m + " (줄 " + line + ")"); };
+
+// ============================================================
+//  자체 입력창(모달) — 피그마 플러그인 iframe에선 prompt()/alert()/confirm()이
+//  차단되어 있어(눌러도 즉시 취소 취급) 반드시 직접 만든 창을 써야 합니다.
+// ============================================================
+function closeModal() {
+  var b = document.getElementById("modalBackdrop");
+  if (b) b.remove();
+  document.removeEventListener("keydown", modalKeyHandler);
+}
+function modalKeyHandler(e) { if (e.key === "Escape") closeModal(); }
+function openModal(innerHtml, onMount) {
+  closeModal();
+  var back = document.createElement("div");
+  back.id = "modalBackdrop"; back.className = "modal-backdrop";
+  back.innerHTML = '<div class="modal-box" id="modalBox">' + innerHtml + '</div>';
+  back.onclick = function (e) { if (e.target === back) closeModal(); };
+  document.body.appendChild(back);
+  document.addEventListener("keydown", modalKeyHandler);
+  if (onMount) onMount(document.getElementById("modalBox"));
+}
+function noticeModal(message) {
+  var html = '<p>' + esc(message) + '</p><div class="mbtns"><button class="btn small primary" id="mOk">확인</button></div>';
+  openModal(html, function (box) { box.querySelector("#mOk").onclick = closeModal; box.querySelector("#mOk").focus(); });
+}
+function promptModal(title, defaultVal, placeholder, cb) {
+  var html = '<h4>' + esc(title) + '</h4>'
+    + '<input type="text" id="mInput" value="' + esc(defaultVal || "") + '" placeholder="' + esc(placeholder || "") + '" />'
+    + '<div class="mbtns"><button class="btn small ghost" id="mCancel">취소</button><button class="btn small primary" id="mOk">확인</button></div>';
+  openModal(html, function (box) {
+    var input = box.querySelector("#mInput");
+    input.focus(); input.select();
+    function submit() { var v = input.value.trim(); closeModal(); cb(v); }
+    box.querySelector("#mOk").onclick = submit;
+    box.querySelector("#mCancel").onclick = function () { closeModal(); cb(null); };
+    input.onkeydown = function (e) { if (e.key === "Enter") submit(); };
+  });
+}
+function confirmModal(message, okLabel, cb) {
+  var html = '<p>' + esc(message) + '</p>'
+    + '<div class="mbtns"><button class="btn small ghost" id="mCancel">취소</button><button class="btn small danger" id="mOk">' + esc(okLabel || "확인") + '</button></div>';
+  openModal(html, function (box) {
+    box.querySelector("#mOk").onclick = function () { closeModal(); cb(true); };
+    box.querySelector("#mCancel").onclick = function () { closeModal(); cb(false); };
+  });
+}
+function chooseModal(title, items, cb) {
+  var html = '<h4>' + esc(title) + '</h4><div id="mList"></div><div class="mbtns"><button class="btn small ghost" id="mCancel">취소</button></div>';
+  openModal(html, function (box) {
+    var list = box.querySelector("#mList");
+    items.forEach(function (it) {
+      var d = document.createElement("div");
+      d.className = "modal-list-item"; d.textContent = it.label;
+      d.onclick = function () { closeModal(); cb(it); };
+      list.appendChild(d);
+    });
+    box.querySelector("#mCancel").onclick = function () { closeModal(); cb(null); };
+  });
+}
+function addIssueModal(cb) {
+  var catOptions = CATEGORIES.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join("");
+  var html = '<h4>수정사항 추가</h4>'
+    + '<label class="field">무엇이 다른가요? (쉬운 말)</label>'
+    + '<textarea id="mEasy" placeholder="예: 버튼 간격이 좁아요"></textarea>'
+    + '<label class="field">개발자 값 (선택)</label>'
+    + '<input type="text" id="mDev" placeholder="예: padding: 8px → 4px" />'
+    + '<label class="field">분류</label>'
+    + '<select id="mCat">' + catOptions + '</select>'
+    + '<div class="mbtns"><button class="btn small ghost" id="mCancel">취소</button><button class="btn small primary" id="mOk">추가</button></div>';
+  openModal(html, function (box) {
+    box.querySelector("#mEasy").focus();
+    function submit() {
+      var easy = box.querySelector("#mEasy").value.trim();
+      if (!easy) { box.querySelector("#mEasy").focus(); return; }
+      var dev = box.querySelector("#mDev").value.trim();
+      var cat = box.querySelector("#mCat").value;
+      closeModal();
+      cb({ textEasy: easy, textDev: dev, category: cat });
+    }
+    box.querySelector("#mOk").onclick = submit;
+    box.querySelector("#mCancel").onclick = function () { closeModal(); cb(null); };
+  });
+}
+
+// ---- 상태 ----
+var project = null;
+var view = "dashboard";       // 'dashboard' | 'detail'
+var openScreenId = null;
+var viewingVersionIdx = null; // 이력에서 특정 버전 열람 중이면 인덱스, 평소 null=현재
+
+var STATE_LABELS = { blank: "미개발", review: "검수중", done: "완료", "new": "신규", archived: "보류" };
+var CATEGORIES = ["간격", "색상", "배치", "타이포", "누락", "기타"];
+var FLOW = [
+  { key: "open", label: "열림" },
+  { key: "requested", label: "수정요청" },
+  { key: "fixed", label: "개발수정됨" },
+  { key: "verified", label: "검증완료" }
+];
+
+// ---- 저장 ----
+function persist() { parentPost({ type: "save-project", project: project }); }
+function newProject() { return { name: "제목없는 프로젝트", createdAt: today(), screens: [] }; }
+
+// ---- 화면/버전 헬퍼 ----
+function getScreen(id) { return project.screens.filter(function (s) { return s.id === id; })[0]; }
+function curVersion(s) { return s.versions[s.versions.length - 1]; }
+function activeVersion(s) {
+  if (viewingVersionIdx !== null && s.versions[viewingVersionIdx]) return s.versions[viewingVersionIdx];
+  return curVersion(s);
+}
+function makeVersion(v, note, carry) {
+  var ver = { v: v, date: today(), note: note || "", designImgKey: null, devImgKey: null, issues: [] };
+  if (carry) {
+    ver.designImgKey = carry.designImgKey || null;
+    ver.devImgKey = carry.devImgKey || null;
+    ver.issues = (carry.issues || []).filter(function (i) { return i.status !== "verified"; })
+      .map(function (i) { return JSON.parse(JSON.stringify(i)); });
+  }
+  return ver;
+}
+function progressCounts() {
+  var c = { blank: 0, review: 0, done: 0, "new": 0, archived: 0 };
+  project.screens.forEach(function (s) { c[s.state] = (c[s.state] || 0) + 1; });
+  return c;
+}
+function openIssueCount(s) {
+  var v = curVersion(s);
+  return (v.issues || []).filter(function (i) { return i.status !== "verified"; }).length;
+}
+
+// 화면 추가: 패널 데이터 생성 + 캔버스에 보드 생성 요청 (id들은 응답으로 받음)
+function addScreen(name) {
+  var s = {
+    id: uid(), name: name || ("화면 " + (project.screens.length + 1)), state: "new",
+    designNodeId: null, designNodeName: "",
+    boardId: null, designSlotId: null, devSlotId: null, titleId: null, boardPending: true,
+    ignoreZones: [], // 실제 데이터라 원래 다른 곳(지도, 샘플 텍스트 등) — 여기 표시된 자리는 자동검수에서 건너뜀
+    versions: [makeVersion(1, "최초 등록")]
+  };
+  project.screens.push(s); persist();
+  parentPost({ type: "create-board", screenId: s.id, name: s.name, state: s.state });
+  return s;
+}
+
+// 오래된 화면(무시 목록 필드가 없던 시절)도 안전하게 다루기 위한 헬퍼
+function ignoreZonesOf(s) { return s.ignoreZones || (s.ignoreZones = []); }
+function inIgnoreZone(s, xPercent, yPercent) {
+  return ignoreZonesOf(s).some(function (z) {
+    return Math.abs(z.xPercent - xPercent) < (z.wPercent / 2 + 0.04)
+        && Math.abs(z.yPercent - yPercent) < (z.hPercent / 2 + 0.04);
+  });
+}
+
+// ============================================================
+//  렌더링
+// ============================================================
+var content = document.getElementById("content");
+
+function render() {
+  if (!project) { content.innerHTML = ""; return; }
+  document.getElementById("projName").value = project.name;
+  if (view === "dashboard") renderDashboard();
+  else renderDetail();
+}
+
+function renderDashboard() {
+  viewingVersionIdx = null;
+  var c = progressCounts();
+  var html = "";
+  html += '<div class="tip">💡 이미지는 피그마 캔버스 위 "보드"에 놓여요. 전체를 훑어보려면 캔버스에서 <b>Shift+1</b>(전체 보기)을 눌러보세요.</div>';
+  html += '<div class="summary">';
+  html += chip("✅ 완료", c.done, "done") + chip("🔄 검수중", c.review, "review")
+        + chip("🔲 미개발", c.blank, "blank") + chip("➕ 신규", c["new"], "new");
+  if (c.archived) html += chip("🗑 보류", c.archived, "archived");
+  html += '</div>';
+
+  html += '<div class="row" style="margin-bottom:10px">';
+  html += '<button class="btn primary" id="addScreen">+ 화면 추가</button>';
+  html += '<div class="spacer"></div>';
+  html += '<button class="btn small ghost" id="toggleArchived">보류 화면 보기</button>';
+  html += '</div>';
+
+  var showArchived = window.__showArchived;
+  var list = project.screens.filter(function (s) { return showArchived ? true : s.state !== "archived"; });
+  if (list.length === 0) {
+    html += '<div class="empty"><div class="big">아직 화면이 없어요</div><div>"+ 화면 추가"로 검수할 화면을 만들어 주세요.</div></div>';
+  } else {
+    list.forEach(function (s) {
+      var oc = openIssueCount(s);
+      html += '<div class="screen-card ' + (s.state === "archived" ? "archived" : "") + '" data-id="' + s.id + '">';
+      html += '<span class="badge ' + s.state + '">' + STATE_LABELS[s.state] + '</span>';
+      html += '<div class="name">' + esc(s.name) + (s.boardPending ? ' <span class="muted">(보드 만드는 중…)</span>' : '') + '</div>';
+      if (oc > 0) html += '<span class="meta"><span class="dot"></span>미해결 ' + oc + '</span>';
+      html += '<span class="meta">v' + curVersion(s).v + '</span>';
+      html += '</div>';
+    });
+  }
+  content.innerHTML = html;
+
+  document.getElementById("addScreen").onclick = function () {
+    promptModal("새 화면 이름", "화면 " + (project.screens.length + 1), "", function (name) {
+      if (name === null) return;
+      var s = addScreen(name || undefined); openScreenId = s.id; view = "detail"; render();
+    });
+  };
+  document.getElementById("toggleArchived").onclick = function () {
+    window.__showArchived = !window.__showArchived;
+    document.getElementById("toggleArchived").textContent = window.__showArchived ? "보류 화면 숨기기" : "보류 화면 보기";
+    render();
+  };
+  Array.prototype.forEach.call(content.querySelectorAll(".screen-card"), function (el) {
+    el.onclick = function () { openScreenId = el.getAttribute("data-id"); view = "detail"; viewingVersionIdx = null; render(); };
+  });
+}
+
+function chip(label, n, cls) {
+  return '<span class="chip">' + label + ' <b>' + n + '</b></span>';
+}
+
+function renderDetail() {
+  var s = getScreen(openScreenId);
+  if (!s) { view = "dashboard"; render(); return; }
+  var ver = activeVersion(s);
+  var isPast = viewingVersionIdx !== null && viewingVersionIdx !== s.versions.length - 1;
+  var boardReady = !s.boardPending && s.designSlotId && s.devSlotId;
+
+  // 패널을 새로 열었을 때 디자인 글자 목록(임시 기억)이 비어있으면 미리 조용히 다시 읽어둠 (중복 요청 방지)
+  if (s.designNodeId && !designTextsCache[s.id] && !designTextsRequested[s.id]) {
+    designTextsRequested[s.id] = true;
+    parentPost({ type: "get-design-texts", nodeId: s.designNodeId, screenId: s.id });
+  }
+
+  var html = "";
+  html += '<div class="detail-head">';
+  html += '<button class="btn small ghost" id="back">←</button>';
+  html += '<input class="name-in" id="scName" value="' + esc(s.name) + '" />';
+  html += '<button class="btn small ghost" id="focusCanvas" title="캔버스에서 이 보드로 이동">🔍 캔버스에서 보기</button>';
+  html += '</div>';
+
+  if (!boardReady) html += '<div class="tip">⏳ 캔버스에 보드를 만들고 있어요. 잠시만 기다려 주세요…</div>';
+
+  // 상태
+  html += '<div class="section">';
+  html += '<div class="row"><div style="flex:1"><label class="field">화면 상태</label>';
+  html += '<select id="scState">';
+  ["new", "blank", "review", "done"].forEach(function (k) {
+    html += '<option value="' + k + '"' + (s.state === k ? " selected" : "") + '>' + STATE_LABELS[k] + '</option>';
+  });
+  html += '</select></div></div>';
+  html += '<div class="row"><button class="btn small ' + (s.state === "archived" ? "" : "danger") + '" id="toggleArchive">' + (s.state === "archived" ? "보류 해제" : "🗑 이 화면 보류") + '</button></div>';
+  if (s.state === "blank") html += '<div class="hint">🔲 미개발: 개발 대기 화면입니다. 캔버스의 개발화면 자리는 회색으로 비워둡니다.</div>';
+  html += '</div>';
+
+  // 디자인 / 개발화면 상태 카드 (실제 이미지는 캔버스 보드에 있음)
+  html += '<div class="section">';
+  html += '<h3>디자인(정답) ↔ 개발화면(실제) · 캔버스 보드</h3>';
+  html += '<div class="compare">';
+
+  // 디자인
+  html += '<div class="col"><div class="caplabel">🎨 디자인</div>';
+  html += '<div class="slotcard ' + (ver.designImgKey ? "filled" : "") + '">';
+  html += ver.designImgKey ? '<div class="big">✅</div><div>연결됨' + (s.designNodeName ? '<br/>' + esc(s.designNodeName) : '') + '</div>' : '<div class="big">🎨</div><div>아직 없음</div>';
+  html += '</div>';
+  if (!isPast && boardReady) {
+    html += '<div class="row" style="margin-top:6px">';
+    html += '<button class="btn small" id="useSel">선택한 프레임 연결</button>';
+    html += '<button class="btn small ghost" id="pickFrame">목록에서</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // 개발화면
+  html += '<div class="col"><div class="caplabel">🖥 개발화면</div>';
+  if (s.state === "blank") {
+    html += '<div class="slotcard"><div class="big">🔲</div><div>미개발 (개발 대기)</div></div>';
+  } else {
+    html += '<div class="slotcard drop ' + (ver.devImgKey ? "filled" : "") + '" id="devDrop">';
+    html += ver.devImgKey ? '<div class="big">✅</div><div>캡처 있음</div>' : '<div class="big">🖥</div><div>끌어놓기 · 붙여넣기(Ctrl+V)</div>';
+    html += '</div>';
+    if (!isPast && boardReady) {
+      html += '<div class="row" style="margin-top:6px">';
+      html += '<button class="btn small" id="uploadBtn">파일 선택</button>';
+      html += '<input type="file" id="fileIn" accept="image/*" style="display:none" />';
+      html += '</div>';
+      html += '<div class="hint">이 카드에 붙여넣기(Ctrl+V)도 됩니다.</div>';
+    }
+  }
+  html += '</div>';
+
+  html += '</div></div>'; // compare, section
+
+  // 버전
+  html += '<div class="section">';
+  html += '<div class="row"><h3 style="flex:1">버전 이력</h3>';
+  if (!isPast && boardReady) html += '<button class="btn small" id="saveVer">+ 새 버전 저장</button>';
+  html += '</div>';
+  s.versions.slice().reverse().forEach(function (v) {
+    var realIdx = s.versions.indexOf(v);
+    var isCur = realIdx === s.versions.length - 1;
+    var isViewing = realIdx === viewingVersionIdx || (viewingVersionIdx === null && isCur);
+    html += '<div class="ver-item ' + (isCur ? "current" : "") + '">';
+    html += '<span class="ver-tag">v' + v.v + '</span>';
+    html += '<span class="ver-note">' + esc(v.note || "(메모 없음)") + '</span>';
+    html += '<span class="ver-date">' + v.date + '</span>';
+    html += '<a href="#" class="viewVer" data-idx="' + realIdx + '" style="white-space:nowrap">' + (isViewing ? "열람중" : "보기") + '</a>';
+    html += '</div>';
+  });
+  if (isPast) html += '<div class="hint" style="color:var(--warn)">과거 버전을 열람 중입니다 (캔버스 보드도 그 시점 이미지로 보여줘요, 읽기 전용). <a href="#" id="backToCur">현재 버전으로</a></div>';
+  html += '</div>';
+
+  // 이슈
+  html += '<div class="section">';
+  html += '<h3>수정사항 (이슈)</h3>';
+  html += '<div class="row" style="flex-wrap:wrap;margin-bottom:8px">';
+  if (!isPast && boardReady && ver.designImgKey && ver.devImgKey) html += '<button class="btn small" id="autoDetect">🤖 색상·배치 찾기</button>';
+  if (!isPast && boardReady && ver.designImgKey && ver.devImgKey) html += '<button class="btn small" id="labelCheck">🔤 글자·라벨 검수</button>';
+  if (!isPast) html += '<button class="btn small ghost" id="addIssue">+ 직접 추가</button>';
+  html += '</div>';
+  if (boardReady && (!ver.designImgKey || !ver.devImgKey)) html += '<div class="hint">💡 디자인과 개발화면이 둘 다 들어오면 자동으로 다른 점을 찾아드려요.</div>';
+  var izCount = ignoreZonesOf(s).length;
+  if (izCount > 0) html += '<div class="hint">🙈 무시 설정된 위치 ' + izCount + '곳 (앞으로 이 자리는 자동검수에서 건너뜁니다) · <a href="#" id="clearIgnoreZones">초기화</a></div>';
+  html += renderIssues(ver, isPast);
+  html += '<div class="hint" style="margin-top:8px">💡 🤖 표시는 자동으로 찾은 항목이에요. 캔버스의 사각형 표시와 짝지어져 있어요. 확인 후 필요없으면 삭제하거나, 실제로 항상 다른 곳이면 🙈무시, 놓친 게 있으면 직접 추가하세요.</div>';
+  html += '</div>';
+
+  content.innerHTML = html;
+  wireDetail(s, ver, isPast, boardReady);
+}
+
+function renderIssues(ver, isPast) {
+  var issues = ver.issues || [];
+  var open = issues.filter(function (i) { return i.status !== "verified"; });
+  var done = issues.filter(function (i) { return i.status === "verified"; });
+  var html = "";
+  if (open.length === 0 && done.length === 0) {
+    html += '<div class="muted" style="padding:6px 0">아직 등록된 수정사항이 없어요.</div>';
+  }
+  open.forEach(function (i) { html += issueHtml(i, isPast); });
+  if (done.length > 0) {
+    html += '<div class="drawer-toggle" id="doneDrawer">✅ 완료 서랍 (' + done.length + ') ▾</div>';
+    html += '<div id="doneList" style="display:none">';
+    done.forEach(function (i) { html += issueHtml(i, isPast); });
+    html += '</div>';
+  }
+  return html;
+}
+
+function issueHtml(i, isPast) {
+  var h = '<div class="issue ' + (i.status === "verified" ? "done" : "") + '" data-iid="' + i.id + '">';
+  h += '<div class="top"><span class="cat">' + (i.auto ? "🤖 " : "") + esc(i.category || "기타") + '</span><span style="flex:1">' + esc(i.textEasy || "") + '</span>';
+  if (!isPast && i.auto && typeof i.xPercent === "number") h += '<a href="#" class="ignoreIssue" style="color:var(--muted);margin-right:8px" title="실제 데이터라 원래 다른 곳(지도·샘플 텍스트 등)이면 여기를 눌러 앞으로 검수에서 빼세요">🙈 무시</a>';
+  if (!isPast) h += '<a href="#" class="delIssue" style="color:var(--danger)">삭제</a>';
+  h += '</div>';
+  if (i.textDev) h += '<div class="devval">' + esc(i.textDev) + '</div>';
+  h += '<div class="flow">';
+  FLOW.forEach(function (f, idx) {
+    var curIdx = FLOW.map(function (x) { return x.key; }).indexOf(i.status);
+    var active = idx <= curIdx;
+    h += '<span class="step ' + (active ? "active" : "") + (f.key === "verified" ? " done-step" : "") + '" data-status="' + f.key + '">' + f.label + '</span>';
+  });
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
+// ============================================================
+//  상세 화면 이벤트 연결
+// ============================================================
+function wireDetail(s, ver, isPast, boardReady) {
+  document.getElementById("back").onclick = function () { view = "dashboard"; viewingVersionIdx = null; render(); };
+  var nameIn = document.getElementById("scName");
+  nameIn.onchange = function () {
+    s.name = nameIn.value.trim() || s.name; persist();
+    if (s.titleId) parentPost({ type: "rename-board", titleId: s.titleId, text: s.name + " · v" + curVersion(s).v });
+  };
+  document.getElementById("focusCanvas").onclick = function () {
+    if (s.boardId) parentPost({ type: "go-to-node", nodeId: s.boardId });
+  };
+  var stateSel = document.getElementById("scState");
+  if (stateSel) stateSel.onchange = function () {
+    s.state = stateSel.value; persist();
+    if (s.devSlotId && !isPast) parentPost({ type: "set-dev-blank", slotId: s.devSlotId, blank: s.state === "blank" });
+    render();
+  };
+  document.getElementById("toggleArchive").onclick = function () {
+    var wasArchived = s.state === "archived";
+    s.state = wasArchived ? "review" : "archived";
+    persist();
+    if (s.boardId) parentPost({ type: "set-board-archived", boardId: s.boardId, archived: !wasArchived });
+    render();
+  };
+
+  // 디자인 연결
+  var useSel = document.getElementById("useSel");
+  if (useSel) useSel.onclick = function () { parentPost({ type: "use-selection" }); };
+  var pickFrame = document.getElementById("pickFrame");
+  if (pickFrame) pickFrame.onclick = function () { parentPost({ type: "list-frames" }); };
+
+  // 개발화면 업로드/붙여넣기/드래그
+  var fileIn = document.getElementById("fileIn");
+  var uploadBtn = document.getElementById("uploadBtn");
+  if (uploadBtn) uploadBtn.onclick = function () { fileIn.click(); };
+  if (fileIn) fileIn.onchange = function () { if (fileIn.files[0]) readImageFile(fileIn.files[0], "dev"); };
+  var devDrop = document.getElementById("devDrop");
+  if (devDrop && !isPast && boardReady) {
+    devDrop.ondragover = function (e) { e.preventDefault(); devDrop.classList.add("hover"); };
+    devDrop.ondragleave = function () { devDrop.classList.remove("hover"); };
+    devDrop.ondrop = function (e) {
+      e.preventDefault(); devDrop.classList.remove("hover");
+      var f = e.dataTransfer.files[0]; if (f) readImageFile(f, "dev");
+    };
+  }
+
+  // 버전
+  var saveVer = document.getElementById("saveVer");
+  if (saveVer) saveVer.onclick = function () {
+    promptModal("이 버전에 무엇을 기록할까요?", "", "변경 내용", function (note) {
+      if (note === null) return;
+      var last = curVersion(s);
+      var nv = makeVersion(last.v + 1, note || "수동 저장", last);
+      s.versions.push(nv); persist(); render();
+      if (s.titleId) parentPost({ type: "rename-board", titleId: s.titleId, text: s.name + " · v" + nv.v });
+      parentPost({ type: "notify", message: "v" + nv.v + " 버전을 저장했어요." });
+    });
+  };
+  Array.prototype.forEach.call(content.querySelectorAll(".viewVer"), function (a) {
+    a.onclick = function (e) {
+      e.preventDefault();
+      var idx = parseInt(a.getAttribute("data-idx"), 10);
+      viewingVersionIdx = (idx === s.versions.length - 1) ? null : idx;
+      var v = activeVersion(s);
+      // 캔버스 보드도 그 버전 이미지로 미리보기 전환
+      if (s.designSlotId) parentPost({ type: "view-image", slotId: s.designSlotId, key: v.designImgKey, emptyKind: "empty", emptyLabel: "🎨 디자인 연결 필요" });
+      if (s.devSlotId) parentPost({ type: "view-image", slotId: s.devSlotId, key: v.devImgKey, emptyKind: s.state === "blank" ? "blank" : "empty", emptyLabel: s.state === "blank" ? "🔲 미개발" : "🖥 캡처 필요" });
+      render();
+    };
+  });
+  var backToCur = document.getElementById("backToCur");
+  if (backToCur) backToCur.onclick = function (e) {
+    e.preventDefault();
+    viewingVersionIdx = null;
+    var v = curVersion(s);
+    if (s.designSlotId) parentPost({ type: "view-image", slotId: s.designSlotId, key: v.designImgKey, emptyKind: "empty", emptyLabel: "🎨 디자인 연결 필요" });
+    if (s.devSlotId) parentPost({ type: "view-image", slotId: s.devSlotId, key: v.devImgKey, emptyKind: s.state === "blank" ? "blank" : "empty", emptyLabel: s.state === "blank" ? "🔲 미개발" : "🖥 캡처 필요" });
+    render();
+  };
+
+  // 이슈
+  var addIssue = document.getElementById("addIssue");
+  if (addIssue) addIssue.onclick = function () {
+    addIssueModal(function (result) {
+      if (!result) return;
+      var issue = { id: uid(), category: result.category, textEasy: result.textEasy, textDev: result.textDev, status: "open",
+                    auto: false, history: [{ status: "open", date: today(), v: curVersion(s).v }] };
+      ver.issues.push(issue); persist(); render();
+    });
+  };
+  var autoDetect = document.getElementById("autoDetect");
+  if (autoDetect) autoDetect.onclick = function () {
+    autoDetect.disabled = true; autoDetect.textContent = "🤖 비교하는 중…";
+    clearAutoIssues(s, ver, "pixel");
+    runAutoDetect(s, ver);
+  };
+  var labelCheck = document.getElementById("labelCheck");
+  if (labelCheck) labelCheck.onclick = function () {
+    labelCheck.disabled = true; labelCheck.textContent = "🔤 글자 읽는 중…";
+    clearAutoIssues(s, ver, "label");
+    runLabelCheck(s, ver);
+  };
+  var clearIz = document.getElementById("clearIgnoreZones");
+  if (clearIz) clearIz.onclick = function (e) {
+    e.preventDefault();
+    confirmModal("무시 설정을 모두 초기화할까요? 다음 자동검수부터 이 자리들도 다시 검사해요.", "초기화", function (ok) {
+      if (!ok) return;
+      s.ignoreZones = []; persist(); render();
+    });
+  };
+  Array.prototype.forEach.call(content.querySelectorAll(".issue"), function (el) {
+    var iid = el.getAttribute("data-iid");
+    var issue = ver.issues.filter(function (x) { return x.id === iid; })[0];
+    if (!issue) return;
+    Array.prototype.forEach.call(el.querySelectorAll(".step"), function (st) {
+      if (isPast) return;
+      st.onclick = function () {
+        var ns = st.getAttribute("data-status");
+        if (ns === issue.status) return;
+        issue.status = ns;
+        issue.history.push({ status: ns, date: today(), v: curVersion(s).v });
+        persist(); render();
+      };
+    });
+    var del = el.querySelector(".delIssue");
+    if (del) del.onclick = function (e) {
+      e.preventDefault();
+      confirmModal("이 이슈를 삭제할까요? (이력도 함께 사라집니다)", "삭제", function (ok) {
+        if (!ok) return;
+        if (issue.pinNodeId) parentPost({ type: "remove-node", nodeId: issue.pinNodeId });
+        ver.issues = ver.issues.filter(function (x) { return x.id !== iid; }); persist(); render();
+      });
+    };
+    var ignoreBtn = el.querySelector(".ignoreIssue");
+    if (ignoreBtn) ignoreBtn.onclick = function (e) {
+      e.preventDefault();
+      confirmModal("이 자리는 원래 항상 다를 수 있는 곳(지도, 샘플 텍스트 등)인가요? 표시하면 앞으로 이 자리는 자동검수에서 건너뜁니다.", "무시하기", function (ok) {
+        if (!ok) return;
+        ignoreZonesOf(s).push({ xPercent: issue.xPercent, yPercent: issue.yPercent, wPercent: issue.wPercent, hPercent: issue.hPercent });
+        if (issue.pinNodeId) parentPost({ type: "remove-node", nodeId: issue.pinNodeId });
+        ver.issues = ver.issues.filter(function (x) { return x.id !== iid; }); persist(); render();
+      });
+    };
+  });
+  var doneDrawer = document.getElementById("doneDrawer");
+  if (doneDrawer) doneDrawer.onclick = function () {
+    var dl = document.getElementById("doneList");
+    dl.style.display = dl.style.display === "none" ? "block" : "none";
+  };
+}
+
+// ============================================================
+//  이미지 처리: 파일/붙여넣기 → 바이트로 변환 → 메인 스레드로 전송
+//  (main 스레드가 파일 안 저장 + 캔버스 슬롯 채우기까지 처리)
+// ============================================================
+function readImageFile(file, side) {
+  var reader = new FileReader();
+  reader.onload = function () { storeImage(new Uint8Array(reader.result), side); };
+  reader.readAsArrayBuffer(file);
+}
+
+function storeImage(bytes, side) {
+  var s = getScreen(openScreenId);
+  if (!s || s.boardPending) return;
+  var cur = curVersion(s);
+  var field = side === "dev" ? "devImgKey" : "designImgKey";
+  var slotId = side === "dev" ? s.devSlotId : s.designSlotId;
+  var already = cur[field];
+
+  // 자동 버전: 현재 버전에 이미 같은 종류 이미지가 있으면 → 새 버전 생성
+  if (already) {
+    var note = side === "dev" ? "개발화면 재캡처" : "디자인 갱신";
+    var nv = makeVersion(cur.v + 1, note + " (자동)", cur);
+    s.versions.push(nv);
+    cur = nv;
+    if (s.titleId) parentPost({ type: "rename-board", titleId: s.titleId, text: s.name + " · v" + cur.v });
+  }
+  var key = "img_" + s.id + "_v" + cur.v + "_" + side;
+  cur[field] = key;
+  bytesCache[key] = bytes;
+  parentPost({ type: "set-image", key: key, slotId: slotId, bytes: bytes });
+  if (side === "dev" && (s.state === "new" || s.state === "blank")) s.state = "review";
+  persist();
+  render();
+
+  // 디자인·개발화면이 둘 다 갖춰지면 자동으로 다른 점을 찾아줌 (지금 보고 있는 버전일 때만)
+  // ※ 캔버스에 두 이미지가 "실제로 다 채워졌다는 확인(image-set)"을 받은 뒤에 시작해야
+  //   핀을 찍자마자 이미지 채우기가 그 핀을 지워버리는 경쟁 상태를 피할 수 있음
+  if (cur.designImgKey && cur.devImgKey && viewingVersionIdx === null) {
+    pendingAutoDetectScreens[s.id] = cur;
+    maybeRunAutoDetect(s, cur);
+  }
+}
+
+var confirmedImages = {};         // key -> true (캔버스에 실제로 채워졌음이 확인된 이미지)
+var pendingAutoDetectScreens = {}; // screenId -> ver (두 이미지 확인되는 대로 자동검수 실행)
+function maybeRunAutoDetect(s, ver) {
+  if (ver.designImgKey && ver.devImgKey && confirmedImages[ver.designImgKey] && confirmedImages[ver.devImgKey]) {
+    delete pendingAutoDetectScreens[s.id];
+    runAutoDetect(s, ver);
+    return true;
+  }
+  return false;
+}
+
+// ============================================================
+//  자동 검수 엔진: 디자인 vs 개발화면 픽셀 비교 → 다른 곳 자동 마킹
+//  (여기서만 캔버스 클릭 좌표 없이도 "어디가 다른지" 계산할 수 있음)
+// ============================================================
+var bytesCache = {};       // key -> Uint8Array
+var pendingBytes = {};     // key -> [callback, ...]
+
+function getBytes(key, cb) {
+  if (!key) { cb(null); return; }
+  if (bytesCache[key]) { cb(bytesCache[key]); return; }
+  if (!pendingBytes[key]) pendingBytes[key] = [];
+  pendingBytes[key].push(cb);
+  parentPost({ type: "get-image-bytes", key: key });
+}
+
+function bytesToImage(bytes, cb) {
+  var blob = new Blob([bytes], { type: "image/png" });
+  var url = URL.createObjectURL(blob);
+  var img = new Image();
+  img.onload = function () { URL.revokeObjectURL(url); cb(img); };
+  img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
+}
+
+function drawContain(ctx, img, W, H) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  var scale = Math.min(W / img.width, H / img.height);
+  var dw = img.width * scale, dh = img.height * scale;
+  ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+}
+
+function avgColorInBlock(data, W, H, bx, by, block) {
+  var r = 0, g = 0, b = 0, n = 0;
+  var x0 = bx * block, y0 = by * block;
+  var x1 = Math.min(W, x0 + block), y1 = Math.min(H, y0 + block);
+  for (var y = y0; y < y1; y++) {
+    for (var x = x0; x < x1; x++) {
+      var idx = (y * W + x) * 4;
+      r += data[idx]; g += data[idx + 1]; b += data[idx + 2]; n++;
+    }
+  }
+  if (!n) return [255, 255, 255];
+  return [r / n, g / n, b / n];
+}
+function colorDist(a, b) {
+  var dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+function toHex(c) {
+  function h(v) { var s = Math.max(0, Math.min(255, Math.round(v))).toString(16); return s.length < 2 ? "0" + s : s; }
+  return "#" + h(c[0]) + h(c[1]) + h(c[2]);
+}
+function posLabel(xPercent, yPercent) {
+  var hL = xPercent < 0.34 ? "왼쪽" : xPercent > 0.66 ? "오른쪽" : "가운데";
+  var vL = yPercent < 0.34 ? "위" : yPercent > 0.66 ? "아래" : "가운데";
+  if (hL === "가운데" && vL === "가운데") return "정중앙";
+  if (vL === "가운데") return hL + " 가운데";
+  if (hL === "가운데") return "가운데 " + vL;
+  return hL + " " + vL;
+}
+
+function clearAutoIssues(s, ver, source) {
+  var kept = [];
+  (ver.issues || []).forEach(function (i) {
+    if (i.auto && i.source === source) { if (i.pinNodeId) parentPost({ type: "remove-node", nodeId: i.pinNodeId }); }
+    else kept.push(i);
+  });
+  ver.issues = kept;
+  persist();
+}
+
+var CW = 240, CH = 180, BLOCK = 12;
+var DIFF_THRESH = 45;      // 이 정도 색 차이면 "다르다"고 판단 (0~441)
+var MAX_ISSUES_PER_RUN = 8;
+
+function runAutoDetect(s, ver) {
+  getBytes(ver.designImgKey, function (designBytes) {
+    getBytes(ver.devImgKey, function (devBytes) {
+      var btn = document.getElementById("autoDetect");
+      if (!designBytes || !devBytes) { if (btn) { btn.disabled = false; btn.textContent = "🤖 색상·배치 찾기"; } return; }
+      bytesToImage(designBytes, function (designImg) {
+        bytesToImage(devBytes, function (devImg) {
+          if (btn) { btn.disabled = false; btn.textContent = "🤖 색상·배치 찾기"; }
+          if (!designImg || !devImg) return;
+          diffAndMark(s, ver, designImg, devImg);
+        });
+      });
+    });
+  });
+}
+
+function diffAndMark(s, ver, designImg, devImg) {
+  var c1 = document.createElement("canvas"); c1.width = CW; c1.height = CH;
+  var c2 = document.createElement("canvas"); c2.width = CW; c2.height = CH;
+  var ctx1 = c1.getContext("2d"), ctx2 = c2.getContext("2d");
+  drawContain(ctx1, designImg, CW, CH);
+  drawContain(ctx2, devImg, CW, CH);
+  var d1 = ctx1.getImageData(0, 0, CW, CH).data;
+  var d2 = ctx2.getImageData(0, 0, CW, CH).data;
+
+  var cols = Math.floor(CW / BLOCK), rows = Math.floor(CH / BLOCK);
+  var grid = []; // grid[row][col] = true(다름) / false
+  var trueCount = 0;
+  for (var r = 0; r < rows; r++) {
+    grid[r] = [];
+    for (var c = 0; c < cols; c++) {
+      var a1 = avgColorInBlock(d1, CW, CH, c, r, BLOCK);
+      var a2 = avgColorInBlock(d2, CW, CH, c, r, BLOCK);
+      var diff = colorDist(a1, a2) > DIFF_THRESH;
+      grid[r][c] = diff;
+      if (diff) trueCount++;
+    }
+  }
+
+  var totalCells = rows * cols;
+  if (trueCount > totalCells * 0.65) {
+    // 거의 전체가 달라 보임 → 개별 핀 대신 정렬/캡처를 의심하는 안내 1건만
+    addAutoIssue(s, ver, {
+      category: "정렬 확인 필요",
+      textEasy: "두 화면이 전체적으로 많이 달라 보여요. 캡처 크기·정렬이 맞는지 확인해 주세요.",
+      textDev: "", xPercent: 0.5, yPercent: 0.5, source: "pixel"
+    });
+    parentPost({ type: "notify", message: "전체적으로 차이가 커요 — 정렬을 확인해 주세요." });
+    return;
+  }
+
+  // 연결된 다른 블록끼리 묶기(4방향)
+  var visited = [];
+  for (var vi = 0; vi < rows; vi++) visited.push(new Array(cols).fill(false));
+  var blobs = [];
+  for (var r2 = 0; r2 < rows; r2++) {
+    for (var c2i = 0; c2i < cols; c2i++) {
+      if (!grid[r2][c2i] || visited[r2][c2i]) continue;
+      var stack = [[r2, c2i]]; visited[r2][c2i] = true;
+      var cells = [];
+      while (stack.length) {
+        var cur = stack.pop();
+        cells.push(cur);
+        var nbrs = [[cur[0] - 1, cur[1]], [cur[0] + 1, cur[1]], [cur[0], cur[1] - 1], [cur[0], cur[1] + 1]];
+        for (var n = 0; n < nbrs.length; n++) {
+          var nr = nbrs[n][0], nc = nbrs[n][1];
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] && !visited[nr][nc]) {
+            visited[nr][nc] = true; stack.push([nr, nc]);
+          }
+        }
+      }
+      blobs.push(cells);
+    }
+  }
+
+  blobs = blobs.filter(function (cells) { return cells.length >= 2; })
+    .sort(function (a, b) { return b.length - a.length; })
+    .slice(0, MAX_ISSUES_PER_RUN);
+
+  if (blobs.length === 0) {
+    parentPost({ type: "notify", message: "자동 검수 결과: 눈에 띄는 차이를 못 찾았어요." });
+    return;
+  }
+
+  var skipped = 0;
+  blobs.forEach(function (cells) {
+    var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    cells.forEach(function (cell) {
+      if (cell[0] < minR) minR = cell[0]; if (cell[0] > maxR) maxR = cell[0];
+      if (cell[1] < minC) minC = cell[1]; if (cell[1] > maxC) maxC = cell[1];
+    });
+    var xPercent = ((minC + maxC + 1) / 2) * BLOCK / CW;
+    var yPercent = ((minR + maxR + 1) / 2) * BLOCK / CH;
+    // 박스가 너무 딱 붙지 않도록 살짝 여유를 둠(보기 쉽게)
+    var wPercent = ((maxC - minC + 1) * BLOCK / CW) * 1.3;
+    var hPercent = ((maxR - minR + 1) * BLOCK / CH) * 1.3;
+
+    if (inIgnoreZone(s, xPercent, yPercent)) { skipped++; return; }
+
+    var bx = Math.round((minC + maxC) / 2), by = Math.round((minR + maxR) / 2);
+    var designColor = avgColorInBlock(d1, CW, CH, bx, by, BLOCK);
+    var devColor = avgColorInBlock(d2, CW, CH, bx, by, BLOCK);
+    var pos = posLabel(xPercent, yPercent);
+    var isSmallColorBlob = cells.length <= 4;
+    var textEasy, textDev;
+    if (isSmallColorBlob) {
+      textEasy = pos + " 부근 색상이 달라요 (사각형 표시 참고)";
+      textDev = "색상: " + toHex(designColor) + " → " + toHex(devColor);
+    } else {
+      textEasy = pos + " 부근의 배치·간격이 달라 보여요 (캔버스의 사각형 표시를 확인하세요)";
+      textDev = "";
+    }
+    addAutoIssue(s, ver, { category: "자동감지", textEasy: textEasy, textDev: textDev, xPercent: xPercent, yPercent: yPercent, wPercent: wPercent, hPercent: hPercent, source: "pixel" });
+  });
+  var shown = blobs.length - skipped;
+  var msgText = shown + "곳의 차이를 찾아 표시했어요.";
+  if (skipped > 0) msgText += " (무시 설정된 " + skipped + "곳은 건너뜀)";
+  parentPost({ type: "notify", message: msgText });
+}
+
+var issueNumberCounter = {}; // screenId -> 다음 핀 번호
+
+function addAutoIssue(s, ver, opt) {
+  if (!issueNumberCounter[s.id]) issueNumberCounter[s.id] = (ver.issues || []).length + 1;
+  var number = issueNumberCounter[s.id]++;
+  var wP = opt.wPercent || 0.14, hP = opt.hPercent || 0.10;
+  var issue = {
+    id: uid(), category: opt.category, textEasy: opt.textEasy, textDev: opt.textDev || "",
+    status: "open", auto: true, source: opt.source || "pixel", pinNodeId: null,
+    xPercent: opt.xPercent, yPercent: opt.yPercent, wPercent: wP, hPercent: hP,
+    history: [{ status: "open", date: today(), v: ver.v }]
+  };
+  ver.issues.push(issue);
+  persist();
+  if (openScreenId === s.id && viewingVersionIdx === null) render();
+  if (s.devSlotId) {
+    parentPost({ type: "add-pin", slotId: s.devSlotId, xPercent: opt.xPercent, yPercent: opt.yPercent, wPercent: wP, hPercent: hP, number: number, reqId: issue.id });
+  }
+}
+
+// ============================================================
+//  라벨(글자) 검수: 디자인의 실제 글자(피그마에서 정확히 읽음) vs
+//  개발화면 캡처를 OCR(글자 인식, 무료·로컬)로 읽은 결과를 대조
+// ============================================================
+var designTextsCache = {};     // screenId -> [{characters, xPercent, yPercent, heightPercent, fontSize}]
+var designTextsRequested = {}; // screenId -> true (중복 요청 방지)
+
+var tesseractLoadPromise = null;
+function ensureTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (tesseractLoadPromise) return tesseractLoadPromise;
+  tesseractLoadPromise = new Promise(function (resolve, reject) {
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    s.onload = function () { resolve(); };
+    s.onerror = function () { tesseractLoadPromise = null; reject(new Error("글자 인식 프로그램을 불러오지 못했어요 (네트워크를 확인해 주세요)")); };
+    document.head.appendChild(s);
+  });
+  return tesseractLoadPromise;
+}
+var ocrWorkerPromise = null;
+function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    // 경로를 라이브러리가 스스로 추측하게 두면(피그마 iframe 특성상) 실패하는 경우가 있어
+    // 코어 엔진·워커·언어데이터 위치를 전부 명시적으로 지정함
+    ocrWorkerPromise = ensureTesseract().then(function () {
+      return Tesseract.createWorker("kor+eng", 1, {
+        workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+        corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js",
+        langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/{lang}@1.0.0/4.0.0_best_int",
+        logger: function (m) { console.log("[OCR]", m); }
+      });
+    }).catch(function (err) {
+      ocrWorkerPromise = null; // 실패하면 다음 시도 때 처음부터 다시
+      throw err;
+    });
+  }
+  return ocrWorkerPromise;
+}
+
+function similarity(a, b) {
+  a = (a || "").trim(); b = (b || "").trim();
+  if (!a && !b) return 1;
+  if (!a || !b) return 0;
+  var m = a.length, n = b.length;
+  var dp = [];
+  for (var i = 0; i <= m; i++) { dp.push(new Array(n + 1).fill(0)); dp[i][0] = i; }
+  for (var j = 0; j <= n; j++) dp[0][j] = j;
+  for (i = 1; i <= m; i++) {
+    for (j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  return 1 - dp[m][n] / Math.max(m, n);
+}
+
+function resetLabelButton() {
+  var btn = document.getElementById("labelCheck");
+  if (btn) { btn.disabled = false; btn.textContent = "🔤 글자·라벨 검수"; }
+}
+
+var pendingLabelCheck = {}; // screenId -> ver (디자인 글자를 다시 읽어오는 동안 대기)
+var designTextsDebug = {};  // screenId -> 진단 메시지 (문제 원인 파악용)
+
+function runLabelCheck(s, ver, alreadyRefetched) {
+  var texts = (designTextsCache[s.id] || []).filter(function (t) { return (t.characters || "").trim(); });
+  if (!texts.length) {
+    // 패널을 껐다 켜면 디자인 글자 목록(임시 기억)이 사라짐 → 저장된 연결 정보로 조용히 다시 읽어옴
+    if (!alreadyRefetched && s.designNodeId) {
+      pendingLabelCheck[s.id] = ver;
+      parentPost({ type: "get-design-texts", nodeId: s.designNodeId, screenId: s.id });
+      return;
+    }
+    noticeModal("디자인에서 읽을 수 있는 글자를 못 찾았어요. 디자인을 다시 연결해 보세요.\n\n(진단정보: " + (designTextsDebug[s.id] || "없음") + ")");
+    resetLabelButton();
+    return;
+  }
+  getBytes(ver.devImgKey, function (devBytes) {
+    if (!devBytes) { resetLabelButton(); return; }
+    bytesToImage(devBytes, function (devImg) {
+      if (!devImg) { resetLabelButton(); return; }
+      parentPost({ type: "notify", message: "글자를 읽는 중이에요… (처음엔 몇 초~수십 초 걸릴 수 있어요)" });
+      getOcrWorker().then(function (worker) {
+        return worker.recognize(devImg);
+      }).then(function (result) {
+        var lines = (result.data.lines || []).map(function (l) {
+          return {
+            text: l.text,
+            cx: (l.bbox.x0 + l.bbox.x1) / 2 / devImg.width,
+            cy: (l.bbox.y0 + l.bbox.y1) / 2 / devImg.height,
+            h: (l.bbox.y1 - l.bbox.y0) / devImg.height
+          };
+        });
+        matchLabels(s, ver, texts, lines);
+      }).catch(function (err) {
+        console.error("[OCR 실패 상세]", err);
+        var detail = err && err.message ? err.message : String(err);
+        showErr("글자 인식 중 문제가 생겼어요: " + detail + " (자세한 내용은 개발자 콘솔 참고)");
+        resetLabelButton();
+      });
+    });
+  });
+}
+
+function matchLabels(s, ver, designTexts, ocrLines) {
+  var foundCount = 0, skipped = 0;
+  designTexts.forEach(function (dt) {
+    var txt = (dt.characters || "").trim();
+    if (!txt) return;
+    if (inIgnoreZone(s, dt.xPercent, dt.yPercent)) { skipped++; return; }
+    var wP = dt.wPercent || 0.16, hP = dt.hPercent || 0.06;
+    var best = null, bestDist = Infinity;
+    ocrLines.forEach(function (line) {
+      var dist = Math.sqrt(Math.pow(line.cx - dt.xPercent, 2) + Math.pow(line.cy - dt.yPercent, 2));
+      if (dist < bestDist) { bestDist = dist; best = line; }
+    });
+    if (!best || bestDist > 0.18) {
+      addAutoIssue(s, ver, {
+        category: "라벨 텍스트",
+        textEasy: '"' + txt + '" 글자를 개발화면에서 못 찾았어요 (없거나, 글자 인식이 놓쳤을 수 있어요)',
+        textDev: "", xPercent: dt.xPercent, yPercent: dt.yPercent, wPercent: wP, hPercent: hP, source: "label"
+      });
+      foundCount++;
+      return;
+    }
+    var sim = similarity(txt, best.text);
+    if (sim < 0.75) {
+      addAutoIssue(s, ver, {
+        category: "라벨 텍스트",
+        textEasy: "문구가 달라 보여요 (사각형 표시 참고)",
+        textDev: '디자인: "' + txt + '" → 개발화면: "' + best.text.trim() + '"',
+        xPercent: dt.xPercent, yPercent: dt.yPercent, wPercent: wP, hPercent: hP, source: "label"
+      });
+      foundCount++;
+    } else if (dt.hPercent && best.h && Math.abs(best.h - dt.hPercent) / dt.hPercent > 0.35) {
+      addAutoIssue(s, ver, {
+        category: "폰트 크기",
+        textEasy: '"' + txt + '" 글자 크기가 달라 보여요 (정확한 폰트 종류까지는 확인이 어려워요)',
+        textDev: "", xPercent: dt.xPercent, yPercent: dt.yPercent, wPercent: wP, hPercent: hP, source: "label"
+      });
+      foundCount++;
+    }
+  });
+  var msgText = foundCount > 0 ? ("라벨 검수 결과 " + foundCount + "건을 찾았어요.") : "라벨 검수 결과 다른 점을 못 찾았어요.";
+  if (skipped > 0) msgText += " (무시 설정된 " + skipped + "곳은 건너뜀)";
+  parentPost({ type: "notify", message: msgText });
+  resetLabelButton();
+}
+
+// 전역 붙여넣기 (상세 화면 + 개발화면 상태일 때만, 과거 버전 열람 중엔 막음)
+document.addEventListener("paste", function (e) {
+  if (view !== "detail") return;
+  var s = getScreen(openScreenId);
+  if (!s || s.state === "blank" || s.boardPending) return;
+  if (viewingVersionIdx !== null && viewingVersionIdx !== s.versions.length - 1) return;
+  var items = (e.clipboardData || {}).items || [];
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type && items[i].type.indexOf("image") === 0) {
+      var f = items[i].getAsFile();
+      if (f) { readImageFile(f, "dev"); e.preventDefault(); return; }
+    }
+  }
+});
+
+// ============================================================
+//  메인 스레드 메시지 수신
+// ============================================================
+window.onmessage = function (event) {
+  var msg = event.data.pluginMessage;
+  if (!msg) return;
+
+  if (msg.type === "project-loaded") {
+    project = msg.project || newProject();
+    render();
+  }
+  else if (msg.type === "board-created") {
+    var s = getScreen(msg.screenId);
+    if (s) {
+      s.boardId = msg.result.boardId; s.designSlotId = msg.result.designSlotId;
+      s.devSlotId = msg.result.devSlotId; s.titleId = msg.result.titleId;
+      s.boardPending = false;
+      persist(); render();
+    }
+  }
+  else if (msg.type === "canvas-selected-screen") {
+    if (msg.screenId && getScreen(msg.screenId)) {
+      openScreenId = msg.screenId; view = "detail"; viewingVersionIdx = null; render();
+    }
+  }
+  else if (msg.type === "selection-result") {
+    if (msg.error) { noticeModal(msg.error); return; }
+    linkDesign(msg.node);
+  }
+  else if (msg.type === "frames-listed") {
+    if (!msg.frames.length) { noticeModal("이 페이지에 연결할 프레임이 없어요."); return; }
+    chooseModal("연결할 디자인 프레임 선택", msg.frames.map(function (f) { return { label: f.name, node: f }; }), function (picked) {
+      if (picked) linkDesign(picked.node);
+    });
+  }
+  else if (msg.type === "frame-exported") {
+    if (msg.error) { noticeModal(msg.error); return; }
+    storeImage(new Uint8Array(msg.bytes), "design");
+  }
+  else if (msg.type === "image-set") {
+    confirmedImages[msg.key] = true;
+    Object.keys(pendingAutoDetectScreens).forEach(function (scrId) {
+      var pver = pendingAutoDetectScreens[scrId];
+      if (pver.designImgKey === msg.key || pver.devImgKey === msg.key) {
+        var scr2 = getScreen(scrId);
+        if (scr2) maybeRunAutoDetect(scr2, pver);
+      }
+    });
+  }
+  else if (msg.type === "image-bytes") {
+    var arr = msg.bytes ? new Uint8Array(msg.bytes) : null;
+    bytesCache[msg.key] = arr;
+    var cbs = pendingBytes[msg.key] || [];
+    delete pendingBytes[msg.key];
+    cbs.forEach(function (cb) { cb(arr); });
+  }
+  else if (msg.type === "pin-added") {
+    var found = findIssueById(msg.reqId);
+    if (found) { found.issue.pinNodeId = msg.pinId; persist(); }
+  }
+  else if (msg.type === "design-texts") {
+    designTextsCache[msg.screenId] = msg.texts || [];
+    if (msg.debug) designTextsDebug[msg.screenId] = msg.debug;
+    if (pendingLabelCheck[msg.screenId]) {
+      var pendingVer = pendingLabelCheck[msg.screenId];
+      delete pendingLabelCheck[msg.screenId];
+      var scr = getScreen(msg.screenId);
+      if (scr) runLabelCheck(scr, pendingVer, true);
+    }
+  }
+  else if (msg.type === "error") {
+    showErr(msg.message);
+  }
+};
+
+function findIssueById(issueId) {
+  for (var i = 0; i < project.screens.length; i++) {
+    var scr = project.screens[i];
+    for (var j = 0; j < scr.versions.length; j++) {
+      var v = scr.versions[j];
+      for (var k = 0; k < v.issues.length; k++) {
+        if (v.issues[k].id === issueId) return { screen: scr, version: v, issue: v.issues[k] };
+      }
+    }
+  }
+  return null;
+}
+
+function linkDesign(node) {
+  var s = getScreen(openScreenId);
+  if (!s) return;
+  s.designNodeId = node.id;
+  s.designNodeName = node.name;
+  persist();
+  parentPost({ type: "export-frame", nodeId: node.id }); // 연결 즉시 추출 → storeImage로 이어짐
+  parentPost({ type: "get-design-texts", nodeId: node.id, screenId: s.id }); // 라벨 검수용 실제 글자 읽어오기
+}
+
+// 프로젝트 이름 저장
+document.getElementById("projName").onchange = function () {
+  if (!project) return;
+  project.name = this.value.trim() || "제목없는 프로젝트";
+  persist();
+};
+document.getElementById("btnHelp").onclick = function () {
+  noticeModal("[개발화면 검수 · 사용법]\n\n1) '+ 화면 추가'를 누르면 피그마 캔버스에 [디자인|개발화면] 자리가 자동으로 생겨요.\n2) 디자인 프레임을 캔버스에서 선택한 뒤 '선택한 프레임 연결'을 누르면 캔버스 자리에 바로 채워져요.\n3) 개발화면 캡처는 이 패널의 카드에 '파일 선택' 또는 Ctrl+V로 넣으면 캔버스 자리에 바로 채워져요.\n4) 다른 점은 '이슈'로 기록하고 상태를 진행시키며 이력을 남겨요.\n5) 전체를 훑어보려면 캔버스에서 Shift+1(전체 보기)을 누르세요.\n\n※ 모든 내용은 이 피그마 파일 안에 저장됩니다.");
+};
+
+// 시작
+parentPost({ type: "init" });
+</script>
+</body>
+</html>
