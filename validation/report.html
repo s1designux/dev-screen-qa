@@ -3,225 +3,698 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>디자인 vs 개발 · 비교 리포트</title>
+<title>디자인 vs 개발 · 검수 리포트</title>
 <style>
   :root{
-    --pass:#16A34A; --warn:#D97706; --fail:#DC2626;
+    --pass:#16A34A; --warn:#D97706; --fail:#DC2626; --cascade:#6B7280;
     --bg:#F9FAFB; --card:#fff; --border:#E5E7EB; --text:#1F2937; --muted:#6B7280;
-    --font:"Segoe UI",system-ui,-apple-system,sans-serif;
+    --font:-apple-system,"Segoe UI",system-ui,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:var(--font);padding:24px;line-height:1.5;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);padding:28px 24px;line-height:1.5;max-width:1080px;margin:0 auto;}
   h1{font-size:22px;margin-bottom:4px;}
-  .sub{color:var(--muted);font-size:14px;margin-bottom:20px;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
 
-  .loader{display:flex;gap:16px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);
-    border-radius:12px;padding:16px;margin-bottom:20px;}
-  .loader label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;}
-  .loader .field{min-width:240px;}
-  input[type=file]{font-size:13px;}
+  .loader{display:flex;gap:20px;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;}
+  .loader label{display:block;color:var(--muted);margin-bottom:4px;}
+  .loader .hint{color:var(--muted);}
 
-  .summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
-  .chip{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:110px;}
-  .chip .n{font-size:24px;font-weight:700;}
-  .chip .t{font-size:12px;color:var(--muted);}
-  .chip.pass .n{color:var(--pass);}
-  .chip.warn .n{color:var(--warn);}
-  .chip.fail .n{color:var(--fail);}
+  .summary{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .chip{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:96px;}
+  .chip .n{font-size:26px;font-weight:800;line-height:1;}
+  .chip .t{font-size:12px;color:var(--muted);margin-top:4px;}
+  .chip.fail .n{color:var(--fail);} .chip.warn .n{color:var(--warn);}
+  .chip.cascade .n{color:var(--cascade);} .chip.pass .n{color:var(--pass);}
+  .verdict{background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;border-radius:10px;padding:12px 16px;margin:14px 0 22px;font-size:14px;font-weight:600;}
 
-  .toolbar{margin-bottom:12px;font-size:14px;}
-  .toolbar label{cursor:pointer;user-select:none;}
+  .sec-title{font-size:15px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;gap:8px;}
+  .sec-title .cnt{font-size:12px;font-weight:600;color:var(--muted);background:#F3F4F6;border-radius:999px;padding:2px 9px;}
 
-  .el{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;}
-  .el-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;}
-  .el-head .name{font-weight:700;font-size:15px;}
-  .el-head .badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;color:#fff;}
-  .badge.pass{background:var(--pass);}
-  .badge.warn{background:var(--warn);}
-  .badge.fail{background:var(--fail);}
-  .badge.miss{background:#6B7280;}
-
+  .el{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;}
+  .el.fail{border-color:#FCA5A5;} .el.struct{border-color:#FCD34D;background:#FFFBEB;}
+  .el-head{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;}
+  .el-head .name{font-weight:700;font-size:14px;font-family:ui-monospace,monospace;}
+  .el-head .badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;color:#fff;}
+  .badge.fail{background:var(--fail);} .badge.warn{background:var(--warn);}
+  .badge.struct{background:#B45309;} .badge.cascade{background:var(--cascade);}
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th,td{text-align:left;padding:8px 16px;border-top:1px solid var(--border);}
-  th{color:var(--muted);font-weight:600;background:#FAFAFA;}
-  td.k{color:var(--muted);width:160px;}
+  th,td{text-align:left;padding:7px 16px;border-top:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;background:#FAFAFA;font-size:12px;}
+  td.k{color:var(--muted);width:150px;}
   td.v{font-variant-numeric:tabular-nums;}
-  tr.pass td.j{color:var(--pass);}
-  tr.warn td.j{color:var(--warn);font-weight:700;}
-  tr.fail td.j{color:var(--fail);font-weight:700;}
-  tr.fail td.v.dev, tr.warn td.v.dev{background:#FEF2F2;}
+  tr.warn td.j{color:var(--warn);font-weight:700;} tr.fail td.j{color:var(--fail);font-weight:700;}
+  tr.fail td.v.dev,tr.warn td.v.dev{background:#FEF2F2;}
+  tr.cascade td{color:var(--cascade);} tr.cascade td.v.dev{background:#F3F4F6;}
   .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid #0002;vertical-align:middle;margin-right:6px;}
-  .note{padding:12px 16px;color:var(--muted);font-size:13px;}
-  .empty{background:var(--card);border:1px dashed var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--muted);}
-  .content-tag{font-size:11px;color:var(--muted);background:#F3F4F6;border-radius:6px;padding:2px 8px;margin-left:8px;}
+  .note{padding:10px 16px;color:var(--text);font-size:13px;}
+  .note b{color:#B45309;}
+  .cascade-list{padding:4px 16px 12px;color:var(--muted);font-size:12px;}
+  .cascade-list li{list-style:none;padding:2px 0;}
+  .tag{font-size:11px;color:var(--muted);background:#F3F4F6;border-radius:6px;padding:2px 8px;margin-left:6px;font-family:var(--font);}
+  .collapsed{color:var(--muted);font-size:13px;padding:10px 4px;}
 </style>
 </head>
 <body>
-  <h1>디자인 vs 개발 · 비교 리포트</h1>
-  <div class="sub">정답(디자인) 측정 파일과 개발화면 측정 파일을 넣으면, 스타일·크기·위치 차이를 짚어줍니다. 샘플 콘텐츠(지도·리스트 안 내용)는 자동으로 무시합니다.</div>
+  <h1>디자인 vs 개발 · 검수 리포트</h1>
+  <div class="sub">피그마 정답값을 그 자리에서 읽어 개발화면 실측과 대조합니다. 샘플 콘텐츠(지도·리스트 안 내용)는 자동 제외, 구조 변화로 인한 '밀림 여파'는 원인 밑으로 묶습니다.</div>
 
   <div class="loader">
-    <div class="field">
-      <label>① 정답 측정 파일 (measure-design.json)</label>
+    <div>
+      <label>① 정답 (피그마에서 읽은 값)</label>
       <input type="file" id="fileDesign" accept="application/json" />
+      <div class="hint">기본값: 예시 대시보드가 들어 있어요</div>
     </div>
-    <div class="field">
-      <label>② 개발 측정 파일 (measure-dev.json)</label>
+    <div>
+      <label>② 개발화면 실측 (collect.js 결과)</label>
       <input type="file" id="fileDev" accept="application/json" />
+      <div class="hint">기본값: 일부러 10군데 틀린 dev.html</div>
     </div>
   </div>
 
-  <div id="out"><div class="empty">위에서 두 파일을 선택하면 결과가 나옵니다.</div></div>
+  <div id="out"></div>
 
 <script>
-var design=null, dev=null, showDiffOnly=false;
+// ===== 대조 핵심 로직 (report.html과 공유) =====
+// 입력: design(정답), dev(개발) 측정 객체 → 구조화된 결과 반환
 
-document.getElementById('fileDesign').addEventListener('change', function(e){ load(e.target.files[0], 'design'); });
-document.getElementById('fileDev').addEventListener('change', function(e){ load(e.target.files[0], 'dev'); });
+  var NUM = { 'box.x':[2,6],'box.y':[2,6],'box.w':[2,6],'box.h':[2,6],
+    fontSize:[0.5,0.5],fontWeight:[0,0],borderRadius:[1,3],borderWidth:[0.5,1],
+    paddingTop:[1,3],paddingRight:[1,3],paddingBottom:[1,3],paddingLeft:[1,3],opacity:[0.01,0.05] };
+  var LABEL = { 'box.x':'가로 위치','box.y':'세로 위치','box.w':'너비','box.h':'높이',
+    color:'글자색',backgroundColor:'배경색',fontSize:'글자 크기',fontWeight:'글자 굵기',
+    fontFamily:'글꼴',borderRadius:'모서리 둥글기',borderWidth:'테두리 두께',borderColor:'테두리색',
+    paddingTop:'안쪽여백↑',paddingRight:'안쪽여백→',paddingBottom:'안쪽여백↓',paddingLeft:'안쪽여백←' };
+  function jn(k,a,b){ var r=NUM[k]||[1,3],d=Math.abs(a-b); return d<=r[0]?'pass':d<=r[1]?'warn':'fail'; }
+  function get(o,p){ return p.split('.').reduce(function(x,k){return x?x[k]:undefined;},o); }
+  function worst(a,b){ var o={pass:0,warn:1,fail:2}; return o[a]>=o[b]?a:b; }
 
+  function compare(design, dev){
+    var dMap={}, vMap={};
+    design.elements.forEach(function(e){ dMap[e.qa]=e; });
+    dev.elements.forEach(function(e){ vMap[e.qa]=e; });
+    var qas = Object.keys(dMap).concat(Object.keys(vMap)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+
+    var added=[], removed=[];
+    qas.forEach(function(qa){
+      if(!dMap[qa]) added.push(vMap[qa]);
+      else if(!vMap[qa]) removed.push(dMap[qa]);
+    });
+
+    var elems=[];
+    qas.forEach(function(qa){
+      var d=dMap[qa], v=vMap[qa];
+      if(!d||!v){
+        elems.push({ qa:qa, kind:'struct', where: d?'개발에서 누락됨':'개발에 추가됨(디자인에 없음)', rows:[] });
+        return;
+      }
+      var isText=d.isText||v.isText, isContent=d.contentZone||v.contentZone;
+      var dY = v.box.y - d.box.y;
+      // 밀림 여파: 위에 추가된 요소가 있고, 세로로 밀렸으면 -> 여파로 표시
+      var cascadeY = (dY>6) && added.some(function(a){ return a.box.y < v.box.y; });
+      var rows=[];
+
+      // 위치·크기
+      var posKeys = isText? ['box.x','box.y'] : ['box.x','box.y','box.w','box.h'];
+      posKeys.forEach(function(k){
+        var a=get(d,k), b=get(v,k); if(a==null||b==null) return;
+        var j=jn(k,a,b);
+        var cascade = (k==='box.y' && cascadeY && j!=='pass');
+        rows.push({ k:k, label:LABEL[k], a:a, b:b, unit:'px', j:j, cascade:cascade });
+      });
+
+      if(!isContent){
+        if(isText){
+          rows.push({k:'color',label:LABEL.color,a:d.style.color,b:v.style.color,j:d.style.color===v.style.color?'pass':'fail',str:true});
+          rows.push({k:'fontSize',label:LABEL.fontSize,a:d.style.fontSize,b:v.style.fontSize,unit:'px',j:jn('fontSize',d.style.fontSize,v.style.fontSize)});
+          rows.push({k:'fontWeight',label:LABEL.fontWeight,a:d.style.fontWeight,b:v.style.fontWeight,j:jn('fontWeight',d.style.fontWeight,v.style.fontWeight)});
+          rows.push({k:'fontFamily',label:LABEL.fontFamily,a:d.style.fontFamily,b:v.style.fontFamily,j:d.style.fontFamily===v.style.fontFamily?'pass':'fail',str:true});
+        } else {
+          rows.push({k:'backgroundColor',label:LABEL.backgroundColor,a:d.style.backgroundColor,b:v.style.backgroundColor,j:d.style.backgroundColor===v.style.backgroundColor?'pass':'fail',str:true,color:true});
+          rows.push({k:'borderRadius',label:LABEL.borderRadius,a:d.style.borderRadius,b:v.style.borderRadius,unit:'px',j:jn('borderRadius',d.style.borderRadius,v.style.borderRadius)});
+          rows.push({k:'borderWidth',label:LABEL.borderWidth,a:d.style.borderWidth,b:v.style.borderWidth,unit:'px',j:jn('borderWidth',d.style.borderWidth,v.style.borderWidth)});
+          if(d.style.borderWidth>0 && v.style.borderWidth>0)
+            rows.push({k:'borderColor',label:LABEL.borderColor,a:d.style.borderColor,b:v.style.borderColor,j:d.style.borderColor===v.style.borderColor?'pass':'fail',str:true,color:true});
+          ['paddingTop','paddingRight','paddingBottom','paddingLeft'].forEach(function(p){
+            rows.push({k:p,label:LABEL[p],a:d.style[p],b:v.style[p],unit:'px',j:jn(p,d.style[p],v.style[p])});
+          });
+        }
+      }
+
+      // 상태 판정: 여파(cascade) 행은 제외하고 최악값
+      var st='pass', hasCascade=false;
+      rows.forEach(function(r){
+        if(r.cascade){ hasCascade=true; return; }
+        st=worst(st,r.j);
+      });
+      elems.push({ qa:qa, kind:'compare', isText:isText, isContent:isContent, status:st, hasCascade:hasCascade, cascadeFrom: hasCascade?(added[0]&&added[0].qa):null, rows:rows });
+    });
+
+    return { elems:elems, added:added, removed:removed };
+  }
+
+  
+
+var DEFAULT_DESIGN = {"meta":{"label":"design","source":"figma","artboardWidth":1440,"toolVersion":"0.1"},"elements":[{"qa":"app/header","role":"FRAME","box":{"x":0,"y":0,"w":1440,"h":64},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(255, 255, 255)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(229, 231, 235)","paddingTop":0,"paddingRight":24,"paddingBottom":0,"paddingLeft":24,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"header/logo","role":"TEXT","box":{"x":24,"y":21,"w":124,"h":22},"style":{"color":"rgb(37, 99, 235)","backgroundColor":"rgba(0, 0, 0, 0)","fontSize":18,"fontWeight":700,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(0, 0, 0)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":true},{"qa":"header/search","role":"FRAME","box":{"x":562,"y":12,"w":400,"h":40},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(243, 244, 246)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":0,"borderColor":"rgb(31, 41, 55)","paddingTop":0,"paddingRight":12,"paddingBottom":0,"paddingLeft":12,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"header/avatar","role":"ELLIPSE","box":{"x":1376,"y":12,"w":40,"h":40},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(209, 213, 219)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":999,"borderWidth":0,"borderColor":"rgb(31, 41, 55)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"page/title","role":"TEXT","box":{"x":24,"y":88,"w":89,"h":29},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgba(0, 0, 0, 0)","fontSize":24,"fontWeight":700,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(0, 0, 0)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":true},{"qa":"stat/card-1","role":"FRAME","box":{"x":24,"y":141,"w":453.3,"h":90},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(255, 255, 255)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":1,"borderColor":"rgb(229, 231, 235)","paddingTop":16,"paddingRight":16,"paddingBottom":16,"paddingLeft":16,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"stat/value-1","role":"TEXT","box":{"x":40,"y":181,"w":97,"h":34},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgba(0, 0, 0, 0)","fontSize":28,"fontWeight":700,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(0, 0, 0)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":true},{"qa":"stat/card-2","role":"FRAME","box":{"x":493.3,"y":141,"w":453.3,"h":90},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(255, 255, 255)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":1,"borderColor":"rgb(229, 231, 235)","paddingTop":16,"paddingRight":16,"paddingBottom":16,"paddingLeft":16,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"stat/value-2","role":"TEXT","box":{"x":509.3,"y":181,"w":77,"h":34},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgba(0, 0, 0, 0)","fontSize":28,"fontWeight":700,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(0, 0, 0)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":true},{"qa":"stat/card-3","role":"FRAME","box":{"x":962.7,"y":141,"w":453.3,"h":90},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(255, 255, 255)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":1,"borderColor":"rgb(229, 231, 235)","paddingTop":16,"paddingRight":16,"paddingBottom":16,"paddingLeft":16,"textAlign":"start","opacity":1},"contentZone":false,"isText":false},{"qa":"stat/value-3","role":"TEXT","box":{"x":978.7,"y":181,"w":68,"h":34},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgba(0, 0, 0, 0)","fontSize":28,"fontWeight":700,"fontFamily":"Inter","lineHeight":0,"borderRadius":0,"borderWidth":0,"borderColor":"rgb(0, 0, 0)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":false,"isText":true},{"qa":"content/map","role":"FRAME","box":{"x":24,"y":255,"w":800,"h":360},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(229, 231, 235)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":0,"borderColor":"rgb(31, 41, 55)","paddingTop":0,"paddingRight":0,"paddingBottom":0,"paddingLeft":0,"textAlign":"start","opacity":1},"contentZone":true,"isText":false},{"qa":"content/list","role":"FRAME","box":{"x":840,"y":255,"w":576,"h":360},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(255, 255, 255)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":1,"borderColor":"rgb(229, 231, 235)","paddingTop":16,"paddingRight":16,"paddingBottom":16,"paddingLeft":16,"textAlign":"start","opacity":1},"contentZone":true,"isText":false},{"qa":"action/export-btn","role":"FRAME","box":{"x":24,"y":639,"w":142,"h":41},"style":{"color":"rgb(31, 41, 55)","backgroundColor":"rgb(37, 99, 235)","fontSize":16,"fontWeight":400,"fontFamily":"Inter","lineHeight":0,"borderRadius":8,"borderWidth":0,"borderColor":"rgb(31, 41, 55)","paddingTop":12,"paddingRight":24,"paddingBottom":12,"paddingLeft":24,"textAlign":"start","opacity":1},"contentZone":false,"isText":false}]}
+;
+var DEFAULT_DEV = {
+  "meta": {
+    "label": "dev",
+    "source": "web",
+    "url": "file:///Users/designgroup_02/dev-screen-qa/validation/dev.html",
+    "viewportWidth": 1600,
+    "artboardWidth": 1440,
+    "toolVersion": "0.1"
+  },
+  "elements": [
+    {
+      "qa": "app/header",
+      "role": "HEADER",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 64
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 24,
+        "paddingBottom": 0,
+        "paddingLeft": 24,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "header/logo",
+      "role": "DIV",
+      "box": {
+        "x": 24,
+        "y": 21,
+        "w": 120.2,
+        "h": 21
+      },
+      "style": {
+        "color": "rgb(37, 99, 235)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "fontSize": 18,
+        "fontWeight": 700,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(37, 99, 235)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": true
+    },
+    {
+      "qa": "header/search",
+      "role": "INPUT",
+      "box": {
+        "x": 604.1,
+        "y": 11.5,
+        "w": 320,
+        "h": 40
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(243, 244, 246)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "fontFamily": "Arial",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 12,
+        "paddingBottom": 0,
+        "paddingLeft": 12,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "header/avatar",
+      "role": "DIV",
+      "box": {
+        "x": 1384,
+        "y": 15.5,
+        "w": 32,
+        "h": 32
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(209, 213, 219)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 999,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "page/title",
+      "role": "H1",
+      "box": {
+        "x": 24,
+        "y": 88,
+        "w": 1392,
+        "h": 25
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "fontSize": 20,
+        "fontWeight": 700,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": true
+    },
+    {
+      "qa": "promo/banner",
+      "role": "DIV",
+      "box": {
+        "x": 24,
+        "y": 137,
+        "w": 1392,
+        "h": 43
+      },
+      "style": {
+        "color": "rgb(146, 64, 14)",
+        "backgroundColor": "rgb(254, 243, 199)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "borderColor": "rgb(252, 211, 77)",
+        "paddingTop": 12,
+        "paddingRight": 16,
+        "paddingBottom": 12,
+        "paddingLeft": 16,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "stat/card-1",
+      "role": "DIV",
+      "box": {
+        "x": 24,
+        "y": 196,
+        "w": 456,
+        "h": 92
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "borderColor": "rgb(229, 231, 235)",
+        "paddingTop": 16,
+        "paddingRight": 16,
+        "paddingBottom": 16,
+        "paddingLeft": 16,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "stat/value-1",
+      "role": "DIV",
+      "box": {
+        "x": 41,
+        "y": 238,
+        "w": 422,
+        "h": 33
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "fontSize": 28,
+        "fontWeight": 700,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": true
+    },
+    {
+      "qa": "stat/card-2",
+      "role": "DIV",
+      "box": {
+        "x": 496,
+        "y": 196,
+        "w": 448,
+        "h": 92
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 4,
+        "borderWidth": 1,
+        "borderColor": "rgb(229, 231, 235)",
+        "paddingTop": 12,
+        "paddingRight": 12,
+        "paddingBottom": 12,
+        "paddingLeft": 12,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "stat/value-2",
+      "role": "DIV",
+      "box": {
+        "x": 509,
+        "y": 234,
+        "w": 422,
+        "h": 33
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "fontSize": 28,
+        "fontWeight": 700,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(31, 41, 55)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": true
+    },
+    {
+      "qa": "stat/card-3",
+      "role": "DIV",
+      "box": {
+        "x": 960,
+        "y": 196,
+        "w": 456,
+        "h": 92
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "borderColor": "rgb(229, 231, 235)",
+        "paddingTop": 16,
+        "paddingRight": 16,
+        "paddingBottom": 16,
+        "paddingLeft": 16,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    },
+    {
+      "qa": "stat/value-3",
+      "role": "DIV",
+      "box": {
+        "x": 977,
+        "y": 238,
+        "w": 422,
+        "h": 33
+      },
+      "style": {
+        "color": "rgb(107, 114, 128)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "fontSize": 28,
+        "fontWeight": 600,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "rgb(107, 114, 128)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": true
+    },
+    {
+      "qa": "content/map",
+      "role": "DIV",
+      "box": {
+        "x": 24,
+        "y": 312,
+        "w": 800,
+        "h": 360
+      },
+      "style": {
+        "color": "rgb(107, 114, 128)",
+        "backgroundColor": "rgb(229, 231, 235)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 0,
+        "borderColor": "rgb(107, 114, 128)",
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": true,
+      "isText": false
+    },
+    {
+      "qa": "content/list",
+      "role": "UL",
+      "box": {
+        "x": 840,
+        "y": 312,
+        "w": 576,
+        "h": 360
+      },
+      "style": {
+        "color": "rgb(31, 41, 55)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "fontFamily": "Inter",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "borderColor": "rgb(229, 231, 235)",
+        "paddingTop": 16,
+        "paddingRight": 16,
+        "paddingBottom": 16,
+        "paddingLeft": 16,
+        "textAlign": "start",
+        "opacity": 1
+      },
+      "contentZone": true,
+      "isText": false
+    },
+    {
+      "qa": "action/export-btn",
+      "role": "BUTTON",
+      "box": {
+        "x": 64,
+        "y": 696,
+        "w": 136.7,
+        "h": 41
+      },
+      "style": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(59, 130, 246)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "fontFamily": "Arial",
+        "lineHeight": 0,
+        "borderRadius": 8,
+        "borderWidth": 0,
+        "borderColor": "rgb(255, 255, 255)",
+        "paddingTop": 12,
+        "paddingRight": 24,
+        "paddingBottom": 12,
+        "paddingLeft": 24,
+        "textAlign": "center",
+        "opacity": 1
+      },
+      "contentZone": false,
+      "isText": false
+    }
+  ]
+};
+var design = DEFAULT_DESIGN, dev = DEFAULT_DEV;
+
+document.getElementById('fileDesign').addEventListener('change', function(e){ load(e.target.files[0],'design'); });
+document.getElementById('fileDev').addEventListener('change', function(e){ load(e.target.files[0],'dev'); });
 function load(file, which){
   if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(){
-    try{
-      var data=JSON.parse(reader.result);
-      if(which==='design') design=data; else dev=data;
-      render();
-    }catch(err){ alert('파일을 읽을 수 없어요: '+err.message); }
-  };
-  reader.readAsText(file);
+  var rd=new FileReader();
+  rd.onload=function(){ try{ var d=JSON.parse(rd.result); if(which==='design')design=d; else dev=d; render(); }catch(err){ alert('파일을 읽을 수 없어요: '+err.message); } };
+  rd.readAsText(file);
 }
 
-// ---- 비교 규칙 ----
-// 숫자형 판정: [pass한계, warn한계]
-var NUM_RULES={
-  'box.x':[2,6],'box.y':[2,6],'box.w':[2,6],'box.h':[2,6],
-  'fontSize':[0.5,0.5], 'fontWeight':[0,0], 'lineHeight':[1,3],
-  'borderRadius':[1,3], 'borderWidth':[0.5,1],
-  'paddingTop':[1,3],'paddingRight':[1,3],'paddingBottom':[1,3],'paddingLeft':[1,3],
-  'opacity':[0.01,0.05]
-};
-var STR_KEYS=['color','backgroundColor','borderColor','fontFamily','textAlign'];
-var KEY_LABEL={
-  'box.x':'가로 위치','box.y':'세로 위치','box.w':'너비','box.h':'높이',
-  color:'글자색', backgroundColor:'배경색', fontSize:'글자 크기', fontWeight:'글자 굵기',
-  fontFamily:'글꼴', lineHeight:'줄 높이', borderRadius:'모서리 둥글기', borderWidth:'테두리 두께',
-  borderColor:'테두리색', paddingTop:'안쪽여백↑', paddingRight:'안쪽여백→', paddingBottom:'안쪽여백↓',
-  paddingLeft:'안쪽여백←', textAlign:'정렬', opacity:'투명도'
-};
-
-function get(obj, path){
-  return path.split('.').reduce(function(o,k){ return o?o[k]:undefined; }, obj);
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+function cell(row, val){
+  if(row.color){ return '<span class="swatch" style="background:'+esc(val)+'"></span>'+esc(val); }
+  return esc(val) + (row.unit && typeof val==='number' ? row.unit : '');
 }
-function judgeNum(key, a, b){
-  var rule=NUM_RULES[key]||[1,3];
-  var d=Math.abs(a-b);
-  if(d<=rule[0]) return 'pass';
-  if(d<=rule[1]) return 'warn';
-  return 'fail';
+function rowsTable(rows, diffOnly){
+  var trs='';
+  rows.forEach(function(r){
+    if(diffOnly && r.j==='pass' && !r.cascade) return;
+    var cls = r.cascade ? 'cascade' : r.j;
+    var mark = r.cascade ? '↓밀림' : ({pass:'✓',warn:'△',fail:'✕'}[r.j]);
+    trs += '<tr class="'+cls+'"><td class="k">'+esc(r.label)+(r.cascade?'<span class="tag">여파</span>':'')+'</td>'+
+           '<td class="v des">'+cell(r,r.a)+'</td><td class="v dev">'+cell(r,r.b)+'</td>'+
+           '<td class="j" style="width:52px">'+mark+'</td></tr>';
+  });
+  if(!trs) trs='<tr><td class="note" colspan="4">차이 없음</td></tr>';
+  return '<table><thead><tr><th>항목</th><th>정답(디자인)</th><th>개발(실제)</th><th>판정</th></tr></thead><tbody>'+trs+'</tbody></table>';
 }
-function isColor(k){ return k==='color'||k==='backgroundColor'||k==='borderColor'; }
 
 function render(){
   var out=document.getElementById('out');
-  if(!design||!dev){ return; }
-
-  var dMap={}, vMap={};
-  design.elements.forEach(function(e){ dMap[e.qa]=e; });
-  dev.elements.forEach(function(e){ vMap[e.qa]=e; });
-
-  var allKeys={};
-  Object.keys(dMap).forEach(function(k){ allKeys[k]=1; });
-  Object.keys(vMap).forEach(function(k){ allKeys[k]=1; });
-  var qaList=Object.keys(allKeys).sort();
-
-  var cnt={pass:0,warn:0,fail:0,miss:0};
-  var html='';
-
-  qaList.forEach(function(qa){
-    var d=dMap[qa], v=vMap[qa];
-    var isContent = (d&&d.contentZone)||(v&&v.contentZone);
-
-    // 한쪽에만 있는 요소
-    if(!d||!v){
-      cnt.miss++;
-      var msg = !v ? '개발화면에서 못 찾음 (누락되었거나 이름표 불일치)'
-                   : '디자인에 없는 요소 (개발에서 추가됨)';
-      html+='<div class="el"><div class="el-head"><div class="name">'+qa+
-            '</div><span class="badge miss">확인필요</span></div>'+
-            '<div class="note">'+msg+'</div></div>';
-      return;
-    }
-
-    // 비교할 항목 모으기
-    var rows=[], worst='pass';
-    function bump(j){ if(j==='fail')worst='fail'; else if(j==='warn'&&worst!=='fail')worst='warn'; }
-
-    // 위치·크기. 글자 요소는 내용 길이 때문에 너비·높이가 달라지므로 위치만 검사.
-    var isText = (d.isText)||(v.isText);
-    var boxKeys = isText ? ['box.x','box.y'] : ['box.x','box.y','box.w','box.h'];
-    boxKeys.forEach(function(k){
-      var a=get(d,k), b=get(v,k);
-      if(a===undefined||b===undefined) return;
-      var j=judgeNum(k, a, b); bump(j);
-      rows.push({k:k, label:KEY_LABEL[k], a:a+'px', b:b+'px', j:j});
-    });
-
-    if(!isContent){
-      // 숫자형 스타일
-      ['fontSize','fontWeight','lineHeight','borderRadius','borderWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','opacity'].forEach(function(k){
-        var a=d.style?d.style[k]:undefined, b=v.style?v.style[k]:undefined;
-        if(a===undefined||b===undefined) return;
-        var j=judgeNum(k, a, b); bump(j);
-        var unit=(k==='fontWeight'||k==='opacity')?'':'px';
-        rows.push({k:k, label:KEY_LABEL[k], a:a+unit, b:b+unit, j:j});
-      });
-      // 문자형 스타일 (색·글꼴·정렬)
-      STR_KEYS.forEach(function(k){
-        var a=d.style?d.style[k]:undefined, b=v.style?v.style[k]:undefined;
-        if(a===undefined||b===undefined) return;
-        var j=(a===b)?'pass':'fail'; bump(j);
-        var av=a, bv=b;
-        if(isColor(k)){
-          av='<span class="swatch" style="background:'+a+'"></span>'+a;
-          bv='<span class="swatch" style="background:'+b+'"></span>'+b;
-        }
-        rows.push({k:k, label:KEY_LABEL[k], a:av, b:bv, j:j, html:true});
-      });
-    }
-
-    cnt[worst]++;
-
-    // 렌더
-    var badge='<span class="badge '+worst+'">'+({pass:'일치',warn:'주의',fail:'불일치'}[worst])+'</span>';
-    var ctag = isContent ? '<span class="content-tag">샘플영역·위치/크기만 검사</span>' : '';
-    var trs='';
-    rows.forEach(function(row){
-      if(showDiffOnly && row.j==='pass') return;
-      trs+='<tr class="'+row.j+'"><td class="k">'+row.label+'</td>'+
-           '<td class="v des">'+row.a+'</td>'+
-           '<td class="v dev">'+row.b+'</td>'+
-           '<td class="j">'+({pass:'✓',warn:'△',fail:'✕'}[row.j])+'</td></tr>';
-    });
-    if(!trs) trs='<tr><td class="note" colspan="4">차이 없음</td></tr>';
-
-    html+='<div class="el"><div class="el-head"><div class="name">'+qa+ctag+'</div>'+badge+'</div>'+
-          '<table><thead><tr><th>항목</th><th>디자인(정답)</th><th>개발(실제)</th><th style="width:40px">판정</th></tr></thead>'+
-          '<tbody>'+trs+'</tbody></table></div>';
+  var R = compare(design, dev);
+  var fails=[], warns=[], cascades=[], structs=[], cleanN=0;
+  R.elems.forEach(function(e){
+    if(e.kind==='struct'){ structs.push(e); return; }
+    if(e.status==='fail') fails.push(e);
+    else if(e.status==='warn') warns.push(e);
+    else if(e.hasCascade) cascades.push(e);
+    else cleanN++;
   });
 
-  var summary='<div class="summary">'+
-    '<div class="chip pass"><div class="n">'+cnt.pass+'</div><div class="t">일치</div></div>'+
-    '<div class="chip warn"><div class="n">'+cnt.warn+'</div><div class="t">주의</div></div>'+
-    '<div class="chip fail"><div class="n">'+cnt.fail+'</div><div class="t">불일치</div></div>'+
-    '<div class="chip"><div class="n">'+cnt.miss+'</div><div class="t">확인필요</div></div>'+
-    '</div>'+
-    '<div class="toolbar"><label><input type="checkbox" id="diffOnly" '+(showDiffOnly?'checked':'')+'> 차이 있는 항목만 보기</label></div>';
+  var html='';
+  // 요약
+  html+='<div class="summary">'+
+    '<div class="chip fail"><div class="n">'+fails.length+'</div><div class="t">실제 문제</div></div>'+
+    '<div class="chip struct" style="border-color:#FCD34D"><div class="n" style="color:#B45309">'+structs.length+'</div><div class="t">구조 차이</div></div>'+
+    '<div class="chip cascade"><div class="n">'+cascades.length+'</div><div class="t">밀림 여파</div></div>'+
+    '<div class="chip warn"><div class="n">'+warns.length+'</div><div class="t">주의(미세)</div></div>'+
+    '<div class="chip pass"><div class="n">'+cleanN+'</div><div class="t">완전 일치</div></div>'+
+    '</div>';
 
-  out.innerHTML=summary+html;
-  var cb=document.getElementById('diffOnly');
-  if(cb) cb.addEventListener('change', function(e){ showDiffOnly=e.target.checked; render(); });
+  var totalProblems = fails.length + structs.length;
+  html+='<div class="verdict">✅ 실제 문제 '+totalProblems+'곳을 자동 검출했습니다. 밀림 여파 '+cascades.length+'곳은 아래 원인 밑으로 묶었습니다.</div>';
+
+  // 구조 차이 (+여파)
+  if(structs.length){
+    html+='<div class="sec-title">🧩 구조 차이 <span class="cnt">'+structs.length+'</span></div>';
+    structs.forEach(function(e){
+      html+='<div class="el struct"><div class="el-head"><div class="name">'+esc(e.qa)+'</div><span class="badge struct">'+(e.where.indexOf('추가')>=0?'추가됨':'누락됨')+'</span></div>';
+      html+='<div class="note"><b>'+esc(e.where)+'</b></div>';
+      if(cascades.length){
+        html+='<div class="cascade-list">↓ 이 변화로 아래 요소들이 밀려 내려갔어요 (여파, 개별 오류로 세지 않음):<ul>';
+        cascades.forEach(function(c){ html+='<li>· '+esc(c.qa)+'</li>'; });
+        html+='</ul></div>';
+      }
+      html+='</div>';
+    });
+  }
+
+  // 실제 문제
+  if(fails.length){
+    html+='<div class="sec-title">🔴 실제 문제 <span class="cnt">'+fails.length+'</span></div>';
+    fails.forEach(function(e){ html+=elCard(e,'fail'); });
+  }
+  // 주의
+  if(warns.length){
+    html+='<div class="sec-title">🟡 주의 (미세 차이) <span class="cnt">'+warns.length+'</span></div>';
+    warns.forEach(function(e){ html+=elCard(e,'warn'); });
+  }
+  // 일치
+  html+='<div class="sec-title">✅ 완전 일치 <span class="cnt">'+cleanN+'</span></div>';
+  html+='<div class="collapsed">문제 없는 요소 '+cleanN+'개는 접어뒀어요.</div>';
+
+  out.innerHTML=html;
 }
+function elCard(e,badge){
+  var b='<span class="badge '+badge+'">'+(badge==='fail'?'불일치':'주의')+'</span>';
+  var ctag = e.isContent ? '<span class="tag">샘플영역·위치만</span>' : '';
+  return '<div class="el '+badge+'"><div class="el-head"><div class="name">'+esc(e.qa)+ctag+'</div>'+b+'</div>'+rowsTable(e.rows,true)+'</div>';
+}
+render();
 </script>
 </body>
 </html>
