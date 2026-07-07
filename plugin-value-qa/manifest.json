@@ -1,0 +1,9 @@
+{
+  "name": "값 검수 (디자인↔개발 대조)",
+  "id": "dev-screen-value-qa-river",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page"
+}

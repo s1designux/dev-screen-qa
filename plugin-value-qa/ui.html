@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<style>
+  :root{
+    --pass:#16A34A; --warn:#D97706; --fail:#DC2626; --cascade:#6B7280;
+    --bg:#F9FAFB; --card:#fff; --border:#E5E7EB; --text:#1F2937; --muted:#6B7280; --accent:#2563EB;
+    --font:-apple-system,"Segoe UI","Malgun Gothic",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;padding:14px;}
+  h1{font-size:16px;margin-bottom:2px;}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:14px;}
+
+  .step{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .step .lab{font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .step .lab .num{background:var(--accent);color:#fff;width:18px;height:18px;border-radius:999px;font-size:11px;display:inline-flex;align-items:center;justify-content:center;}
+  .status{font-size:12px;color:var(--muted);margin:6px 0;}
+  .status.ok{color:var(--pass);font-weight:600;}
+  .status.bad{color:var(--fail);}
+  .hint{font-size:11px;color:var(--muted);margin-top:6px;}
+  code{background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:ui-monospace,monospace;font-size:11px;}
+
+  button{font-family:var(--font);font-size:12px;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;}
+  .btn{background:var(--accent);color:#fff;}
+  .btn:disabled{background:#9CA3AF;cursor:default;}
+  .drop{border:1.5px dashed var(--border);border-radius:8px;padding:14px;text-align:center;color:var(--muted);font-size:12px;cursor:pointer;background:#FAFAFA;}
+  .drop.over{border-color:var(--accent);background:#EFF6FF;color:var(--accent);}
+  input[type=file]{display:none;}
+
+  .warn-banner{background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:10px;}
+
+  .summary{display:flex;gap:7px;margin:12px 0 6px;flex-wrap:wrap;}
+  .chip{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px 10px;min-width:62px;flex:1;text-align:center;}
+  .chip .n{font-size:20px;font-weight:800;line-height:1;}
+  .chip .t{font-size:10px;color:var(--muted);margin-top:3px;}
+  .chip.fail .n{color:var(--fail);} .chip.warn .n{color:var(--warn);}
+  .chip.cascade .n{color:var(--cascade);} .chip.pass .n{color:var(--pass);} .chip.struct .n{color:#B45309;}
+  .verdict{background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;border-radius:8px;padding:10px 12px;margin:6px 0 14px;font-size:12px;font-weight:600;}
+
+  .sec-title{font-size:13px;font-weight:800;margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
+  .sec-title .cnt{font-size:11px;font-weight:600;color:var(--muted);background:#F3F4F6;border-radius:999px;padding:1px 8px;}
+
+  .el{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:9px;overflow:hidden;}
+  .el.fail{border-color:#FCA5A5;} .el.struct{border-color:#FCD34D;background:#FFFBEB;}
+  .el-head{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;}
+  .el-head .name{font-weight:700;font-size:12px;font-family:ui-monospace,monospace;word-break:break-all;}
+  .el-head .badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;color:#fff;white-space:nowrap;}
+  .badge.fail{background:var(--fail);} .badge.warn{background:var(--warn);}
+  .badge.struct{background:#B45309;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{text-align:left;padding:6px 12px;border-top:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;background:#FAFAFA;font-size:11px;}
+  td.k{color:var(--muted);width:96px;}
+  td.v{font-variant-numeric:tabular-nums;}
+  tr.warn td.j{color:var(--warn);font-weight:700;} tr.fail td.j{color:var(--fail);font-weight:700;}
+  tr.fail td.v.dev,tr.warn td.v.dev{background:#FEF2F2;}
+  tr.cascade td{color:var(--cascade);} tr.cascade td.v.dev{background:#F3F4F6;}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #0002;vertical-align:middle;margin-right:5px;}
+  .note{padding:9px 12px;font-size:12px;} .note b{color:#B45309;}
+  .cascade-list{padding:2px 12px 10px;color:var(--muted);font-size:11px;}
+  .cascade-list li{list-style:none;padding:1px 0;}
+  .tag{font-size:10px;color:var(--muted);background:#F3F4F6;border-radius:5px;padding:1px 6px;margin-left:5px;}
+  .collapsed{color:var(--muted);font-size:12px;padding:8px 2px;}
+  .empty{color:var(--muted);font-size:12px;text-align:center;padding:24px 12px;background:var(--card);border:1px dashed var(--border);border-radius:10px;}
+</style>
+</head>
+<body>
+  <h1>값 검수 · 디자인 ↔ 개발</h1>
+  <div class="sub">피그마 정답 값을 그 자리에서 읽어 개발화면 실측과 대조합니다. 외부 통신 없음.</div>
+
+  <div class="step">
+    <div class="lab"><span class="num">1</span> 정답 프레임 (피그마)</div>
+    <div class="status" id="selStatus">피그마에서 정답이 될 화면 프레임을 선택하세요.</div>
+    <button class="btn" id="readBtn" disabled>정답 값 읽기</button>
+    <div class="status" id="designStatus"></div>
+    <div class="hint">💡 레이어 이름을 개발쪽 이름표와 똑같이 지어야 짝이 맞아요. 예: <code>header/logo</code>, <code>stat/card-2</code></div>
+  </div>
+
+  <div class="step">
+    <div class="lab"><span class="num">2</span> 개발 측정 파일</div>
+    <div class="drop" id="drop">여기에 <b>measure-dev.json</b>을 끌어다 놓거나<br/>클릭해서 고르기 (collect.js 결과)</div>
+    <input type="file" id="fileDev" accept="application/json" />
+    <div class="status" id="devStatus"></div>
+  </div>
+
+  <div id="warnArea"></div>
+  <div id="out"><div class="empty">두 값이 준비되면 대조 결과가 여기에 나와요.</div></div>
+
+<script>
+// ============ 대조 핵심 로직 ============
+var NUM = { 'box.x':[2,6],'box.y':[2,6],'box.w':[2,6],'box.h':[2,6],
+  fontSize:[0.5,0.5],fontWeight:[0,0],borderRadius:[1,3],borderWidth:[0.5,1],
+  paddingTop:[1,3],paddingRight:[1,3],paddingBottom:[1,3],paddingLeft:[1,3],opacity:[0.01,0.05] };
+var LABEL = { 'box.x':'가로 위치','box.y':'세로 위치','box.w':'너비','box.h':'높이',
+  color:'글자색',backgroundColor:'배경색',fontSize:'글자 크기',fontWeight:'글자 굵기',
+  fontFamily:'글꼴',borderRadius:'모서리 둥글기',borderWidth:'테두리 두께',borderColor:'테두리색',
+  paddingTop:'안쪽여백↑',paddingRight:'안쪽여백→',paddingBottom:'안쪽여백↓',paddingLeft:'안쪽여백←' };
+function jn(k,a,b){ var r=NUM[k]||[1,3],d=Math.abs(a-b); return d<=r[0]?'pass':d<=r[1]?'warn':'fail'; }
+function getp(o,p){ return p.split('.').reduce(function(x,k){return x?x[k]:undefined;},o); }
+function worstOf(a,b){ var o={pass:0,warn:1,fail:2}; return o[a]>=o[b]?a:b; }
+
+function compare(design, dev){
+  var dMap={}, vMap={};
+  design.elements.forEach(function(e){ dMap[e.qa]=e; });
+  dev.elements.forEach(function(e){ vMap[e.qa]=e; });
+  var qas = Object.keys(dMap).concat(Object.keys(vMap)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+  var added=[], removed=[];
+  qas.forEach(function(qa){ if(!dMap[qa]) added.push(vMap[qa]); else if(!vMap[qa]) removed.push(dMap[qa]); });
+
+  var elems=[];
+  qas.forEach(function(qa){
+    var d=dMap[qa], v=vMap[qa];
+    if(!d||!v){ elems.push({ qa:qa, kind:'struct', where: d?'개발에서 누락됨':'개발에 추가됨(디자인에 없음)', rows:[] }); return; }
+    var isText=d.isText||v.isText, isContent=d.contentZone||v.contentZone;
+    var dY = v.box.y - d.box.y;
+    var cascadeY = (dY>6) && added.some(function(a){ return a.box.y < v.box.y; });
+    var rows=[];
+    var posKeys = isText? ['box.x','box.y'] : ['box.x','box.y','box.w','box.h'];
+    posKeys.forEach(function(k){
+      var a=getp(d,k), b=getp(v,k); if(a==null||b==null) return;
+      var j=jn(k,a,b);
+      var cascade = (k==='box.y' && cascadeY && j!=='pass');
+      rows.push({ k:k, label:LABEL[k], a:a, b:b, unit:'px', j:j, cascade:cascade });
+    });
+    if(!isContent){
+      if(isText){
+        rows.push({k:'color',label:LABEL.color,a:d.style.color,b:v.style.color,j:d.style.color===v.style.color?'pass':'fail',color:true});
+        rows.push({k:'fontSize',label:LABEL.fontSize,a:d.style.fontSize,b:v.style.fontSize,unit:'px',j:jn('fontSize',d.style.fontSize,v.style.fontSize)});
+        rows.push({k:'fontWeight',label:LABEL.fontWeight,a:d.style.fontWeight,b:v.style.fontWeight,j:jn('fontWeight',d.style.fontWeight,v.style.fontWeight)});
+        rows.push({k:'fontFamily',label:LABEL.fontFamily,a:d.style.fontFamily,b:v.style.fontFamily,j:d.style.fontFamily===v.style.fontFamily?'pass':'fail'});
+      } else {
+        rows.push({k:'backgroundColor',label:LABEL.backgroundColor,a:d.style.backgroundColor,b:v.style.backgroundColor,j:d.style.backgroundColor===v.style.backgroundColor?'pass':'fail',color:true});
+        rows.push({k:'borderRadius',label:LABEL.borderRadius,a:d.style.borderRadius,b:v.style.borderRadius,unit:'px',j:jn('borderRadius',d.style.borderRadius,v.style.borderRadius)});
+        rows.push({k:'borderWidth',label:LABEL.borderWidth,a:d.style.borderWidth,b:v.style.borderWidth,unit:'px',j:jn('borderWidth',d.style.borderWidth,v.style.borderWidth)});
+        if(d.style.borderWidth>0 && v.style.borderWidth>0)
+          rows.push({k:'borderColor',label:LABEL.borderColor,a:d.style.borderColor,b:v.style.borderColor,j:d.style.borderColor===v.style.borderColor?'pass':'fail',color:true});
+        ['paddingTop','paddingRight','paddingBottom','paddingLeft'].forEach(function(p){
+          rows.push({k:p,label:LABEL[p],a:d.style[p],b:v.style[p],unit:'px',j:jn(p,d.style[p],v.style[p])});
+        });
+      }
+    }
+    var st='pass', hasCascade=false;
+    rows.forEach(function(rr){ if(rr.cascade){ hasCascade=true; return; } st=worstOf(st,rr.j); });
+    elems.push({ qa:qa, kind:'compare', isText:isText, isContent:isContent, status:st, hasCascade:hasCascade, rows:rows });
+  });
+  return { elems:elems, added:added, removed:removed };
+}
+
+// ============ 렌더 ============
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+function cell(row,val){ if(row.color){ return '<span class="swatch" style="background:'+esc(val)+'"></span>'+esc(val); } return esc(val)+(row.unit&&typeof val==='number'?row.unit:''); }
+function rowsTable(rows){
+  var trs='';
+  rows.forEach(function(r){
+    if(r.j==='pass'&&!r.cascade) return;
+    var cls=r.cascade?'cascade':r.j;
+    var mark=r.cascade?'↓밀림':({pass:'✓',warn:'△',fail:'✕'}[r.j]);
+    trs+='<tr class="'+cls+'"><td class="k">'+esc(r.label)+(r.cascade?'<span class="tag">여파</span>':'')+'</td>'+
+         '<td class="v des">'+cell(r,r.a)+'</td><td class="v dev">'+cell(r,r.b)+'</td>'+
+         '<td class="j" style="width:44px">'+mark+'</td></tr>';
+  });
+  if(!trs) trs='<tr><td class="note" colspan="4">차이 없음</td></tr>';
+  return '<table><thead><tr><th>항목</th><th>정답</th><th>개발</th><th>판정</th></tr></thead><tbody>'+trs+'</tbody></table>';
+}
+function elCard(e,badge){
+  var b='<span class="badge '+badge+'">'+(badge==='fail'?'불일치':'주의')+'</span>';
+  var ctag=e.isContent?'<span class="tag">샘플·위치만</span>':'';
+  return '<div class="el '+badge+'"><div class="el-head"><div class="name">'+esc(e.qa)+ctag+'</div>'+b+'</div>'+rowsTable(e.rows)+'</div>';
+}
+
+function render(){
+  var out=document.getElementById('out');
+  if(!design||!dev){ out.innerHTML='<div class="empty">두 값이 준비되면 대조 결과가 여기에 나와요.</div>'; return; }
+
+  // 폭 경고
+  var wa=document.getElementById('warnArea'); wa.innerHTML='';
+  var dw=design.meta&&design.meta.artboardWidth, vw=dev.meta&&dev.meta.artboardWidth;
+  if(dw&&vw&&Math.abs(dw-vw)>1){
+    wa.innerHTML='<div class="warn-banner">⚠️ 측정 폭이 달라요 — 정답 '+dw+'px · 개발 '+vw+'px. 같은 폭에서 잰 값끼리 비교해야 정확해요.</div>';
+  }
+
+  var R=compare(design,dev);
+  var fails=[],warns=[],cascades=[],structs=[],cleanN=0;
+  R.elems.forEach(function(e){
+    if(e.kind==='struct'){ structs.push(e); return; }
+    if(e.status==='fail') fails.push(e);
+    else if(e.status==='warn') warns.push(e);
+    else if(e.hasCascade) cascades.push(e);
+    else cleanN++;
+  });
+
+  var html='<div class="summary">'+
+    '<div class="chip fail"><div class="n">'+fails.length+'</div><div class="t">실제 문제</div></div>'+
+    '<div class="chip struct"><div class="n">'+structs.length+'</div><div class="t">구조 차이</div></div>'+
+    '<div class="chip cascade"><div class="n">'+cascades.length+'</div><div class="t">밀림 여파</div></div>'+
+    '<div class="chip warn"><div class="n">'+warns.length+'</div><div class="t">주의</div></div>'+
+    '<div class="chip pass"><div class="n">'+cleanN+'</div><div class="t">일치</div></div></div>';
+  var totalProblems=fails.length+structs.length;
+  html+='<div class="verdict">✅ 실제 문제 '+totalProblems+'곳 검출'+(cascades.length?(' · 밀림 여파 '+cascades.length+'곳은 원인 밑으로 묶음'):'')+'.</div>';
+
+  if(structs.length){
+    html+='<div class="sec-title">🧩 구조 차이 <span class="cnt">'+structs.length+'</span></div>';
+    structs.forEach(function(e){
+      html+='<div class="el struct"><div class="el-head"><div class="name">'+esc(e.qa)+'</div><span class="badge struct">'+(e.where.indexOf('추가')>=0?'추가됨':'누락됨')+'</span></div>';
+      html+='<div class="note"><b>'+esc(e.where)+'</b></div>';
+      if(cascades.length){
+        html+='<div class="cascade-list">↓ 이 변화로 아래 요소들이 밀려 내려갔어요 (여파, 개별 오류로 세지 않음):<ul>';
+        cascades.forEach(function(c){ html+='<li>· '+esc(c.qa)+'</li>'; });
+        html+='</ul></div>';
+      }
+      html+='</div>';
+    });
+  }
+  if(fails.length){ html+='<div class="sec-title">🔴 실제 문제 <span class="cnt">'+fails.length+'</span></div>'; fails.forEach(function(e){ html+=elCard(e,'fail'); }); }
+  if(warns.length){ html+='<div class="sec-title">🟡 주의 (미세) <span class="cnt">'+warns.length+'</span></div>'; warns.forEach(function(e){ html+=elCard(e,'warn'); }); }
+  html+='<div class="sec-title">✅ 완전 일치 <span class="cnt">'+cleanN+'</span></div><div class="collapsed">문제 없는 요소 '+cleanN+'개는 접어뒀어요.</div>';
+  out.innerHTML=html;
+}
+
+// ============ 피그마 통신 & 파일 ============
+var design=null, dev=null;
+function parentPost(m){ parent.postMessage({ pluginMessage:m }, '*'); }
+
+document.getElementById('readBtn').onclick=function(){
+  document.getElementById('designStatus').className='status';
+  document.getElementById('designStatus').textContent='읽는 중…';
+  parentPost({ type:'read-design' });
+};
+
+var fileInput=document.getElementById('fileDev'), drop=document.getElementById('drop');
+drop.onclick=function(){ fileInput.click(); };
+fileInput.onchange=function(e){ if(e.target.files[0]) loadDev(e.target.files[0]); };
+drop.ondragover=function(e){ e.preventDefault(); drop.className='drop over'; };
+drop.ondragleave=function(){ drop.className='drop'; };
+drop.ondrop=function(e){ e.preventDefault(); drop.className='drop'; if(e.dataTransfer.files[0]) loadDev(e.dataTransfer.files[0]); };
+function loadDev(file){
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var d=JSON.parse(rd.result);
+      if(!d.elements) throw new Error('measure 파일 형식이 아니에요');
+      dev=d;
+      var st=document.getElementById('devStatus'); st.className='status ok';
+      st.textContent='✅ 개발 측정: '+d.elements.length+'개 요소'+(d.meta&&d.meta.artboardWidth?' · 폭 '+d.meta.artboardWidth+'px':'');
+      render();
+    }catch(err){ var st=document.getElementById('devStatus'); st.className='status bad'; st.textContent='파일을 읽을 수 없어요: '+err.message; }
+  };
+  rd.readAsText(file);
+}
+
+onmessage=function(event){
+  var msg=event.data.pluginMessage; if(!msg) return;
+  if(msg.type==='selection'){
+    var el=document.getElementById('selStatus'), btn=document.getElementById('readBtn');
+    if(msg.node && msg.node.selectable){ el.textContent='선택됨: '+msg.node.name; btn.disabled=false; }
+    else if(msg.node){ el.textContent='"'+msg.node.name+'"은 프레임이 아니에요. 화면 전체 프레임을 골라주세요.'; btn.disabled=true; }
+    else { el.textContent='피그마에서 정답이 될 화면 프레임을 선택하세요.'; btn.disabled=true; }
+  }
+  else if(msg.type==='design-read'){
+    var st=document.getElementById('designStatus');
+    if(msg.error){ st.className='status bad'; st.textContent='⚠️ '+msg.error; return; }
+    design=msg.data; st.className='status ok';
+    st.textContent='✅ 정답 읽음: '+msg.data.meta.frameName+' · '+msg.data.elements.length+'개 요소 · 폭 '+msg.data.meta.artboardWidth+'px';
+    render();
+  }
+};
+parentPost({ type:'init' });
+</script>
+</body>
+</html>
