@@ -82,17 +82,32 @@ function readElement(node, rootBox) {
 
 function readDesign(root) {
   var rootBox = root.absoluteBoundingBox;
-  var out = [];
+  var W = rootBox.width, H = rootBox.height;
+  var raw = [];
   function walk(node) {
     if (node.id !== root.id && node.visible !== false && node.absoluteBoundingBox) {
       var meaningful = (node.type === 'TEXT') || (fillRgb(node) != null) || hasVisibleStroke(node);
-      if (meaningful) { var el = readElement(node, rootBox); if (el) out.push(el); }
+      if (meaningful) {
+        var el = readElement(node, rootBox);
+        // 화면(프레임) 밖에 있는 요소는 제외 (예: 저 아래 붙은 중복 푸터)
+        if (el) {
+          var b = el.box;
+          var offFrame = (b.y >= H) || (b.y + b.h <= 0) || (b.x >= W) || (b.x + b.w <= 0);
+          if (!offFrame) raw.push(el);
+        }
+      }
     }
     if ('children' in node) { for (var i = 0; i < node.children.length; i++) walk(node.children[i]); }
   }
   walk(root);
+  // 거의 같은 자리·같은 종류의 겹친 레이어는 하나만 (컴포넌트 래퍼+배경 중복 제거)
+  function nearSame(a, b) {
+    return a.isText === b.isText && Math.abs(a.box.x - b.box.x) <= 1 && Math.abs(a.box.y - b.box.y) <= 1 && Math.abs(a.box.w - b.box.w) <= 1 && Math.abs(a.box.h - b.box.h) <= 1;
+  }
+  var out = [];
+  raw.forEach(function (el) { for (var i = 0; i < out.length; i++) { if (nearSame(out[i], el)) return; } out.push(el); });
   return {
-    meta: { label: 'design', source: 'figma', rootId: root.id, frameName: root.name, artboardWidth: r1(rootBox.width), artboardHeight: r1(rootBox.height), toolVersion: '2.0' },
+    meta: { label: 'design', source: 'figma', rootId: root.id, frameName: root.name, artboardWidth: r1(W), artboardHeight: r1(H), toolVersion: '2.1' },
     elements: out
   };
 }

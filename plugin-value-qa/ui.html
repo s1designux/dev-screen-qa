@@ -219,7 +219,7 @@ function runMatcher(design, dev){
   var fig=design.elements;
   var devEls=dev.elements.filter(function(e){ return !(e.box.x<=1&&e.box.y<=1&&e.box.w>=DW-2&&e.box.h>=DH-2); });
   var pairsAll=[];
-  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){ pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)}); }); });
+  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){ if(f.isText!==d.isText) return; pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)}); }); });
   pairsAll.sort(function(a,b){return b.s-a.s;});
   var fU={},dU={},pairs=[];
   pairsAll.forEach(function(p){ if(p.s<0.5)return; if(fU[p.fi]||dU[p.di])return; fU[p.fi]=1;dU[p.di]=1; pairs.push({fi:p.fi,di:p.di,s:p.s,confirmed:true}); });
@@ -269,14 +269,23 @@ function renderMatch(){
       '<span class="side dev" title="'+esc(shortDev(d))+'">'+esc(shortDev(d))+'</span><span class="conf '+cc+'">'+pct+'%</span></div>';
   });
   if(M.unmatchedF.length){
-    html+='<div class="mini">짝 못 찾은 정답 요소 ('+M.unmatchedF.length+') — 직접 고르거나 그냥 두기</div>';
+    html+='<div class="mini" style="cursor:pointer" id="umToggle" onclick="toggleUnmatched()">▸ 짝 못 찾은 정답 요소 ('+M.unmatchedF.length+') — 대부분 무시해도 돼요. 눌러서 펼치기</div>';
+    html+='<div id="umList" style="display:none">';
     M.unmatchedF.forEach(function(fi){
       var f=M.fig[fi], opts='<option value="">— 개발에서 못 찾음 —</option>';
       M.unmatchedD.forEach(function(di){ opts+='<option value="'+di+'">'+esc(shortDev(M.devEls[di]))+'</option>'; });
       html+='<div class="unmatched"><span class="fig" title="'+esc(shortFig(f))+'">'+esc(shortFig(f))+'</span><select data-fi="'+fi+'" class="manualPick">'+opts+'</select></div>';
     });
+    html+='</div>';
   }
   el.innerHTML=html;
+}
+function toggleUnmatched(){
+  var l=document.getElementById('umList'), t=document.getElementById('umToggle');
+  if(!l) return;
+  var open=l.style.display!=='none';
+  l.style.display=open?'none':'block';
+  t.innerHTML=t.innerHTML.replace(open?'▾':'▸', open?'▸':'▾');
 }
 
 /* ================= 대조 실행 ================= */
