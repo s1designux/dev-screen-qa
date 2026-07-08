@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>화면 측정 북마크 설정</title>
+<style>
+ body{font-family:-apple-system,"Segoe UI","Malgun Gothic",system-ui,sans-serif;background:#F9FAFB;color:#1F2937;max-width:640px;margin:0 auto;padding:40px 24px;line-height:1.6;}
+ h1{font-size:22px;margin-bottom:6px;} .sub{color:#6B7280;margin-bottom:28px;}
+ .bar{background:#EFF6FF;border:1px dashed #93C5FD;border-radius:12px;padding:28px;text-align:center;margin:20px 0;}
+ .bm{display:inline-block;background:#2563EB;color:#fff;font-weight:700;font-size:16px;padding:12px 22px;border-radius:10px;text-decoration:none;cursor:grab;}
+ ol{padding-left:20px;} li{margin:8px 0;} .step-n{font-weight:700;color:#2563EB;}
+ kbd{background:#F3F4F6;border:1px solid #E5E7EB;border-radius:5px;padding:1px 6px;font-size:13px;}
+ .note{font-size:13px;color:#6B7280;background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin-top:20px;}
+</style></head><body>
+ <h1>📐 화면 측정 북마크 설정</h1>
+ <div class="sub">아래 파란 버튼을 <b>북마크바로 드래그</b>하면 끝이에요. 딱 한 번만 하면 됩니다.</div>
+ <div class="bar">
+   <a class="bm" href="javascript:(function(){ function r(n){ return Math.round(n*10)/10; } function num(v){ var f=parseFloat(v); return isNaN(f)?0:r(f); } function firstFont(v){ return (v||&#39;&#39;).split(&#39;,&#39;)[0].replace(/[&quot;&#39;]/g,&#39;&#39;).trim(); } function transparent(c){ return !c||c===&#39;transparent&#39;||c===&#39;rgba(0, 0, 0, 0)&#39;; } var all=document.body.getElementsByTagName(&#39;*&#39;); var SKIP={SCRIPT:1,STYLE:1,META:1,LINK:1,HEAD:1,NOSCRIPT:1,BR:1,HR:1}; var raw=[]; for(var i=0;i&lt;all.length;i++){ var el=all[i]; if(SKIP[el.tagName]) continue; var rect=el.getBoundingClientRect(); if(rect.width&lt;3||rect.height&lt;3) continue; var cs=getComputedStyle(el); if(cs.display===&#39;none&#39;||cs.visibility===&#39;hidden&#39;||parseFloat(cs.opacity)===0) continue; var ownText=&#39;&#39;; for(var k=0;k&lt;el.childNodes.length;k++){ var nd=el.childNodes[k]; if(nd.nodeType===3){ ownText+=nd.textContent; } } ownText=ownText.replace(/\s+/g,&#39; &#39;).trim(); var hasBg=!transparent(cs.backgroundColor); var hasBorder=num(cs.borderTopWidth)&gt;0||num(cs.borderBottomWidth)&gt;0||num(cs.borderLeftWidth)&gt;0||num(cs.borderRightWidth)&gt;0; var hasImg=cs.backgroundImage&amp;&amp;cs.backgroundImage!==&#39;none&#39;; var formish=/^(IMG|INPUT|BUTTON|SELECT|TEXTAREA|SVG)$/.test(el.tagName); var isText=ownText.length&gt;0&amp;&amp;!hasBg&amp;&amp;!hasBorder&amp;&amp;!formish; if(!(isText||hasBg||hasBorder||hasImg||formish)) continue; raw.push({tag:el.tagName,text:(el.innerText||&#39;&#39;).replace(/\s+/g,&#39; &#39;).trim().slice(0,50),isText:isText,rect:rect,style:{color:cs.color,backgroundColor:cs.backgroundColor,fontSize:num(cs.fontSize),fontWeight:num(cs.fontWeight),fontFamily:firstFont(cs.fontFamily),lineHeight:0,borderRadius:num(cs.borderTopLeftRadius),borderWidth:num(cs.borderTopWidth),borderColor:cs.borderTopColor,paddingTop:num(cs.paddingTop),paddingRight:num(cs.paddingRight),paddingBottom:num(cs.paddingBottom),paddingLeft:num(cs.paddingLeft),textAlign:cs.textAlign,opacity:num(cs.opacity)}}); } var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity; raw.forEach(function(o){ minX=Math.min(minX,o.rect.left); minY=Math.min(minY,o.rect.top); maxX=Math.max(maxX,o.rect.right); maxY=Math.max(maxY,o.rect.bottom); }); var W=maxX-minX,H=maxY-minY; var elements=raw.map(function(o,idx){ return {id:&#39;dev-&#39;+idx,role:o.tag,text:o.text,isText:o.isText,box:{x:r(o.rect.left-minX),y:r(o.rect.top-minY),w:r(o.rect.width),h:r(o.rect.height)},style:o.style,contentZone:false}; }); var name=(document.title||location.pathname||&#39;dev&#39;).replace(/[^a-z0-9가-힣]+/gi,&#39;-&#39;).replace(/^-+|-+$/g,&#39;&#39;).slice(0,40)||&#39;dev&#39;; var result={meta:{label:name,source:&#39;web-all&#39;,url:location.href,title:document.title,viewportWidth:window.innerWidth,artboardWidth:r(W),artboardHeight:r(H),capturedAt:new Date().toISOString(),toolVersion:&#39;bm-2.0&#39;},elements:elements}; var blob=new Blob([JSON.stringify(result,null,2)],{type:&#39;application/json&#39;}); var a=document.createElement(&#39;a&#39;); a.href=URL.createObjectURL(blob); a.download=&#39;measure-&#39;+name+&#39;.json&#39;; document.body.appendChild(a); a.click(); a.remove(); alert(&#39;측정 완료: &#39;+elements.length+&#39;개 요소\n파일: measure-&#39;+name+&#39;.json (다운로드됨)\n폭 &#39;+r(W)+&#39;px&#39;); })();">📐 화면 측정</a>
+   <div style="margin-top:14px;color:#6B7280;font-size:13px">↑ 이 버튼을 위쪽 <b>북마크바로 끌어다 놓기</b></div>
+ </div>
+ <ol>
+   <li><span class="step-n">1.</span> 북마크바가 안 보이면 <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>B</kbd> 로 켜기</li>
+   <li><span class="step-n">2.</span> 위 <b>📐 화면 측정</b> 버튼을 북마크바로 드래그</li>
+   <li><span class="step-n">3.</span> 끝! 이제 검사할 화면에서 그 북마크를 클릭하면 측정 파일이 다운로드돼요</li>
+ </ol>
+ <div class="note">⚠️ 회사 사이트가 보안정책으로 이 북마크를 막으면, <b>collect.js</b> 내용을 개발자도구 콘솔에 붙여넣는 방식으로 대신하면 됩니다(같은 결과).</div>
+</body></html>
