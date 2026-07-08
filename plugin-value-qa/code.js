@@ -92,9 +92,33 @@ function readDesign(root) {
   }
   walk(root);
   return {
-    meta: { label: 'design', source: 'figma', frameName: root.name, artboardWidth: r1(rootBox.width), artboardHeight: r1(rootBox.height), toolVersion: '2.0' },
+    meta: { label: 'design', source: 'figma', rootId: root.id, frameName: root.name, artboardWidth: r1(rootBox.width), artboardHeight: r1(rootBox.height), toolVersion: '2.0' },
     elements: out
   };
+}
+
+// 개발화면 이미지를 정답 프레임 오른쪽에 나란히 놓기
+async function placeDevImage(anchorId, bytes, label) {
+  var anchor = await figma.getNodeByIdAsync(anchorId);
+  if (!anchor || !anchor.absoluteBoundingBox) throw new Error('정답 프레임을 찾을 수 없어요. 먼저 "정답 값 읽기"를 해주세요.');
+  var image = figma.createImage(new Uint8Array(bytes));
+  var size = await image.getSizeAsync();
+  var frameW = anchor.width;
+  var frameH = Math.max(1, Math.round(frameW * (size.height / size.width)));
+  var f = figma.createFrame();
+  f.name = '🖥 개발화면' + (label ? ' · ' + label : '');
+  f.resize(frameW, frameH);
+  f.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
+  f.x = anchor.x + anchor.width + 160;
+  f.y = anchor.y;
+  if (anchor.parent) anchor.parent.appendChild(f); else figma.currentPage.appendChild(f);
+  // 라벨
+  var cap = figma.createText();
+  cap.fontName = { family: 'Inter', style: 'Regular' };
+  try { await figma.loadFontAsync({ family: 'Inter', style: 'Regular' }); cap.characters = '🖥 개발화면 (캡처)'; cap.fontSize = 28; cap.x = f.x; cap.y = f.y - 44; if (anchor.parent) anchor.parent.appendChild(cap); } catch (e) { cap.remove(); }
+  figma.currentPage.selection = [f];
+  figma.viewport.scrollAndZoomIntoView([anchor, f]);
+  return { id: f.id, w: frameW, h: frameH };
 }
 
 function postSelection() {
@@ -117,6 +141,14 @@ figma.ui.onmessage = async function (msg) {
       var data = readDesign(root);
       if (data.elements.length === 0) { figma.ui.postMessage({ type: 'design-read', error: '읽을 요소가 없어요. 색·글자·테두리가 있는 요소가 있는 프레임인지 확인해 주세요.' }); return; }
       figma.ui.postMessage({ type: 'design-read', data: data });
+    }
+    else if (msg.type === 'place-dev-image') {
+      try {
+        var res = await placeDevImage(msg.anchorId, msg.bytes, msg.label);
+        figma.ui.postMessage({ type: 'dev-image-placed', ok: true, info: res });
+      } catch (e) {
+        figma.ui.postMessage({ type: 'dev-image-placed', ok: false, error: String(e && e.message ? e.message : e) });
+      }
     }
     else if (msg.type === 'go-to-node') {
       var node = await figma.getNodeByIdAsync(msg.nodeId);

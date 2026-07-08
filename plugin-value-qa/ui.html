@@ -89,6 +89,13 @@
     <div class="status" id="devStatus"></div>
   </div>
 
+  <div class="step">
+    <div class="lab">🖥 개발화면 이미지 <span style="font-weight:400;color:var(--muted);font-size:11px">— 선택 · 정답 오른쪽에 나란히 놓기</span></div>
+    <div class="drop" id="dropImg">여기에 개발화면 캡처(PNG)를 끌어다 놓거나 클릭<br/><span class="hint">DevTools에서 'Capture full size screenshot'으로 받은 이미지</span></div>
+    <input type="file" id="fileImg" accept="image/*" />
+    <div class="status" id="imgStatus"></div>
+  </div>
+
   <div class="step" id="matchStep" style="display:none">
     <div class="lab"><span class="num">3</span> 짝 확인 <span style="font-weight:400;color:var(--muted);font-size:11px">— 자동으로 맞췄어요. 틀린 것만 손보세요</span></div>
     <div id="matchArea"></div>
@@ -330,8 +337,29 @@ function loadDev(file){
   rd.readAsText(file);
 }
 
+var fileImg=document.getElementById('fileImg'), dropImg=document.getElementById('dropImg');
+dropImg.onclick=function(){ fileImg.click(); };
+fileImg.onchange=function(e){ if(e.target.files[0]) placeImg(e.target.files[0]); };
+dropImg.ondragover=function(e){ e.preventDefault(); dropImg.className='drop over'; };
+dropImg.ondragleave=function(){ dropImg.className='drop'; };
+dropImg.ondrop=function(e){ e.preventDefault(); dropImg.className='drop'; if(e.dataTransfer.files[0]) placeImg(e.dataTransfer.files[0]); };
+function placeImg(file){
+  var st=document.getElementById('imgStatus');
+  if(!design || !design.meta || !design.meta.rootId){ st.className='status bad'; st.textContent='먼저 ① 정답 값 읽기를 해주세요 (어느 프레임 오른쪽에 놓을지 알아야 해요).'; return; }
+  st.className='status'; st.textContent='이미지 놓는 중…';
+  var rd=new FileReader();
+  rd.onload=function(){ parentPost({ type:'place-dev-image', bytes:new Uint8Array(rd.result), anchorId:design.meta.rootId, label:(dev&&dev.meta&&dev.meta.label)||'' }); };
+  rd.readAsArrayBuffer(file);
+}
+
 onmessage=function(event){
   var msg=event.data.pluginMessage; if(!msg) return;
+  if(msg.type==='dev-image-placed'){
+    var st=document.getElementById('imgStatus');
+    if(msg.ok){ st.className='status ok'; st.textContent='✅ 정답 오른쪽에 개발화면을 놓았어요. 피그마에서 두 화면을 나란히 확인하세요.'; }
+    else { st.className='status bad'; st.textContent='⚠️ '+msg.error; }
+    return;
+  }
   if(msg.type==='selection'){
     var el=document.getElementById('selStatus'), btn=document.getElementById('readBtn');
     if(msg.node && msg.node.selectable){ el.textContent='선택됨: '+msg.node.name; btn.disabled=false; }
