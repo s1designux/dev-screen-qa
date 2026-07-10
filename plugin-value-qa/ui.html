@@ -169,6 +169,15 @@ var LABEL = { 'box.x':'가로 위치','box.y':'세로 위치','box.w':'너비','
 function jn(k,a,b){ var r=NUM[k]||[1,3],d=Math.abs(a-b); return d<=r[0]?'pass':d<=r[1]?'warn':'fail'; }
 function getp(o,p){ return p.split('.').reduce(function(x,k){return x?x[k]:undefined;},o); }
 function worstOf(a,b){ var o={pass:0,warn:1,fail:2}; return o[a]>=o[b]?a:b; }
+function normFont(f){ return (f||'').toLowerCase().replace(/["']/g,'').replace(/\s+/g,'').trim(); }
+// 모서리: 한 변을 완전히 감쌀 만큼 크면 '완전 둥금'(원/알약). 표현값(20px/999px/50%)이 달라도 같게 판정.
+function radiusRow(d, v){
+  var dR=d.style.borderRadius, vR=v.style.borderRadius;
+  var dRound=dR>=Math.min(d.box.w,d.box.h)/2-1, vRound=vR>=Math.min(v.box.w,v.box.h)/2-1;
+  if(dRound&&vRound) return {k:'borderRadius',label:LABEL.borderRadius,a:'완전 둥금',b:'완전 둥금',j:'pass'};
+  if(dRound!==vRound) return {k:'borderRadius',label:LABEL.borderRadius,a:dRound?'완전 둥금':dR,b:vRound?'완전 둥금':vR,unit:'px',j:'fail'};
+  return {k:'borderRadius',label:LABEL.borderRadius,a:dR,b:vR,unit:'px',j:jn('borderRadius',dR,vR)};
+}
 function compareRows(d, v, cascadeY){
   var isText=d.isText||v.isText, isContent=d.contentZone||v.contentZone;
   var rows=[];
@@ -182,11 +191,12 @@ function compareRows(d, v, cascadeY){
     if(isText){
       rows.push({k:'color',label:LABEL.color,a:d.style.color,b:v.style.color,j:d.style.color===v.style.color?'pass':'fail',color:true});
       rows.push({k:'fontSize',label:LABEL.fontSize,a:d.style.fontSize,b:v.style.fontSize,unit:'px',j:jn('fontSize',d.style.fontSize,v.style.fontSize)});
-      rows.push({k:'fontWeight',label:LABEL.fontWeight,a:d.style.fontWeight,b:v.style.fontWeight,j:jn('fontWeight',d.style.fontWeight,v.style.fontWeight)});
-      rows.push({k:'fontFamily',label:LABEL.fontFamily,a:d.style.fontFamily,b:v.style.fontFamily,j:d.style.fontFamily===v.style.fontFamily?'pass':'fail'});
+      if(d.style.fontWeight!=null && v.style.fontWeight!=null)
+        rows.push({k:'fontWeight',label:LABEL.fontWeight,a:d.style.fontWeight,b:v.style.fontWeight,j:jn('fontWeight',d.style.fontWeight,v.style.fontWeight)});
+      rows.push({k:'fontFamily',label:LABEL.fontFamily,a:d.style.fontFamily,b:v.style.fontFamily,j:normFont(d.style.fontFamily)===normFont(v.style.fontFamily)?'pass':'warn'});
     } else {
       rows.push({k:'backgroundColor',label:LABEL.backgroundColor,a:d.style.backgroundColor,b:v.style.backgroundColor,j:d.style.backgroundColor===v.style.backgroundColor?'pass':'fail',color:true});
-      rows.push({k:'borderRadius',label:LABEL.borderRadius,a:d.style.borderRadius,b:v.style.borderRadius,unit:'px',j:jn('borderRadius',d.style.borderRadius,v.style.borderRadius)});
+      rows.push(radiusRow(d,v));
       rows.push({k:'borderWidth',label:LABEL.borderWidth,a:d.style.borderWidth,b:v.style.borderWidth,unit:'px',j:jn('borderWidth',d.style.borderWidth,v.style.borderWidth)});
       if(d.style.borderWidth>0 && v.style.borderWidth>0)
         rows.push({k:'borderColor',label:LABEL.borderColor,a:d.style.borderColor,b:v.style.borderColor,j:d.style.borderColor===v.style.borderColor?'pass':'fail',color:true});
@@ -219,7 +229,8 @@ function runMatcher(design, dev){
   var fig=design.elements;
   var devEls=dev.elements.filter(function(e){ return !(e.box.x<=1&&e.box.y<=1&&e.box.w>=DW-2&&e.box.h>=DH-2); });
   var pairsAll=[];
-  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){ if(f.isText!==d.isText) return; pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)}); }); });
+  // 종류가 다르면 원칙적으로 안 짝지음(글자↔상자 억지 방지). 단, 글자가 강하게 일치하면 교차 허용(배경 있는 글자=뱃지·색버튼 대응).
+  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){ if(f.isText!==d.isText && textSim(f.text,d.text)<0.8) return; pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)}); }); });
   pairsAll.sort(function(a,b){return b.s-a.s;});
   var fU={},dU={},pairs=[];
   pairsAll.forEach(function(p){ if(p.s<0.5)return; if(fU[p.fi]||dU[p.di])return; fU[p.fi]=1;dU[p.di]=1; pairs.push({fi:p.fi,di:p.di,s:p.s,confirmed:true}); });

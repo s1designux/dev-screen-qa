@@ -41,6 +41,14 @@ function aggText(node) {
   return t.replace(/\s+/g, ' ').trim().slice(0, 50);
 }
 
+// 스타일명 → 숫자 굵기 (공백제거·이탤릭제거·다양한 표기 흡수). 모르면 null(비교 스킵).
+function weightFromStyle(sty) {
+  if (!sty) return null;
+  var s = String(sty).toLowerCase().replace(/\s+/g, '').replace('italic', '').replace('oblique', '');
+  var M = { thin: 100, hairline: 100, extralight: 200, ultralight: 200, light: 300, regular: 400, normal: 400, book: 400, medium: 500, semibold: 600, demibold: 600, demi: 600, bold: 700, extrabold: 800, ultrabold: 800, heavy: 800, black: 900 };
+  return M[s] != null ? M[s] : null;
+}
+
 function readElement(node, rootBox) {
   var bb = node.absoluteBoundingBox;
   if (!bb) return null;
@@ -52,16 +60,21 @@ function readElement(node, rootBox) {
     var sty = (node.fontName && node.fontName.style) ? node.fontName.style : 'Regular';
     var align = (node.textAlignHorizontal || 'LEFT').toLowerCase();
     text = (node.characters || '').slice(0, 50);
+    // 굵기: Figma 숫자값 우선(가장 정확) → 스타일명 정규화 매핑 → 그래도 모르면 null(비교 스킵)
+    var fw = (typeof node.fontWeight === 'number') ? node.fontWeight : weightFromStyle(sty);
     style = {
       color: fillRgb(node) || 'rgb(0, 0, 0)', backgroundColor: 'rgba(0, 0, 0, 0)',
-      fontSize: r1(node.fontSize), fontWeight: WEIGHT[sty] || 400, fontFamily: fam, lineHeight: 0,
+      fontSize: r1(node.fontSize), fontWeight: fw, fontFamily: fam, lineHeight: 0,
       borderRadius: 0, borderWidth: 0, borderColor: 'rgb(0, 0, 0)',
       paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0,
       textAlign: align === 'left' ? 'start' : (align === 'right' ? 'end' : align),
       opacity: r1(node.opacity != null ? node.opacity : 1)
     };
   } else {
-    var radius = (node.type === 'ELLIPSE') ? 999 : (typeof node.cornerRadius === 'number' ? node.cornerRadius : 0);
+    // 모서리: 원=한 변 절반(완전둥금 표시), 나머지=cornerRadius(혼합이면 topLeft). 원/알약 정합은 비교 단계에서 '둥금' 범주로 판정.
+    var radius;
+    if (node.type === 'ELLIPSE') { radius = Math.min(bb.width, bb.height) / 2; }
+    else { radius = (typeof node.cornerRadius === 'number') ? node.cornerRadius : (typeof node.topLeftRadius === 'number' ? node.topLeftRadius : 0); }
     var topStroke = 0;
     if (node.strokes && node.strokes.length) { topStroke = (node.strokeTopWeight != null) ? node.strokeTopWeight : (node.strokeWeight || 0); }
     text = aggText(node);
