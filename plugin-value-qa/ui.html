@@ -185,9 +185,11 @@ function compareRows(d, v, cascadeY, widthMismatch){
   posKeys.forEach(function(k){
     var a=getp(d,k), b=getp(v,k); if(a==null||b==null) return;
     var j=jn(k,a,b);
+    var isPos=(k==='box.x'||k==='box.y');  // 위치(x/y)는 디자인 목업·페이지높이 차이로 어긋나기 쉬워 항상 '참고'
     var cascade=(k==='box.y' && cascadeY && j!=='pass');
-    var deferred=(widthMismatch && j!=='pass' && !cascade); // 측정 폭이 다르면 위치는 의미 없어 판정 보류
-    rows.push({k:k,label:LABEL[k],a:a,b:b,unit:'px',j:j,cascade:cascade,deferred:deferred});
+    var deferred=(j!=='pass' && !cascade && (isPos || widthMismatch)); // 위치는 항상 참고, 크기(w/h)는 폭 다를 때만 참고
+    var dtag=deferred ? ((isPos && !widthMismatch) ? '위치 참고' : '폭 다름') : '';
+    rows.push({k:k,label:LABEL[k],a:a,b:b,unit:'px',j:j,cascade:cascade,deferred:deferred,dtag:dtag});
   });
   if(!isContent){
     if(isText){
@@ -339,8 +341,8 @@ function rowsTable(rows){
   var trs='';
   rows.forEach(function(r){ if(r.j==='pass'&&!r.cascade&&!r.deferred) return;
     var cls=(r.cascade||r.deferred)?'cascade':r.j;
-    var mark=r.cascade?'↓밀림':(r.deferred?'폭보류':({pass:'✓',warn:'△',fail:'✕'}[r.j]));
-    var tag=r.cascade?'<span class="tag">여파</span>':(r.deferred?'<span class="tag">폭 다름</span>':'');
+    var mark=r.cascade?'↓밀림':(r.deferred?'참고':({pass:'✓',warn:'△',fail:'✕'}[r.j]));
+    var tag=r.cascade?'<span class="tag">여파</span>':(r.deferred?'<span class="tag">'+(r.dtag||'참고')+'</span>':'');
     trs+='<tr class="'+cls+'"><td class="k">'+esc(r.label)+tag+'</td><td class="v des">'+cell(r,r.a)+'</td><td class="v dev">'+cell(r,r.b)+'</td><td class="j" style="width:44px">'+mark+'</td></tr>';
   });
   if(!trs) trs='<tr><td class="note" colspan="4">차이 없음</td></tr>';
