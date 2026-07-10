@@ -160,7 +160,7 @@ async function placeDevImage(anchorId, bytes, label) {
   } catch (e) { /* 캡션 실패는 무시(배치는 성공) */ }
   figma.currentPage.selection = [f];
   figma.viewport.scrollAndZoomIntoView([anchor, f]);
-  return { id: f.id, w: frameW, h: frameH };
+  return { id: f.id, w: frameW, h: frameH, imgW: size.width, imgH: size.height };
 }
 
 // ---- Figma 검수결과서: 정답 위 불일치에 빨간 핀 + 번호, 옆에 이슈 목록 ----
@@ -171,19 +171,40 @@ async function ensureReportFont() {
   for (var i = 0; i < cands.length; i++) { try { await figma.loadFontAsync(cands[i]); reportFont = cands[i]; return reportFont; } catch (e) {} }
   reportFont = { family: 'Inter', style: 'Regular' }; return reportFont;
 }
-async function buildFigmaReport(rootId, issues) {
+async function buildFigmaReport(rootId, issues, devImage) {
   var root = await figma.getNodeByIdAsync(rootId);
   if (!root || !root.absoluteBoundingBox) throw new Error('정답 프레임을 찾을 수 없어요. 먼저 정답을 읽고 대조해 주세요.');
   var font = await ensureReportFont();
   var rb = root.absoluteBoundingBox;
   var RED = { r: 0.86, g: 0.15, b: 0.15 };
+
+  // 개발화면 이미지를 정답 오른쪽에 배치(있으면). 빨간 표시는 이 개발화면 위에 그린다.
+  var devFrame = null, devBB = null, devScale = 1, devOffX = 0, devOffY = 0;
+  if (devImage && devImage.bytes) {
+    var placed = await placeDevImage(rootId, devImage.bytes, devImage.label || '');
+    devFrame = await figma.getNodeByIdAsync(placed.id);
+    if (devFrame && devFrame.absoluteBoundingBox && (devImage.docW || placed.imgW)) {
+      devBB = devFrame.absoluteBoundingBox;
+      // 문서 CSS폭 기준 배율(레티나/DPR 무관). docW 없으면 스크린샷 원본px로 폴백(확장앱=1배라 동일).
+      devScale = devBB.width / (devImage.docW || placed.imgW);
+      devOffX = devImage.contentX || 0;          // 측정 좌표 원점 보정(문서 0,0 기준으로)
+      devOffY = devImage.contentY || 0;
+    }
+  }
+
   var pins = [];
   for (var i = 0; i < issues.length; i++) {
     var iss = issues[i];
-    // 좌표 기반(정답 절대위치 + 요소 상대box) — 인스턴스 내부 요소도 항상 그려짐. id는 폴백.
     var bb = null;
-    if (iss.box) { bb = { x: rb.x + iss.box.x, y: rb.y + iss.box.y, width: iss.box.w, height: iss.box.h }; }
-    else if (iss.id) { var node = await figma.getNodeByIdAsync(iss.id); if (node && node.absoluteBoundingBox) bb = node.absoluteBoundingBox; }
+    if (devBB && iss.devBox) {
+      // 개발화면 위 — (개발 측정좌표 + 오프셋) × 배치배율
+      bb = { x: devBB.x + (iss.devBox.x + devOffX) * devScale, y: devBB.y + (iss.devBox.y + devOffY) * devScale, width: iss.devBox.w * devScale, height: iss.devBox.h * devScale };
+    } else if (iss.box) {
+      // 개발엔 없고 정답에만 있는 요소('못 찾음') → 정답(디자인) 위에 표시
+      bb = { x: rb.x + iss.box.x, y: rb.y + iss.box.y, width: iss.box.w, height: iss.box.h };
+    } else if (iss.id) {
+      var node = await figma.getNodeByIdAsync(iss.id); if (node && node.absoluteBoundingBox) bb = node.absoluteBoundingBox;
+    }
     if (!bb) continue;
     var box = figma.createRectangle();
     box.x = bb.x; box.y = bb.y; box.resize(Math.max(6, bb.width), Math.max(6, bb.height));
@@ -212,7 +233,8 @@ async function buildFigmaReport(rootId, issues) {
   figma.currentPage.appendChild(list);
   list.resize(560, 100);
   list.primaryAxisSizingMode = 'AUTO'; list.counterAxisSizingMode = 'FIXED';
-  list.x = rb.x + rb.width + 160; list.y = rb.y;
+  var listAnchor = devBB || rb;
+  list.x = listAnchor.x + listAnchor.width + 160; list.y = listAnchor.y;
 
   var title = figma.createText(); title.fontName = font; title.characters = '개발화면 검수결과 · ' + issues.length + '건';
   title.fontSize = 20; title.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.11, b: 0.13 } }];
@@ -228,10 +250,11 @@ async function buildFigmaReport(rootId, issues) {
     none.fills = [{ type: 'SOLID', color: { r: 0.09, g: 0.64, b: 0.29 } }];
     list.appendChild(none); none.layoutSizingHorizontal = 'FILL';
   }
-  var out = [list.id]; if (pinGroup) out.push(pinGroup.id);
+  var out = [list.id]; if (pinGroup) out.push(pinGroup.id); if (devFrame) out.push(devFrame.id);
   figma.currentPage.selection = pinGroup ? [pinGroup] : [list];
-  figma.viewport.scrollAndZoomIntoView([root, list]);
-  return { created: out, count: issues.length };
+  var viewNodes = [root]; if (devFrame) viewNodes.push(devFrame); viewNodes.push(list);
+  figma.viewport.scrollAndZoomIntoView(viewNodes);
+  return { created: out, count: issues.length, onDev: !!devFrame };
 }
 
 function postSelection() {
@@ -265,7 +288,7 @@ figma.ui.onmessage = async function (msg) {
     }
     else if (msg.type === 'build-figma-report') {
       try {
-        var rep = await buildFigmaReport(msg.rootId, msg.issues || []);
+        var rep = await buildFigmaReport(msg.rootId, msg.issues || [], msg.devImage || null);
         figma.ui.postMessage({ type: 'figma-report-built', ok: true, info: rep });
       } catch (e) {
         figma.ui.postMessage({ type: 'figma-report-built', ok: false, error: String(e && e.message ? e.message : e) });

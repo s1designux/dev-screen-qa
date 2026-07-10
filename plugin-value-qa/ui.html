@@ -146,17 +146,17 @@
   <!-- 이미지 (선택) -->
   <section class="step locked" data-step="image">
     <div class="step-head" onclick="toggleStep(this)"><span class="step-num">🖥</span>
-      <span class="step-title">개발화면 이미지 <span class="step-sub">— 선택 · 정답 오른쪽에 나란히</span></span><span class="step-chev">▾</span></div>
+      <span class="step-title">개발화면 이미지 <span class="step-sub">— 빨간 표시를 개발화면 위에 그리려면 필요</span></span><span class="step-chev">▾</span></div>
     <div class="locknote">← 1단계(정답 읽기) 후 사용할 수 있어요.</div>
     <div class="step-body">
-      <div class="drop" id="dropImg">개발화면 캡처(PNG) 끌어다 놓기 / 클릭<br/><span class="hint">화면에서 ⌘⇧P → 'Capture full size screenshot'</span></div>
+      <div class="drop" id="dropImg">개발화면 캡처(PNG) 끌어다 놓기 / 클릭<br/><span class="hint">확장앱(📐 화면 측정+캡처)으로 받은 screen-*.png 권장 · 이걸 넣어야 개발화면 위에 빨간 표시가 그려져요</span></div>
       <input type="file" id="fileImg" accept="image/*" />
       <div class="status" id="imgStatus"></div>
     </div>
   </section>
 
 <script>
-var BOOKMARKLET = /*BM_START*/"javascript:(function () { if (typeof globalThis.__qaMeasure === 'function') return; globalThis.__qaMeasure = function () { function r(n){ return Math.round(n*10)/10; } function num(v){ var f=parseFloat(v); return isNaN(f)?0:r(f); } function firstFont(v){ return (v||'').split(',')[0].replace(/[\"']/g,'').trim(); } function transparent(c){ return !c || c==='transparent' || c==='rgba(0, 0, 0, 0)'; } var all = document.body.getElementsByTagName('*'); var SKIP = { SCRIPT:1, STYLE:1, META:1, LINK:1, HEAD:1, NOSCRIPT:1, BR:1, HR:1 }; var raw = []; for (var i=0;i<all.length;i++){ var el = all[i]; if (SKIP[el.tagName]) continue; var rect = el.getBoundingClientRect(); if (rect.width < 3 || rect.height < 3) continue; var cs = getComputedStyle(el); if (cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0) continue; var ownText = ''; for (var k=0;k<el.childNodes.length;k++){ var nd=el.childNodes[k]; if(nd.nodeType===3){ ownText += nd.textContent; } } ownText = ownText.replace(/\\s+/g,' ').trim(); var hasBg = !transparent(cs.backgroundColor); var hasBorder = num(cs.borderTopWidth)>0 || num(cs.borderBottomWidth)>0 || num(cs.borderLeftWidth)>0 || num(cs.borderRightWidth)>0; var hasImg = cs.backgroundImage && cs.backgroundImage!=='none'; var formish = /^(IMG|INPUT|BUTTON|SELECT|TEXTAREA|SVG)$/.test(el.tagName); var isText = ownText.length>0 && !hasBg && !hasBorder && !formish; if (!(isText || hasBg || hasBorder || hasImg || formish)) continue; raw.push({ tag: el.tagName, cls: (el.className&&el.className.toString?el.className.toString():'').slice(0,40), text: (el.innerText||'').replace(/\\s+/g,' ').trim().slice(0,50), isText: isText, rect: rect, style: { color: cs.color, backgroundColor: cs.backgroundColor, fontSize: num(cs.fontSize), fontWeight: num(cs.fontWeight), fontFamily: firstFont(cs.fontFamily), lineHeight: 0, borderRadius: num(cs.borderTopLeftRadius), borderWidth: num(cs.borderTopWidth), borderColor: cs.borderTopColor, paddingTop: num(cs.paddingTop), paddingRight: num(cs.paddingRight), paddingBottom: num(cs.paddingBottom), paddingLeft: num(cs.paddingLeft), textAlign: cs.textAlign, opacity: num(cs.opacity) } }); } var minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity; raw.forEach(function(o){ minX=Math.min(minX,o.rect.left); minY=Math.min(minY,o.rect.top); maxX=Math.max(maxX,o.rect.right); maxY=Math.max(maxY,o.rect.bottom); }); var W = maxX-minX, H = maxY-minY; var name = (document.title||location.pathname||'dev').replace(/[^a-z0-9가-힣]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'dev'; var elements = raw.map(function(o, idx){ return { id: 'dev-'+idx, role: o.tag, cls: o.cls, text: o.text, isText: o.isText, box: { x:r(o.rect.left-minX), y:r(o.rect.top-minY), w:r(o.rect.width), h:r(o.rect.height) }, style: o.style, contentZone: false }; }); return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), capturedAt:new Date().toISOString(), toolVersion:'core-1.0' }, elements: elements }; }; })(); (function(){var res=globalThis.__qaMeasure();var nm=res.meta.label;var blob=new Blob([JSON.stringify(res,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='measure-'+nm+'.json';document.body.appendChild(a);a.click();a.remove();alert('측정 완료: '+res.elements.length+'개 요소\\n파일: measure-'+nm+'.json (다운로드됨)\\n폭 '+res.meta.artboardWidth+'px');})();"/*BM_END*/;
+var BOOKMARKLET = /*BM_START*/"javascript:(function () { if (typeof globalThis.__qaMeasure === 'function') return; globalThis.__qaMeasure = function () { function r(n){ return Math.round(n*10)/10; } function num(v){ var f=parseFloat(v); return isNaN(f)?0:r(f); } function firstFont(v){ return (v||'').split(',')[0].replace(/[\"']/g,'').trim(); } function transparent(c){ return !c || c==='transparent' || c==='rgba(0, 0, 0, 0)'; } var all = document.body.getElementsByTagName('*'); var SKIP = { SCRIPT:1, STYLE:1, META:1, LINK:1, HEAD:1, NOSCRIPT:1, BR:1, HR:1 }; var raw = []; for (var i=0;i<all.length;i++){ var el = all[i]; if (SKIP[el.tagName]) continue; var rect = el.getBoundingClientRect(); if (rect.width < 3 || rect.height < 3) continue; var cs = getComputedStyle(el); if (cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0) continue; var ownText = ''; for (var k=0;k<el.childNodes.length;k++){ var nd=el.childNodes[k]; if(nd.nodeType===3){ ownText += nd.textContent; } } ownText = ownText.replace(/\\s+/g,' ').trim(); var hasBg = !transparent(cs.backgroundColor); var hasBorder = num(cs.borderTopWidth)>0 || num(cs.borderBottomWidth)>0 || num(cs.borderLeftWidth)>0 || num(cs.borderRightWidth)>0; var hasImg = cs.backgroundImage && cs.backgroundImage!=='none'; var formish = /^(IMG|INPUT|BUTTON|SELECT|TEXTAREA|SVG)$/.test(el.tagName); var isText = ownText.length>0 && !hasBg && !hasBorder && !formish; if (!(isText || hasBg || hasBorder || hasImg || formish)) continue; raw.push({ tag: el.tagName, cls: (el.className&&el.className.toString?el.className.toString():'').slice(0,40), text: (el.innerText||'').replace(/\\s+/g,' ').trim().slice(0,50), isText: isText, rect: rect, style: { color: cs.color, backgroundColor: cs.backgroundColor, fontSize: num(cs.fontSize), fontWeight: num(cs.fontWeight), fontFamily: firstFont(cs.fontFamily), lineHeight: 0, borderRadius: num(cs.borderTopLeftRadius), borderWidth: num(cs.borderTopWidth), borderColor: cs.borderTopColor, paddingTop: num(cs.paddingTop), paddingRight: num(cs.paddingRight), paddingBottom: num(cs.paddingBottom), paddingLeft: num(cs.paddingLeft), textAlign: cs.textAlign, opacity: num(cs.opacity) } }); } var minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity; raw.forEach(function(o){ minX=Math.min(minX,o.rect.left); minY=Math.min(minY,o.rect.top); maxX=Math.max(maxX,o.rect.right); maxY=Math.max(maxY,o.rect.bottom); }); var W = maxX-minX, H = maxY-minY; var name = (document.title||location.pathname||'dev').replace(/[^a-z0-9가-힣]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'dev'; var elements = raw.map(function(o, idx){ return { id: 'dev-'+idx, role: o.tag, cls: o.cls, text: o.text, isText: o.isText, box: { x:r(o.rect.left-minX), y:r(o.rect.top-minY), w:r(o.rect.width), h:r(o.rect.height) }, style: o.style, contentZone: false }; }); return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.1' }, elements: elements }; }; })(); (function(){var res=globalThis.__qaMeasure();var nm=res.meta.label;var blob=new Blob([JSON.stringify(res,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='measure-'+nm+'.json';document.body.appendChild(a);a.click();a.remove();alert('측정 완료: '+res.elements.length+'개 요소\\n파일: measure-'+nm+'.json (다운로드됨)\\n폭 '+res.meta.artboardWidth+'px');})();"/*BM_END*/;
 
 /* ================= 대조 규칙 ================= */
 var NUM = { 'box.x':[2,6],'box.y':[2,6],'box.w':[2,6],'box.h':[2,6],
@@ -252,7 +252,7 @@ function runMatcher(design, dev){
 }
 
 /* ================= 상태 & 단계 관리 ================= */
-var design=null, dev=null, M=null, LAST=null;
+var design=null, dev=null, M=null, LAST=null, devImgBytes=null;
 var flags={design:false, dev:false, compared:false};
 function parentPost(m){ parent.postMessage({ pluginMessage:m }, '*'); }
 function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
@@ -327,7 +327,7 @@ function doCompare(){
     var f=M.fig[p.fi], d=M.devEls[p.di];
     var dY=d.box.y-f.box.y, cascadeY=(dY>6) && leftoverD.some(function(x){ return x.box.y < d.box.y; });
     var res=compareRows(f, d, cascadeY, widthMismatch);
-    var item={ id:f.id, box:f.box, name:shortFig(f), isContent:res.isContent, status:res.status, hasCascade:res.hasCascade, rows:res.rows };
+    var item={ id:f.id, box:f.box, devBox:d.box, name:shortFig(f), isContent:res.isContent, status:res.status, hasCascade:res.hasCascade, rows:res.rows };
     if(res.status==='fail') fails.push(item);
     else if(res.status==='warn') warns.push(item);
     else if(res.hasCascade) cascades.push(item);
@@ -440,11 +440,13 @@ function buildFigmaReportClick(){
   var st=document.getElementById('reportStatus');
   if(!design||!design.meta||!design.meta.rootId){ if(st){st.className='status bad'; st.textContent='⚠️ 먼저 1단계(정답 값 읽기)를 해주세요.';} return; }
   if(!LAST){ if(st){st.className='status bad'; st.textContent='⚠️ 먼저 값 대조(4단계)를 해주세요.';} return; }
-  if(st){ st.className='status'; st.textContent='Figma에 결과서 그리는 중…'; }
+  if(st){ st.className='status'; st.textContent=devImgBytes?'개발화면 위에 빨간 표시 그리는 중…':'정답 위에 표시 그리는 중… (개발화면 이미지를 넣으면 개발화면 위에 표시됩니다)'; }
   var issues=[], no=0;
-  LAST.fails.forEach(function(e){ no++; issues.push({id:e.id, box:e.box, no:no, name:e.name, summary:summarizeRows(e.rows)}); });
-  LAST.missingF.forEach(function(f){ no++; issues.push({id:f.id, box:f.box, no:no, name:shortFig(f), summary:'개발에서 못 찾음'}); });
-  parentPost({ type:'build-figma-report', rootId:design.meta.rootId, issues:issues });
+  LAST.fails.forEach(function(e){ no++; issues.push({id:e.id, box:e.box, devBox:e.devBox, no:no, name:e.name, summary:summarizeRows(e.rows)}); });
+  LAST.addedSuspect.forEach(function(d){ no++; issues.push({devBox:d.box, no:no, name:shortDev(d), summary:'디자인에 없는 요소가 개발에 있어요'}); });
+  LAST.missingF.forEach(function(f){ no++; issues.push({id:f.id, box:f.box, no:no, name:shortFig(f), summary:'개발에서 못 찾음(정답 위에 표시)'}); });
+  var devImage = devImgBytes ? { bytes:devImgBytes, contentX:(dev&&dev.meta&&dev.meta.contentX)||0, contentY:(dev&&dev.meta&&dev.meta.contentY)||0, docW:(dev&&dev.meta&&dev.meta.docW)||0, label:(dev&&dev.meta&&dev.meta.label)||'' } : null;
+  parentPost({ type:'build-figma-report', rootId:design.meta.rootId, issues:issues, devImage:devImage });
 }
 
 /* ================= 준비되면 짝맞춤 ================= */
@@ -489,10 +491,14 @@ dropImg.ondragleave=function(){ dropImg.className='drop'; };
 dropImg.ondrop=function(e){ e.preventDefault(); dropImg.className='drop'; if(e.dataTransfer.files[0]) placeImg(e.dataTransfer.files[0]); };
 function placeImg(file){
   var st=document.getElementById('imgStatus');
-  if(!design || !design.meta || !design.meta.rootId){ st.className='status bad'; st.textContent='먼저 1단계(정답 값 읽기)를 해주세요.'; return; }
-  st.className='status'; st.textContent='이미지 놓는 중…';
+  st.className='status'; st.textContent='개발화면 불러오는 중…';
   var rd=new FileReader();
-  rd.onload=function(){ parentPost({ type:'place-dev-image', bytes:new Uint8Array(rd.result), anchorId:design.meta.rootId, label:(dev&&dev.meta&&dev.meta.label)||'' }); };
+  rd.onload=function(){
+    devImgBytes=new Uint8Array(rd.result);
+    st.className='status ok';
+    st.textContent='✅ 개발화면을 불러왔어요. 4단계 결과에서 "🎨 Figma 결과서"를 누르면 이 개발화면 위에 빨간 표시가 그려져요.';
+    var s=document.querySelector('.step[data-step=image]'); if(s) s.classList.add('done');
+  };
   rd.readAsArrayBuffer(file);
 }
 
@@ -510,7 +516,7 @@ onmessage=function(event){
   }
   if(msg.type==='figma-report-built'){
     var st=document.getElementById('reportStatus'); if(st){
-      if(msg.ok){ st.className='status ok'; st.textContent='✅ Figma에 검수결과서를 그렸어요 (빨간 핀 '+(msg.info&&msg.info.count)+'개 + 이슈 목록). 캔버스를 확인하세요.'; }
+      if(msg.ok){ var onDev=msg.info&&msg.info.onDev; st.className='status ok'; st.textContent='✅ 검수결과서를 그렸어요 — '+(onDev?'개발화면 위에':'정답 위에')+' 빨간 표시 '+(msg.info&&msg.info.count)+'개 + 이슈 목록.'+(onDev?'':' (개발화면 이미지를 넣고 다시 누르면 개발화면 위에 표시돼요)'); }
       else { st.className='status bad'; st.textContent='⚠️ '+msg.error; }
     }
     return;

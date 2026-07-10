@@ -61,7 +61,7 @@
         style: o.style, contentZone: false
       };
     });
-    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), capturedAt:new Date().toISOString(), toolVersion:'core-1.0' }, elements: elements };
+    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.1' }, elements: elements };
   };
 })();
 
