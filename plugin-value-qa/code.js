@@ -149,10 +149,15 @@ async function placeDevImage(anchorId, bytes, label) {
   f.x = anchor.x + anchor.width + 160;
   f.y = anchor.y;
   if (anchor.parent) anchor.parent.appendChild(f); else figma.currentPage.appendChild(f);
-  // 라벨
-  var cap = figma.createText();
-  cap.fontName = { family: 'Inter', style: 'Regular' };
-  try { await figma.loadFontAsync({ family: 'Inter', style: 'Regular' }); cap.characters = '🖥 개발화면 (캡처)'; cap.fontSize = 28; cap.x = f.x; cap.y = f.y - 44; if (anchor.parent) anchor.parent.appendChild(cap); } catch (e) { cap.remove(); }
+  // 라벨 — 폰트를 '먼저 로드'한 뒤 fontName 설정(안 그러면 set_fontName: unloaded font 에러). 한글 되는 폰트 폴백 사용.
+  try {
+    var capFont = await ensureReportFont();
+    var cap = figma.createText();
+    cap.fontName = capFont;
+    cap.characters = '🖥 개발화면 (캡처)'; cap.fontSize = 28;
+    cap.x = f.x; cap.y = f.y - 44;
+    if (anchor.parent) anchor.parent.appendChild(cap); else figma.currentPage.appendChild(cap);
+  } catch (e) { /* 캡션 실패는 무시(배치는 성공) */ }
   figma.currentPage.selection = [f];
   figma.viewport.scrollAndZoomIntoView([anchor, f]);
   return { id: f.id, w: frameW, h: frameH };
