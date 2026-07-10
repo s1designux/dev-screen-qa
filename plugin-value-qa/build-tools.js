@@ -1,8 +1,12 @@
-// setup.html(드래그 설정 페이지) 생성 + ui.html에 북마클릿 주입
+// 단일 원본(collect.js) → 북마클릿 생성 + setup.html 생성 + ui.html 주입
 const fs = require('fs');
 const path = require('path');
 const DIR = '/Users/designgroup_02/dev-screen-qa/plugin-value-qa';
-const bm = fs.readFileSync(path.join(DIR,'collect-bookmarklet.txt'),'utf8').trim();
+
+// collect.js 를 북마클릿으로 변환 (주석 제거 → 1줄화 → javascript: 래핑). collect.js가 유일 원본이라 표류 없음.
+const collect = fs.readFileSync(path.join(DIR,'collect.js'),'utf8');
+const bm = 'javascript:' + collect.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'').replace(/\s+/g,' ').trim();
+fs.writeFileSync(path.join(DIR,'collect-bookmarklet.txt'), bm);
 
 function htmlAttr(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
 
@@ -33,9 +37,11 @@ const setup = `<!DOCTYPE html>
 </body></html>`;
 fs.writeFileSync(path.join(DIR,'setup.html'), setup);
 
-// ui.html 에 북마클릿 JS 문자열 주입
+// ui.html 에 북마클릿 주입 — 구분 마커 사이를 교체(idempotent). 선언을 못 찾으면 에러(가드).
 let ui = fs.readFileSync(path.join(DIR,'ui.html'),'utf8');
-ui = ui.replace(/var BOOKMARKLET *= *"__BM_JS__";/, 'var BOOKMARKLET = ' + JSON.stringify(bm) + ';');
+const re = /var BOOKMARKLET = (?:\/\*BM_START\*\/[\s\S]*?\/\*BM_END\*\/|"(?:[^"\\]|\\.)*");/;
+if (!re.test(ui)) throw new Error('ui.html에서 `var BOOKMARKLET = ...;` 선언을 못 찾았어요. 주입 실패(가드).');
+ui = ui.replace(re, 'var BOOKMARKLET = /*BM_START*/' + JSON.stringify(bm) + '/*BM_END*/;');
 fs.writeFileSync(path.join(DIR,'ui.html'), ui);
 
-console.log('setup.html 생성됨 · ui.html에 북마클릿 주입 (' + bm.length + '자)');
+console.log('생성: collect-bookmarklet.txt(' + bm.length + '자) · setup.html · ui.html 주입 완료');

@@ -53,6 +53,7 @@
   var minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   raw.forEach(function(o){ minX=Math.min(minX,o.rect.left); minY=Math.min(minY,o.rect.top); maxX=Math.max(maxX,o.rect.right); maxY=Math.max(maxY,o.rect.bottom); });
   var W = maxX-minX, H = maxY-minY;
+  var name = (document.title||location.pathname||'dev').replace(/[^a-z0-9가-힣]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'dev';
 
   var elements = raw.map(function(o, idx){
     return {
@@ -61,13 +62,12 @@
       style: o.style, contentZone: false
     };
   });
-  var result = { meta:{ label:'dev', source:'web-all', url:location.href, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), capturedAt:new Date().toISOString(), toolVersion:'all-2.0' }, elements: elements };
+  var result = { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), capturedAt:new Date().toISOString(), toolVersion:'all-2.0' }, elements: elements };
 
-  var json = JSON.stringify(result, null, 2);
-  var blob = new Blob([json], { type:'application/json' });
+  var blob = new Blob([JSON.stringify(result, null, 2)], { type:'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'measure-dev.json';
+  a.download = 'measure-'+name+'.json';
   document.body.appendChild(a); a.click(); a.remove();
-  console.log('%c✅ 측정 완료: '+elements.length+'개 요소 → measure-dev.json 다운로드됨 (폭 '+r(W)+'px)', 'color:#16A34A;font-weight:bold;');
+  alert('측정 완료: '+elements.length+'개 요소\n파일: measure-'+name+'.json (다운로드됨)\n폭 '+r(W)+'px');
 })();
