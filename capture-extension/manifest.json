@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "화면 측정 + 캡처 (개발화면 검수)",
+  "version": "1.0",
+  "description": "클릭 한 번에 화면 값(JSON) + 픽셀-정확 전체화면(PNG)을 받습니다. 개발화면 검수용.",
+  "permissions": ["activeTab", "scripting", "debugger", "downloads"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "📐 화면 측정 + 캡처 (클릭)" }
+}

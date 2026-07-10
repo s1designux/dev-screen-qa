@@ -1,4 +1,3 @@
-/* 생성 파일 — 직접 고치지 말고 collect-core.js 를 수정하세요 (build-tools.js가 생성) */
 /* =====================================================================
    측정 코어 (단일 원본) — 태그 없이 화면의 '의미있는' 요소를 잼.
    globalThis.__qaMeasure() → 측정 결과 객체 반환 (다운로드는 안 함).
@@ -64,5 +63,3 @@
     return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), capturedAt:new Date().toISOString(), toolVersion:'core-1.0' }, elements: elements };
   };
 })();
-
-(function(){var res=globalThis.__qaMeasure();var nm=res.meta.label;var blob=new Blob([JSON.stringify(res,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='measure-'+nm+'.json';document.body.appendChild(a);a.click();a.remove();alert('측정 완료: '+res.elements.length+'개 요소\n파일: measure-'+nm+'.json (다운로드됨)\n폭 '+res.meta.artboardWidth+'px');})();

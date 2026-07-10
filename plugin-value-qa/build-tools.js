@@ -1,15 +1,29 @@
-// 단일 원본(collect.js) → 북마클릿 생성 + setup.html 생성 + ui.html 주입
+// 단일 원본(collect-core.js) → collect.js(콘솔) + 북마클릿 + ui.html 주입 + setup.html + 확장앱 코어
+// collect-core.js 만 고치면 나머지는 여기서 다 파생됨. (직접 collect.js/북마클릿 수정 금지)
 const fs = require('fs');
 const path = require('path');
 const DIR = '/Users/designgroup_02/dev-screen-qa/plugin-value-qa';
+const EXT = '/Users/designgroup_02/dev-screen-qa/capture-extension';
 
-// collect.js 를 북마클릿으로 변환 (주석 제거 → 1줄화 → javascript: 래핑). collect.js가 유일 원본이라 표류 없음.
-const collect = fs.readFileSync(path.join(DIR,'collect.js'),'utf8');
-const bm = 'javascript:' + collect.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'').replace(/\s+/g,' ').trim();
-fs.writeFileSync(path.join(DIR,'collect-bookmarklet.txt'), bm);
+const core = fs.readFileSync(path.join(DIR, 'collect-core.js'), 'utf8');
 
+// 값 수집 결과를 파일로 다운로드하는 래퍼(콘솔·북마클릿 공용). 코어의 __qaMeasure를 호출.
+const downloadWrapper = "(function(){var res=globalThis.__qaMeasure();var nm=res.meta.label;var blob=new Blob([JSON.stringify(res,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='measure-'+nm+'.json';document.body.appendChild(a);a.click();a.remove();alert('측정 완료: '+res.elements.length+'개 요소\\n파일: measure-'+nm+'.json (다운로드됨)\\n폭 '+res.meta.artboardWidth+'px');})();";
+
+// 1) collect.js (콘솔 붙여넣기용) — 코어 + 다운로드 래퍼
+const collectJs = "/* 생성 파일 — 직접 고치지 말고 collect-core.js 를 수정하세요 (build-tools.js가 생성) */\n" + core + "\n" + downloadWrapper + "\n";
+fs.writeFileSync(path.join(DIR, 'collect.js'), collectJs);
+
+// 2) 북마클릿 — (코어 + 래퍼) 주석제거·1줄화 → javascript:
+function minify(src){ return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s+/g, ' ').trim(); }
+const bm = 'javascript:' + minify(core + downloadWrapper);
+fs.writeFileSync(path.join(DIR, 'collect-bookmarklet.txt'), bm);
+
+// 3) 확장앱이 주입할 코어를 동기화 복사
+try { fs.writeFileSync(path.join(EXT, 'collect-core.js'), core); } catch (e) { /* 확장앱 폴더 없으면 스킵 */ }
+
+// 4) setup.html (드래그 설정 페이지)
 function htmlAttr(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
-
 const setup = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>화면 측정 북마크 설정</title>
@@ -31,17 +45,17 @@ const setup = `<!DOCTYPE html>
  <ol>
    <li><span class="step-n">1.</span> 북마크바가 안 보이면 <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>B</kbd> 로 켜기</li>
    <li><span class="step-n">2.</span> 위 <b>📐 화면 측정</b> 버튼을 북마크바로 드래그</li>
-   <li><span class="step-n">3.</span> 끝! 이제 검사할 화면에서 그 북마크를 클릭하면 측정 파일이 다운로드돼요</li>
+   <li><span class="step-n">3.</span> 끝! 검사할 화면에서 그 북마크를 클릭하면 측정 파일이 다운로드돼요</li>
  </ol>
- <div class="note">⚠️ 회사 사이트가 보안정책으로 이 북마크를 막으면, <b>collect.js</b> 내용을 개발자도구 콘솔에 붙여넣는 방식으로 대신하면 됩니다(같은 결과).</div>
+ <div class="note">⚠️ 값 <b>+ 픽셀 정확 화면 캡처</b>까지 자동으로 받으려면 <b>capture-extension</b> 확장앱을 쓰세요(README 참고). 북마크는 값만 받아요.</div>
 </body></html>`;
-fs.writeFileSync(path.join(DIR,'setup.html'), setup);
+fs.writeFileSync(path.join(DIR, 'setup.html'), setup);
 
-// ui.html 에 북마클릿 주입 — 구분 마커 사이를 교체(idempotent). 선언을 못 찾으면 에러(가드).
-let ui = fs.readFileSync(path.join(DIR,'ui.html'),'utf8');
+// 5) ui.html 에 북마클릿 주입 (구분 마커 idempotent + 가드)
+let ui = fs.readFileSync(path.join(DIR, 'ui.html'), 'utf8');
 const re = /var BOOKMARKLET = (?:\/\*BM_START\*\/[\s\S]*?\/\*BM_END\*\/|"(?:[^"\\]|\\.)*");/;
 if (!re.test(ui)) throw new Error('ui.html에서 `var BOOKMARKLET = ...;` 선언을 못 찾았어요. 주입 실패(가드).');
 ui = ui.replace(re, 'var BOOKMARKLET = /*BM_START*/' + JSON.stringify(bm) + '/*BM_END*/;');
-fs.writeFileSync(path.join(DIR,'ui.html'), ui);
+fs.writeFileSync(path.join(DIR, 'ui.html'), ui);
 
-console.log('생성: collect-bookmarklet.txt(' + bm.length + '자) · setup.html · ui.html 주입 완료');
+console.log('생성: collect.js · collect-bookmarklet.txt(' + bm.length + '자) · setup.html · ui.html 주입 · 확장앱 코어 동기화 (원본=collect-core.js)');
