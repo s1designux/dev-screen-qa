@@ -180,9 +180,11 @@ async function buildFigmaReport(rootId, issues) {
   var pins = [];
   for (var i = 0; i < issues.length; i++) {
     var iss = issues[i];
-    var node = iss.id ? await figma.getNodeByIdAsync(iss.id) : null;
-    if (!node || !node.absoluteBoundingBox) continue;
-    var bb = node.absoluteBoundingBox;
+    // 좌표 기반(정답 절대위치 + 요소 상대box) — 인스턴스 내부 요소도 항상 그려짐. id는 폴백.
+    var bb = null;
+    if (iss.box) { bb = { x: rb.x + iss.box.x, y: rb.y + iss.box.y, width: iss.box.w, height: iss.box.h }; }
+    else if (iss.id) { var node = await figma.getNodeByIdAsync(iss.id); if (node && node.absoluteBoundingBox) bb = node.absoluteBoundingBox; }
+    if (!bb) continue;
     var box = figma.createRectangle();
     box.x = bb.x; box.y = bb.y; box.resize(Math.max(6, bb.width), Math.max(6, bb.height));
     box.fills = [{ type: 'SOLID', color: RED, opacity: 0.06 }];
