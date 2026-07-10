@@ -327,7 +327,7 @@ function doCompare(){
     var f=M.fig[p.fi], d=M.devEls[p.di];
     var dY=d.box.y-f.box.y, cascadeY=(dY>6) && leftoverD.some(function(x){ return x.box.y < d.box.y; });
     var res=compareRows(f, d, cascadeY, widthMismatch);
-    var item={ name:shortFig(f), isContent:res.isContent, status:res.status, hasCascade:res.hasCascade, rows:res.rows };
+    var item={ id:f.id, name:shortFig(f), isContent:res.isContent, status:res.status, hasCascade:res.hasCascade, rows:res.rows };
     if(res.status==='fail') fails.push(item);
     else if(res.status==='warn') warns.push(item);
     else if(res.hasCascade) cascades.push(item);
@@ -419,7 +419,10 @@ function renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect){
     '<div class="chip warn"><div class="n">'+warns.length+'</div><div class="t">주의</div></div>'+
     '<div class="chip pass"><div class="n">'+cleanN+'</div><div class="t">일치</div></div></div>';
   html+='<div class="verdict">✅ 실제 문제 '+(fails.length+structN)+'곳 검출'+(cascades.length?(' · 밀림 여파 '+cascades.length+'곳은 원인 밑으로 묶음'):'')+'.</div>';
-  html+='<button class="btn" id="exportHtmlBtn" style="width:100%;margin-bottom:12px">📄 HTML 검수결과서 내보내기 (공유·인쇄용)</button>';
+  html+='<div class="row2" style="margin-bottom:12px">'+
+    '<button class="btn" id="figmaReportBtn" style="flex:1">🎨 Figma 결과서 (빨간 핀)</button>'+
+    '<button class="btn ghost" id="exportHtmlBtn" style="flex:1">📄 HTML 결과서</button></div>'+
+    '<div class="status" id="reportStatus" style="margin-top:-6px;margin-bottom:8px"></div>';
   if(structN){
     html+='<div class="sec-title">🧩 구조 차이 <span class="cnt">'+structN+'</span></div>';
     addedSuspect.forEach(function(d){ html+='<div class="el struct"><div class="el-head"><div class="name">'+esc(shortDev(d))+'</div><span class="badge struct">추가?</span></div><div class="note"><b>디자인에 없는 요소가 개발에 있어요</b></div></div>'; });
@@ -430,6 +433,16 @@ function renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect){
   html+='<div class="sec-title">✅ 완전 일치 <span class="cnt">'+cleanN+'</span></div><div class="collapsed">문제 없는 요소 '+cleanN+'개는 접어뒀어요.</div>';
   out.innerHTML=html;
   var eb=document.getElementById('exportHtmlBtn'); if(eb) eb.onclick=exportResultDoc;
+  var fb=document.getElementById('figmaReportBtn'); if(fb) fb.onclick=buildFigmaReportClick;
+}
+function summarizeRows(rows){ var b=rows.filter(function(r){return r.j!=='pass'&&!r.cascade&&!r.deferred;}).map(function(r){return r.label;}); return b.slice(0,4).join(', '); }
+function buildFigmaReportClick(){
+  if(!LAST||!design||!design.meta||!design.meta.rootId){ return; }
+  var st=document.getElementById('reportStatus'); st.className='status'; st.textContent='Figma에 결과서 그리는 중…';
+  var issues=[], no=0;
+  LAST.fails.forEach(function(e){ no++; issues.push({id:e.id, no:no, name:e.name, summary:summarizeRows(e.rows)}); });
+  LAST.missingF.forEach(function(f){ no++; issues.push({id:f.id, no:no, name:shortFig(f), summary:'개발에서 못 찾음'}); });
+  parentPost({ type:'build-figma-report', rootId:design.meta.rootId, issues:issues });
 }
 
 /* ================= 준비되면 짝맞춤 ================= */
@@ -491,6 +504,13 @@ onmessage=function(event){
     var st=document.getElementById('imgStatus');
     if(msg.ok){ st.className='status ok'; st.textContent='✅ 정답 오른쪽에 개발화면을 놓았어요.'; document.querySelector('.step[data-step=image]').classList.add('done'); }
     else { st.className='status bad'; st.textContent='⚠️ '+msg.error; }
+    return;
+  }
+  if(msg.type==='figma-report-built'){
+    var st=document.getElementById('reportStatus'); if(st){
+      if(msg.ok){ st.className='status ok'; st.textContent='✅ Figma에 검수결과서를 그렸어요 (빨간 핀 '+(msg.info&&msg.info.count)+'개 + 이슈 목록). 캔버스를 확인하세요.'; }
+      else { st.className='status bad'; st.textContent='⚠️ '+msg.error; }
+    }
     return;
   }
   if(msg.type==='selection'){

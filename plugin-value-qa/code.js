@@ -158,6 +158,75 @@ async function placeDevImage(anchorId, bytes, label) {
   return { id: f.id, w: frameW, h: frameH };
 }
 
+// ---- Figma 검수결과서: 정답 위 불일치에 빨간 핀 + 번호, 옆에 이슈 목록 ----
+var reportFont = null;
+async function ensureReportFont() {
+  if (reportFont) return reportFont;
+  var cands = [{ family: 'Pretendard', style: 'Regular' }, { family: 'Noto Sans KR', style: 'Regular' }, { family: 'Apple SD Gothic Neo', style: 'Regular' }, { family: 'Malgun Gothic', style: 'Regular' }, { family: 'Inter', style: 'Regular' }];
+  for (var i = 0; i < cands.length; i++) { try { await figma.loadFontAsync(cands[i]); reportFont = cands[i]; return reportFont; } catch (e) {} }
+  reportFont = { family: 'Inter', style: 'Regular' }; return reportFont;
+}
+async function buildFigmaReport(rootId, issues) {
+  var root = await figma.getNodeByIdAsync(rootId);
+  if (!root || !root.absoluteBoundingBox) throw new Error('정답 프레임을 찾을 수 없어요. 먼저 정답을 읽고 대조해 주세요.');
+  var font = await ensureReportFont();
+  var rb = root.absoluteBoundingBox;
+  var RED = { r: 0.86, g: 0.15, b: 0.15 };
+  var pins = [];
+  for (var i = 0; i < issues.length; i++) {
+    var iss = issues[i];
+    var node = iss.id ? await figma.getNodeByIdAsync(iss.id) : null;
+    if (!node || !node.absoluteBoundingBox) continue;
+    var bb = node.absoluteBoundingBox;
+    var box = figma.createRectangle();
+    box.x = bb.x; box.y = bb.y; box.resize(Math.max(6, bb.width), Math.max(6, bb.height));
+    box.fills = [{ type: 'SOLID', color: RED, opacity: 0.06 }];
+    box.strokes = [{ type: 'SOLID', color: RED }]; box.strokeWeight = 2; box.cornerRadius = 4;
+    box.name = '검수 ' + iss.no;
+    figma.currentPage.appendChild(box); pins.push(box);
+    var badge = figma.createEllipse();
+    badge.resize(24, 24); badge.x = bb.x - 10; badge.y = bb.y - 10;
+    badge.fills = [{ type: 'SOLID', color: RED }];
+    figma.currentPage.appendChild(badge); pins.push(badge);
+    var t = figma.createText(); t.fontName = font; t.characters = String(iss.no); t.fontSize = 13;
+    t.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+    t.resize(24, 24); t.textAlignHorizontal = 'CENTER'; t.textAlignVertical = 'CENTER'; t.x = bb.x - 10; t.y = bb.y - 10;
+    figma.currentPage.appendChild(t); pins.push(t);
+  }
+  var pinGroup = pins.length ? figma.group(pins, figma.currentPage) : null;
+  if (pinGroup) pinGroup.name = '🔴 검수 핀 (' + issues.length + ')';
+
+  var list = figma.createFrame();
+  list.name = '📋 개발화면 검수결과';
+  list.layoutMode = 'VERTICAL'; list.itemSpacing = 10;
+  list.paddingTop = 24; list.paddingBottom = 24; list.paddingLeft = 24; list.paddingRight = 24;
+  list.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+  list.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.92 } }]; list.strokeWeight = 1; list.cornerRadius = 10;
+  figma.currentPage.appendChild(list);
+  list.resize(560, 100);
+  list.primaryAxisSizingMode = 'AUTO'; list.counterAxisSizingMode = 'FIXED';
+  list.x = rb.x + rb.width + 160; list.y = rb.y;
+
+  var title = figma.createText(); title.fontName = font; title.characters = '개발화면 검수결과 · ' + issues.length + '건';
+  title.fontSize = 20; title.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.11, b: 0.13 } }];
+  list.appendChild(title); title.layoutSizingHorizontal = 'FILL';
+  for (var j = 0; j < issues.length; j++) {
+    var row = figma.createText(); row.fontName = font;
+    var s = issues[j].no + '.  ' + issues[j].name + (issues[j].summary ? ('   —   ' + issues[j].summary) : '');
+    row.characters = s; row.fontSize = 14; row.fills = [{ type: 'SOLID', color: { r: 0.23, g: 0.25, b: 0.28 } }];
+    list.appendChild(row); row.layoutSizingHorizontal = 'FILL';
+  }
+  if (!issues.length) {
+    var none = figma.createText(); none.fontName = font; none.characters = '고쳐야 할 것이 없습니다 🎉'; none.fontSize = 14;
+    none.fills = [{ type: 'SOLID', color: { r: 0.09, g: 0.64, b: 0.29 } }];
+    list.appendChild(none); none.layoutSizingHorizontal = 'FILL';
+  }
+  var out = [list.id]; if (pinGroup) out.push(pinGroup.id);
+  figma.currentPage.selection = pinGroup ? [pinGroup] : [list];
+  figma.viewport.scrollAndZoomIntoView([root, list]);
+  return { created: out, count: issues.length };
+}
+
 function postSelection() {
   var sel = figma.currentPage.selection;
   if (!sel || sel.length === 0) { figma.ui.postMessage({ type: 'selection', node: null }); return; }
@@ -185,6 +254,14 @@ figma.ui.onmessage = async function (msg) {
         figma.ui.postMessage({ type: 'dev-image-placed', ok: true, info: res });
       } catch (e) {
         figma.ui.postMessage({ type: 'dev-image-placed', ok: false, error: String(e && e.message ? e.message : e) });
+      }
+    }
+    else if (msg.type === 'build-figma-report') {
+      try {
+        var rep = await buildFigmaReport(msg.rootId, msg.issues || []);
+        figma.ui.postMessage({ type: 'figma-report-built', ok: true, info: rep });
+      } catch (e) {
+        figma.ui.postMessage({ type: 'figma-report-built', ok: false, error: String(e && e.message ? e.message : e) });
       }
     }
     else if (msg.type === 'go-to-node') {
