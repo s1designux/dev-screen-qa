@@ -252,7 +252,7 @@ function runMatcher(design, dev){
 }
 
 /* ================= 상태 & 단계 관리 ================= */
-var design=null, dev=null, M=null;
+var design=null, dev=null, M=null, LAST=null;
 var flags={design:false, dev:false, compared:false};
 function parentPost(m){ parent.postMessage({ pluginMessage:m }, '*'); }
 function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
@@ -334,7 +334,61 @@ function doCompare(){
     else cleanN++;
   });
   flags.compared=true; refreshSteps();
+  LAST={fails:fails, warns:warns, cascades:cascades, cleanN:cleanN, missingF:missingF, addedSuspect:addedSuspect};
   renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect);
+}
+
+/* ================= HTML 검수결과서 내보내기 ================= */
+function esc2(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function nowStr(){ try{ return new Date().toLocaleDateString('ko-KR')+' '+new Date().toLocaleTimeString('ko-KR'); }catch(e){ return ''; } }
+function docCell(row,val){ if(row.color){ return '<span style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #0002;vertical-align:middle;margin-right:5px;background:'+esc2(val)+'"></span>'+esc2(val); } return esc2(val)+(row.unit&&typeof val==='number'?row.unit:''); }
+function docRows(rows){
+  var trs='';
+  rows.forEach(function(r){
+    if(r.j==='pass') return; if(r.cascade||r.deferred) return; // 결과서엔 실제 판정만(참고·여파 제외)
+    trs+='<tr><td class="k">'+esc2(r.label)+'</td><td>'+docCell(r,r.a)+'</td><td class="dv">'+docCell(r,r.b)+'</td></tr>';
+  });
+  return trs?('<table><thead><tr><th>항목</th><th>정답(디자인)</th><th>개발(실제)</th></tr></thead><tbody>'+trs+'</tbody></table>'):'';
+}
+function resultDocHTML(){
+  if(!LAST||!design) return '';
+  var frame=(design.meta&&design.meta.frameName)||'화면';
+  var probCount=LAST.fails.length+LAST.missingF.length+LAST.addedSuspect.length;
+  var css="body{font-family:-apple-system,'Malgun Gothic',system-ui,sans-serif;color:#1f2937;background:#fff;margin:0;padding:32px;line-height:1.5}"+
+    ".doc{max-width:900px;margin:0 auto}h1{font-size:24px;margin:0 0 4px}.meta{color:#6b7280;font-size:13px;margin-bottom:20px;border-bottom:2px solid #111;padding-bottom:12px}"+
+    ".sum{display:flex;gap:10px;margin:16px 0 24px;flex-wrap:wrap}.chip{border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;min-width:80px;text-align:center}.chip .n{font-size:24px;font-weight:800}.chip .t{font-size:11px;color:#6b7280}"+
+    "h2{font-size:16px;margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb}"+
+    ".iss{border:1px solid #e5e7eb;border-left:4px solid #dc2626;border-radius:8px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid}"+
+    ".iss.struct{border-left-color:#d97706}.iss.warn{border-left-color:#d97706}"+
+    ".ih{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fafafa}.ih .no{background:#dc2626;color:#fff;width:22px;height:22px;border-radius:999px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none}"+
+    ".ih.struct .no{background:#d97706}.ih .nm{font-weight:700;font-family:ui-monospace,monospace;font-size:13px;flex:1;word-break:break-all}.ih .st{font-size:11px;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;padding:2px 10px}"+
+    "table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 14px;border-top:1px solid #eee}th{color:#6b7280;font-weight:600;background:#fcfcfc;font-size:12px}td.k{color:#6b7280;width:130px}td.dv{background:#fef2f2}"+
+    ".note{padding:10px 14px;font-size:13px;color:#92400e}.foot{margin-top:28px;color:#9ca3af;font-size:11px;text-align:center}@media print{body{padding:0}}";
+  var h='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>개발화면 검수결과서 · '+esc2(frame)+'</title><style>'+css+'</style></head><body><div class="doc">';
+  h+='<h1>개발화면 검수결과서</h1>';
+  h+='<div class="meta">화면: <b>'+esc2(frame)+'</b> · 정답 '+(design.meta.artboardWidth||'')+'px ↔ 개발 '+((dev.meta&&dev.meta.artboardWidth)||'')+'px · 생성 '+esc2(nowStr())+'</div>';
+  h+='<div class="sum">'+
+     '<div class="chip"><div class="n" style="color:#dc2626">'+probCount+'</div><div class="t">고쳐야 할 것</div></div>'+
+     '<div class="chip"><div class="n" style="color:#d97706">'+LAST.warns.length+'</div><div class="t">참고(미세)</div></div>'+
+     '<div class="chip"><div class="n" style="color:#16a34a">'+LAST.cleanN+'</div><div class="t">일치</div></div></div>';
+  // 고쳐야 할 것: 구조차이 + 실제 문제
+  var no=0;
+  h+='<h2>🔴 고쳐야 할 것 ('+probCount+')</h2>';
+  LAST.addedSuspect.forEach(function(d){ no++; h+='<div class="iss struct"><div class="ih struct"><span class="no">'+no+'</span><span class="nm">'+esc2(shortDev(d))+'</span><span class="st">열림</span></div><div class="note">디자인에 없는 요소가 개발에 있어요</div></div>'; });
+  LAST.missingF.forEach(function(f){ no++; h+='<div class="iss struct"><div class="ih struct"><span class="no">'+no+'</span><span class="nm">'+esc2(shortFig(f))+'</span><span class="st">열림</span></div><div class="note">정답에 있는데 개발에서 못 찾았어요</div></div>'; });
+  LAST.fails.forEach(function(e){ no++; h+='<div class="iss"><div class="ih"><span class="no">'+no+'</span><span class="nm">'+esc2(e.name)+'</span><span class="st">열림</span></div>'+docRows(e.rows)+'</div>'; });
+  if(!no) h+='<div class="note" style="color:#16a34a">고쳐야 할 것이 없습니다 🎉</div>';
+  if(LAST.warns.length){ h+='<h2>🟡 참고 (미세 차이)</h2>'; LAST.warns.forEach(function(e){ h+='<div class="iss warn"><div class="ih struct"><span class="no" style="background:#d97706">·</span><span class="nm">'+esc2(e.name)+'</span></div>'+docRows(e.rows)+'</div>'; }); }
+  h+='<div class="foot">개발화면 검수 · 값 대조 결과서 — 위치·레이아웃은 시각 검수(디자인↔개발 나란히)로 별도 확인</div>';
+  h+='</div></body></html>';
+  return h;
+}
+function exportResultDoc(){
+  var html=resultDocHTML(); if(!html) return;
+  var name=(design.meta&&design.meta.frameName?design.meta.frameName:'검수결과서').replace(/[^a-z0-9가-힣]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,40);
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='검수결과서-'+name+'.html';
+  document.body.appendChild(a); a.click(); a.remove();
 }
 function cell(row,val){ if(row.color){ return '<span class="swatch" style="background:'+esc(val)+'"></span>'+esc(val); } return esc(val)+(row.unit&&typeof val==='number'?row.unit:''); }
 function rowsTable(rows){
@@ -365,6 +419,7 @@ function renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect){
     '<div class="chip warn"><div class="n">'+warns.length+'</div><div class="t">주의</div></div>'+
     '<div class="chip pass"><div class="n">'+cleanN+'</div><div class="t">일치</div></div></div>';
   html+='<div class="verdict">✅ 실제 문제 '+(fails.length+structN)+'곳 검출'+(cascades.length?(' · 밀림 여파 '+cascades.length+'곳은 원인 밑으로 묶음'):'')+'.</div>';
+  html+='<button class="btn" id="exportHtmlBtn" style="width:100%;margin-bottom:12px">📄 HTML 검수결과서 내보내기 (공유·인쇄용)</button>';
   if(structN){
     html+='<div class="sec-title">🧩 구조 차이 <span class="cnt">'+structN+'</span></div>';
     addedSuspect.forEach(function(d){ html+='<div class="el struct"><div class="el-head"><div class="name">'+esc(shortDev(d))+'</div><span class="badge struct">추가?</span></div><div class="note"><b>디자인에 없는 요소가 개발에 있어요</b></div></div>'; });
@@ -374,6 +429,7 @@ function renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect){
   if(warns.length){ html+='<div class="sec-title">🟡 주의 (미세) <span class="cnt">'+warns.length+'</span></div>'; warns.forEach(function(e){ html+=elCard(e,'warn'); }); }
   html+='<div class="sec-title">✅ 완전 일치 <span class="cnt">'+cleanN+'</span></div><div class="collapsed">문제 없는 요소 '+cleanN+'개는 접어뒀어요.</div>';
   out.innerHTML=html;
+  var eb=document.getElementById('exportHtmlBtn'); if(eb) eb.onclick=exportResultDoc;
 }
 
 /* ================= 준비되면 짝맞춤 ================= */
