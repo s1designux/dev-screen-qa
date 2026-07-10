@@ -178,14 +178,16 @@ function radiusRow(d, v){
   if(dRound!==vRound) return {k:'borderRadius',label:LABEL.borderRadius,a:dRound?'완전 둥금':dR,b:vRound?'완전 둥금':vR,unit:'px',j:'fail'};
   return {k:'borderRadius',label:LABEL.borderRadius,a:dR,b:vR,unit:'px',j:jn('borderRadius',dR,vR)};
 }
-function compareRows(d, v, cascadeY){
+function compareRows(d, v, cascadeY, widthMismatch){
   var isText=d.isText||v.isText, isContent=d.contentZone||v.contentZone;
   var rows=[];
   var posKeys = isText? ['box.x','box.y'] : ['box.x','box.y','box.w','box.h'];
   posKeys.forEach(function(k){
     var a=getp(d,k), b=getp(v,k); if(a==null||b==null) return;
-    var j=jn(k,a,b); var cascade=(k==='box.y' && cascadeY && j!=='pass');
-    rows.push({k:k,label:LABEL[k],a:a,b:b,unit:'px',j:j,cascade:cascade});
+    var j=jn(k,a,b);
+    var cascade=(k==='box.y' && cascadeY && j!=='pass');
+    var deferred=(widthMismatch && j!=='pass' && !cascade); // 측정 폭이 다르면 위치는 의미 없어 판정 보류
+    rows.push({k:k,label:LABEL[k],a:a,b:b,unit:'px',j:j,cascade:cascade,deferred:deferred});
   });
   if(!isContent){
     if(isText){
@@ -205,9 +207,9 @@ function compareRows(d, v, cascadeY){
       });
     }
   }
-  var st='pass', hasCascade=false;
-  rows.forEach(function(rr){ if(rr.cascade){ hasCascade=true; return; } st=worstOf(st,rr.j); });
-  return { rows:rows, status:st, hasCascade:hasCascade, isText:isText, isContent:isContent };
+  var st='pass', hasCascade=false, hasDeferred=false;
+  rows.forEach(function(rr){ if(rr.cascade){ hasCascade=true; return; } if(rr.deferred){ hasDeferred=true; return; } st=worstOf(st,rr.j); });
+  return { rows:rows, status:st, hasCascade:hasCascade, hasDeferred:hasDeferred, isText:isText, isContent:isContent };
 }
 
 /* ================= 자동 짝맞춤 ================= */
@@ -229,8 +231,15 @@ function runMatcher(design, dev){
   var fig=design.elements;
   var devEls=dev.elements.filter(function(e){ return !(e.box.x<=1&&e.box.y<=1&&e.box.w>=DW-2&&e.box.h>=DH-2); });
   var pairsAll=[];
-  // 종류가 다르면 원칙적으로 안 짝지음(글자↔상자 억지 방지). 단, 글자가 강하게 일치하면 교차 허용(배경 있는 글자=뱃지·색버튼 대응).
-  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){ if(f.isText!==d.isText && textSim(f.text,d.text)<0.8) return; pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)}); }); });
+  // 종류가 다르면 원칙적으로 안 짝지음(글자↔상자 억지 방지). 단, 글자가 강하게 일치 '그리고' 크기도 비슷하면 교차 허용(뱃지·색버튼).
+  // (큰 컨테이너의 합친 글자가 작은 개발 글자를 포함해 억지로 붙는 것 방지 — 크기 가드)
+  fig.forEach(function(f,fi){ devEls.forEach(function(d,di){
+    if(f.isText!==d.isText){
+      var fa=f.box.w*f.box.h, da=d.box.w*d.box.h, ar=Math.min(fa,da)/Math.max(fa,da);
+      if(textSim(f.text,d.text)<0.8 || ar<0.25) return;
+    }
+    pairsAll.push({fi:fi,di:di,s:matchScore(f,d,FW,FH,DW,DH)});
+  }); });
   pairsAll.sort(function(a,b){return b.s-a.s;});
   var fU={},dU={},pairs=[];
   pairsAll.forEach(function(p){ if(p.s<0.5)return; if(fU[p.fi]||dU[p.di])return; fU[p.fi]=1;dU[p.di]=1; pairs.push({fi:p.fi,di:p.di,s:p.s,confirmed:true}); });
@@ -310,11 +319,12 @@ function doCompare(){
   var leftoverD = M.devEls.filter(function(d,di){ return !usedD[di]; });
   var addedSuspect = leftoverD.filter(function(d){ var s=(d.style.backgroundColor && d.style.backgroundColor!=='rgba(0, 0, 0, 0)')||d.style.borderWidth>0; return s && !insideAny(d.box, pairedDevBoxes); });
   var missingF = M.fig.filter(function(f,fi){ return !usedF[fi] && !insideAny(f.box, pairedFigBoxes); });
+  var widthMismatch = design.meta.artboardWidth && dev.meta.artboardWidth && Math.abs(design.meta.artboardWidth - dev.meta.artboardWidth) > 4;
   var fails=[],warns=[],cascades=[],cleanN=0;
   confirmed.forEach(function(p){
     var f=M.fig[p.fi], d=M.devEls[p.di];
     var dY=d.box.y-f.box.y, cascadeY=(dY>6) && leftoverD.some(function(x){ return x.box.y < d.box.y; });
-    var res=compareRows(f, d, cascadeY);
+    var res=compareRows(f, d, cascadeY, widthMismatch);
     var item={ name:shortFig(f), isContent:res.isContent, status:res.status, hasCascade:res.hasCascade, rows:res.rows };
     if(res.status==='fail') fails.push(item);
     else if(res.status==='warn') warns.push(item);
@@ -327,9 +337,11 @@ function doCompare(){
 function cell(row,val){ if(row.color){ return '<span class="swatch" style="background:'+esc(val)+'"></span>'+esc(val); } return esc(val)+(row.unit&&typeof val==='number'?row.unit:''); }
 function rowsTable(rows){
   var trs='';
-  rows.forEach(function(r){ if(r.j==='pass'&&!r.cascade) return;
-    var cls=r.cascade?'cascade':r.j, mark=r.cascade?'↓밀림':({pass:'✓',warn:'△',fail:'✕'}[r.j]);
-    trs+='<tr class="'+cls+'"><td class="k">'+esc(r.label)+(r.cascade?'<span class="tag">여파</span>':'')+'</td><td class="v des">'+cell(r,r.a)+'</td><td class="v dev">'+cell(r,r.b)+'</td><td class="j" style="width:44px">'+mark+'</td></tr>';
+  rows.forEach(function(r){ if(r.j==='pass'&&!r.cascade&&!r.deferred) return;
+    var cls=(r.cascade||r.deferred)?'cascade':r.j;
+    var mark=r.cascade?'↓밀림':(r.deferred?'폭보류':({pass:'✓',warn:'△',fail:'✕'}[r.j]));
+    var tag=r.cascade?'<span class="tag">여파</span>':(r.deferred?'<span class="tag">폭 다름</span>':'');
+    trs+='<tr class="'+cls+'"><td class="k">'+esc(r.label)+tag+'</td><td class="v des">'+cell(r,r.a)+'</td><td class="v dev">'+cell(r,r.b)+'</td><td class="j" style="width:44px">'+mark+'</td></tr>';
   });
   if(!trs) trs='<tr><td class="note" colspan="4">차이 없음</td></tr>';
   return '<table><thead><tr><th>항목</th><th>정답</th><th>개발</th><th>판정</th></tr></thead><tbody>'+trs+'</tbody></table>';

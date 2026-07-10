@@ -31,8 +31,14 @@ function strokeRgb(node) {
   }
   return null;
 }
+// 테두리 두께 안전하게 읽기 — VECTOR·ELLIPSE·LINE 등 일부 노드엔 개별-변 두께 속성이 없어 접근 시 throw됨.
+function strokeW(node) {
+  try { if (typeof node.strokeTopWeight === 'number') return node.strokeTopWeight; } catch (e) {}
+  try { if (typeof node.strokeWeight === 'number') return node.strokeWeight; } catch (e) {}
+  return 0;
+}
 function hasVisibleStroke(node) {
-  return strokeRgb(node) != null && ((node.strokeWeight || 0) > 0 || (node.strokeBottomWeight || 0) > 0 || (node.strokeTopWeight || 0) > 0);
+  return strokeRgb(node) != null && strokeW(node) > 0;
 }
 // 상자의 대표 글자(자식들 글자 합침) — 짝맞춤 힌트용
 function aggText(node) {
@@ -75,8 +81,7 @@ function readElement(node, rootBox) {
     var radius;
     if (node.type === 'ELLIPSE') { radius = Math.min(bb.width, bb.height) / 2; }
     else { radius = (typeof node.cornerRadius === 'number') ? node.cornerRadius : (typeof node.topLeftRadius === 'number' ? node.topLeftRadius : 0); }
-    var topStroke = 0;
-    if (node.strokes && node.strokes.length) { topStroke = (node.strokeTopWeight != null) ? node.strokeTopWeight : (node.strokeWeight || 0); }
+    var topStroke = (node.strokes && node.strokes.length) ? strokeW(node) : 0;
     text = aggText(node);
     style = {
       color: 'rgb(31, 41, 55)', backgroundColor: fillRgb(node) || 'rgba(0, 0, 0, 0)',
@@ -97,9 +102,13 @@ function readDesign(root) {
   var rootBox = root.absoluteBoundingBox;
   var W = rootBox.width, H = rootBox.height;
   var raw = [];
+  var VEC = /^(VECTOR|BOOLEAN_OPERATION|LINE|STAR|POLYGON)$/;
   function walk(node) {
     if (node.id !== root.id && node.visible !== false && node.absoluteBoundingBox) {
-      var meaningful = (node.type === 'TEXT') || (fillRgb(node) != null) || hasVisibleStroke(node);
+      var bb = node.absoluteBoundingBox;
+      // 아이콘 조각(작은 벡터/불리언 등)은 제외 — 개발화면은 아이콘을 이미지 1개로 그려서 값 비교 자체가 불가한 노이즈
+      var iconFrag = VEC.test(node.type) && Math.max(bb.width, bb.height) < 32;
+      var meaningful = !iconFrag && ((node.type === 'TEXT') || (fillRgb(node) != null) || hasVisibleStroke(node));
       if (meaningful) {
         var el = readElement(node, rootBox);
         // 화면(프레임) 밖에 있는 요소는 제외 (예: 저 아래 붙은 중복 푸터)
