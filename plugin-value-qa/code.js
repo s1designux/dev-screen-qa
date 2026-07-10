@@ -85,7 +85,7 @@ function readElement(node, rootBox) {
     text = aggText(node);
     style = {
       color: 'rgb(31, 41, 55)', backgroundColor: fillRgb(node) || 'rgba(0, 0, 0, 0)',
-      fontSize: 16, fontWeight: 400, fontFamily: 'Inter', lineHeight: 0,
+      fontSize: 16, fontWeight: 400, fontFamily: '', lineHeight: 0,
       borderRadius: r1(radius), borderWidth: r1(topStroke), borderColor: strokeRgb(node) || 'rgb(31, 41, 55)',
       paddingTop: r1(node.paddingTop || 0), paddingRight: r1(node.paddingRight || 0),
       paddingBottom: r1(node.paddingBottom || 0), paddingLeft: r1(node.paddingLeft || 0),

@@ -43,6 +43,27 @@ function check(name, cond) { if (!cond) fails.push(name); }
     return { pairs: pairs, chips: chips, failNames: failNames };
   }, design, dev);
 
+  // ---- 견고성(robustness) 케이스: A 수정 + 위치=참고 회귀 고정 ----
+  const rob = await page.evaluate(() => {
+    function EL(o){o=o||{};var s=Object.assign({color:'rgb(31, 41, 55)',backgroundColor:'rgba(0, 0, 0, 0)',fontSize:16,fontWeight:400,fontFamily:'',lineHeight:0,borderRadius:0,borderWidth:0,borderColor:'rgb(0, 0, 0)',paddingTop:0,paddingRight:0,paddingBottom:0,paddingLeft:0,textAlign:'start',opacity:1},o.style||{});return {id:o.id||'x',name:o.name||'x',isText:o.isText||false,text:o.text||'',box:o.box||{x:0,y:0,w:100,h:40},contentZone:false,style:s};}
+    var out={};
+    // 위치만 다름 → 참고(판정 제외): status pass + deferred 행 존재
+    var pa=compareRows(EL({isText:false,box:{x:10,y:100,w:100,h:40},style:{backgroundColor:'rgb(255, 255, 255)'}}), EL({isText:false,box:{x:10,y:300,w:100,h:40},style:{backgroundColor:'rgb(255, 255, 255)'}}), false, false);
+    out.posOnly_status=pa.status; out.posOnly_hasDeferred=pa.hasDeferred;
+    // 크기 다름 → 판정(fail)
+    out.sizeDiff_status=compareRows(EL({isText:false,box:{x:10,y:100,w:100,h:40},style:{backgroundColor:'rgb(255, 255, 255)'}}), EL({isText:false,box:{x:10,y:100,w:70,h:40},style:{backgroundColor:'rgb(255, 255, 255)'}}), false, false).status;
+    // 뱃지 교차 짝(글자↔배경상자 강일치+크기유사)
+    var M=runMatcher({meta:{artboardWidth:400,artboardHeight:400},elements:[EL({isText:true,text:'완료',box:{x:10,y:10,w:40,h:20}})]},{meta:{artboardWidth:400,artboardHeight:400},elements:[EL({id:'dev-0',isText:false,text:'완료',box:{x:11,y:10,w:40,h:20},style:{backgroundColor:'rgb(220, 0, 0)'}})]});
+    out.badgePaired=M.pairs.length;
+    // 원 모서리(50%→20px ↔ 999px 동등 판정)
+    out.circleRound=compareRows(EL({isText:false,box:{x:0,y:0,w:40,h:40},style:{borderRadius:20,backgroundColor:'rgb(200, 200, 200)'}}), EL({isText:false,box:{x:0,y:0,w:40,h:40},style:{borderRadius:999,backgroundColor:'rgb(200, 200, 200)'}}), false, false).status;
+    return out;
+  });
+  check('위치만 다르면 참고(판정 제외)', rob.posOnly_status==='pass' && rob.posOnly_hasDeferred===true);
+  check('크기 다르면 판정(fail)', rob.sizeDiff_status==='fail');
+  check('뱃지 교차 짝맞춤(1쌍)', rob.badgePaired===1);
+  check('원 모서리 50%↔999px 동등(pass)', rob.circleRound==='pass');
+
   await browser.close();
 
   // 1) 로드 에러 없음
