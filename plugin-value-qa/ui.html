@@ -437,8 +437,10 @@ function renderReport(fails, warns, cascades, cleanN, missingF, addedSuspect){
 }
 function summarizeRows(rows){ var b=rows.filter(function(r){return r.j!=='pass'&&!r.cascade&&!r.deferred;}).map(function(r){return r.label;}); return b.slice(0,4).join(', '); }
 function buildFigmaReportClick(){
-  if(!LAST||!design||!design.meta||!design.meta.rootId){ return; }
-  var st=document.getElementById('reportStatus'); st.className='status'; st.textContent='Figma에 결과서 그리는 중…';
+  var st=document.getElementById('reportStatus');
+  if(!design||!design.meta||!design.meta.rootId){ if(st){st.className='status bad'; st.textContent='⚠️ 먼저 1단계(정답 값 읽기)를 해주세요.';} return; }
+  if(!LAST){ if(st){st.className='status bad'; st.textContent='⚠️ 먼저 값 대조(4단계)를 해주세요.';} return; }
+  if(st){ st.className='status'; st.textContent='Figma에 결과서 그리는 중…'; }
   var issues=[], no=0;
   LAST.fails.forEach(function(e){ no++; issues.push({id:e.id, box:e.box, no:no, name:e.name, summary:summarizeRows(e.rows)}); });
   LAST.missingF.forEach(function(f){ no++; issues.push({id:f.id, box:f.box, no:no, name:shortFig(f), summary:'개발에서 못 찾음'}); });
