@@ -1,0 +1,12 @@
+{
+  "name": "dev-screen-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "개발화면 검수 — 값(웹) 트랙 자가검증 테스트",
+  "scripts": {
+    "test": "node validation-auto/test.js"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}
