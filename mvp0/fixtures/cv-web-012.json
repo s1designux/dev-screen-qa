@@ -1,0 +1,91 @@
+{
+  "_note": "과거 검수 1건 모사. 사람이 읽는 입력 원자료. load_fixture.py가 이걸 SQLite로 주입한다.",
+  "project": { "name": "커넥트뷰" },
+  "screen": {
+    "human_key": "CV-WEB-012",
+    "name": "라이브 모니터링",
+    "platform": "web",
+    "dev_keys": ["/monitoring/live"],
+    "states": ["default"],
+    "variants": ["desktop-1440"]
+  },
+  "element_mappings": [
+    { "design_node_id": "1:23",  "dev_element_key": "header/title" },
+    { "design_node_id": "1:47",  "dev_element_key": "action/primary-btn" },
+    { "design_node_id": "1:88",  "dev_element_key": "list/card" },
+    { "design_node_id": "1:102", "dev_element_key": "header/status-icon" }
+  ],
+  "runs": [
+    { "round": 1, "inspector": "river",   "created_at": "2026-06-10T10:00:00", "pass_fail": "fail" },
+    { "round": 2, "inspector": "river",   "created_at": "2026-06-24T10:00:00", "pass_fail": "fail" }
+  ],
+  "issues": [
+    {
+      "logical_element_key": "CV-WEB-012/header/title#0",
+      "box": { "x": 120, "y": 40, "w": 220, "h": 28 },
+      "category": "typography-font-size",
+      "expected": "14px / 500",
+      "actual": "16px / 500",
+      "description": "타이틀 폰트 크기 불일치",
+      "severity": "major",
+      "dedup_key": "CV-WEB-012|header/title|typography|font-size",
+      "found_round": 1,
+      "resolved_round": 2,
+      "history": [
+        { "from_status": null,       "to_status": "발견",     "actor": "river",   "at": "2026-06-10T10:05:00", "note": "1차 검수에서 발견" },
+        { "from_status": "발견",     "to_status": "수정완료", "actor": "dev-kim", "at": "2026-06-20T14:00:00", "note": "폰트 토큰 교체" },
+        { "from_status": "수정완료", "to_status": "검수완료", "actor": "river",   "at": "2026-06-24T10:30:00", "note": "2차에서 확인, 정상" }
+      ]
+    },
+    {
+      "logical_element_key": "CV-WEB-012/action/primary-btn#0",
+      "box": { "x": 900, "y": 620, "w": 120, "h": 44 },
+      "category": "color-fill",
+      "expected": "#1B64F2",
+      "actual": "#2F6BF0",
+      "description": "주요 버튼 배경색 불일치",
+      "severity": "major",
+      "dedup_key": "CV-WEB-012|action/primary-btn|color|fill",
+      "found_round": 1,
+      "resolved_round": null,
+      "history": [
+        { "from_status": null,       "to_status": "발견",     "actor": "river",   "at": "2026-06-10T10:07:00", "note": "1차 검수에서 발견" },
+        { "from_status": "발견",     "to_status": "수정완료", "actor": "dev-kim", "at": "2026-06-20T14:10:00", "note": "컬러 토큰 적용 완료(보고)" },
+        { "from_status": "수정완료", "to_status": "재발",     "actor": "river",   "at": "2026-06-24T10:35:00", "note": "2차 재검수 결과 다시 어긋남 — 재발" }
+      ]
+    },
+    {
+      "logical_element_key": "CV-WEB-012/list/card#3",
+      "box": { "x": 320, "y": 300, "w": 360, "h": 120 },
+      "category": "layout-gap",
+      "expected": "gap 16px",
+      "actual": "gap 8px",
+      "description": "카드 사이 간격 부족",
+      "severity": "minor",
+      "dedup_key": "CV-WEB-012|list/card|layout|gap",
+      "found_round": 1,
+      "resolved_round": 2,
+      "history": [
+        { "from_status": null,       "to_status": "발견",     "actor": "river",   "at": "2026-06-10T10:09:00", "note": "1차 검수에서 발견" },
+        { "from_status": "발견",     "to_status": "수정완료", "actor": "dev-kim", "at": "2026-06-21T09:00:00", "note": "간격 토큰 수정" },
+        { "from_status": "수정완료", "to_status": "검수완료", "actor": "river",   "at": "2026-06-24T10:40:00", "note": "2차에서 확인, 정상" }
+      ]
+    },
+    {
+      "logical_element_key": "CV-WEB-012/header/status-icon#0",
+      "box": { "x": 360, "y": 44, "w": 24, "h": 24 },
+      "category": "structure-missing",
+      "expected": "상태 아이콘 존재",
+      "actual": "아이콘 없음",
+      "description": "헤더 상태 아이콘 누락",
+      "severity": "critical",
+      "dedup_key": "CV-WEB-012|header/status-icon|structure|exists",
+      "found_round": 1,
+      "resolved_round": null,
+      "history": [
+        { "from_status": null,     "to_status": "발견",       "actor": "river",   "at": "2026-06-10T10:11:00", "note": "1차 검수에서 발견" },
+        { "from_status": "발견",   "to_status": "재검수필요", "actor": "river",   "at": "2026-06-24T10:45:00", "note": "2차에도 여전히 누락 — 미해결" }
+      ]
+    }
+  ]
+}
