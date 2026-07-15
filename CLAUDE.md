@@ -46,58 +46,41 @@
 - ❌ Figma 파일에 검수 데이터·대용량 이미지 저장
 - ❌ 모든 요소에 강제 ID 부여
 - ❌ 여러 화면·여러 해상도 동시 지원 (MVP0은 단일 화면 흐름으로 검증)
+- ❌ 버전 확정/발행 기능, 로그인·다중 사용자 (정책만 확정, 구현은 포털 뒷 단계 — 17번 참조)
 
 새 기능을 만들고 싶으면 먼저 멈추고, 현재 단계 범위인지 확인받는다.
 
 ---
 
-## 5. 빌드 순서 (현재 단계: **MVP0**)
+## 5. 빌드 순서 (현재 단계: **포털 MVP0**)
 
-- **MVP0 (현재):** 데이터 모델 + 수동 기반 검수 데이터화. 자동화 없음.
-- MVP1: 검수 정책 3계층 + 동적/제외 영역.
-- MVP2: Figma 플러그인 (얇게, 검수보드 역생성 중심). *디자이너가 원할 때만.*
-- MVP3: 웹 자동 수집·비교 (Playwright). *PoC 통과 후.*
-- MVP4: 개발 커뮤니케이션 확장 (댓글·수정완료·재검수·빌드 연결).
-- MVP5a: 앱 OCR 트리아지 / MVP5b: 앱 구조 추출 (스파이크, 미확정).
-- MVP6: 사양서 연동·토큰/컴포넌트 준수·반복오류 분석.
+- MVP0 (완료): 데이터 모델 + 수동 기반 검수 데이터화. 실제 검수 1건(15건) 변환 검증 완료.
+- **포털 MVP0 (현재):** mvp0 데이터를 읽어 보여주는 로컬 포털 — 화면 목록·필터·상세(좌우 2단)·상태 변경·A4 반출.
+- 다음: 포털에서 직접 네모 치기(주석 작성).
+- 이후: 검수 정책 3계층 + 동적/제외 영역 → 웹 자동 수집·비교(Playwright, PoC 통과 후) → 개발 커뮤니케이션 확장 → 앱 OCR 트리아지 / 앱 구조 추출(스파이크) → 사양서 연동·통계.
 
 ---
 
-## 6. 데이터 모델 (MVP0 대상)
+## 6. 데이터 모델
 
-MVP0 핵심 엔티티. (Capture / DesignVersion / DevelopmentBuild 등은 필드만 남기고 최소화, 나중 확장)
+MVP0 핵심 엔티티. (Capture / DevelopmentBuild 등은 필드만 남기고 최소화, 나중 확장)
 
 - **Project**: `uuid, name`
 - **Screen**: `uuid, project_id, human_key(예: CV-WEB-012), name, platform, dev_keys[], states[], variants[]`
+- **DesignVersion (스텁)**: `screen_id, file_key, node_id, dev_capture_node_id`
 - **ElementMapping**: `screen_uuid, design_node_id, dev_element_key` (디자인 노드 ↔ 개발 요소, 1회 매핑)
 - **InspectionRun**: `uuid, screen_id, round(1/2/3), inspector, created_at, pass_fail`
-- **InspectionIssue**: `uuid, screen_id, run_id, logical_element_key, box{x,y,w,h}, category, expected, actual, description, severity, status, found_round, resolved_round, dedup_key`
+- **InspectionIssue**: `uuid, screen_id, run_id, logical_element_key, box{x,y,w,h}, category, properties[], expected, actual, description, severity, status, found_round, resolved_round, dedup_key`
 - **IssueHistory**: `uuid, issue_id, from_status, to_status, actor, at, note` (append-only, 삭제 금지)
-- **ComparisonPolicy**: `scope(system/screen/element), target, mode` (MVP0에선 스텁, MVP1에서 확장)
+- **ComparisonPolicy**: `scope(system/screen/element), target, mode` (MVP0에선 스텁)
 
 **오류 상태값**: 발견 / 개발확인 / 수정예정 / 수정완료 / 재검수필요 / 검수완료 / 보류 / 오류아님 / 재발
+**미해결 집합(constants)**: 발견 / 개발확인 / 수정예정 / 재검수필요 / 재발 (수정완료는 경계값 — 실데이터 확인 후 재검토)
 
-**dedup_key (차수 간 동일 오류 연결의 핵심)**: `{화면}|{요소식별자}|{규칙}|{속성}`
+**dedup_key (차수 간 동일 오류 연결)**: `{화면}|{요소식별자}|{규칙}|{속성}`
 재검수 시 새 오류를 만들지 않고 이 키로 기존 오류를 찾아 상태만 갱신한다.
 
-```json
-{
-  "uuid": "8f1c...",
-  "screen_id": "CV-WEB-012",
-  "run_id": "run-2",
-  "logical_element_key": "CV-WEB-012/header/title#0",
-  "box": { "x": 120, "y": 340, "w": 88, "h": 24 },
-  "category": "typography-font-size",
-  "expected": "14px / 500",
-  "actual": "16px / 500",
-  "description": "타이틀 폰트 크기 불일치",
-  "severity": "major",
-  "status": "재검수필요",
-  "found_round": 1,
-  "resolved_round": null,
-  "dedup_key": "CV-WEB-012|header/title|typography-difference|font-size"
-}
-```
+**properties**: 실제 검수는 "핀 1개 = 요소 1개 + 속성 여러 개"다. 이슈에 속성 배열로 저장한다.
 
 ---
 
@@ -106,16 +89,16 @@ MVP0 핵심 엔티티. (Capture / DesignVersion / DevelopmentBuild 등은 필드
 - **사람이 읽는 키와 내부 UUID를 분리한다.** 사람키는 라벨·조회용(바뀔 수 있음), 참조 무결성은 UUID가 담당.
 - 화면 사람키: `{SERVICE}-{PLATFORM}-{NNN}` (예: `CV-WEB-012`).
 - 화면 상태는 접미사: `CV-WEB-012@empty`. 디바이스/해상도는 화면 ID에 넣지 말고 **변형(variant)** 으로 분리.
-- 개발 실행 키: 코드에 이미 있는 값 그대로 사용 (웹 route `/monitoring/live`, Android `LiveMonitoringActivity`, iOS `LiveMonitoringViewController`). 화면 UUID에 매핑.
+- 개발 실행 키: 코드에 이미 있는 값 그대로 사용 (웹 route, Android Activity, iOS ViewController). 화면 UUID에 매핑.
 - 요소 논리키: `{화면}+{역할/컴포넌트}+{텍스트해시}+{순번}`. 명시적 QA/접근성 id가 있으면 그것이 최우선.
 
 ---
 
-## 8. 검수 정책 3계층 (MVP1에서 본격 구현, MVP0은 개념만 반영)
+## 8. 검수 정책 3계층 (본격 구현은 나중, 지금은 개념만 반영)
 
 `시스템 기본값 → 화면별 예외 → 요소별 예외` 순으로 덮어쓴다.
 모드: `Exact / Text Exact / Style Only / Layout Only / Structure / Dynamic / Ignore`.
-기본값 예: 지도 타일=Ignore, 지도 컨테이너=Layout Only, 사용자명=Style Only, 날짜=Dynamic, 버튼·아이콘=Exact, 영상 썸네일=콘텐츠 Ignore+Layout.
+기본값 예: 지도 타일=Ignore, 지도 컨테이너=Layout Only, 사용자명=Style Only, 날짜=Dynamic, 버튼·아이콘=Exact.
 
 ---
 
@@ -131,7 +114,7 @@ MVP0 핵심 엔티티. (Capture / DesignVersion / DevelopmentBuild 등은 필드
 
 ## 10. Figma 연동 경계
 
-- **읽기(Figma → 포털):** REST API 또는 프레임 링크 붙여넣기(링크에서 file_key·node_id 추출, node-id 하이픈→콜론 변환)로 이미지·노드값을 당겨온다. 플러그인 불필요.
+- **읽기(Figma → 포털):** REST API 또는 프레임 링크 붙여넣기(링크에서 file_key·node_id 추출, node-id 하이픈→콜론 변환)로 이미지·노드값을 당겨온다.
 - **쓰기(포털 → Figma 검수보드 역생성):** 플러그인만 가능. 나중 단계 전용.
 - 확인 필요(포털 구현 시): **디자이너 PC가 아니라 포털 서버가 Figma에 직접 닿는지**. 안 닿으면 링크 붙여넣기/플러그인 경유로 우회.
 
@@ -141,7 +124,7 @@ MVP0 핵심 엔티티. (Capture / DesignVersion / DevelopmentBuild 등은 필드
 
 - 폐쇄망(인트라넷), 오프라인 로컬 실행. **유료 외부 API 사용 금지.**
 - OCR: PaddleOCR (한국어). / 웹 캡처(나중): Playwright.
-- MVP0 저장소: 가벼운 로컬(SQLite 또는 JSON 파일) 권장. 확정 스택은 첫 작업 착수 시 제안·확인.
+- 저장소: SQLite (파이썬 표준 내장, 오프라인). 원본=DB, 확인용 JSON 내보내기 병행.
 - 모든 라이브러리는 오프라인 설치 가능 여부를 먼저 확인.
 
 ---
@@ -155,18 +138,57 @@ MVP0 핵심 엔티티. (Capture / DesignVersion / DevelopmentBuild 등은 필드
 
 ---
 
-## 13. 지금 할 일 (즉시 작업)
+## 13. 완료 기준 (데이터화 검증 — 완료됨)
 
-**과거 검수 1건을 6번 스키마로 변환한다.** (스키마가 실제로 서는지 검증하는 첫 단추)
-- 입력: 실제 과거 검수 보드(디자인·개발 이미지, 1·2차 오류, 해결/미해결, 스토리보드 ID).
-- 산출: 위 데이터 모델을 따른 실제 데이터(JSON 또는 SQLite) + 이를 다루는 최소 스크립트.
+과거 검수 1건을 데이터로 넣었을 때: ①차수 간 오류 연결(dedup) ②해결 숨김·데이터 유지 ③미해결만 추출 ④가로 A4 결과서 재생성. 합성 픽스처로 4개 모두 검증 완료. 실제 검수 1건(TB-WEB-001, 15건)도 로드·조회·미해결 필터 검증 완료.
 
 ---
 
-## 14. 완료 기준 (MVP0 Definition of Done)
+## 14. 현재 파일 구조 (mvp0/)
 
-과거 검수 1건을 데이터로 넣었을 때 아래가 모두 된다:
-1. 1차 오류와 2차 오류가 `dedup_key`로 연결된다.
-2. 해결된 오류를 삭제하지 않고 숨길 수 있다(상태 유지).
-3. "현재 미해결 오류만" 추출된다.
-4. 그 데이터로 가로 A4 형태의 검수결과서를 다시 생성할 수 있다.
+`schema.sql`(엔티티+properties+design_version 스텁) / `constants.py`(상태값+미해결 정의) / `db.py` / `load_fixture.py`(두 픽스처 모양 처리) / `queries.py`(미해결 조회) / `report.py`(가로 A4) / `export_json.py` / `fixtures/`(cv-web-012 합성, tb-web-001 실제 15건).
+생성물(`*.db`, `export.json`, `report.html`)은 `.gitignore` 처리, 커밋하지 않는다.
+
+---
+
+## 15. 목적지 (작업 스타일) — 확정
+
+- 최종 목표: **검수와 데이터 관리를 포털 한 곳에서** 한다. Figma·PDF는 유관부서에 반출(공유)할 때만 생성하는 출력물이다.
+- 전환은 단계적. 지금은 검수 입력을 Figma에서 데이터로 옮기는 경로가 이미 검증됨(실제 15건). 포털은 그 데이터를 **관리하는 화면**부터 만든다.
+- **포털에서 직접 네모 치기(주석 작성)** 는 목적지에 포함되나, 포털 뼈대 **다음** 조각으로 만든다.
+
+---
+
+## 16. 기존 검수결과서 양식 → 포털 전환 원칙
+
+기존 Figma 양식(표지·간지·양식·이력)을 그대로 이식하지 않는다. 네 갈래로 분류해 처리:
+
+- **버림(레이아웃·장식):** 표지·간지 비주얼, A4 가로 시트 틀, 로고·워터마크·페이지번호. 'PDF 문서'라서 생긴 포장이므로 포털에서 재현하지 않는다.
+- **데이터로 보존(정보):** 스토리보드 ID·화면명·검수일·차수·Pass/Fail, 오류 내용·위치·날짜별 이력.
+- **작업 화면으로 보존(레이아웃):** 좌(디자인)·우(개발) 2단 + 그 위 네모·번호·쪽지. 검수 상세 화면에서 이 배치를 유지한다.
+- **반출용으로만 재생성(PDF):** 표지·간지·A4 시트는 '반출' 시에만 데이터로부터 조립한다.
+
+참고: 기존 양식은 이미 '해결 항목을 지우지 않고 숨김' + '날짜로 차수 추적'을 수작업으로 하고 있었다. 포털은 이를 자동화하는 것이지 새 방식을 강요하지 않는다.
+
+---
+
+## 17. 버전·이력 정책
+
+원칙: 모든 변경은 **자동 기록**(무엇을 남길지 판단하지 않음). 이력서에는 **주요 변경만 표시**(경미한 변경은 접어둠, severity로 자동 분류). 버전 번호는 시스템이 **자동 제안, 필요 시 수동 조정**.
+
+**버전 규칙 (조직 관례 기반):**
+- 작업 중 자잘한 수정: 숫자 버전을 매기지 않는다. 진행은 검수 차수(1·2·3차)로 추적.
+- 개발그룹 공유(완료 전, 통상 4~5회): 발행할 때마다 `0.1 → 0.2 → …` 하나씩 올린다. 자잘한 수정으로는 오르지 않으므로 숫자가 바닥나지 않는다.
+- 과제 완료: `1.0`. 시스템은 '1.0 제안'만, 확정은 사용자가 수동.
+- 완료 후 추가개발: 양적 기준 자동 제안 — `1.1`(소수 화면 수정) / `2.0`(다수 화면 변경, 임계값 5개↑·신규 기능/화면·전면 리뉴얼). 임계값은 설정값. 최종 번호는 사용자 확정, 수동 조정 시 사유를 로그에 남김.
+
+**버전 확정과 PDF 출력 분리:**
+- 'PDF 미리보기/내보내기'는 버전에 영향 없음. 몇 번이든 자유(테스트 포함).
+- 버전은 '**버전 확정(공유본 발행)**' 버튼을 누를 때만 오른다. 이때 다음 공유 번호로 증가 + 스냅샷 고정 + 이전 공유본 대비 변경요약(해결/재발/신규) 자동 생성.
+- 즉: **출력 = 언제든 자유 / 발행 = 확정 버튼을 누른 그 순간만.**
+
+**버전 두 종류 구분:**
+- 디자인 원본 버전: 시안 자체가 바뀔 때만.
+- 검수결과서(문서) 버전: 위 규칙(0.x 공유 → 1.0 → 1.1/2.0).
+
+**주의:** 위 버전·발행 기능은 **정책만 확정**한 것으로, 지금 단계에서 구현하지 않는다(포털 뒷 단계).
