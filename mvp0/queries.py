@@ -25,6 +25,64 @@ def unresolved_issues(conn):
     ).fetchall()
 
 
+def list_screens(conn, unresolved_only=False, round_filter=None):
+    """포털 화면 목록용. 화면마다 프로젝트(메뉴)·스토리보드ID·Pass/Fail·미해결 건수.
+
+    unresolved_only: 미해결이 1건 이상인 화면만.
+    round_filter: 해당 차수가 있는 화면만, 카운트/Pass·Fail도 그 차수 기준.
+    미해결 판정은 constants.UNRESOLVED_STATUSES 그대로 참조.
+    """
+    ph = ",".join("?" for _ in UNRESOLVED_STATUSES)
+    screens = conn.execute(
+        """SELECT s.uuid, s.human_key, s.name, s.platform, p.name AS project_name
+           FROM screen s JOIN project p ON p.uuid = s.project_id
+           ORDER BY p.name, s.human_key"""
+    ).fetchall()
+
+    out = []
+    for s in screens:
+        runs = conn.execute(
+            "SELECT round, pass_fail FROM inspection_run WHERE screen_id=? ORDER BY round",
+            (s["uuid"],),
+        ).fetchall()
+        rounds = [r["round"] for r in runs]
+
+        if round_filter is not None and round_filter not in rounds:
+            continue  # 이 차수가 없는 화면은 제외
+
+        if round_filter is not None:
+            pass_fail = next((r["pass_fail"] for r in runs if r["round"] == round_filter), None)
+        else:
+            pass_fail = runs[-1]["pass_fail"] if runs else None
+
+        params = [s["uuid"], *UNRESOLVED_STATUSES]
+        q_un = f"SELECT COUNT(*) c FROM inspection_issue WHERE screen_id=? AND status IN ({ph})"
+        q_all = "SELECT COUNT(*) c FROM inspection_issue WHERE screen_id=?"
+        p_all = [s["uuid"]]
+        if round_filter is not None:
+            q_un += " AND found_round=?"
+            q_all += " AND found_round=?"
+            params.append(round_filter)
+            p_all.append(round_filter)
+        unresolved = conn.execute(q_un, params).fetchone()["c"]
+        total = conn.execute(q_all, p_all).fetchone()["c"]
+
+        if unresolved_only and unresolved == 0:
+            continue
+
+        out.append({
+            "human_key": s["human_key"],
+            "name": s["name"],
+            "platform": s["platform"],
+            "project_name": s["project_name"],
+            "pass_fail": pass_fail,
+            "rounds": rounds,
+            "unresolved": unresolved,
+            "total": total,
+        })
+    return out
+
+
 def _print_issue_line(iss):
     print(f"  [{iss['status']:<7}] {iss['description']} "
           f"(dedup={iss['dedup_key']}, found_r={iss['found_round']}, "
