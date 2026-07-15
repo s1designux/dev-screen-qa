@@ -20,6 +20,17 @@ CREATE TABLE IF NOT EXISTS screen (
     variants    TEXT                    -- JSON 배열: ["desktop-1440"]
 );
 
+-- 검수 페이지 = 단계별 캡처(입력→인증→완료 …). 화면과 이슈 사이의 중간층.
+-- 차수(round)와는 다른 축이다: 한 페이지가 여러 차수에 걸쳐 재검수된다.
+-- 페이지의 현재 Pass/Fail은 저장하지 않고 그 페이지 최신 run의 pass_fail로 계산한다.
+CREATE TABLE IF NOT EXISTS inspection_page (
+    uuid       TEXT PRIMARY KEY,
+    screen_id  TEXT NOT NULL REFERENCES screen(uuid),
+    seq        INTEGER,                -- 단계 순서
+    name       TEXT,
+    note       TEXT
+);
+
 CREATE TABLE IF NOT EXISTS element_mapping (
     screen_uuid     TEXT NOT NULL REFERENCES screen(uuid),
     design_node_id  TEXT,               -- 디자인 노드 id (하이픈→콜론 변환된 값)
@@ -29,6 +40,7 @@ CREATE TABLE IF NOT EXISTS element_mapping (
 CREATE TABLE IF NOT EXISTS inspection_run (
     uuid        TEXT PRIMARY KEY,
     screen_id   TEXT NOT NULL REFERENCES screen(uuid),
+    page_id     TEXT REFERENCES inspection_page(uuid),  -- 이 run이 검수한 페이지 (페이지 × 차수)
     round       INTEGER NOT NULL,       -- 1 / 2 / 3
     inspector   TEXT,
     created_at  TEXT,
@@ -38,6 +50,7 @@ CREATE TABLE IF NOT EXISTS inspection_run (
 CREATE TABLE IF NOT EXISTS inspection_issue (
     uuid                TEXT PRIMARY KEY,
     screen_id           TEXT NOT NULL REFERENCES screen(uuid),
+    page_id             TEXT REFERENCES inspection_page(uuid),  -- 이슈가 매달린 검수 페이지
     run_id              TEXT REFERENCES inspection_run(uuid),  -- 최초 발견 회차
     logical_element_key TEXT,
     box_x    INTEGER, box_y INTEGER, box_w INTEGER, box_h INTEGER,
@@ -73,6 +86,14 @@ CREATE TABLE IF NOT EXISTS design_version (
     file_key            TEXT,
     node_id             TEXT,
     dev_capture_node_id TEXT
+);
+
+-- 담당자 명단 (로그인 없음, '선택' 방식). 비활성=active 0, 삭제하지 않는다(이력 보존).
+CREATE TABLE IF NOT EXISTS person (
+    uuid         TEXT PRIMARY KEY,
+    name         TEXT NOT NULL,   -- 이력(issue_history.actor)에 이 이름이 남는다
+    affiliation  TEXT,            -- 소속 (선택)
+    active       INTEGER NOT NULL DEFAULT 1
 );
 
 -- MVP0에선 스텁만. MVP1에서 3계층 정책으로 확장 (CLAUDE.md 8번).

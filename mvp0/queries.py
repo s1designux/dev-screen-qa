@@ -83,6 +83,93 @@ def list_screens(conn, unresolved_only=False, round_filter=None):
     return out
 
 
+def get_screen(conn, human_key):
+    """상세 헤더용: 화면 + 프로젝트명 + 회차들."""
+    s = conn.execute(
+        """SELECT s.*, p.name AS project_name
+           FROM screen s JOIN project p ON p.uuid = s.project_id
+           WHERE s.human_key = ?""",
+        (human_key,),
+    ).fetchone()
+    if s is None:
+        return None
+    runs = conn.execute(
+        "SELECT round, pass_fail, inspector, created_at FROM inspection_run "
+        "WHERE screen_id=? ORDER BY round", (s["uuid"],)
+    ).fetchall()
+    return {"row": s, "runs": runs}
+
+
+def issues_of_screen(conn, screen_uuid):
+    """화면의 이슈 전체 (fixture/핀 순서 유지 = rowid 순)."""
+    return conn.execute(
+        "SELECT rowid AS rid, * FROM inspection_issue WHERE screen_id=? ORDER BY rowid",
+        (screen_uuid,),
+    ).fetchall()
+
+
+def history_of_issue(conn, issue_uuid):
+    return conn.execute(
+        "SELECT * FROM issue_history WHERE issue_id=? ORDER BY seq", (issue_uuid,)
+    ).fetchall()
+
+
+def list_persons(conn, active_only=True):
+    q = "SELECT * FROM person"
+    if active_only:
+        q += " WHERE active=1"
+    return conn.execute(q + " ORDER BY name").fetchall()
+
+
+def roster_names(conn):
+    """현재 활성 담당자 이름 집합 — 이력의 actor가 명단에 있는지 대조용."""
+    return {r["name"] for r in conn.execute("SELECT name FROM person WHERE active=1").fetchall()}
+
+
+def is_unresolved_status(status):
+    return status in UNRESOLVED_STATUSES
+
+
+def _page_pass_fail(conn, page_uuid):
+    """페이지 현재 Pass/Fail = 그 페이지 '최신 차수' run의 pass_fail."""
+    r = conn.execute(
+        "SELECT pass_fail FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1",
+        (page_uuid,),
+    ).fetchone()
+    return r["pass_fail"] if r else None
+
+
+def pages_of_screen(conn, screen_uuid):
+    """검수 페이지 목록 + 각 페이지 Pass/Fail·이슈 수·미해결 수."""
+    ph = ",".join("?" for _ in UNRESOLVED_STATUSES)
+    pages = conn.execute(
+        "SELECT * FROM inspection_page WHERE screen_id=? ORDER BY seq", (screen_uuid,)
+    ).fetchall()
+    out = []
+    for p in pages:
+        total = conn.execute(
+            "SELECT COUNT(*) c FROM inspection_issue WHERE page_id=?", (p["uuid"],)
+        ).fetchone()["c"]
+        unresolved = conn.execute(
+            f"SELECT COUNT(*) c FROM inspection_issue WHERE page_id=? AND status IN ({ph})",
+            (p["uuid"], *UNRESOLVED_STATUSES),
+        ).fetchone()["c"]
+        out.append({
+            "uuid": p["uuid"], "seq": p["seq"], "name": p["name"], "note": p["note"],
+            "pass_fail": _page_pass_fail(conn, p["uuid"]),
+            "total": total, "unresolved": unresolved,
+        })
+    return out
+
+
+def screen_pass_fail(conn, screen_uuid):
+    """화면 종합 Pass/Fail = 페이지 중 하나라도 FAIL이면 FAIL, 페이지 없으면 None."""
+    pages = pages_of_screen(conn, screen_uuid)
+    if not pages:
+        return None
+    return "fail" if any(p["pass_fail"] == "fail" for p in pages) else "pass"
+
+
 def _print_issue_line(iss):
     print(f"  [{iss['status']:<7}] {iss['description']} "
           f"(dedup={iss['dedup_key']}, found_r={iss['found_round']}, "

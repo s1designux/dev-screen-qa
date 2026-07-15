@@ -23,6 +23,26 @@
     "pass_fail": "fail",
     "_note": "오류 15건 발견 → 1차 FAIL"
   },
+  "pages": {
+    "_note": "검수 페이지(중간층). primary=실제 15건이 매달리는 페이지. extra=검증용 더미(실제와 완전 분리).",
+    "primary": { "name": "휴대전화번호 입력", "seq": 1 },
+    "extra": [
+      {
+        "name": "인증번호 입력", "seq": 2, "round": 1, "pass_fail": "fail",
+        "_dummy": true,
+        "dummy_issues": [
+          { "element": "[더미] 인증 타이머", "category": "typography", "properties": ["글자 크기"], "box": {"x":730,"y":300,"w":120,"h":20}, "description": "[더미] 인증 타이머 글자 크기", "status": "발견", "dedup_key": "DUMMY|TB-WEB-001|p2|인증타이머|typo" },
+          { "element": "[더미] 재전송 버튼", "category": "color", "properties": ["글자색"], "box": {"x":1050,"y":300,"w":90,"h":20}, "description": "[더미] 재전송 버튼 글자색", "status": "발견", "dedup_key": "DUMMY|TB-WEB-001|p2|재전송|color" },
+          { "element": "[더미] 인증 입력칸", "category": "layout", "properties": ["높이"], "box": {"x":730,"y":346,"w":460,"h":50}, "description": "[더미] 인증 입력칸 높이", "status": "발견", "dedup_key": "DUMMY|TB-WEB-001|p2|인증입력칸|layout" }
+        ]
+      },
+      {
+        "name": "아이디 찾기 완료", "seq": 3, "round": 1, "pass_fail": "pass",
+        "_dummy": true,
+        "dummy_issues": []
+      }
+    ]
+  },
   "issues": [
     { "pin": 1,  "element": "개인정보 처리방침", "category": "typography", "properties": ["글자 크기","글꼴"], "box": {"x":369,"y":866,"w":79,"h":13}, "expected": null, "actual": null, "description": "개인정보 처리방침 — 글자 크기, 글꼴", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|개인정보처리방침|typography|font-size+family" },
     { "pin": 2,  "element": "인증요청 버튼", "category": "layout", "properties": ["높이","안쪽여백↑","안쪽여백→","안쪽여백↓"], "box": {"x":730,"y":462,"w":460,"h":50}, "expected": null, "actual": null, "description": "인증요청 — 높이, 안쪽여백↑, 안쪽여백→, 안쪽여백↓", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|인증요청버튼|layout|height+padding" },
