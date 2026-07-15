@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS inspection_issue (
     status              TEXT NOT NULL,  -- constants.STATUS_ALL 중 하나 (현재 상태)
     found_round         INTEGER,
     resolved_round      INTEGER,        -- 해결된 회차 (미해결이면 NULL)
-    dedup_key           TEXT UNIQUE     -- {화면}|{요소}|{규칙}|{속성} : 차수 간 동일 오류 연결 키
+    dedup_key           TEXT UNIQUE,    -- {화면}|{요소}|{규칙}|{속성} : 차수 간 동일 오류 연결 키
+    properties          TEXT            -- JSON 배열: ["높이","배경색"] (핀 1개 = 요소 1개 + 속성 여러 개)
 );
 
 -- append-only. 절대 삭제/수정하지 않는다 (CLAUDE.md 2번-3, 12번).
@@ -62,6 +63,16 @@ CREATE TABLE IF NOT EXISTS issue_history (
     at           TEXT,
     note         TEXT,
     seq          INTEGER                -- 이슈 내 순번 (정렬용)
+);
+
+-- DesignVersion 스텁 (CLAUDE.md 6번: 필드만 최소화). Figma 참조 3개 값만 담는다.
+-- screen 테이블은 손대지 않고, figma 참조는 여기에만 둔다.
+CREATE TABLE IF NOT EXISTS design_version (
+    uuid                TEXT PRIMARY KEY,
+    screen_id           TEXT REFERENCES screen(uuid),
+    file_key            TEXT,
+    node_id             TEXT,
+    dev_capture_node_id TEXT
 );
 
 -- MVP0에선 스텁만. MVP1에서 3계층 정책으로 확장 (CLAUDE.md 8번).

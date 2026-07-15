@@ -1,0 +1,44 @@
+{
+  "_note": "실제 검수 보드 추출. 1차 검수 1회차, 오류 15건. 핀 1개 = 요소 1개 + 속성 여러 개.",
+  "project": { "name": "삼성 통근버스 운영 시스템" },
+  "screen": {
+    "human_key": "TB-WEB-001",
+    "_human_key_note": "임시값. 실제 스토리보드 ID로 교체 필요",
+    "name": "웹 아이디 찾기 (휴대전화번호)",
+    "platform": "WEB",
+    "dev_keys": [],
+    "_dev_keys_note": "실제 route(예: /find-id) 확인 후 매핑",
+    "figma": { "file_key": "VIYrBJUMWq2vVsi2q2d6a2", "design_node_id": "17:43" }
+  },
+  "design_version": {
+    "source": "figma",
+    "file_key": "VIYrBJUMWq2vVsi2q2d6a2",
+    "node_id": "17:43",
+    "dev_capture_node_id": "43:267"
+  },
+  "inspection_run": {
+    "round": 1,
+    "inspector": "미상",
+    "created_at": null,
+    "pass_fail": "fail",
+    "_note": "오류 15건 발견 → 1차 FAIL"
+  },
+  "issues": [
+    { "pin": 1,  "element": "개인정보 처리방침", "category": "typography", "properties": ["글자 크기","글꼴"], "box": {"x":369,"y":866,"w":79,"h":13}, "expected": null, "actual": null, "description": "개인정보 처리방침 — 글자 크기, 글꼴", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|개인정보처리방침|typography|font-size+family" },
+    { "pin": 2,  "element": "인증요청 버튼", "category": "layout", "properties": ["높이","안쪽여백↑","안쪽여백→","안쪽여백↓"], "box": {"x":730,"y":462,"w":460,"h":50}, "expected": null, "actual": null, "description": "인증요청 — 높이, 안쪽여백↑, 안쪽여백→, 안쪽여백↓", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|인증요청버튼|layout|height+padding" },
+    { "pin": 3,  "element": "위치기반 서비스 이용약관", "category": "typography", "properties": ["글자 크기","글꼴"], "box": {"x":320,"y":866,"w":38,"h":13}, "expected": null, "actual": null, "description": "위치기반 서비스 이용약관 — 글자 크기, 글꼴", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|위치기반약관|typography|font-size+family" },
+    { "pin": 4,  "element": "이름 (라벨)", "category": "typography", "properties": ["글자 굵기","글꼴"], "box": {"x":730,"y":228,"w":24,"h":14}, "expected": null, "actual": null, "description": "이름 — 글자 굵기, 글꼴", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|이름라벨|typography|weight+family" },
+    { "pin": 5,  "element": "휴대전화번호 (라벨)", "category": "typography", "properties": ["글자 굵기","글꼴"], "box": {"x":730,"y":324,"w":73,"h":14}, "expected": null, "actual": null, "description": "휴대전화번호 — 글자 굵기, 글꼴", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|휴대전화번호라벨|typography|weight+family" },
+    { "pin": 6,  "element": "통근버스 운영 시스템 (상단바)", "category": "spacing", "properties": ["안쪽여백↑","안쪽여백→","안쪽여백↓","안쪽여백←"], "box": {"x":0,"y":20,"w":1920,"h":57}, "expected": null, "actual": null, "description": "통근버스 운영 시스템 한국어 — 안쪽여백↑, 안쪽여백→, 안쪽여백↓, 안쪽여백←", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|상단바|spacing|padding-all" },
+    { "pin": 7,  "element": "푸터 (사업자정보)", "category": "mixed", "properties": ["배경색","테두리색","안쪽여백↑","안쪽여백→"], "box": {"x":0,"y":834,"w":1920,"h":120}, "expected": null, "actual": null, "description": "개인정보 처리방침 위치기반 서비스 이용약관 (주)에스원 사업자등록번호 208-81-1330 — 배경색, 테두리색, 안쪽여백↑, 안쪽여백→", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|푸터|mixed|bg+border+padding" },
+    { "pin": 8,  "element": "상자 (우하단)", "category": "color", "properties": ["배경색"], "box": {"x":1560,"y":866,"w":40,"h":15}, "expected": null, "actual": null, "description": "상자 — 배경색", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|상자-우하단|color|bg" },
+    { "pin": 9,  "element": "상자 (상단바 영역)", "category": "mixed", "properties": ["높이","배경색","안쪽여백↑","안쪽여백→"], "box": {"x":0,"y":20,"w":1920,"h":57}, "expected": null, "actual": null, "description": "상자 — 높이, 배경색, 안쪽여백↑, 안쪽여백→", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|상자-상단바|mixed|height+bg+padding" },
+    { "pin": 10, "element": "이름 입력필드", "category": "layout", "properties": ["높이","안쪽여백↑","안쪽여백→","안쪽여백↓"], "box": {"x":730,"y":250,"w":460,"h":50}, "expected": null, "actual": null, "description": "이름을 입력해 주세요. — 높이, 안쪽여백↑, 안쪽여백→, 안쪽여백↓", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|이름입력필드|layout|height+padding" },
+    { "pin": 11, "element": "휴대전화번호 입력필드", "category": "layout", "properties": ["높이","안쪽여백↑","안쪽여백→","안쪽여백↓"], "box": {"x":730,"y":346,"w":460,"h":50}, "expected": null, "actual": null, "description": "휴대전화번호를 입력해 주세요. — 높이, 안쪽여백↑, 안쪽여백→, 안쪽여백↓", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|휴대전화입력필드|layout|height+padding" },
+    { "pin": 12, "element": "상자 (최상단 띠)", "category": "mixed", "properties": ["너비","높이","배경색","모서리 둥글기"], "box": {"x":0,"y":0,"w":1920,"h":20}, "expected": null, "actual": null, "description": "상자 — 너비, 높이, 배경색, 모서리 둥글기", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|상자-최상단띠|mixed|size+bg+radius" },
+    { "pin": 13, "element": "상자 (로고 영역)", "category": "mixed", "properties": ["너비","높이","배경색"], "box": {"x":320,"y":36,"w":170,"h":24}, "expected": null, "actual": null, "description": "상자 — 너비, 높이, 배경색", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|상자-로고|mixed|size+bg" },
+    { "pin": 14, "element": "삼성 통근버스 운영 시스템 메뉴", "category": "mixed", "properties": ["높이","배경색"], "box": {"x":0,"y":0,"w":1920,"h":20}, "_coord_review": "원본 보드에서 상단 띠에 찍혀 있어 위치 재확인 필요", "expected": null, "actual": null, "description": "삼성 통근버스 운영 시스템 메뉴 — 높이, 배경색", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|메뉴|mixed|height+bg" },
+    { "pin": 15, "element": "푸터 바로가기", "category": "structure", "properties": ["디자인에 없는 요소가 개발에 있음"], "box": {"x":0,"y":0,"w":1920,"h":20}, "_coord_review": "원본 보드에서 상단 띠에 찍혀 있어 위치 재확인 필요", "expected": null, "actual": null, "description": "푸터 바로가기 — 디자인에 없는 요소가 개발에 있어요", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|푸터바로가기|structure|extra-element" }
+  ],
+  "issue_history_note": "이슈 15건 모두 최초 발견 → status '발견' 1줄씩. (신규)→발견, actor=inspector"
+}
