@@ -53,7 +53,7 @@ def list_screens(conn, unresolved_only=False, round_filter=None):
         if round_filter is not None:
             pass_fail = next((r["pass_fail"] for r in runs if r["round"] == round_filter), None)
         else:
-            pass_fail = runs[-1]["pass_fail"] if runs else None
+            pass_fail = screen_pass_fail(conn, s["uuid"])  # 종합(페이지 중 하나라도 FAIL이면 FAIL)
 
         params = [s["uuid"], *UNRESOLVED_STATUSES]
         q_un = f"SELECT COUNT(*) c FROM inspection_issue WHERE screen_id=? AND status IN ({ph})"
@@ -79,6 +79,7 @@ def list_screens(conn, unresolved_only=False, round_filter=None):
             "rounds": rounds,
             "unresolved": unresolved,
             "total": total,
+            "page_count": len(pages_of_screen(conn, s["uuid"])),
         })
     return out
 
@@ -168,6 +169,28 @@ def screen_pass_fail(conn, screen_uuid):
     if not pages:
         return None
     return "fail" if any(p["pass_fail"] == "fail" for p in pages) else "pass"
+
+
+def get_page(conn, page_uuid):
+    """페이지 상세 헤더용: 페이지 + 부모 화면(사람키·플랫폼) + 페이지 Pass/Fail."""
+    p = conn.execute("SELECT * FROM inspection_page WHERE uuid=?", (page_uuid,)).fetchone()
+    if p is None:
+        return None
+    s = conn.execute(
+        """SELECT s.*, pr.name AS project_name
+           FROM screen s JOIN project pr ON pr.uuid = s.project_id
+           WHERE s.uuid = ?""",
+        (p["screen_id"],),
+    ).fetchone()
+    return {"page": p, "screen": s, "pass_fail": _page_pass_fail(conn, page_uuid)}
+
+
+def issues_of_page(conn, page_uuid):
+    """검수 페이지의 이슈 전체 (핀/카드 번호는 이 순서 = rowid 순)."""
+    return conn.execute(
+        "SELECT rowid AS rid, * FROM inspection_issue WHERE page_id=? ORDER BY rowid",
+        (page_uuid,),
+    ).fetchall()
 
 
 def _print_issue_line(iss):
