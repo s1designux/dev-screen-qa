@@ -13,6 +13,8 @@
 """
 import html
 import json
+import uuid as uuidmod
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from itertools import groupby
 from pathlib import Path
@@ -42,6 +44,37 @@ def _status_class(status):
     if status in CLOSED_STATUSES:
         return "done"
     return "mid"
+
+
+def _pass_issue(issue_uuid, actor, reason):
+    """'협의통과' 처리: status만 갱신(행 삭제 없음) + issue_history에 한 줄 append(누가·언제·왜)."""
+    conn = dbmod.connect(REAL_DB)
+    row = conn.execute(
+        "SELECT status, page_id FROM inspection_issue WHERE uuid=?", (issue_uuid,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return
+    old = row["status"]
+    rr = conn.execute(
+        "SELECT MAX(round) m FROM inspection_run WHERE page_id=?", (row["page_id"],)
+    ).fetchone()
+    resolved_round = rr["m"] if rr else None
+    conn.execute(
+        "UPDATE inspection_issue SET status=?, resolved_round=? WHERE uuid=?",
+        ("협의통과", resolved_round, issue_uuid),
+    )
+    seq = conn.execute(
+        "SELECT COALESCE(MAX(seq), -1) + 1 AS s FROM issue_history WHERE issue_id=?", (issue_uuid,)
+    ).fetchone()["s"]
+    conn.execute(
+        """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        (uuidmod.uuid4().hex, issue_uuid, old, "협의통과", actor,
+         datetime.now().isoformat(timespec="seconds"), reason, seq),
+    )
+    conn.commit()
+    conn.close()
 
 
 _TYPE_LABEL = {
@@ -195,7 +228,7 @@ def render_screen(human_key: str):
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
-def render_page(page_uuid: str, unresolved_only: bool):
+def render_page(page_uuid: str):
     conn = dbmod.connect(REAL_DB)
     pg = queries.get_page(conn, page_uuid)
     if pg is None:
@@ -210,14 +243,16 @@ def render_page(page_uuid: str, unresolved_only: bool):
     conn.close()
 
     number = {i["rid"]: n + 1 for n, i in enumerate(issues)}  # 페이지 안 순번 1..N
-    shown = issues if not unresolved_only else [i for i in issues if i["status"] in UNRESOLVED_STATUSES]
+    # 미해결 = 유형 탭 / 처리됨(검수완료·오류아님·협의통과) = '처리됨' 탭
+    unresolved = [i for i in issues if i["status"] in UNRESOLVED_STATUSES]
+    resolved = [i for i in issues if i["status"] in CLOSED_STATUSES]
 
-    # 우측(개발) 핀 오버레이 — 좌표(box)는 개발 캡처 기준. 좌측 디자인엔 핀 없음.
+    # 우측(개발) 핀 오버레이 — 핀은 '전체' 이슈(미해결+처리됨) 다 표시. 좌측 디자인엔 핀 없음.
     # 핀을 박스 '위쪽 바깥'에 둔다(내용 위를 안 덮게). 겹치면 위아래로 길게 밀지 말고 옆으로만.
     MIN, STEP, R = 72, 74, 26    # 최소 간격 / 옆 간격 / 핀 반지름 (viewBox 단위)
     placed = []
     layout = []
-    for i in shown:
+    for i in issues:
         x, y, w, h = i["box_x"] or 0, i["box_y"] or 0, i["box_w"] or 0, i["box_h"] or 0
         base = x + 30
         px = base
@@ -241,14 +276,15 @@ def render_page(page_uuid: str, unresolved_only: bool):
         uid = i["uuid"]
         x, y, w, h = i["box_x"] or 0, i["box_y"] or 0, i["box_w"] or 0, i["box_h"] or 0
         c = _type_color(i["category"])        # 핀·박스 색 = 오류 유형색
+        fd = " faded" if i["status"] in CLOSED_STATUSES else ""   # 처리된 것은 흐리게(지우지 않음)
         boxes += (
-            f'<g class="box" onclick="focusCard(\'{uid}\')">'
+            f'<g class="box{fd}" onclick="focusCard(\'{uid}\')">'
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" style="fill:{c};stroke:{c}"/></g>'
         )
         if draw_leader:
-            leaders += f'<line class="leader" x1="{px}" y1="{py + R}" x2="{tx}" y2="{ty}" style="stroke:{c}"/>'
+            leaders += f'<line class="leader{fd}" x1="{px}" y1="{py + R}" x2="{tx}" y2="{ty}" style="stroke:{c}"/>'
         dots += (
-            f'<g class="pin clickable" id="pin-{uid}" data-issue="{uid}" '
+            f'<g class="pin clickable{fd}" id="pin-{uid}" data-issue="{uid}" '
             f'onclick="focusCard(\'{uid}\')">'
             f'<g transform="translate({px},{py})"><g class="pinmark">'
             f'<circle class="hit" r="42"/>'
@@ -264,17 +300,18 @@ def render_page(page_uuid: str, unresolved_only: bool):
         f"</svg>"
     )
 
+    person_options = "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons)
+
     def issue_card(i):
         n = number[i["rid"]]
         cls = _status_class(i["status"])
+        unres = i["status"] in UNRESOLVED_STATUSES
         props = json.loads(i["properties"]) if i["properties"] else []
         props_html = "".join(f'<span class="tag">{_esc(p)}</span>' for p in props)
         loc = f'({i["box_x"]},{i["box_y"]}) {i["box_w"]}×{i["box_h"]}'
         sev_html = f'<span class="sev">{_esc(i["severity"])}</span>' if i["severity"] else ""
-        type_label = _type_label(i["category"])
         type_color = _type_color(i["category"])
-        state_label = "미해결" if i["status"] in UNRESOLVED_STATUSES else (
-            "해결" if i["status"] in CLOSED_STATUSES else i["status"])
+        state_label = "미해결" if unres else i["status"]   # 처리됨은 실제 상태(협의통과/검수완료/오류아님) 그대로
         rows = ""
         for h in hist_by_issue[i["uuid"]]:
             actor = h["actor"]
@@ -283,7 +320,23 @@ def render_page(page_uuid: str, unresolved_only: bool):
                 else f'<span class="actor off" title="담당자 명단에 없음">{_esc(actor or "미지정")} ⚠</span>'
             )
             change = f'{_esc(h["from_status"] or "(신규)")} → {_esc(h["to_status"])}'
-            rows += f'<li>{actor_html} · <span class="at">{_esc(h["at"] or "시각 없음")}</span> · {change}</li>'
+            note = f' <span class="note">— {_esc(h["note"])}</span>' if h["note"] else ""
+            rows += (f'<li>{actor_html} · <span class="at">{_esc(h["at"] or "시각 없음")}</span> · '
+                     f'{change}{note}</li>')
+        # 미해결 카드에만 통과 처리 폼(담당자 선택 + 사유 필수). 처리됨 카드는 사유·이력만.
+        if unres:
+            action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/pass"
+            foot = (
+                f'<form class="passform" method="post" action="{action}" '
+                f'onsubmit="return _confirmPass(this)" onclick="event.stopPropagation()">'
+                f'<input type="hidden" name="issue" value="{i["uuid"]}">'
+                f'<select name="actor" required>{person_options}</select>'
+                f'<input name="reason" maxlength="200" required placeholder="통과 사유 (필수)">'
+                f'<button type="submit">통과 처리</button>'
+                f"</form>"
+            )
+        else:
+            foot = '<div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>'
         return f"""<div class="issue {cls}" id="issue-{i['uuid']}" data-issue="{i['uuid']}" onclick="focusPin('{i['uuid']}')">
           <div class="ihead">
             <span class="pinno" style="background:{type_color}">{n}</span>
@@ -294,39 +347,39 @@ def render_page(page_uuid: str, unresolved_only: bool):
           <div class="props">{props_html}</div>
           <div class="loc">위치 {loc}</div>
           <ul class="hist">{rows}</ul>
+          {foot}
         </div>"""
 
-    # 오류 유형(category)별 그룹 → '탭'. 탭 누르면 그 그룹 카드만 한 화면에.
+    # 미해결을 오류 유형별 그룹 → '탭'. 맨 끝에 '처리됨' 탭 추가.
     groups, gcat = {}, {}
-    for i in shown:
+    for i in unresolved:
         lbl = _type_label(i["category"])
         groups.setdefault(lbl, []).append(i)
         gcat[lbl] = i["category"]
     ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    # (라벨, 색, 아이템들) 순서: 유형 탭들 + 처리됨 탭
+    tab_defs = [(lbl, _type_color(gcat[lbl]), items) for lbl, items in ordered]
+    tab_defs.append(("처리됨", "#9ca3af", resolved))
+
     tabbar = panels = ""
-    for gi, (lbl, items) in enumerate(ordered):
-        col = _type_color(gcat[lbl])
+    for gi, (lbl, col, items) in enumerate(tab_defs):
         tabbar += (
             f'<button class="tab{" on" if gi == 0 else ""}" data-idx="{gi}" onclick="showTab(\'{gi}\')">'
             f'<span class="sw" style="background:{col}"></span>{_esc(lbl)} '
             f'<span class="cnt">{len(items)}</span></button>'
         )
-        cards = "".join(issue_card(i) for i in items)
+        cards = "".join(issue_card(i) for i in items) or '<p class="empty">항목 없음</p>'
         panels += (
             f'<div class="panel" id="panel-{gi}"{"" if gi == 0 else " hidden"}>'
             f'<div class="grid">{cards}</div></div>'
         )
-    issues_html = panels or '<p class="empty">표시할 이슈 없음</p>'
+    issues_html = panels
 
     roster_html = "".join(
         f'<span class="person">{_esc(p["name"])}'
         f'{" · " + _esc(p["affiliation"]) if p["affiliation"] else ""}</span>'
         for p in persons
     ) or '<span class="muted">명단 비어있음</span>'
-
-    base = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}"
-    toggle_all = "on" if not unresolved_only else ""
-    toggle_un = "on" if unresolved_only else ""
 
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
@@ -353,11 +406,7 @@ def render_page(page_uuid: str, unresolved_only: bool):
       </div>
     </div>
 
-    <div class="filters">
-      <a class="chip {toggle_all}" href="{base}">전체 {len(issues)}</a>
-      <a class="chip {toggle_un}" href="{base}?unresolved=1">미해결만</a>
-      <span class="hint">핀 클릭 → 그 유형 탭으로 이동 + 카드 강조 · 카드 클릭 → 핀 강조</span>
-    </div>
+    <div class="filters"><span class="hint">미해결은 유형 탭 · 처리된 건 '처리됨' 탭 · 핀 클릭 → 그 탭으로 이동 + 카드 강조</span></div>
     <div class="tabbar">{tabbar}</div>
     <div class="cards" id="cards">{issues_html}</div>
   </div>
@@ -377,7 +426,7 @@ class Handler(BaseHTTPRequestHandler):
             self._html(render_list(unresolved_only, round_filter))
         elif "/page/" in path and path.startswith("/screen/"):
             page_uuid = path.rsplit("/page/", 1)[1]
-            page = render_page(page_uuid, unresolved_only)
+            page = render_page(page_uuid)
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
@@ -387,6 +436,23 @@ class Handler(BaseHTTPRequestHandler):
             # A4 반출은 park(나중 조각). report.py는 손대지 않음.
             self._html("<p style='font-family:sans-serif;padding:40px'>화면 전체 A4 반출은 다음 조각입니다. "
                        "<a href='javascript:history.back()'>← 뒤로</a></p>")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
+            length = int(self.headers.get("Content-Length", 0))
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            issue = form.get("issue", [""])[0]
+            actor = form.get("actor", [""])[0].strip()
+            reason = form.get("reason", [""])[0].strip()
+            if issue and reason:                       # 사유 필수 — 빈 사유는 무시
+                _pass_issue(issue, actor, reason)
+            self.send_response(303)                    # 처리 후 페이지 상세로 리다이렉트
+            self.send_header("Location", path[:-len("/pass")])
+            self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
@@ -468,6 +534,10 @@ _PAGE_CSS = """
   /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
   .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }
   .box:hover rect { fill-opacity:.16; }
+  /* 처리된 것: 흐리게(지우지 않음) — 미해결과 한눈에 구분. 클릭은 유지 */
+  .box.faded rect { stroke-opacity:.35; fill-opacity:.02; stroke-dasharray:9 7; }
+  .box.faded:hover rect { stroke-opacity:.7; }
+  .leader.faded { opacity:.25; }
   /* (2) 리더 라인 — 짧게만, 클릭 통과 */
   .leaders { pointer-events:none; }
   .leader { stroke-width:3; opacity:.7; }
@@ -476,6 +546,9 @@ _PAGE_CSS = """
   .pin .dot { stroke:#fff; stroke-width:3; }
   .pin text { fill:#fff; font-size:34px; font-weight:800; pointer-events:none; }
   .pin.clickable { cursor:pointer; }
+  /* 처리된 핀: 흐리게(반투명+회색끼) 남김. hover하면 잠깐 또렷 */
+  .pin.faded { opacity:.35; filter:grayscale(.6); transition:opacity .12s ease, filter .12s ease; }
+  .pin.faded:hover, .pin.faded.sel { opacity:.9; filter:grayscale(0); }
   .pinmark { transform-box:fill-box; transform-origin:center; transition:transform .12s ease; }
   .pin:hover .pinmark, .pin.sel .pinmark { transform:scale(1.5); }
   @keyframes pinflash { 0%,100% { opacity:1; } 50% { opacity:.15; } }
@@ -512,6 +585,12 @@ _PAGE_CSS = """
   .actor { font-weight:600; color:#111827; }
   .actor.off { color:#9ca3af; font-weight:400; }
   .at { color:#9ca3af; }
+  .note { color:#b45309; }
+  .passform { display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed #eee; flex-wrap:wrap; }
+  .passform select, .passform input { font-size:12px; padding:5px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+  .passform input { flex:1; min-width:110px; }
+  .passform button { font-size:12px; font-weight:700; padding:5px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:6px; cursor:pointer; }
+  .passed { margin-top:10px; padding-top:8px; border-top:1px dashed #eee; font-size:12px; font-weight:700; color:#12864e; }
   .muted { color:#9ca3af; }
   .empty { color:#6b7280; padding:20px; }
 """
@@ -558,6 +637,12 @@ function focusCard(uuid){
   c.classList.add('hl');
   _selPin(uuid);
   _scrollBox(box, c.offsetTop - (box.clientHeight - c.offsetHeight) / 2);
+}
+// 통과 처리 제출 전 확인(사유 필수)
+function _confirmPass(f){
+  var r = (f.reason.value || '').trim();
+  if(!r){ alert('통과 사유를 입력하세요.'); return false; }
+  return confirm('이 이슈를 「협의통과」로 처리할까요?\\n사유: ' + r);
 }
 // 카드 클릭 → 같은 uuid 핀이 커지고 맨 앞으로(+깜빡). 개발화면은 상단 고정이라 스크롤 불필요.
 function focusPin(uuid){
