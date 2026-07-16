@@ -44,6 +44,38 @@ def _status_class(status):
     return "mid"
 
 
+_TYPE_LABEL = {
+    "typography": "텍스트", "layout": "레이아웃", "spacing": "간격",
+    "color": "색상", "structure": "구조", "mixed": "복합", "missing": "누락",
+}
+
+
+def _type_label(category):
+    """오류 유형(category)을 한국어 라벨로. 'typography-font-size'처럼 접두어만 봐도 매핑."""
+    if not category:
+        return "기타"
+    key = category.split("-")[0]
+    return _TYPE_LABEL.get(key, category)
+
+
+# 유형별 색 — 핀 색 = 그 유형 섹션 색(같은 기준). 유형끼리 충분히 구분되게.
+_TYPE_COLOR = {
+    "typography": "#2563eb",  # 텍스트 · 파랑
+    "layout": "#7c3aed",      # 레이아웃 · 보라
+    "spacing": "#0d9488",     # 간격 · 청록
+    "color": "#db2777",       # 색상 · 분홍
+    "structure": "#d97706",   # 구조 · 주황
+    "mixed": "#334155",       # 복합 · 진회색
+    "missing": "#dc2626",     # 누락 · 빨강
+}
+
+
+def _type_color(category):
+    if not category:
+        return "#6b7280"
+    return _TYPE_COLOR.get(category.split("-")[0], "#6b7280")
+
+
 # ────────────────────────────────────────────────────────────── 화면 목록
 def render_list(unresolved_only: bool, round_filter):
     conn = dbmod.connect(REAL_DB)
@@ -181,19 +213,56 @@ def render_page(page_uuid: str, unresolved_only: bool):
     shown = issues if not unresolved_only else [i for i in issues if i["status"] in UNRESOLVED_STATUSES]
 
     # 우측(개발) 핀 오버레이 — 좌표(box)는 개발 캡처 기준. 좌측 디자인엔 핀 없음.
-    pins = ""
+    # 핀을 박스 '위쪽 바깥'에 둔다(내용 위를 안 덮게). 겹치면 위아래로 길게 밀지 말고 옆으로만.
+    MIN, STEP, R = 72, 74, 26    # 최소 간격 / 옆 간격 / 핀 반지름 (viewBox 단위)
+    placed = []
+    layout = []
     for i in shown:
-        n = number[i["rid"]]
         x, y, w, h = i["box_x"] or 0, i["box_y"] or 0, i["box_w"] or 0, i["box_h"] or 0
-        cls = _status_class(i["status"])
-        pins += (
-            f'<g class="pin {cls}">'
-            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4"/>'
-            f'<circle cx="{x+14}" cy="{y+14}" r="13"/>'
-            f'<text x="{x+14}" y="{y+19}" text-anchor="middle">{n}</text>'
-            f"</g>"
+        base = x + 30
+        px = base
+        py = max(R + 4, y - R - 4)            # 박스 상단선 위(바깥)
+        guard = 0
+        while any((px - qx) ** 2 + (py - qy) ** 2 < MIN * MIN for qx, qy in placed) and guard < 90:
+            px += STEP                        # 옆으로만
+            if px > 1890:
+                px = base
+                py = max(R + 4, py - 64)
+            guard += 1
+        placed.append((px, py))
+        draw_leader = py < y - 4              # 핀이 박스 위에 떠 있으면 짧은 선으로 연결
+        tx = min(max(px, x), x + w)
+        layout.append((i, px, py, tx, y, draw_leader))
+
+    # 레이어 3개: (1) 박스 rect [클릭] → (2) 짧은 리더 [클릭 통과] → (3) 핀 dot [클릭, 항상 맨 위]
+    boxes = leaders = dots = ""
+    for i, px, py, tx, ty, draw_leader in layout:
+        n = number[i["rid"]]
+        uid = i["uuid"]
+        x, y, w, h = i["box_x"] or 0, i["box_y"] or 0, i["box_w"] or 0, i["box_h"] or 0
+        c = _type_color(i["category"])        # 핀·박스 색 = 오류 유형색
+        boxes += (
+            f'<g class="box" onclick="focusCard(\'{uid}\')">'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" style="fill:{c};stroke:{c}"/></g>'
         )
-    overlay = f'<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMin meet" class="overlay">{pins}</svg>'
+        if draw_leader:
+            leaders += f'<line class="leader" x1="{px}" y1="{py + R}" x2="{tx}" y2="{ty}" style="stroke:{c}"/>'
+        dots += (
+            f'<g class="pin clickable" id="pin-{uid}" data-issue="{uid}" '
+            f'onclick="focusCard(\'{uid}\')">'
+            f'<g transform="translate({px},{py})"><g class="pinmark">'
+            f'<circle class="hit" r="42"/>'
+            f'<circle class="dot" r="{R}" style="fill:{c}"/>'
+            f'<text y="9" text-anchor="middle">{n}</text>'
+            f"</g></g></g>"
+        )
+    overlay = (
+        f'<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMin meet" class="overlay">'
+        f'<g class="boxes">{boxes}</g>'
+        f'<g class="leaders">{leaders}</g>'
+        f'<g class="pins">{dots}</g>'
+        f"</svg>"
+    )
 
     def issue_card(i):
         n = number[i["rid"]]
@@ -201,6 +270,11 @@ def render_page(page_uuid: str, unresolved_only: bool):
         props = json.loads(i["properties"]) if i["properties"] else []
         props_html = "".join(f'<span class="tag">{_esc(p)}</span>' for p in props)
         loc = f'({i["box_x"]},{i["box_y"]}) {i["box_w"]}×{i["box_h"]}'
+        sev_html = f'<span class="sev">{_esc(i["severity"])}</span>' if i["severity"] else ""
+        type_label = _type_label(i["category"])
+        type_color = _type_color(i["category"])
+        state_label = "미해결" if i["status"] in UNRESOLVED_STATUSES else (
+            "해결" if i["status"] in CLOSED_STATUSES else i["status"])
         rows = ""
         for h in hist_by_issue[i["uuid"]]:
             actor = h["actor"]
@@ -210,19 +284,39 @@ def render_page(page_uuid: str, unresolved_only: bool):
             )
             change = f'{_esc(h["from_status"] or "(신규)")} → {_esc(h["to_status"])}'
             rows += f'<li>{actor_html} · <span class="at">{_esc(h["at"] or "시각 없음")}</span> · {change}</li>'
-        return f"""<div class="issue {cls}">
+        return f"""<div class="issue {cls}" id="issue-{i['uuid']}" data-issue="{i['uuid']}" onclick="focusPin('{i['uuid']}')">
           <div class="ihead">
-            <span class="pinno {cls}">{n}</span>
-            <span class="badge {cls}">{_esc(i['status'])}</span>
+            <span class="pinno" style="background:{type_color}">{n}</span>
+            <span class="state {cls}">{_esc(state_label)}</span>
+            {sev_html}
             <b>{_esc(i['logical_element_key'])}</b>
-            <span class="cat">{_esc(i['category'])}</span>
           </div>
           <div class="props">{props_html}</div>
           <div class="loc">위치 {loc}</div>
           <ul class="hist">{rows}</ul>
         </div>"""
 
-    issues_html = "".join(issue_card(i) for i in shown) or '<p class="empty">표시할 이슈 없음</p>'
+    # 오류 유형(category)별 그룹 → '탭'. 탭 누르면 그 그룹 카드만 한 화면에.
+    groups, gcat = {}, {}
+    for i in shown:
+        lbl = _type_label(i["category"])
+        groups.setdefault(lbl, []).append(i)
+        gcat[lbl] = i["category"]
+    ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    tabbar = panels = ""
+    for gi, (lbl, items) in enumerate(ordered):
+        col = _type_color(gcat[lbl])
+        tabbar += (
+            f'<button class="tab{" on" if gi == 0 else ""}" data-idx="{gi}" onclick="showTab(\'{gi}\')">'
+            f'<span class="sw" style="background:{col}"></span>{_esc(lbl)} '
+            f'<span class="cnt">{len(items)}</span></button>'
+        )
+        cards = "".join(issue_card(i) for i in items)
+        panels += (
+            f'<div class="panel" id="panel-{gi}"{"" if gi == 0 else " hidden"}>'
+            f'<div class="grid">{cards}</div></div>'
+        )
+    issues_html = panels or '<p class="empty">표시할 이슈 없음</p>'
 
     roster_html = "".join(
         f'<span class="person">{_esc(p["name"])}'
@@ -262,9 +356,12 @@ def render_page(page_uuid: str, unresolved_only: bool):
     <div class="filters">
       <a class="chip {toggle_all}" href="{base}">전체 {len(issues)}</a>
       <a class="chip {toggle_un}" href="{base}?unresolved=1">미해결만</a>
+      <span class="hint">핀 클릭 → 그 유형 탭으로 이동 + 카드 강조 · 카드 클릭 → 핀 강조</span>
     </div>
-    {issues_html}
+    <div class="tabbar">{tabbar}</div>
+    <div class="cards" id="cards">{issues_html}</div>
   </div>
+  <script>{_PAGE_JS}</script>
 </body></html>"""
 
 
@@ -347,41 +444,67 @@ _LIST_CSS = """
 
 _PAGE_CSS = """
   * { box-sizing:border-box; }
-  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; }
-  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:14px 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  html, body { height:100%; }
+  /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
+  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
   header .back { text-decoration:none; color:#6b7280; font-size:13px; }
   header h1 { font-size:16px; margin:0; }
   header .meta { font-size:12px; color:#6b7280; }
   .key { font-family:ui-monospace,monospace; }
   .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
   .pf.fail { background:#fef2f2; color:#b42318; } .pf.pass { background:#ecfdf3; color:#12864e; }
-  .wrap { max-width:1200px; margin:0 auto; padding:20px 28px 60px; }
-  .roster { font-size:12px; color:#374151; margin-bottom:14px; }
+  .wrap { flex:1; min-height:0; display:flex; flex-direction:column; width:100%; padding:14px 24px 0; }
+  .roster { font-size:12px; color:#374151; margin-bottom:10px; flex-shrink:0; }
   .roster .lbl { color:#6b7280; margin-right:8px; }
   .person { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px; padding:3px 10px; margin-right:6px; }
-  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
-  .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
-  .pane h3 { font-size:12px; margin:0; padding:10px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; }
-  .canvas { position:relative; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; }
+  /* 비교 영역: 위에 고정, 스크롤에 안 밀림 */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex-shrink:0; height:46vh; margin-bottom:12px; }
+  .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; }
+  .canvas { position:relative; flex:1; min-height:0; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); display:flex; align-items:center; justify-content:center; }
   .canvas .ph { color:#9ca3af; font-size:13px; }
   .overlay { position:absolute; inset:0; width:100%; height:100%; }
-  .pin rect { fill:rgba(180,35,24,.08); stroke:#b42318; stroke-width:3; }
-  .pin.done rect { fill:rgba(18,134,78,.08); stroke:#12864e; }
-  .pin.mid rect { fill:rgba(107,114,128,.08); stroke:#6b7280; }
-  .pin circle { fill:#b42318; } .pin.done circle { fill:#12864e; } .pin.mid circle { fill:#6b7280; }
-  .pin text { fill:#fff; font-size:15px; font-weight:700; }
-  .filters { margin:2px 0 12px; }
+  /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
+  .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }
+  .box:hover rect { fill-opacity:.16; }
+  /* (2) 리더 라인 — 짧게만, 클릭 통과 */
+  .leaders { pointer-events:none; }
+  .leader { stroke-width:3; opacity:.7; }
+  /* (3) 핀 레이어 — 항상 맨 위. 큰 투명 원(.hit)으로 클릭 쉽게. dot 색=유형색(인라인) */
+  .pin .hit { fill:transparent; }
+  .pin .dot { stroke:#fff; stroke-width:3; }
+  .pin text { fill:#fff; font-size:34px; font-weight:800; pointer-events:none; }
+  .pin.clickable { cursor:pointer; }
+  .pinmark { transform-box:fill-box; transform-origin:center; transition:transform .12s ease; }
+  .pin:hover .pinmark, .pin.sel .pinmark { transform:scale(1.5); }
+  @keyframes pinflash { 0%,100% { opacity:1; } 50% { opacity:.15; } }
+  .pin.flash .dot { animation:pinflash .35s ease-in-out 3; }
+  .filters { margin:0 0 10px; flex-shrink:0; }
   .chip { display:inline-block; padding:4px 12px; margin-right:6px; border:1px solid #d1d5db; border-radius:999px; font-size:13px; text-decoration:none; color:#374151; background:#fff; }
   .chip.on { background:#111827; color:#fff; border-color:#111827; }
-  .issue { background:#fff; border:1px solid #e5e7eb; border-left-width:4px; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
-  .issue.open { border-left-color:#b42318; } .issue.done { border-left-color:#12864e; } .issue.mid { border-left-color:#6b7280; }
+  .hint { font-size:11px; color:#9ca3af; margin-left:6px; }
+  /* 카드 영역만 자체 스크롤. 안에 유형별 섹션 → 각 섹션은 여러 열 그리드 */
+  .cards { flex:1; min-height:0; overflow-y:auto; position:relative; padding:0 10px 30px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:18px; align-items:start; }
+  /* 유형 탭 바 (고정 영역) */
+  .tabbar { flex-shrink:0; display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 12px; }
+  .tab { display:inline-flex; align-items:center; font-size:13px; font-weight:700; color:#374151; background:#fff; border:1px solid #d1d5db; border-radius:999px; padding:6px 14px; cursor:pointer; }
+  .tab .sw { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:7px; }
+  .tab .cnt { margin-left:6px; font-size:12px; font-weight:700; color:#6b7280; }
+  .tab.on { background:#111827; color:#fff; border-color:#111827; }
+  .tab.on .cnt { color:#d1d5db; }
+  /* 카드는 차분하게 + 여백 넉넉히 — 왼쪽 빨간 줄 없음, 유형/상태는 카드 안 태그로 */
+  .issue { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 18px; cursor:pointer; transition:box-shadow .15s, border-color .15s; }
+  .issue.hl { border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.55); }
   .ihead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .pinno { width:22px; height:22px; border-radius:50%; color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:#b42318; }
+  .pinno { width:24px; height:24px; border-radius:50%; color:#fff; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:#b42318; flex-shrink:0; }
   .pinno.done { background:#12864e; } .pinno.mid { background:#6b7280; }
-  .badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:#fef2f2; color:#b42318; }
-  .badge.done { background:#ecfdf3; color:#12864e; } .badge.mid { background:#f3f4f6; color:#374151; }
-  .cat { font-size:11px; color:#6b7280; }
-  .props { margin:8px 0 4px; }
+  .type { font-size:12px; font-weight:700; padding:3px 10px; border-radius:6px; background:#eef2ff; color:#3730a3; }
+  .state { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:#fef2f2; color:#b42318; }
+  .state.done { background:#ecfdf3; color:#12864e; } .state.mid { background:#f3f4f6; color:#374151; }
+  .sev { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+  .props { margin:10px 0 6px; }
   .tag { display:inline-block; font-size:11px; background:#f3f4f6; color:#374151; border-radius:6px; padding:2px 8px; margin:0 5px 5px 0; }
   .loc { font-size:11px; color:#9ca3af; font-family:ui-monospace,monospace; }
   .hist { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px dashed #eee; font-size:12px; color:#4b5563; }
@@ -391,6 +514,62 @@ _PAGE_CSS = """
   .at { color:#9ca3af; }
   .muted { color:#9ca3af; }
   .empty { color:#6b7280; padding:20px; }
+"""
+
+
+_PAGE_JS = """
+function _clearHL(){
+  document.querySelectorAll('.issue.hl').forEach(function(e){ e.classList.remove('hl'); });
+  document.querySelectorAll('.pin.flash').forEach(function(e){ e.classList.remove('flash'); });
+  document.querySelectorAll('.pin.sel').forEach(function(e){ e.classList.remove('sel'); });
+}
+// 겹친 핀은 맨 뒤에 있으면 안 잡히므로, 마우스 올리면 DOM 맨 끝으로 옮겨 맨 앞에 그린다
+function bringFront(g){ g.parentNode.appendChild(g); }
+// 카드 박스 안에서만 스크롤. box.scrollTop 직접 지정이라 어떤 환경에서도 확실히 이동한다.
+// (네이티브 smooth/ rAF는 탭이 그리지 않는 환경에선 멈춰서 안 먹는다 → 직접 지정으로 보장)
+function _scrollBox(box, target){
+  var max = box.scrollHeight - box.clientHeight;
+  target = Math.max(0, Math.min(target, max));
+  try { box.scrollTo({ top: target, behavior: 'smooth' }); } catch(e) {}  // 지원되면 부드럽게
+  box.scrollTop = target;  // 항상 확실히 착지
+}
+// 핀 클릭 → '카드 박스 안에서만' 해당 카드로 스크롤 + 하이라이트.
+// 페이지 전체는 안 밀린다(개발화면을 계속 보면서 카드만 이동). 여러 열이어도 id로 정확히 찾음.
+function _selPin(uuid){
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  p.classList.add('sel');   // 그 핀만 커지고
+  bringFront(p);            // 맨 앞으로
+}
+// 유형 탭 전환 (그 그룹 카드만 보이게)
+function showTab(gi){
+  gi = String(gi);
+  document.querySelectorAll('.panel').forEach(function(p){ p.hidden = (p.id !== 'panel-' + gi); });
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-idx') === gi); });
+  var box = document.getElementById('cards'); if(box){ box.scrollTop = 0; }
+}
+function focusCard(uuid){
+  _clearHL();
+  var c = document.getElementById('issue-' + uuid);
+  var box = document.getElementById('cards');
+  if(!c || !box){ return; }
+  var panel = c.closest('.panel');        // 그 카드가 속한 탭으로 먼저 전환
+  if(panel){ showTab(panel.id.replace('panel-', '')); }
+  c.classList.add('hl');
+  _selPin(uuid);
+  _scrollBox(box, c.offsetTop - (box.clientHeight - c.offsetHeight) / 2);
+}
+// 카드 클릭 → 같은 uuid 핀이 커지고 맨 앞으로(+깜빡). 개발화면은 상단 고정이라 스크롤 불필요.
+function focusPin(uuid){
+  _clearHL();
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  var c = document.getElementById('issue-' + uuid);
+  if(c){ c.classList.add('hl'); }
+  void p.getBoundingClientRect();
+  p.classList.add('flash');
+  _selPin(uuid);
+}
 """
 
 

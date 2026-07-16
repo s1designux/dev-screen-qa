@@ -196,7 +196,7 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
 
     # 담당자 명단 시드 (예시 이름 2명 — 포털 관리 화면에서 이름 수정·비활성 가능).
     seed_people = [
-        ("배수현", "디자인팀(검수)"),
+        ("배가람", "디자인그룹"),
         ("김도현", "개발팀"),
     ]
     for name, aff in seed_people:
