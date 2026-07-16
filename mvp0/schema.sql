@@ -24,11 +24,19 @@ CREATE TABLE IF NOT EXISTS screen (
 -- 차수(round)와는 다른 축이다: 한 페이지가 여러 차수에 걸쳐 재검수된다.
 -- 페이지의 현재 Pass/Fail은 저장하지 않고 그 페이지 최신 run의 pass_fail로 계산한다.
 CREATE TABLE IF NOT EXISTS inspection_page (
-    uuid       TEXT PRIMARY KEY,
-    screen_id  TEXT NOT NULL REFERENCES screen(uuid),
-    seq        INTEGER,                -- 단계 순서
-    name       TEXT,
-    note       TEXT
+    uuid        TEXT PRIMARY KEY,
+    screen_id   TEXT NOT NULL REFERENCES screen(uuid),
+    seq         INTEGER,               -- 단계 순서
+    name        TEXT,
+    note        TEXT,
+    -- 실제 이미지(로컬 저장 파일명, 없으면 NULL → 자리표시)
+    design_img  TEXT,                  -- 좌 디자인 PNG
+    dev_img     TEXT,                  -- 우 개발 PNG
+    dev_img_w   INTEGER,               -- 업로드된 개발 이미지 실제 원본 폭 (기록)
+    dev_img_h   INTEGER,               -- 〃 높이
+    -- 핀 비율(%) 환산의 '기준 크기'(분모). box 좌표가 나온 캡처 기준.
+    coord_ref_w INTEGER,               -- 기준 폭 = 1920 (전체폭 바로 확정, 박아둠)
+    coord_ref_h INTEGER                -- 기준 높이 = 업로드 개발 이미지 비율로 산출
 );
 
 CREATE TABLE IF NOT EXISTS element_mapping (

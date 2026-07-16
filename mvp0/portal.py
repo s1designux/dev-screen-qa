@@ -26,7 +26,34 @@ from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES
 
 BASE = Path(__file__).resolve().parent
 REAL_DB = BASE / "mvp0-real.db"   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
+UPLOADS = BASE / "uploads"        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
 PORT = 8765
+
+
+def _multipart_file(body, content_type):
+    """multipart/form-data에서 첫 파일 파트의 바이트를 꺼낸다 (순수 stdlib)."""
+    ct = content_type or ""
+    if "boundary=" not in ct:
+        return None
+    boundary = ct.split("boundary=", 1)[1].strip().strip('"')
+    marker = b"--" + boundary.encode()
+    for seg in body.split(marker):
+        if b"\r\n\r\n" not in seg:
+            continue
+        head, data = seg.split(b"\r\n\r\n", 1)
+        if b"filename=" not in head:
+            continue
+        if data.endswith(b"\r\n"):
+            data = data[:-2]
+        return data
+    return None
+
+
+def _png_size(data):
+    """PNG 헤더(IHDR)에서 원본 가로·세로를 읽는다. PNG 아니면 None (Pillow 등 불필요)."""
+    if not data or len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return None
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
 
 
 def _esc(v):
@@ -38,12 +65,45 @@ def _pf_badge(v):
     return f'<span class="pf {v.lower()}">{_esc(v.upper() or "—")}</span>'
 
 
+def _upl(human_key, page_uuid, side):
+    """PNG 업로드 컨트롤 (선택 즉시 제출 → 로컬 저장 → 표시)."""
+    action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload?side={side}"
+    return (
+        f'<form class="upl" method="post" enctype="multipart/form-data" action="{action}">'
+        f'<label>PNG 업로드<input type="file" name="file" accept="image/png" '
+        f'onchange="this.form.submit()"></label></form>'
+    )
+
+
 def _status_class(status):
     if status in UNRESOLVED_STATUSES:
         return "open"
     if status in CLOSED_STATUSES:
         return "done"
     return "mid"
+
+
+def _save_upload(page_uuid, side, data, size):
+    """PNG를 로컬 저장하고 경로만 DB에 기록. dev면 원본 크기 기록 + 기준높이(coord_ref_h)를
+    이미지 비율로 산출(coord_ref_w=1920 고정) → 어떤 배율로 올려도 핀이 안 밀림."""
+    UPLOADS.mkdir(exist_ok=True)
+    fname = f"{page_uuid}_{side}.png"
+    (UPLOADS / fname).write_bytes(data)
+    w, h = size
+    conn = dbmod.connect(REAL_DB)
+    if side == "dev":
+        ref_w = conn.execute(
+            "SELECT coord_ref_w FROM inspection_page WHERE uuid=?", (page_uuid,)
+        ).fetchone()["coord_ref_w"] or 1920
+        ref_h = round(h * ref_w / w) if w else 1080     # 업로드 이미지 비율로 기준높이 산출
+        conn.execute(
+            "UPDATE inspection_page SET dev_img=?, dev_img_w=?, dev_img_h=?, coord_ref_h=? WHERE uuid=?",
+            (fname, w, h, ref_h, page_uuid),
+        )
+    else:
+        conn.execute("UPDATE inspection_page SET design_img=? WHERE uuid=?", (fname, page_uuid))
+    conn.commit()
+    conn.close()
 
 
 def _pass_issue(issue_uuid, actor, reason):
@@ -292,13 +352,30 @@ def render_page(page_uuid: str):
             f'<text y="9" text-anchor="middle">{n}</text>'
             f"</g></g></g>"
         )
+    # 핀 비율(%)의 분모 = coord_ref(캡처 기준 크기). SVG viewBox를 그 크기로 두면
+    # box 좌표가 자동으로 '기준 대비 비율'로 렌더 → 올린 이미지 배율이 달라도 안 밀림.
+    dev_img = page["dev_img"]
+    design_img = page["design_img"]
+    vb_w = page["coord_ref_w"] or 1920
+    vb_h = page["coord_ref_h"] or 1080
+    par = "none" if dev_img else "xMidYMin meet"   # 이미지 위엔 정확 매핑, 자리표시엔 비율 유지
     overlay = (
-        f'<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMin meet" class="overlay">'
+        f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="{par}" class="overlay">'
         f'<g class="boxes">{boxes}</g>'
         f'<g class="leaders">{leaders}</g>'
         f'<g class="pins">{dots}</g>'
         f"</svg>"
     )
+
+    # 좌: 디자인 이미지(핀 없음) / 우: 개발 이미지 + 핀 오버레이. 없으면 자리표시 유지.
+    if design_img:
+        left_body = f'<div class="imgwrap"><img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인"></div>'
+    else:
+        left_body = '<span class="ph">디자인 이미지 자리표시</span>'
+    if dev_img:
+        right_body = f'<div class="imgwrap"><img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}</div>'
+    else:
+        right_body = f'<span class="ph">개발 이미지 자리표시</span>{overlay}'
 
     person_options = "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons)
 
@@ -397,12 +474,12 @@ def render_page(page_uuid: str):
 
     <div class="cols">
       <div class="pane">
-        <h3>좌 · 디자인 (정답 모습 — 핀 없음)</h3>
-        <div class="canvas"><span class="ph">디자인 이미지 자리표시 (실제 연동은 다음 조각)</span></div>
+        <h3>좌 · 디자인 (정답 모습 — 핀 없음) {_upl(human_key, page_uuid, "design")}</h3>
+        <div class="canvas">{left_body}</div>
       </div>
       <div class="pane">
-        <h3>우 · 개발 (핀 = 발견 위치)</h3>
-        <div class="canvas"><span class="ph">개발 이미지 자리표시</span>{overlay}</div>
+        <h3>우 · 개발 (핀 = 발견 위치) {_upl(human_key, page_uuid, "dev")}</h3>
+        <div class="canvas">{right_body}</div>
       </div>
     </div>
 
@@ -432,6 +509,18 @@ class Handler(BaseHTTPRequestHandler):
             human_key = path[len("/screen/"):]
             page = render_screen(human_key)
             self._html(page if page else self._nf(f"화면 없음: {human_key}"), 200 if page else 404)
+        elif path.startswith("/uploads/"):
+            fp = UPLOADS / Path(path[len("/uploads/"):]).name   # basename만 → 경로 탈출 방지
+            if fp.exists() and fp.suffix == ".png":
+                data = fp.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
         elif path.startswith("/report/"):
             # A4 반출은 park(나중 조각). report.py는 손대지 않음.
             self._html("<p style='font-family:sans-serif;padding:40px'>화면 전체 A4 반출은 다음 조각입니다. "
@@ -441,9 +530,10 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        length = int(self.headers.get("Content-Length", 0))
         if path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
-            length = int(self.headers.get("Content-Length", 0))
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             issue = form.get("issue", [""])[0]
             actor = form.get("actor", [""])[0].strip()
@@ -452,6 +542,17 @@ class Handler(BaseHTTPRequestHandler):
                 _pass_issue(issue, actor, reason)
             self.send_response(303)                    # 처리 후 페이지 상세로 리다이렉트
             self.send_header("Location", path[:-len("/pass")])
+            self.end_headers()
+        elif path.startswith("/screen/") and "/page/" in path and path.endswith("/upload"):
+            side = parse_qs(parsed.query).get("side", [""])[0]
+            page_uuid = path[:-len("/upload")].rsplit("/page/", 1)[1]
+            body = self.rfile.read(length)
+            data = _multipart_file(body, self.headers.get("Content-Type", ""))
+            size = _png_size(data)                     # PNG만 허용(아니면 무시)
+            if data and size and side in ("design", "dev"):
+                _save_upload(page_uuid, side, data, size)
+            self.send_response(303)
+            self.send_header("Location", path[:-len("/upload")])
             self.end_headers()
         else:
             self.send_response(404)
@@ -527,9 +628,15 @@ _PAGE_CSS = """
   /* 비교 영역: 위에 고정, 스크롤에 안 밀림 */
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex-shrink:0; height:46vh; margin-bottom:12px; }
   .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
-  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; }
+  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; display:flex; align-items:center; gap:8px; }
+  .upl { margin-left:auto; }
+  .upl label { font-size:11px; font-weight:600; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:2px 9px; background:#fff; cursor:pointer; }
+  .upl input { display:none; }
   .canvas { position:relative; flex:1; min-height:0; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); display:flex; align-items:center; justify-content:center; }
   .canvas .ph { color:#9ca3af; font-size:13px; }
+  /* 이미지 래퍼가 이미지 크기에 딱 맞고, 오버레이는 그 위에 inset:0 → 핀이 이미지에 정확히 정렬 */
+  .imgwrap { position:relative; display:inline-flex; max-width:100%; max-height:100%; }
+  .capimg { display:block; max-width:100%; max-height:100%; object-fit:contain; }
   .overlay { position:absolute; inset:0; width:100%; height:100%; }
   /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
   .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }

@@ -1,5 +1,6 @@
 # 생성물(스크립트로 언제든 재생성). 원본은 fixtures/ + 코드다.
 mvp0.db
 mvp0-real.db
+uploads/
 export.json
 report.html

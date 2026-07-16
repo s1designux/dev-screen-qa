@@ -70,9 +70,10 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
     primary_spec = pages_spec.get("primary", {})
     primary_page_id = _uuid()
     cur.execute(
-        "INSERT INTO inspection_page(uuid, screen_id, seq, name, note) VALUES (?,?,?,?,?)",
+        """INSERT INTO inspection_page(uuid, screen_id, seq, name, note, coord_ref_w, coord_ref_h)
+           VALUES (?,?,?,?,?,?,?)""",
         (primary_page_id, screen_id, primary_spec.get("seq", 1),
-         primary_spec.get("name") or s.get("name") or "기본 페이지", None),
+         primary_spec.get("name") or s.get("name") or "기본 페이지", None, 1920, 1080),
     )
 
     # element mappings (없으면 건너뜀)
@@ -160,8 +161,9 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
         page_id = _uuid()
         dummy_pages += 1
         cur.execute(
-            "INSERT INTO inspection_page(uuid, screen_id, seq, name, note) VALUES (?,?,?,?,?)",
-            (page_id, screen_id, ep.get("seq"), ep.get("name"), "[더미] 검증용"),
+            """INSERT INTO inspection_page(uuid, screen_id, seq, name, note, coord_ref_w, coord_ref_h)
+               VALUES (?,?,?,?,?,?,?)""",
+            (page_id, screen_id, ep.get("seq"), ep.get("name"), "[더미] 검증용", 1920, 1080),
         )
         dummy_run_id = _uuid()
         rnd = ep.get("round", 1)
