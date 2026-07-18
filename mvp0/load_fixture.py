@@ -14,8 +14,10 @@
       변화는 issue_history에 append한다. (CLAUDE.md 6번 / 2번-3 이력 삭제 금지)
 """
 import json
+import struct
 import sys
 import uuid
+import zlib
 from pathlib import Path
 
 import db as dbmod
@@ -27,6 +29,34 @@ DEFAULT_FIXTURE = BASE / "fixtures" / "cv-web-012.json"
 
 def _uuid() -> str:
     return uuid.uuid4().hex
+
+
+def _make_demo_png(path, w, h, boxes):
+    """데모용 가짜 개발 이미지(PNG) 생성 — 박스를 그려 핀 정렬이 보이게. 순수 stdlib."""
+    bg = bytes((232, 235, 240)); c1 = bytes((120, 140, 200)); c2 = bytes((200, 120, 120))
+    rows = [bytearray(bg * w) for _ in range(h)]
+    sx, sy = w / 1920.0, h / 1080.0
+    def hl(y, x0, x1, c):
+        if 0 <= y < h:
+            r = rows[y]
+            for x in range(max(0, x0), min(w, x1)): r[x*3:x*3+3] = c
+    def vl(x, y0, y1, c):
+        if 0 <= x < w:
+            for y in range(max(0, y0), min(h, y1)): rows[y][x*3:x*3+3] = c
+    for i, b in enumerate(boxes):
+        x, y = int(b["x"]*sx), int(b["y"]*sy)
+        ww, hh = int(b["w"]*sx), int(b["h"]*sy)
+        c = c1 if i % 2 == 0 else c2
+        for t in range(2):
+            hl(y+t, x, x+ww, c); hl(y+hh-1-t, x, x+ww, c); vl(x+t, y, y+hh, c); vl(x+ww-1-t, y, y+hh, c)
+    raw = bytearray()
+    for r in rows: raw.append(0); raw += r
+    def chunk(tp, d):
+        return struct.pack('>I', len(d)) + tp + d + struct.pack('>I', zlib.crc32(tp+d) & 0xffffffff)
+    png = (b'\x89PNG\r\n\x1a\n'
+           + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+           + chunk(b'IDAT', zlib.compress(bytes(raw), 6)) + chunk(b'IEND', b''))
+    Path(path).write_bytes(png)
 
 
 def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) -> None:
@@ -96,10 +126,11 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
         run_id = _uuid()
         run_id_by_round[r["round"]] = run_id
         cur.execute(
-            """INSERT INTO inspection_run(uuid, screen_id, page_id, round, inspector, created_at, pass_fail)
-               VALUES (?,?,?,?,?,?,?)""",
+            """INSERT INTO inspection_run(uuid, screen_id, page_id, round, inspector, created_at, pass_fail,
+                                          coord_ref_w, coord_ref_h)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (run_id, screen_id, primary_page_id, r["round"], r.get("inspector"),
-             r.get("created_at"), r.get("pass_fail")),
+             r.get("created_at"), r.get("pass_fail"), 1920, 1080),
         )
 
     # issues (+ history). dedup_key로 UPSERT, 상태는 마지막 history의 to_status. 전부 primary 페이지.
@@ -109,7 +140,7 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
             history = [{
                 "from_status": None, "to_status": iss["status"],
                 "actor": default_inspector, "at": default_at,
-                "note": "1차 검수에서 발견",
+                "note": "1차 검수에서 발견", "round": iss.get("found_round", 1),
             }]
         current_status = history[-1]["to_status"]
         assert current_status in STATUS_ALL, f"알 수 없는 상태: {current_status}"
@@ -149,10 +180,10 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
 
         for seq, h in enumerate(history):
             cur.execute(
-                """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq)
-                   VALUES (?,?,?,?,?,?,?,?)""",
+                """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq, round)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
                 (_uuid(), issue_id, h["from_status"], h["to_status"],
-                 h.get("actor"), h.get("at"), h.get("note"), seq),
+                 h.get("actor"), h.get("at"), h.get("note"), seq, h.get("round")),
             )
 
     # 검증용 더미 페이지(extra) — 실제 이슈와 완전히 분리해서 별도 페이지/ run/ 이슈로 만든다.
@@ -168,9 +199,10 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
         dummy_run_id = _uuid()
         rnd = ep.get("round", 1)
         cur.execute(
-            """INSERT INTO inspection_run(uuid, screen_id, page_id, round, inspector, created_at, pass_fail)
-               VALUES (?,?,?,?,?,?,?)""",
-            (dummy_run_id, screen_id, page_id, rnd, "[더미]", None, ep.get("pass_fail")),
+            """INSERT INTO inspection_run(uuid, screen_id, page_id, round, inspector, created_at, pass_fail,
+                                          coord_ref_w, coord_ref_h)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (dummy_run_id, screen_id, page_id, rnd, "[더미]", None, ep.get("pass_fail"), 1920, 1080),
         )
         for di in ep.get("dummy_issues", []):
             issue_id = _uuid()
@@ -191,9 +223,9 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
                  json.dumps(props, ensure_ascii=False) if props else None),
             )
             cur.execute(
-                """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq)
-                   VALUES (?,?,?,?,?,?,?,?)""",
-                (_uuid(), issue_id, None, di.get("status", "발견"), "[더미]", None, "더미 발견", 0),
+                """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq, round)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (_uuid(), issue_id, None, di.get("status", "발견"), "[더미]", None, "더미 발견", 0, rnd),
             )
 
     # 담당자 명단 시드 (예시 이름 2명 — 포털 관리 화면에서 이름 수정·비활성 가능).
@@ -204,6 +236,47 @@ def load(fixture_path: Path = DEFAULT_FIXTURE, db_path: Path = dbmod.DB_PATH) ->
     for name, aff in seed_people:
         cur.execute("INSERT INTO person(uuid, name, affiliation, active) VALUES (?,?,?,1)",
                     (_uuid(), name, aff))
+
+    # 데모용 2차 run + 가짜 2차 개발 이미지 + 지적 상태 전환 (차수 전환이 화면에서 보이게).
+    # 이미지 파일은 uploads/(.gitignore) — 커밋에 안 섞임.
+    d2 = data.get("demo_round2")
+    if d2:
+        r2_id = _uuid()
+        uploads = BASE / "uploads"
+        uploads.mkdir(exist_ok=True)
+        boxes = [dict(x=r["box_x"] or 0, y=r["box_y"] or 0, w=r["box_w"] or 0, h=r["box_h"] or 0)
+                 for r in cur.execute(
+                     "SELECT box_x,box_y,box_w,box_h FROM inspection_issue WHERE page_id=?",
+                     (primary_page_id,))]
+        img_w, img_h = 1200, 675          # 16:9 가짜 개발화면 (박스 그려서 정렬 보이게)
+        fname = f"{r2_id}_dev.png"
+        _make_demo_png(uploads / fname, img_w, img_h, boxes)
+        cur.execute(
+            """INSERT INTO inspection_run(uuid, screen_id, page_id, round, inspector, created_at, pass_fail,
+                                          dev_img, dev_img_w, dev_img_h, coord_ref_w, coord_ref_h)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (r2_id, screen_id, primary_page_id, 2, d2.get("inspector"), d2.get("at"),
+             d2.get("pass_fail"), fname, img_w, img_h, 1920, round(img_h * 1920 / img_w)),
+        )
+        for t in d2.get("transitions", []):
+            row = cur.execute(
+                "SELECT uuid, status FROM inspection_issue WHERE dedup_key=?", (t["dedup_key"],)
+            ).fetchone()
+            if row is None:
+                continue
+            new = t["to_status"]
+            assert new in STATUS_ALL, f"알 수 없는 상태: {new}"
+            seq = cur.execute(
+                "SELECT COALESCE(MAX(seq), -1) + 1 AS s FROM issue_history WHERE issue_id=?",
+                (row["uuid"],)).fetchone()["s"]
+            cur.execute(
+                """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq, round)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (_uuid(), row["uuid"], row["status"], new, d2.get("inspector"),
+                 d2.get("at"), t.get("note"), seq, 2),
+            )
+            cur.execute("UPDATE inspection_issue SET status=?, resolved_round=? WHERE uuid=?",
+                        (new, t.get("resolved_round"), row["uuid"]))
 
     conn.commit()
     conn.close()

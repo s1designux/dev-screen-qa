@@ -60,5 +60,16 @@
     { "pin": 14, "element": "삼성 통근버스 운영 시스템 메뉴", "category": "mixed", "properties": ["높이","배경색"], "box": {"x":0,"y":0,"w":1920,"h":20}, "_coord_review": "원본 보드에서 상단 띠에 찍혀 있어 위치 재확인 필요", "expected": null, "actual": null, "description": "삼성 통근버스 운영 시스템 메뉴 — 높이, 배경색", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|메뉴|mixed|height+bg" },
     { "pin": 15, "element": "푸터 바로가기", "category": "structure", "properties": ["디자인에 없는 요소가 개발에 있음"], "box": {"x":0,"y":0,"w":1920,"h":20}, "_coord_review": "원본 보드에서 상단 띠에 찍혀 있어 위치 재확인 필요", "expected": null, "actual": null, "description": "푸터 바로가기 — 디자인에 없는 요소가 개발에 있어요", "status": "발견", "found_round": 1, "resolved_round": null, "dedup_key": "TB-WEB-001|푸터바로가기|structure|extra-element" }
   ],
+  "demo_round2": {
+    "_note": "데모용 2차 — 차수 전환이 보이게. 개발 이미지는 로더가 가짜로 1장 생성(uploads/, 커밋 제외). 실제 2차 이미지는 나중에 업로드.",
+    "inspector": "배가람",
+    "pass_fail": "fail",
+    "at": "2026-07-18T10:00:00",
+    "transitions": [
+      { "dedup_key": "TB-WEB-001|개인정보처리방침|typography|font-size+family", "to_status": "재발", "note": "2차: 여전히 어긋남 — 재발" },
+      { "dedup_key": "TB-WEB-001|인증요청버튼|layout|height+padding", "to_status": "검수완료", "resolved_round": 2, "note": "2차: 수정 확인, 정상" },
+      { "dedup_key": "TB-WEB-001|이름라벨|typography|weight+family", "to_status": "검수완료", "resolved_round": 2, "note": "2차: 수정 확인, 정상" }
+    ]
+  },
   "issue_history_note": "이슈 15건 모두 최초 발견 → status '발견' 1줄씩. (신규)→발견, actor=inspector"
 }

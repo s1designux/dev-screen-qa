@@ -65,9 +65,10 @@ def _pf_badge(v):
     return f'<span class="pf {v.lower()}">{_esc(v.upper() or "—")}</span>'
 
 
-def _upl(human_key, page_uuid, side):
-    """PNG 업로드 컨트롤 (선택 즉시 제출 → 로컬 저장 → 표시)."""
-    action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload?side={side}"
+def _upl(human_key, page_uuid, side, rnd=None):
+    """PNG 업로드 컨트롤 (선택 즉시 제출 → 로컬 저장 → 표시). dev는 그 차수(run)에 저장."""
+    q = f"?side={side}" + (f"&round={rnd}" if rnd is not None else "")
+    action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
     return (
         f'<form class="upl" method="post" enctype="multipart/form-data" action="{action}">'
         f'<label>PNG 업로드<input type="file" name="file" accept="image/png" '
@@ -83,55 +84,69 @@ def _status_class(status):
     return "mid"
 
 
-def _save_upload(page_uuid, side, data, size):
-    """PNG를 로컬 저장하고 경로만 DB에 기록. dev면 원본 크기 기록 + 기준높이(coord_ref_h)를
-    이미지 비율로 산출(coord_ref_w=1920 고정) → 어떤 배율로 올려도 핀이 안 밀림."""
+def _status_at(history, rnd):
+    """이슈의 '해당 차수 시점 상태' = round<=rnd 인 마지막 history의 to_status.
+    (round None은 1차로 간주). 그 차수에 아직 없던 이슈면 None."""
+    eff = None
+    for h in history:                       # seq 오름차순
+        hr = h["round"] if h["round"] is not None else 1
+        if hr <= rnd:
+            eff = h["to_status"]
+    return eff
+
+
+def _save_upload(page_uuid, side, data, size, rnd=1):
+    """PNG를 로컬 저장하고 경로만 DB에 기록. dev면 '그 차수(run)'에 저장 + 원본 크기 기록 +
+    기준높이(coord_ref_h)를 이미지 비율로 산출(coord_ref_w=1920 고정) → 배율 무관 정렬."""
     UPLOADS.mkdir(exist_ok=True)
-    fname = f"{page_uuid}_{side}.png"
-    (UPLOADS / fname).write_bytes(data)
-    w, h = size
     conn = dbmod.connect(REAL_DB)
+    w, h = size
     if side == "dev":
-        ref_w = conn.execute(
-            "SELECT coord_ref_w FROM inspection_page WHERE uuid=?", (page_uuid,)
-        ).fetchone()["coord_ref_w"] or 1920
+        run = conn.execute(
+            "SELECT uuid, coord_ref_w FROM inspection_run WHERE page_id=? AND round=?",
+            (page_uuid, rnd),
+        ).fetchone()
+        if run is None:
+            conn.close()
+            return
+        fname = f"{run['uuid']}_dev.png"
+        (UPLOADS / fname).write_bytes(data)
+        ref_w = run["coord_ref_w"] or 1920
         ref_h = round(h * ref_w / w) if w else 1080     # 업로드 이미지 비율로 기준높이 산출
         conn.execute(
-            "UPDATE inspection_page SET dev_img=?, dev_img_w=?, dev_img_h=?, coord_ref_h=? WHERE uuid=?",
-            (fname, w, h, ref_h, page_uuid),
+            "UPDATE inspection_run SET dev_img=?, dev_img_w=?, dev_img_h=?, coord_ref_h=? WHERE uuid=?",
+            (fname, w, h, ref_h, run["uuid"]),
         )
     else:
+        fname = f"{page_uuid}_design.png"
+        (UPLOADS / fname).write_bytes(data)
         conn.execute("UPDATE inspection_page SET design_img=? WHERE uuid=?", (fname, page_uuid))
     conn.commit()
     conn.close()
 
 
-def _pass_issue(issue_uuid, actor, reason):
-    """'협의통과' 처리: status만 갱신(행 삭제 없음) + issue_history에 한 줄 append(누가·언제·왜)."""
+def _pass_issue(issue_uuid, actor, reason, rnd=1):
+    """'협의통과' 처리: status만 갱신(행 삭제 없음) + issue_history에 한 줄 append(누가·언제·왜·차수)."""
     conn = dbmod.connect(REAL_DB)
     row = conn.execute(
-        "SELECT status, page_id FROM inspection_issue WHERE uuid=?", (issue_uuid,)
+        "SELECT status FROM inspection_issue WHERE uuid=?", (issue_uuid,)
     ).fetchone()
     if row is None:
         conn.close()
         return
     old = row["status"]
-    rr = conn.execute(
-        "SELECT MAX(round) m FROM inspection_run WHERE page_id=?", (row["page_id"],)
-    ).fetchone()
-    resolved_round = rr["m"] if rr else None
     conn.execute(
         "UPDATE inspection_issue SET status=?, resolved_round=? WHERE uuid=?",
-        ("협의통과", resolved_round, issue_uuid),
+        ("협의통과", rnd, issue_uuid),
     )
     seq = conn.execute(
         "SELECT COALESCE(MAX(seq), -1) + 1 AS s FROM issue_history WHERE issue_id=?", (issue_uuid,)
     ).fetchone()["s"]
     conn.execute(
-        """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq)
-           VALUES (?,?,?,?,?,?,?,?)""",
+        """INSERT INTO issue_history(uuid, issue_id, from_status, to_status, actor, at, note, seq, round)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
         (uuidmod.uuid4().hex, issue_uuid, old, "협의통과", actor,
-         datetime.now().isoformat(timespec="seconds"), reason, seq),
+         datetime.now().isoformat(timespec="seconds"), reason, seq, rnd),
     )
     conn.commit()
     conn.close()
@@ -288,7 +303,7 @@ def render_screen(human_key: str):
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
-def render_page(page_uuid: str):
+def render_page(page_uuid: str, sel_round=None):
     conn = dbmod.connect(REAL_DB)
     pg = queries.get_page(conn, page_uuid)
     if pg is None:
@@ -296,16 +311,24 @@ def render_page(page_uuid: str):
         return None
     page, s = pg["page"], pg["screen"]
     human_key = s["human_key"]
-    issues = queries.issues_of_page(conn, page_uuid)          # 전체(번호 고정용)
+    all_issues = queries.issues_of_page(conn, page_uuid)      # 전체(번호 고정용)
     persons = queries.list_persons(conn, active_only=True)
     roster = queries.roster_names(conn)
-    hist_by_issue = {i["uuid"]: queries.history_of_issue(conn, i["uuid"]) for i in issues}
+    hist_by_issue = {i["uuid"]: queries.history_of_issue(conn, i["uuid"]) for i in all_issues}
+    runs = queries.runs_of_page(conn, page_uuid)
     conn.close()
 
-    number = {i["rid"]: n + 1 for n, i in enumerate(issues)}  # 페이지 안 순번 1..N
-    # 미해결 = 유형 탭 / 처리됨(검수완료·오류아님·협의통과) = '처리됨' 탭
-    unresolved = [i for i in issues if i["status"] in UNRESOLVED_STATUSES]
-    resolved = [i for i in issues if i["status"] in CLOSED_STATUSES]
+    # 차수 선택: ?round=N (없으면 최신). 그 차수 시점의 상태로 화면을 구성한다.
+    rounds = [r["round"] for r in runs]
+    sel = sel_round if sel_round in rounds else (max(rounds) if rounds else 1)
+    sel_run = next((r for r in runs if r["round"] == sel), None)
+
+    number = {i["rid"]: n + 1 for n, i in enumerate(all_issues)}  # 페이지 안 순번 1..N (전체 고정)
+    # 각 이슈의 '그 차수 시점 상태'(history.round로 재구성). 그 차수에 아직 없던 이슈는 제외.
+    st = {i["uuid"]: _status_at(hist_by_issue[i["uuid"]], sel) for i in all_issues}
+    issues = [i for i in all_issues if st[i["uuid"]] is not None]
+    unresolved = [i for i in issues if st[i["uuid"]] in UNRESOLVED_STATUSES]
+    resolved = [i for i in issues if st[i["uuid"]] in CLOSED_STATUSES]
 
     # 우측(개발) 핀 오버레이 — 핀은 '전체' 이슈(미해결+처리됨) 다 표시. 좌측 디자인엔 핀 없음.
     # 핀을 박스 '위쪽 바깥'에 둔다(내용 위를 안 덮게). 겹치면 위아래로 길게 밀지 말고 옆으로만.
@@ -336,7 +359,7 @@ def render_page(page_uuid: str):
         uid = i["uuid"]
         x, y, w, h = i["box_x"] or 0, i["box_y"] or 0, i["box_w"] or 0, i["box_h"] or 0
         c = _type_color(i["category"])        # 핀·박스 색 = 오류 유형색
-        fd = " faded" if i["status"] in CLOSED_STATUSES else ""   # 처리된 것은 흐리게(지우지 않음)
+        fd = " faded" if st[i["uuid"]] in CLOSED_STATUSES else ""   # 그 차수에 처리된 건 흐리게
         boxes += (
             f'<g class="box{fd}" onclick="focusCard(\'{uid}\')">'
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" style="fill:{c};stroke:{c}"/></g>'
@@ -352,15 +375,15 @@ def render_page(page_uuid: str):
             f'<text y="9" text-anchor="middle">{n}</text>'
             f"</g></g></g>"
         )
-    # 핀 비율(%)의 분모 = coord_ref(캡처 기준 크기). SVG viewBox를 그 크기로 두면
-    # box 좌표가 자동으로 '기준 대비 비율'로 렌더 → 올린 이미지 배율이 달라도 안 밀림.
-    dev_img = page["dev_img"]
+    # 개발 이미지·기준크기는 '선택한 차수(run)'에서 가져온다. 디자인은 page(차수 공통).
+    dev_img = sel_run["dev_img"] if sel_run else None
     design_img = page["design_img"]
-    vb_w = page["coord_ref_w"] or 1920
-    vb_h = page["coord_ref_h"] or 1080
-    par = "none" if dev_img else "xMidYMin meet"   # 이미지 위엔 정확 매핑, 자리표시엔 비율 유지
+    vb_w = (sel_run["coord_ref_w"] if sel_run else None) or 1920
+    vb_h = (sel_run["coord_ref_h"] if sel_run else None) or 1080
+    # 고정 틀(canvas) 안에 이미지도 오버레이도 같은 'meet'로 비율 맞춤 → 틀이 안 흔들리고 핀 정렬 유지.
+    # (coord_ref 비율 = 이미지 비율이라, object-fit:contain과 SVG meet가 같은 자리에 레터박스됨.)
     overlay = (
-        f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="{par}" class="overlay">'
+        f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay">'
         f'<g class="boxes">{boxes}</g>'
         f'<g class="leaders">{leaders}</g>'
         f'<g class="pins">{dots}</g>'
@@ -369,11 +392,11 @@ def render_page(page_uuid: str):
 
     # 좌: 디자인 이미지(핀 없음) / 우: 개발 이미지 + 핀 오버레이. 없으면 자리표시 유지.
     if design_img:
-        left_body = f'<div class="imgwrap"><img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인"></div>'
+        left_body = f'<img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인">'
     else:
         left_body = '<span class="ph">디자인 이미지 자리표시</span>'
     if dev_img:
-        right_body = f'<div class="imgwrap"><img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}</div>'
+        right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}'
     else:
         right_body = f'<span class="ph">개발 이미지 자리표시</span>{overlay}'
 
@@ -381,14 +404,15 @@ def render_page(page_uuid: str):
 
     def issue_card(i):
         n = number[i["rid"]]
-        cls = _status_class(i["status"])
-        unres = i["status"] in UNRESOLVED_STATUSES
+        s_eff = st[i["uuid"]]                 # 그 차수 시점 상태
+        cls = _status_class(s_eff)
+        unres = s_eff in UNRESOLVED_STATUSES
         props = json.loads(i["properties"]) if i["properties"] else []
         props_html = "".join(f'<span class="tag">{_esc(p)}</span>' for p in props)
         loc = f'({i["box_x"]},{i["box_y"]}) {i["box_w"]}×{i["box_h"]}'
         sev_html = f'<span class="sev">{_esc(i["severity"])}</span>' if i["severity"] else ""
         type_color = _type_color(i["category"])
-        state_label = "미해결" if unres else i["status"]   # 처리됨은 실제 상태(협의통과/검수완료/오류아님) 그대로
+        state_label = "미해결" if unres else s_eff   # 처리됨은 실제 상태(협의통과/검수완료/오류아님)
         rows = ""
         for h in hist_by_issue[i["uuid"]]:
             actor = h["actor"]
@@ -396,9 +420,10 @@ def render_page(page_uuid: str):
                 f'<span class="actor">{_esc(actor)}</span>' if actor in roster
                 else f'<span class="actor off" title="담당자 명단에 없음">{_esc(actor or "미지정")} ⚠</span>'
             )
+            rlab = f'<span class="rnd">{h["round"]}차</span> ' if h["round"] else ""
             change = f'{_esc(h["from_status"] or "(신규)")} → {_esc(h["to_status"])}'
             note = f' <span class="note">— {_esc(h["note"])}</span>' if h["note"] else ""
-            rows += (f'<li>{actor_html} · <span class="at">{_esc(h["at"] or "시각 없음")}</span> · '
+            rows += (f'<li>{rlab}{actor_html} · <span class="at">{_esc(h["at"] or "시각 없음")}</span> · '
                      f'{change}{note}</li>')
         # 미해결 카드에만 통과 처리 폼(담당자 선택 + 사유 필수). 처리됨 카드는 사유·이력만.
         if unres:
@@ -407,6 +432,7 @@ def render_page(page_uuid: str):
                 f'<form class="passform" method="post" action="{action}" '
                 f'onsubmit="return _confirmPass(this)" onclick="event.stopPropagation()">'
                 f'<input type="hidden" name="issue" value="{i["uuid"]}">'
+                f'<input type="hidden" name="round" value="{sel}">'
                 f'<select name="actor" required>{person_options}</select>'
                 f'<input name="reason" maxlength="200" required placeholder="통과 사유 (필수)">'
                 f'<button type="submit">통과 처리</button>'
@@ -458,6 +484,17 @@ def render_page(page_uuid: str):
         for p in persons
     ) or '<span class="muted">명단 비어있음</span>'
 
+    # 차수 선택 (선택 차수의 개발 이미지·상태를 보여줌)
+    base = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}"
+    round_sel = ""
+    if rounds:
+        chips = "".join(
+            f'<a class="rchip{" on" if r == sel else ""}" href="{base}?round={r}">{r}차</a>'
+            for r in rounds
+        )
+        pf_r = _pf_badge(sel_run["pass_fail"]) if sel_run else ""
+        round_sel = f'<span class="rounds"><span class="rlbl">차수</span>{chips} {pf_r}</span>'
+
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -467,7 +504,8 @@ def render_page(page_uuid: str):
   <header>
     <a class="back" href="/screen/{_esc(human_key)}">← 검수 페이지 목록</a>
     <h1>{_esc(page['name'])}</h1>
-    <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(human_key)}</span> · 페이지 {_pf_badge(pg['pass_fail'])}</span>
+    <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(human_key)}</span></span>
+    {round_sel}
   </header>
   <div class="wrap">
     <div class="roster"><span class="lbl">담당자 명단</span>{roster_html}</div>
@@ -478,7 +516,7 @@ def render_page(page_uuid: str):
         <div class="canvas">{left_body}</div>
       </div>
       <div class="pane">
-        <h3>우 · 개발 (핀 = 발견 위치) {_upl(human_key, page_uuid, "dev")}</h3>
+        <h3>우 · 개발 ({sel}차 · 핀 = 발견 위치) {_upl(human_key, page_uuid, "dev", sel)}</h3>
         <div class="canvas">{right_body}</div>
       </div>
     </div>
@@ -503,7 +541,8 @@ class Handler(BaseHTTPRequestHandler):
             self._html(render_list(unresolved_only, round_filter))
         elif "/page/" in path and path.startswith("/screen/"):
             page_uuid = path.rsplit("/page/", 1)[1]
-            page = render_page(page_uuid)
+            rnd = int(q["round"][0]) if "round" in q else None
+            page = render_page(page_uuid, rnd)
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
@@ -538,19 +577,22 @@ class Handler(BaseHTTPRequestHandler):
             issue = form.get("issue", [""])[0]
             actor = form.get("actor", [""])[0].strip()
             reason = form.get("reason", [""])[0].strip()
+            rnd = int(form.get("round", ["1"])[0] or 1)
             if issue and reason:                       # 사유 필수 — 빈 사유는 무시
-                _pass_issue(issue, actor, reason)
+                _pass_issue(issue, actor, reason, rnd)
             self.send_response(303)                    # 처리 후 페이지 상세로 리다이렉트
             self.send_header("Location", path[:-len("/pass")])
             self.end_headers()
         elif path.startswith("/screen/") and "/page/" in path and path.endswith("/upload"):
-            side = parse_qs(parsed.query).get("side", [""])[0]
+            uq = parse_qs(parsed.query)
+            side = uq.get("side", [""])[0]
+            rnd = int(uq.get("round", ["1"])[0] or 1)
             page_uuid = path[:-len("/upload")].rsplit("/page/", 1)[1]
             body = self.rfile.read(length)
             data = _multipart_file(body, self.headers.get("Content-Type", ""))
             size = _png_size(data)                     # PNG만 허용(아니면 무시)
             if data and size and side in ("design", "dev"):
-                _save_upload(page_uuid, side, data, size)
+                _save_upload(page_uuid, side, data, size, rnd)
             self.send_response(303)
             self.send_header("Location", path[:-len("/upload")])
             self.end_headers()
@@ -621,6 +663,11 @@ _PAGE_CSS = """
   .key { font-family:ui-monospace,monospace; }
   .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
   .pf.fail { background:#fef2f2; color:#b42318; } .pf.pass { background:#ecfdf3; color:#12864e; }
+  .rounds { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .rlbl { font-size:12px; color:#6b7280; }
+  .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
+  .rchip.on { background:#111827; color:#fff; border-color:#111827; }
+  .rnd { font-size:10px; font-weight:700; color:#3730a3; background:#eef2ff; border-radius:5px; padding:1px 5px; margin-right:2px; }
   .wrap { flex:1; min-height:0; display:flex; flex-direction:column; width:100%; padding:14px 24px 0; }
   .roster { font-size:12px; color:#374151; margin-bottom:10px; flex-shrink:0; }
   .roster .lbl { color:#6b7280; margin-right:8px; }
@@ -634,9 +681,8 @@ _PAGE_CSS = """
   .upl input { display:none; }
   .canvas { position:relative; flex:1; min-height:0; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); display:flex; align-items:center; justify-content:center; }
   .canvas .ph { color:#9ca3af; font-size:13px; }
-  /* 이미지 래퍼가 이미지 크기에 딱 맞고, 오버레이는 그 위에 inset:0 → 핀이 이미지에 정확히 정렬 */
-  .imgwrap { position:relative; display:inline-flex; max-width:100%; max-height:100%; }
-  .capimg { display:block; max-width:100%; max-height:100%; object-fit:contain; }
+  /* 이미지·오버레이 모두 고정 틀(canvas)을 꽉 채우되 비율 유지(contain/meet) → 틀 폭이 안 흔들림 */
+  .capimg { display:block; width:100%; height:100%; object-fit:contain; }
   .overlay { position:absolute; inset:0; width:100%; height:100%; }
   /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
   .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }

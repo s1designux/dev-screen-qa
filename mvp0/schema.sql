@@ -52,7 +52,14 @@ CREATE TABLE IF NOT EXISTS inspection_run (
     round       INTEGER NOT NULL,       -- 1 / 2 / 3
     inspector   TEXT,
     created_at  TEXT,
-    pass_fail   TEXT                    -- pass / fail
+    pass_fail   TEXT,                   -- pass / fail
+    -- 개발 이미지·기준크기는 '차수(run)별'로 둔다 (차수마다 새 개발화면이 옴).
+    -- design 이미지는 page에 유지(디자인=정답, 차수 무관). page의 dev_img는 레거시(안 씀).
+    dev_img     TEXT,
+    dev_img_w   INTEGER,
+    dev_img_h   INTEGER,
+    coord_ref_w INTEGER,                -- 핀 비율(%) 분모: 기준 폭 (1920)
+    coord_ref_h INTEGER                 -- 기준 높이 (업로드 이미지 비율로 산출)
 );
 
 CREATE TABLE IF NOT EXISTS inspection_issue (
@@ -83,7 +90,8 @@ CREATE TABLE IF NOT EXISTS issue_history (
     actor        TEXT,
     at           TEXT,
     note         TEXT,
-    seq          INTEGER                -- 이슈 내 순번 (정렬용)
+    seq          INTEGER,               -- 이슈 내 순번 (정렬용)
+    round        INTEGER                -- 이 상태변화가 일어난 차수 (차수별 상태 재구성용)
 );
 
 -- DesignVersion 스텁 (CLAUDE.md 6번: 필드만 최소화). Figma 참조 3개 값만 담는다.

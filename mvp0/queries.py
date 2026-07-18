@@ -193,6 +193,13 @@ def issues_of_page(conn, page_uuid):
     ).fetchall()
 
 
+def runs_of_page(conn, page_uuid):
+    """페이지의 차수(run) 목록 — 차수별 개발 이미지·기준크기가 여기 붙는다."""
+    return conn.execute(
+        "SELECT * FROM inspection_run WHERE page_id=? ORDER BY round", (page_uuid,)
+    ).fetchall()
+
+
 def _print_issue_line(iss):
     print(f"  [{iss['status']:<7}] {iss['description']} "
           f"(dedup={iss['dedup_key']}, found_r={iss['found_round']}, "
