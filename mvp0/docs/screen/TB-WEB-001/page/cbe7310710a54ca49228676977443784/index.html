@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>휴대전화번호 입력 — 페이지 상세</title>
+<style>
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
+  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
+  header .back { text-decoration:none; color:#6b7280; font-size:13px; }
+  header h1 { font-size:16px; margin:0; }
+  header .meta { font-size:12px; color:#6b7280; }
+  .key { font-family:ui-monospace,monospace; }
+  .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+  .pf.fail { background:#fef2f2; color:#b42318; } .pf.pass { background:#ecfdf3; color:#12864e; }
+  .rounds { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .rlbl { font-size:12px; color:#6b7280; }
+  .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
+  .rchip.on { background:#111827; color:#fff; border-color:#111827; }
+  .rnd { font-size:10px; font-weight:700; color:#3730a3; background:#eef2ff; border-radius:5px; padding:1px 5px; margin-right:2px; }
+  .wrap { flex:1; min-height:0; display:flex; flex-direction:column; width:100%; padding:14px 24px 0; }
+  .roster { font-size:12px; color:#374151; margin-bottom:10px; flex-shrink:0; }
+  .roster .lbl { color:#6b7280; margin-right:8px; }
+  .person { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px; padding:3px 10px; margin-right:6px; }
+  /* 비교 영역: 위에 고정, 스크롤에 안 밀림 */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex-shrink:0; height:46vh; margin-bottom:12px; }
+  .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; display:flex; align-items:center; gap:8px; }
+  .upl { margin-left:auto; }
+  .upl label { font-size:11px; font-weight:600; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:2px 9px; background:#fff; cursor:pointer; }
+  .upl input { display:none; }
+  .canvas { position:relative; flex:1; min-height:0; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); display:flex; align-items:center; justify-content:center; }
+  .canvas .ph { color:#9ca3af; font-size:13px; }
+  /* 이미지·오버레이 모두 고정 틀(canvas)을 꽉 채우되 비율 유지(contain/meet) → 틀 폭이 안 흔들림 */
+  .capimg { display:block; width:100%; height:100%; object-fit:contain; }
+  .overlay { position:absolute; inset:0; width:100%; height:100%; }
+  /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
+  .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }
+  .box:hover rect { fill-opacity:.16; }
+  /* 처리된 것: 흐리게(지우지 않음) — 미해결과 한눈에 구분. 클릭은 유지 */
+  .box.faded rect { stroke-opacity:.35; fill-opacity:.02; stroke-dasharray:9 7; }
+  .box.faded:hover rect { stroke-opacity:.7; }
+  .leader.faded { opacity:.25; }
+  /* (2) 리더 라인 — 짧게만, 클릭 통과 */
+  .leaders { pointer-events:none; }
+  .leader { stroke-width:3; opacity:.7; }
+  /* (3) 핀 레이어 — 항상 맨 위. 큰 투명 원(.hit)으로 클릭 쉽게. dot 색=유형색(인라인) */
+  .pin .hit { fill:transparent; }
+  .pin .dot { stroke:#fff; stroke-width:3; }
+  .pin text { fill:#fff; font-size:34px; font-weight:800; pointer-events:none; }
+  .pin.clickable { cursor:pointer; }
+  /* 처리된 핀: 흐리게(반투명+회색끼) 남김. hover하면 잠깐 또렷 */
+  .pin.faded { opacity:.35; filter:grayscale(.6); transition:opacity .12s ease, filter .12s ease; }
+  .pin.faded:hover, .pin.faded.sel { opacity:.9; filter:grayscale(0); }
+  .pinmark { transform-box:fill-box; transform-origin:center; transition:transform .12s ease; }
+  .pin:hover .pinmark, .pin.sel .pinmark { transform:scale(1.5); }
+  @keyframes pinflash { 0%,100% { opacity:1; } 50% { opacity:.15; } }
+  .pin.flash .dot { animation:pinflash .35s ease-in-out 3; }
+  .filters { margin:0 0 10px; flex-shrink:0; }
+  .chip { display:inline-block; padding:4px 12px; margin-right:6px; border:1px solid #d1d5db; border-radius:999px; font-size:13px; text-decoration:none; color:#374151; background:#fff; }
+  .chip.on { background:#111827; color:#fff; border-color:#111827; }
+  .hint { font-size:11px; color:#9ca3af; margin-left:6px; }
+  /* 카드 영역만 자체 스크롤. 안에 유형별 섹션 → 각 섹션은 여러 열 그리드 */
+  .cards { flex:1; min-height:0; overflow-y:auto; position:relative; padding:0 10px 30px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:18px; align-items:start; }
+  /* 유형 탭 바 (고정 영역) */
+  .tabbar { flex-shrink:0; display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 12px; }
+  .tab { display:inline-flex; align-items:center; font-size:13px; font-weight:700; color:#374151; background:#fff; border:1px solid #d1d5db; border-radius:999px; padding:6px 14px; cursor:pointer; }
+  .tab .sw { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:7px; }
+  .tab .cnt { margin-left:6px; font-size:12px; font-weight:700; color:#6b7280; }
+  .tab.on { background:#111827; color:#fff; border-color:#111827; }
+  .tab.on .cnt { color:#d1d5db; }
+  /* 카드는 차분하게 + 여백 넉넉히 — 왼쪽 빨간 줄 없음, 유형/상태는 카드 안 태그로 */
+  .issue { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 18px; cursor:pointer; transition:box-shadow .15s, border-color .15s; }
+  .issue.hl { border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.55); }
+  .ihead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pinno { width:24px; height:24px; border-radius:50%; color:#fff; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:#b42318; flex-shrink:0; }
+  .pinno.done { background:#12864e; } .pinno.mid { background:#6b7280; }
+  .type { font-size:12px; font-weight:700; padding:3px 10px; border-radius:6px; background:#eef2ff; color:#3730a3; }
+  .state { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:#fef2f2; color:#b42318; }
+  .state.done { background:#ecfdf3; color:#12864e; } .state.mid { background:#f3f4f6; color:#374151; }
+  .sev { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+  .props { margin:10px 0 6px; }
+  .tag { display:inline-block; font-size:11px; background:#f3f4f6; color:#374151; border-radius:6px; padding:2px 8px; margin:0 5px 5px 0; }
+  .loc { font-size:11px; color:#9ca3af; font-family:ui-monospace,monospace; }
+  .hist { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px dashed #eee; font-size:12px; color:#4b5563; }
+  .hist li { margin:2px 0; }
+  .actor { font-weight:600; color:#111827; }
+  .actor.off { color:#9ca3af; font-weight:400; }
+  .at { color:#9ca3af; }
+  .note { color:#b45309; }
+  .passform { display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed #eee; flex-wrap:wrap; }
+  .passform select, .passform input { font-size:12px; padding:5px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+  .passform input { flex:1; min-width:110px; }
+  .passform button { font-size:12px; font-weight:700; padding:5px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:6px; cursor:pointer; }
+  .passed { margin-top:10px; padding-top:8px; border-top:1px dashed #eee; font-size:12px; font-weight:700; color:#12864e; }
+  .muted { color:#9ca3af; }
+  .empty { color:#6b7280; padding:20px; }
+</style></head>
+<body>
+  <header>
+    <a class="back" href="/dev-screen-qa/screen/TB-WEB-001/">← 검수 페이지 목록</a>
+    <h1>휴대전화번호 입력</h1>
+    <span class="meta">웹 아이디 찾기 (휴대전화번호) · <span class="key">TB-WEB-001</span></span>
+    <span class="rounds"><span class="rlbl">차수</span><span class="rchip">1차</span><span class="rchip on">2차</span> <span class="pf fail">FAIL</span></span>
+  </header>
+  <div class="wrap">
+    <div class="roster"><span class="lbl">담당자 명단</span><span class="person">김도현 · 개발팀</span><span class="person">배가람 · 디자인그룹</span></div>
+
+    <div class="cols">
+      <div class="pane">
+        <h3>좌 · 디자인 (정답 모습 — 핀 없음) </h3>
+        <div class="canvas"><img class="capimg" src="/dev-screen-qa/uploads/cbe7310710a54ca49228676977443784_design.png" alt="디자인"></div>
+      </div>
+      <div class="pane">
+        <h3>우 · 개발 (2차 · 핀 = 발견 위치) </h3>
+        <div class="canvas"><img class="capimg" src="/dev-screen-qa/uploads/c5486bb703794dbbb2207992a79b66a8_dev.png" alt="개발화면"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" class="overlay"><g class="boxes"><g class="box" onclick="focusCard('5a47cb38b49149d1a113207888928677')"><rect x="369" y="866" width="79" height="13" rx="6" style="fill:#2563eb;stroke:#2563eb"/></g><g class="box faded" onclick="focusCard('7a568b00a0be4b818c55a4cf31fc6137')"><rect x="730" y="462" width="460" height="50" rx="6" style="fill:#7c3aed;stroke:#7c3aed"/></g><g class="box" onclick="focusCard('0bb1164275cd4ba4a052a323a779ee49')"><rect x="320" y="866" width="38" height="13" rx="6" style="fill:#2563eb;stroke:#2563eb"/></g><g class="box faded" onclick="focusCard('919fcd26fb0c418c9d60d0037cee7a1a')"><rect x="730" y="228" width="24" height="14" rx="6" style="fill:#2563eb;stroke:#2563eb"/></g><g class="box" onclick="focusCard('7a46562767544df6a026fd4b98a7d302')"><rect x="730" y="324" width="73" height="14" rx="6" style="fill:#2563eb;stroke:#2563eb"/></g><g class="box faded" onclick="focusCard('9ae47420bd6b4b4eaec8742965ebe6ca')"><rect x="0" y="20" width="1920" height="57" rx="6" style="fill:#0d9488;stroke:#0d9488"/></g><g class="box" onclick="focusCard('3cda40e4c89d49bda43f83bdfda71e5c')"><rect x="0" y="834" width="1920" height="120" rx="6" style="fill:#db2777;stroke:#db2777"/></g><g class="box" onclick="focusCard('ca747d6c1fea4c1aa0870124b8e04407')"><rect x="1560" y="866" width="40" height="15" rx="6" style="fill:#db2777;stroke:#db2777"/></g><g class="box" onclick="focusCard('42c36192395b4ae4b590340f3462043c')"><rect x="0" y="20" width="1920" height="57" rx="6" style="fill:#334155;stroke:#334155"/></g><g class="box" onclick="focusCard('3a64cc94fbc64ed3ad983100d53ce70f')"><rect x="730" y="250" width="460" height="50" rx="6" style="fill:#7c3aed;stroke:#7c3aed"/></g><g class="box" onclick="focusCard('ae484bf8fa244af092d29ac094e9a323')"><rect x="730" y="346" width="460" height="50" rx="6" style="fill:#7c3aed;stroke:#7c3aed"/></g><g class="box" onclick="focusCard('93d790df6170476cb6b514eff1585ba0')"><rect x="0" y="0" width="1920" height="20" rx="6" style="fill:#334155;stroke:#334155"/></g><g class="box" onclick="focusCard('7ebdf7bcf3ec418fbb3b73ddd58f42e6')"><rect x="320" y="36" width="170" height="24" rx="6" style="fill:#334155;stroke:#334155"/></g><g class="box" onclick="focusCard('73d8c5f12210452985097d3d467320dd')"><rect x="0" y="0" width="1920" height="20" rx="6" style="fill:#334155;stroke:#334155"/></g><g class="box" onclick="focusCard('03b7c8e95d6f4d489497966c31071585')"><rect x="0" y="0" width="1920" height="20" rx="6" style="fill:#d97706;stroke:#d97706"/></g></g><g class="leaders"><line class="leader" x1="399" y1="862" x2="399" y2="866" style="stroke:#2563eb"/><line class="leader faded" x1="760" y1="458" x2="760" y2="462" style="stroke:#7c3aed"/><line class="leader" x1="498" y1="862" x2="358" y2="866" style="stroke:#2563eb"/><line class="leader faded" x1="760" y1="224" x2="754" y2="228" style="stroke:#2563eb"/><line class="leader" x1="760" y1="320" x2="760" y2="324" style="stroke:#2563eb"/><line class="leader" x1="30" y1="830" x2="30" y2="834" style="stroke:#db2777"/><line class="leader" x1="1590" y1="862" x2="1590" y2="866" style="stroke:#db2777"/><line class="leader" x1="834" y1="246" x2="834" y2="250" style="stroke:#7c3aed"/><line class="leader" x1="834" y1="342" x2="834" y2="346" style="stroke:#7c3aed"/><line class="leader" x1="350" y1="56" x2="350" y2="36" style="stroke:#334155"/></g><g class="pins"><g class="pin clickable" id="pin-5a47cb38b49149d1a113207888928677" data-issue="5a47cb38b49149d1a113207888928677" onclick="focusCard('5a47cb38b49149d1a113207888928677')"><g transform="translate(399,836)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#2563eb"/><text y="9" text-anchor="middle">1</text></g></g></g><g class="pin clickable faded" id="pin-7a568b00a0be4b818c55a4cf31fc6137" data-issue="7a568b00a0be4b818c55a4cf31fc6137" onclick="focusCard('7a568b00a0be4b818c55a4cf31fc6137')"><g transform="translate(760,432)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#7c3aed"/><text y="9" text-anchor="middle">2</text></g></g></g><g class="pin clickable" id="pin-0bb1164275cd4ba4a052a323a779ee49" data-issue="0bb1164275cd4ba4a052a323a779ee49" onclick="focusCard('0bb1164275cd4ba4a052a323a779ee49')"><g transform="translate(498,836)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#2563eb"/><text y="9" text-anchor="middle">3</text></g></g></g><g class="pin clickable faded" id="pin-919fcd26fb0c418c9d60d0037cee7a1a" data-issue="919fcd26fb0c418c9d60d0037cee7a1a" onclick="focusCard('919fcd26fb0c418c9d60d0037cee7a1a')"><g transform="translate(760,198)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#2563eb"/><text y="9" text-anchor="middle">4</text></g></g></g><g class="pin clickable" id="pin-7a46562767544df6a026fd4b98a7d302" data-issue="7a46562767544df6a026fd4b98a7d302" onclick="focusCard('7a46562767544df6a026fd4b98a7d302')"><g transform="translate(760,294)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#2563eb"/><text y="9" text-anchor="middle">5</text></g></g></g><g class="pin clickable faded" id="pin-9ae47420bd6b4b4eaec8742965ebe6ca" data-issue="9ae47420bd6b4b4eaec8742965ebe6ca" onclick="focusCard('9ae47420bd6b4b4eaec8742965ebe6ca')"><g transform="translate(30,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#0d9488"/><text y="9" text-anchor="middle">6</text></g></g></g><g class="pin clickable" id="pin-3cda40e4c89d49bda43f83bdfda71e5c" data-issue="3cda40e4c89d49bda43f83bdfda71e5c" onclick="focusCard('3cda40e4c89d49bda43f83bdfda71e5c')"><g transform="translate(30,804)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#db2777"/><text y="9" text-anchor="middle">7</text></g></g></g><g class="pin clickable" id="pin-ca747d6c1fea4c1aa0870124b8e04407" data-issue="ca747d6c1fea4c1aa0870124b8e04407" onclick="focusCard('ca747d6c1fea4c1aa0870124b8e04407')"><g transform="translate(1590,836)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#db2777"/><text y="9" text-anchor="middle">8</text></g></g></g><g class="pin clickable" id="pin-42c36192395b4ae4b590340f3462043c" data-issue="42c36192395b4ae4b590340f3462043c" onclick="focusCard('42c36192395b4ae4b590340f3462043c')"><g transform="translate(104,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#334155"/><text y="9" text-anchor="middle">9</text></g></g></g><g class="pin clickable" id="pin-3a64cc94fbc64ed3ad983100d53ce70f" data-issue="3a64cc94fbc64ed3ad983100d53ce70f" onclick="focusCard('3a64cc94fbc64ed3ad983100d53ce70f')"><g transform="translate(834,220)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#7c3aed"/><text y="9" text-anchor="middle">10</text></g></g></g><g class="pin clickable" id="pin-ae484bf8fa244af092d29ac094e9a323" data-issue="ae484bf8fa244af092d29ac094e9a323" onclick="focusCard('ae484bf8fa244af092d29ac094e9a323')"><g transform="translate(834,316)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#7c3aed"/><text y="9" text-anchor="middle">11</text></g></g></g><g class="pin clickable" id="pin-93d790df6170476cb6b514eff1585ba0" data-issue="93d790df6170476cb6b514eff1585ba0" onclick="focusCard('93d790df6170476cb6b514eff1585ba0')"><g transform="translate(178,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#334155"/><text y="9" text-anchor="middle">12</text></g></g></g><g class="pin clickable" id="pin-7ebdf7bcf3ec418fbb3b73ddd58f42e6" data-issue="7ebdf7bcf3ec418fbb3b73ddd58f42e6" onclick="focusCard('7ebdf7bcf3ec418fbb3b73ddd58f42e6')"><g transform="translate(350,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#334155"/><text y="9" text-anchor="middle">13</text></g></g></g><g class="pin clickable" id="pin-73d8c5f12210452985097d3d467320dd" data-issue="73d8c5f12210452985097d3d467320dd" onclick="focusCard('73d8c5f12210452985097d3d467320dd')"><g transform="translate(252,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#334155"/><text y="9" text-anchor="middle">14</text></g></g></g><g class="pin clickable" id="pin-03b7c8e95d6f4d489497966c31071585" data-issue="03b7c8e95d6f4d489497966c31071585" onclick="focusCard('03b7c8e95d6f4d489497966c31071585')"><g transform="translate(474,30)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#d97706"/><text y="9" text-anchor="middle">15</text></g></g></g></g></svg></div>
+      </div>
+    </div>
+
+    <div class="filters"><span class="hint">미해결은 유형 탭 · 처리된 건 '처리됨' 탭 · 핀 클릭 → 그 탭으로 이동 + 카드 강조</span></div>
+    <div class="tabbar"><button class="tab on" data-idx="0" onclick="showTab('0')"><span class="sw" style="background:#334155"></span>복합 <span class="cnt">4</span></button><button class="tab" data-idx="1" onclick="showTab('1')"><span class="sw" style="background:#2563eb"></span>텍스트 <span class="cnt">3</span></button><button class="tab" data-idx="2" onclick="showTab('2')"><span class="sw" style="background:#7c3aed"></span>레이아웃 <span class="cnt">2</span></button><button class="tab" data-idx="3" onclick="showTab('3')"><span class="sw" style="background:#db2777"></span>색상 <span class="cnt">2</span></button><button class="tab" data-idx="4" onclick="showTab('4')"><span class="sw" style="background:#d97706"></span>구조 <span class="cnt">1</span></button><button class="tab" data-idx="5" onclick="showTab('5')"><span class="sw" style="background:#9ca3af"></span>처리됨 <span class="cnt">3</span></button></div>
+    <div class="cards" id="cards"><div class="panel" id="panel-0"><div class="grid"><div class="issue open" id="issue-42c36192395b4ae4b590340f3462043c" data-issue="42c36192395b4ae4b590340f3462043c" onclick="focusPin('42c36192395b4ae4b590340f3462043c')">
+          <div class="ihead">
+            <span class="pinno" style="background:#334155">9</span>
+            <span class="state open">미해결</span>
+            
+            <b>상자 (상단바 영역)</b>
+          </div>
+          <div class="props"><span class="tag">높이</span><span class="tag">배경색</span></div>
+          <div class="loc">위치 (0,20) 1920×57</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-93d790df6170476cb6b514eff1585ba0" data-issue="93d790df6170476cb6b514eff1585ba0" onclick="focusPin('93d790df6170476cb6b514eff1585ba0')">
+          <div class="ihead">
+            <span class="pinno" style="background:#334155">12</span>
+            <span class="state open">미해결</span>
+            
+            <b>상자 (최상단 띠)</b>
+          </div>
+          <div class="props"><span class="tag">너비</span><span class="tag">높이</span><span class="tag">배경색</span><span class="tag">모서리 둥글기</span></div>
+          <div class="loc">위치 (0,0) 1920×20</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-7ebdf7bcf3ec418fbb3b73ddd58f42e6" data-issue="7ebdf7bcf3ec418fbb3b73ddd58f42e6" onclick="focusPin('7ebdf7bcf3ec418fbb3b73ddd58f42e6')">
+          <div class="ihead">
+            <span class="pinno" style="background:#334155">13</span>
+            <span class="state open">미해결</span>
+            
+            <b>상자 (로고 영역)</b>
+          </div>
+          <div class="props"><span class="tag">너비</span><span class="tag">높이</span><span class="tag">배경색</span></div>
+          <div class="loc">위치 (320,36) 170×24</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-73d8c5f12210452985097d3d467320dd" data-issue="73d8c5f12210452985097d3d467320dd" onclick="focusPin('73d8c5f12210452985097d3d467320dd')">
+          <div class="ihead">
+            <span class="pinno" style="background:#334155">14</span>
+            <span class="state open">미해결</span>
+            
+            <b>삼성 통근버스 운영 시스템 메뉴</b>
+          </div>
+          <div class="props"><span class="tag">높이</span><span class="tag">배경색</span></div>
+          <div class="loc">위치 (0,0) 1920×20</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-1" hidden><div class="grid"><div class="issue open" id="issue-5a47cb38b49149d1a113207888928677" data-issue="5a47cb38b49149d1a113207888928677" onclick="focusPin('5a47cb38b49149d1a113207888928677')">
+          <div class="ihead">
+            <span class="pinno" style="background:#2563eb">1</span>
+            <span class="state open">미해결</span>
+            
+            <b>개인정보 처리방침</b>
+          </div>
+          <div class="props"><span class="tag">글자 크기</span><span class="tag">글꼴</span></div>
+          <div class="loc">위치 (369,866) 79×13</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li><li><span class="rnd">2차</span> <span class="actor">배가람</span> · <span class="at">2026-07-18T10:00:00</span> · 발견 → 재발 <span class="note">— 2차: 여전히 어긋남 — 재발</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-0bb1164275cd4ba4a052a323a779ee49" data-issue="0bb1164275cd4ba4a052a323a779ee49" onclick="focusPin('0bb1164275cd4ba4a052a323a779ee49')">
+          <div class="ihead">
+            <span class="pinno" style="background:#2563eb">3</span>
+            <span class="state open">미해결</span>
+            
+            <b>위치기반 서비스 이용약관</b>
+          </div>
+          <div class="props"><span class="tag">글자 크기</span><span class="tag">글꼴</span></div>
+          <div class="loc">위치 (320,866) 38×13</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-7a46562767544df6a026fd4b98a7d302" data-issue="7a46562767544df6a026fd4b98a7d302" onclick="focusPin('7a46562767544df6a026fd4b98a7d302')">
+          <div class="ihead">
+            <span class="pinno" style="background:#2563eb">5</span>
+            <span class="state open">미해결</span>
+            
+            <b>휴대전화번호 (라벨)</b>
+          </div>
+          <div class="props"><span class="tag">글자 굵기</span><span class="tag">글꼴</span></div>
+          <div class="loc">위치 (730,324) 73×14</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-2" hidden><div class="grid"><div class="issue open" id="issue-3a64cc94fbc64ed3ad983100d53ce70f" data-issue="3a64cc94fbc64ed3ad983100d53ce70f" onclick="focusPin('3a64cc94fbc64ed3ad983100d53ce70f')">
+          <div class="ihead">
+            <span class="pinno" style="background:#7c3aed">10</span>
+            <span class="state open">미해결</span>
+            
+            <b>이름 입력필드</b>
+          </div>
+          <div class="props"><span class="tag">높이</span></div>
+          <div class="loc">위치 (730,250) 460×50</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-ae484bf8fa244af092d29ac094e9a323" data-issue="ae484bf8fa244af092d29ac094e9a323" onclick="focusPin('ae484bf8fa244af092d29ac094e9a323')">
+          <div class="ihead">
+            <span class="pinno" style="background:#7c3aed">11</span>
+            <span class="state open">미해결</span>
+            
+            <b>휴대전화번호 입력필드</b>
+          </div>
+          <div class="props"><span class="tag">높이</span></div>
+          <div class="loc">위치 (730,346) 460×50</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-3" hidden><div class="grid"><div class="issue open" id="issue-3cda40e4c89d49bda43f83bdfda71e5c" data-issue="3cda40e4c89d49bda43f83bdfda71e5c" onclick="focusPin('3cda40e4c89d49bda43f83bdfda71e5c')">
+          <div class="ihead">
+            <span class="pinno" style="background:#db2777">7</span>
+            <span class="state open">미해결</span>
+            
+            <b>푸터 (사업자정보)</b>
+          </div>
+          <div class="props"><span class="tag">배경색</span><span class="tag">테두리색</span></div>
+          <div class="loc">위치 (0,834) 1920×120</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div><div class="issue open" id="issue-ca747d6c1fea4c1aa0870124b8e04407" data-issue="ca747d6c1fea4c1aa0870124b8e04407" onclick="focusPin('ca747d6c1fea4c1aa0870124b8e04407')">
+          <div class="ihead">
+            <span class="pinno" style="background:#db2777">8</span>
+            <span class="state open">미해결</span>
+            
+            <b>상자 (우하단)</b>
+          </div>
+          <div class="props"><span class="tag">배경색</span></div>
+          <div class="loc">위치 (1560,866) 40×15</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-4" hidden><div class="grid"><div class="issue open" id="issue-03b7c8e95d6f4d489497966c31071585" data-issue="03b7c8e95d6f4d489497966c31071585" onclick="focusPin('03b7c8e95d6f4d489497966c31071585')">
+          <div class="ihead">
+            <span class="pinno" style="background:#d97706">15</span>
+            <span class="state open">미해결</span>
+            
+            <b>푸터 바로가기</b>
+          </div>
+          <div class="props"><span class="tag">디자인에 없는 요소가 개발에 있음</span></div>
+          <div class="loc">위치 (0,0) 1920×20</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-5" hidden><div class="grid"><div class="issue done" id="issue-7a568b00a0be4b818c55a4cf31fc6137" data-issue="7a568b00a0be4b818c55a4cf31fc6137" onclick="focusPin('7a568b00a0be4b818c55a4cf31fc6137')">
+          <div class="ihead">
+            <span class="pinno" style="background:#7c3aed">2</span>
+            <span class="state done">검수완료</span>
+            
+            <b>인증요청 버튼</b>
+          </div>
+          <div class="props"><span class="tag">높이</span></div>
+          <div class="loc">위치 (730,462) 460×50</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li><li><span class="rnd">2차</span> <span class="actor">배가람</span> · <span class="at">2026-07-18T10:00:00</span> · 발견 → 검수완료 <span class="note">— 2차: 수정 확인, 정상</span></li></ul>
+          <div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>
+        </div><div class="issue done" id="issue-919fcd26fb0c418c9d60d0037cee7a1a" data-issue="919fcd26fb0c418c9d60d0037cee7a1a" onclick="focusPin('919fcd26fb0c418c9d60d0037cee7a1a')">
+          <div class="ihead">
+            <span class="pinno" style="background:#2563eb">4</span>
+            <span class="state done">검수완료</span>
+            
+            <b>이름 (라벨)</b>
+          </div>
+          <div class="props"><span class="tag">글자 굵기</span><span class="tag">글꼴</span></div>
+          <div class="loc">위치 (730,228) 24×14</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li><li><span class="rnd">2차</span> <span class="actor">배가람</span> · <span class="at">2026-07-18T10:00:00</span> · 발견 → 검수완료 <span class="note">— 2차: 수정 확인, 정상</span></li></ul>
+          <div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>
+        </div><div class="issue done" id="issue-9ae47420bd6b4b4eaec8742965ebe6ca" data-issue="9ae47420bd6b4b4eaec8742965ebe6ca" onclick="focusPin('9ae47420bd6b4b4eaec8742965ebe6ca')">
+          <div class="ihead">
+            <span class="pinno" style="background:#0d9488">6</span>
+            <span class="state done">오류아님</span>
+            
+            <b>통근버스 운영 시스템 (상단바)</b>
+          </div>
+          <div class="props"><span class="tag">안쪽여백↑</span><span class="tag">안쪽여백→</span><span class="tag">안쪽여백↓</span><span class="tag">안쪽여백←</span></div>
+          <div class="loc">위치 (0,20) 1920×57</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">미상 ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 1차 검수에서 발견</span></li><li><span class="rnd">1차</span> <span class="actor">배가람</span> · <span class="at">2026-07-21T12:00:00</span> · 발견 → 오류아님 <span class="note">— 안쪽여백(padding)은 퍼블리싱 단계 소관 → 검수결과서 범위 밖</span></li></ul>
+          <div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>
+        </div></div></div></div>
+  </div>
+  <script>
+function _clearHL(){
+  document.querySelectorAll('.issue.hl').forEach(function(e){ e.classList.remove('hl'); });
+  document.querySelectorAll('.pin.flash').forEach(function(e){ e.classList.remove('flash'); });
+  document.querySelectorAll('.pin.sel').forEach(function(e){ e.classList.remove('sel'); });
+}
+// 겹친 핀은 맨 뒤에 있으면 안 잡히므로, 마우스 올리면 DOM 맨 끝으로 옮겨 맨 앞에 그린다
+function bringFront(g){ g.parentNode.appendChild(g); }
+// 카드 박스 안에서만 스크롤. box.scrollTop 직접 지정이라 어떤 환경에서도 확실히 이동한다.
+// (네이티브 smooth/ rAF는 탭이 그리지 않는 환경에선 멈춰서 안 먹는다 → 직접 지정으로 보장)
+function _scrollBox(box, target){
+  var max = box.scrollHeight - box.clientHeight;
+  target = Math.max(0, Math.min(target, max));
+  try { box.scrollTo({ top: target, behavior: 'smooth' }); } catch(e) {}  // 지원되면 부드럽게
+  box.scrollTop = target;  // 항상 확실히 착지
+}
+// 핀 클릭 → '카드 박스 안에서만' 해당 카드로 스크롤 + 하이라이트.
+// 페이지 전체는 안 밀린다(개발화면을 계속 보면서 카드만 이동). 여러 열이어도 id로 정확히 찾음.
+function _selPin(uuid){
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  p.classList.add('sel');   // 그 핀만 커지고
+  bringFront(p);            // 맨 앞으로
+}
+// 유형 탭 전환 (그 그룹 카드만 보이게)
+function showTab(gi){
+  gi = String(gi);
+  document.querySelectorAll('.panel').forEach(function(p){ p.hidden = (p.id !== 'panel-' + gi); });
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-idx') === gi); });
+  var box = document.getElementById('cards'); if(box){ box.scrollTop = 0; }
+}
+function focusCard(uuid){
+  _clearHL();
+  var c = document.getElementById('issue-' + uuid);
+  var box = document.getElementById('cards');
+  if(!c || !box){ return; }
+  var panel = c.closest('.panel');        // 그 카드가 속한 탭으로 먼저 전환
+  if(panel){ showTab(panel.id.replace('panel-', '')); }
+  c.classList.add('hl');
+  _selPin(uuid);
+  _scrollBox(box, c.offsetTop - (box.clientHeight - c.offsetHeight) / 2);
+}
+// 통과 처리 제출 전 확인(사유 필수)
+function _confirmPass(f){
+  var r = (f.reason.value || '').trim();
+  if(!r){ alert('통과 사유를 입력하세요.'); return false; }
+  return confirm('이 이슈를 「협의통과」로 처리할까요?\n사유: ' + r);
+}
+// 카드 클릭 → 같은 uuid 핀이 커지고 맨 앞으로(+깜빡). 개발화면은 상단 고정이라 스크롤 불필요.
+function focusPin(uuid){
+  _clearHL();
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  var c = document.getElementById('issue-' + uuid);
+  if(c){ c.classList.add('hl'); }
+  void p.getBoundingClientRect();
+  p.classList.add('flash');
+  _selPin(uuid);
+}
+</script>
+</body></html>

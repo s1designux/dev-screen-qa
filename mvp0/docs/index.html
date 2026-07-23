@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검수 포털 — 화면 목록</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:18px 28px; }
+  header.row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 28px; }
+  h1 { font-size:18px; margin:0; }
+  .back { text-decoration:none; color:#6b7280; font-size:13px; }
+  .sub { font-size:12px; color:#6b7280; margin-top:4px; }
+  .sub2 { font-size:12px; color:#6b7280; }
+  .btn { margin-left:auto; font-size:13px; padding:7px 14px; border:1px solid #d1d5db; border-radius:8px; background:#fff; color:#374151; text-decoration:none; }
+  .wrap { max-width:1040px; margin:0 auto; padding:20px 28px 60px; }
+  .filters { display:flex; gap:10px; align-items:center; margin:6px 0 20px; flex-wrap:wrap; }
+  .filters .lbl { font-size:12px; color:#6b7280; }
+  .chip { display:inline-block; padding:5px 12px; margin-right:6px; border:1px solid #d1d5db; border-radius:999px; font-size:13px; text-decoration:none; color:#374151; background:#fff; }
+  .chip.on { background:#111827; color:#fff; border-color:#111827; }
+  .group { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:6px 14px 14px; margin-bottom:18px; }
+  h2 { font-size:14px; margin:14px 4px 8px; }
+  .muted { color:#9ca3af; font-weight:400; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:10px 12px; border-bottom:1px solid #f0f1f3; text-align:left; }
+  th { font-size:11px; color:#6b7280; font-weight:600; }
+  tbody tr { cursor:pointer; }
+  tbody tr:hover { background:#f9fafb; }
+  .name { font-weight:600; }
+  .key { font-family:ui-monospace,monospace; color:#4b5563; }
+  .ctr { text-align:center; white-space:nowrap; }
+  .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+  .pf.fail { background:#fef2f2; color:#b42318; }
+  .pf.pass { background:#ecfdf3; color:#12864e; }
+  .dummy { font-size:10px; color:#9ca3af; border:1px solid #e5e7eb; border-radius:5px; padding:1px 5px; margin-left:4px; }
+  .num { font-weight:700; color:#b42318; }
+  .num.zero { color:#12864e; }
+  .empty { color:#6b7280; padding:30px; text-align:center; }
+  footer { max-width:1040px; margin:0 auto; padding:0 28px; font-size:11px; color:#9ca3af; }
+</style></head>
+<body>
+  <header>
+    <h1>검수 포털 <span class="muted" style="font-weight:400;font-size:13px;">· 화면 목록</span></h1>
+    <div class="sub">실제 검수 데이터(mvp0-real.db) · 행 클릭 → 화면 상세(검수 페이지 목록)</div>
+  </header>
+  <div class="wrap">
+    <div class="filters"><span class="lbl">보기</span> <a class="chip on" href="/dev-screen-qa/">전체</a><a class="chip" href="/dev-screen-qa/unresolved/">미해결만</a></div>
+    
+        <section class="group">
+          <h2>삼성 통근버스 운영 시스템 <span class="muted">· 화면 1</span></h2>
+          <table>
+            <thead><tr>
+              <th>화면명</th><th>스토리보드 ID</th><th>플랫폼</th>
+              <th class="ctr">검수 페이지</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
+            </tr></thead>
+            <tbody><tr onclick="location.href='/screen/TB-WEB-001/'">
+              <td class="name">웹 아이디 찾기 (휴대전화번호)</td>
+              <td class="key">TB-WEB-001</td>
+              <td>WEB</td>
+              <td class="ctr">3개</td>
+              <td class="ctr"><span class="pf fail">FAIL</span></td>
+              <td class="ctr"><span class="num">15</span> / 18</td>
+            </tr></tbody>
+          </table>
+        </section>
+  </div>
+  <footer>미해결 정의 = 발견 / 개발확인 / 수정예정 / 재검수필요 / 재발 · 원본 = SQLite(DB), 이 화면은 렌더링 뷰 · 정적 보기 전용(GitHub Pages 미러)</footer>
+</body></html>

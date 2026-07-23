@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인증번호 입력 — 페이지 상세</title>
+<style>
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
+  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
+  header .back { text-decoration:none; color:#6b7280; font-size:13px; }
+  header h1 { font-size:16px; margin:0; }
+  header .meta { font-size:12px; color:#6b7280; }
+  .key { font-family:ui-monospace,monospace; }
+  .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+  .pf.fail { background:#fef2f2; color:#b42318; } .pf.pass { background:#ecfdf3; color:#12864e; }
+  .rounds { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .rlbl { font-size:12px; color:#6b7280; }
+  .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
+  .rchip.on { background:#111827; color:#fff; border-color:#111827; }
+  .rnd { font-size:10px; font-weight:700; color:#3730a3; background:#eef2ff; border-radius:5px; padding:1px 5px; margin-right:2px; }
+  .wrap { flex:1; min-height:0; display:flex; flex-direction:column; width:100%; padding:14px 24px 0; }
+  .roster { font-size:12px; color:#374151; margin-bottom:10px; flex-shrink:0; }
+  .roster .lbl { color:#6b7280; margin-right:8px; }
+  .person { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px; padding:3px 10px; margin-right:6px; }
+  /* 비교 영역: 위에 고정, 스크롤에 안 밀림 */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex-shrink:0; height:46vh; margin-bottom:12px; }
+  .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; display:flex; align-items:center; gap:8px; }
+  .upl { margin-left:auto; }
+  .upl label { font-size:11px; font-weight:600; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:2px 9px; background:#fff; cursor:pointer; }
+  .upl input { display:none; }
+  .canvas { position:relative; flex:1; min-height:0; background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f3f4f6 10px,#f3f4f6 20px); display:flex; align-items:center; justify-content:center; }
+  .canvas .ph { color:#9ca3af; font-size:13px; }
+  /* 이미지·오버레이 모두 고정 틀(canvas)을 꽉 채우되 비율 유지(contain/meet) → 틀 폭이 안 흔들림 */
+  .capimg { display:block; width:100%; height:100%; object-fit:contain; }
+  .overlay { position:absolute; inset:0; width:100%; height:100%; }
+  /* (1) 박스 레이어 — 클릭 가능. 색은 유형색(인라인 style) */
+  .box rect { fill-opacity:.05; stroke-width:4; cursor:pointer; }
+  .box:hover rect { fill-opacity:.16; }
+  /* 처리된 것: 흐리게(지우지 않음) — 미해결과 한눈에 구분. 클릭은 유지 */
+  .box.faded rect { stroke-opacity:.35; fill-opacity:.02; stroke-dasharray:9 7; }
+  .box.faded:hover rect { stroke-opacity:.7; }
+  .leader.faded { opacity:.25; }
+  /* (2) 리더 라인 — 짧게만, 클릭 통과 */
+  .leaders { pointer-events:none; }
+  .leader { stroke-width:3; opacity:.7; }
+  /* (3) 핀 레이어 — 항상 맨 위. 큰 투명 원(.hit)으로 클릭 쉽게. dot 색=유형색(인라인) */
+  .pin .hit { fill:transparent; }
+  .pin .dot { stroke:#fff; stroke-width:3; }
+  .pin text { fill:#fff; font-size:34px; font-weight:800; pointer-events:none; }
+  .pin.clickable { cursor:pointer; }
+  /* 처리된 핀: 흐리게(반투명+회색끼) 남김. hover하면 잠깐 또렷 */
+  .pin.faded { opacity:.35; filter:grayscale(.6); transition:opacity .12s ease, filter .12s ease; }
+  .pin.faded:hover, .pin.faded.sel { opacity:.9; filter:grayscale(0); }
+  .pinmark { transform-box:fill-box; transform-origin:center; transition:transform .12s ease; }
+  .pin:hover .pinmark, .pin.sel .pinmark { transform:scale(1.5); }
+  @keyframes pinflash { 0%,100% { opacity:1; } 50% { opacity:.15; } }
+  .pin.flash .dot { animation:pinflash .35s ease-in-out 3; }
+  .filters { margin:0 0 10px; flex-shrink:0; }
+  .chip { display:inline-block; padding:4px 12px; margin-right:6px; border:1px solid #d1d5db; border-radius:999px; font-size:13px; text-decoration:none; color:#374151; background:#fff; }
+  .chip.on { background:#111827; color:#fff; border-color:#111827; }
+  .hint { font-size:11px; color:#9ca3af; margin-left:6px; }
+  /* 카드 영역만 자체 스크롤. 안에 유형별 섹션 → 각 섹션은 여러 열 그리드 */
+  .cards { flex:1; min-height:0; overflow-y:auto; position:relative; padding:0 10px 30px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:18px; align-items:start; }
+  /* 유형 탭 바 (고정 영역) */
+  .tabbar { flex-shrink:0; display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 12px; }
+  .tab { display:inline-flex; align-items:center; font-size:13px; font-weight:700; color:#374151; background:#fff; border:1px solid #d1d5db; border-radius:999px; padding:6px 14px; cursor:pointer; }
+  .tab .sw { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:7px; }
+  .tab .cnt { margin-left:6px; font-size:12px; font-weight:700; color:#6b7280; }
+  .tab.on { background:#111827; color:#fff; border-color:#111827; }
+  .tab.on .cnt { color:#d1d5db; }
+  /* 카드는 차분하게 + 여백 넉넉히 — 왼쪽 빨간 줄 없음, 유형/상태는 카드 안 태그로 */
+  .issue { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 18px; cursor:pointer; transition:box-shadow .15s, border-color .15s; }
+  .issue.hl { border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.55); }
+  .ihead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pinno { width:24px; height:24px; border-radius:50%; color:#fff; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:#b42318; flex-shrink:0; }
+  .pinno.done { background:#12864e; } .pinno.mid { background:#6b7280; }
+  .type { font-size:12px; font-weight:700; padding:3px 10px; border-radius:6px; background:#eef2ff; color:#3730a3; }
+  .state { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:#fef2f2; color:#b42318; }
+  .state.done { background:#ecfdf3; color:#12864e; } .state.mid { background:#f3f4f6; color:#374151; }
+  .sev { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+  .props { margin:10px 0 6px; }
+  .tag { display:inline-block; font-size:11px; background:#f3f4f6; color:#374151; border-radius:6px; padding:2px 8px; margin:0 5px 5px 0; }
+  .loc { font-size:11px; color:#9ca3af; font-family:ui-monospace,monospace; }
+  .hist { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px dashed #eee; font-size:12px; color:#4b5563; }
+  .hist li { margin:2px 0; }
+  .actor { font-weight:600; color:#111827; }
+  .actor.off { color:#9ca3af; font-weight:400; }
+  .at { color:#9ca3af; }
+  .note { color:#b45309; }
+  .passform { display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed #eee; flex-wrap:wrap; }
+  .passform select, .passform input { font-size:12px; padding:5px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+  .passform input { flex:1; min-width:110px; }
+  .passform button { font-size:12px; font-weight:700; padding:5px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:6px; cursor:pointer; }
+  .passed { margin-top:10px; padding-top:8px; border-top:1px dashed #eee; font-size:12px; font-weight:700; color:#12864e; }
+  .muted { color:#9ca3af; }
+  .empty { color:#6b7280; padding:20px; }
+</style></head>
+<body>
+  <header>
+    <a class="back" href="/dev-screen-qa/screen/TB-WEB-001/">← 검수 페이지 목록</a>
+    <h1>인증번호 입력</h1>
+    <span class="meta">웹 아이디 찾기 (휴대전화번호) · <span class="key">TB-WEB-001</span></span>
+    <span class="rounds"><span class="rlbl">차수</span><span class="rchip on">1차</span> <span class="pf fail">FAIL</span></span>
+  </header>
+  <div class="wrap">
+    <div class="roster"><span class="lbl">담당자 명단</span><span class="person">김도현 · 개발팀</span><span class="person">배가람 · 디자인그룹</span></div>
+
+    <div class="cols">
+      <div class="pane">
+        <h3>좌 · 디자인 (정답 모습 — 핀 없음) </h3>
+        <div class="canvas"><span class="ph">디자인 이미지 자리표시</span></div>
+      </div>
+      <div class="pane">
+        <h3>우 · 개발 (1차 · 핀 = 발견 위치) </h3>
+        <div class="canvas"><span class="ph">개발 이미지 자리표시</span><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" class="overlay"><g class="boxes"><g class="box" onclick="focusCard('d7a56aa36425416b905522116259cca0')"><rect x="730" y="300" width="120" height="20" rx="6" style="fill:#2563eb;stroke:#2563eb"/></g><g class="box" onclick="focusCard('4c1df6d35bf44566955ce793d8da6ceb')"><rect x="1050" y="300" width="90" height="20" rx="6" style="fill:#db2777;stroke:#db2777"/></g><g class="box" onclick="focusCard('202685c41ec946f796eac386d197becc')"><rect x="730" y="346" width="460" height="50" rx="6" style="fill:#7c3aed;stroke:#7c3aed"/></g></g><g class="leaders"><line class="leader" x1="760" y1="296" x2="760" y2="300" style="stroke:#2563eb"/><line class="leader" x1="1080" y1="296" x2="1080" y2="300" style="stroke:#db2777"/><line class="leader" x1="834" y1="342" x2="834" y2="346" style="stroke:#7c3aed"/></g><g class="pins"><g class="pin clickable" id="pin-d7a56aa36425416b905522116259cca0" data-issue="d7a56aa36425416b905522116259cca0" onclick="focusCard('d7a56aa36425416b905522116259cca0')"><g transform="translate(760,270)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#2563eb"/><text y="9" text-anchor="middle">1</text></g></g></g><g class="pin clickable" id="pin-4c1df6d35bf44566955ce793d8da6ceb" data-issue="4c1df6d35bf44566955ce793d8da6ceb" onclick="focusCard('4c1df6d35bf44566955ce793d8da6ceb')"><g transform="translate(1080,270)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#db2777"/><text y="9" text-anchor="middle">2</text></g></g></g><g class="pin clickable" id="pin-202685c41ec946f796eac386d197becc" data-issue="202685c41ec946f796eac386d197becc" onclick="focusCard('202685c41ec946f796eac386d197becc')"><g transform="translate(834,316)"><g class="pinmark"><circle class="hit" r="42"/><circle class="dot" r="26" style="fill:#7c3aed"/><text y="9" text-anchor="middle">3</text></g></g></g></g></svg></div>
+      </div>
+    </div>
+
+    <div class="filters"><span class="hint">미해결은 유형 탭 · 처리된 건 '처리됨' 탭 · 핀 클릭 → 그 탭으로 이동 + 카드 강조</span></div>
+    <div class="tabbar"><button class="tab on" data-idx="0" onclick="showTab('0')"><span class="sw" style="background:#7c3aed"></span>레이아웃 <span class="cnt">1</span></button><button class="tab" data-idx="1" onclick="showTab('1')"><span class="sw" style="background:#db2777"></span>색상 <span class="cnt">1</span></button><button class="tab" data-idx="2" onclick="showTab('2')"><span class="sw" style="background:#2563eb"></span>텍스트 <span class="cnt">1</span></button><button class="tab" data-idx="3" onclick="showTab('3')"><span class="sw" style="background:#9ca3af"></span>처리됨 <span class="cnt">0</span></button></div>
+    <div class="cards" id="cards"><div class="panel" id="panel-0"><div class="grid"><div class="issue open" id="issue-202685c41ec946f796eac386d197becc" data-issue="202685c41ec946f796eac386d197becc" onclick="focusPin('202685c41ec946f796eac386d197becc')">
+          <div class="ihead">
+            <span class="pinno" style="background:#7c3aed">3</span>
+            <span class="state open">미해결</span>
+            
+            <b>[더미] 인증 입력칸</b>
+          </div>
+          <div class="props"><span class="tag">높이</span></div>
+          <div class="loc">위치 (730,346) 460×50</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">[더미] ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 더미 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-1" hidden><div class="grid"><div class="issue open" id="issue-4c1df6d35bf44566955ce793d8da6ceb" data-issue="4c1df6d35bf44566955ce793d8da6ceb" onclick="focusPin('4c1df6d35bf44566955ce793d8da6ceb')">
+          <div class="ihead">
+            <span class="pinno" style="background:#db2777">2</span>
+            <span class="state open">미해결</span>
+            
+            <b>[더미] 재전송 버튼</b>
+          </div>
+          <div class="props"><span class="tag">글자색</span></div>
+          <div class="loc">위치 (1050,300) 90×20</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">[더미] ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 더미 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-2" hidden><div class="grid"><div class="issue open" id="issue-d7a56aa36425416b905522116259cca0" data-issue="d7a56aa36425416b905522116259cca0" onclick="focusPin('d7a56aa36425416b905522116259cca0')">
+          <div class="ihead">
+            <span class="pinno" style="background:#2563eb">1</span>
+            <span class="state open">미해결</span>
+            
+            <b>[더미] 인증 타이머</b>
+          </div>
+          <div class="props"><span class="tag">글자 크기</span></div>
+          <div class="loc">위치 (730,300) 120×20</div>
+          <ul class="hist"><li><span class="rnd">1차</span> <span class="actor off" title="담당자 명단에 없음">[더미] ⚠</span> · <span class="at">시각 없음</span> · (신규) → 발견 <span class="note">— 더미 발견</span></li></ul>
+          <div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>
+        </div></div></div><div class="panel" id="panel-3" hidden><div class="grid"><p class="empty">항목 없음</p></div></div></div>
+  </div>
+  <script>
+function _clearHL(){
+  document.querySelectorAll('.issue.hl').forEach(function(e){ e.classList.remove('hl'); });
+  document.querySelectorAll('.pin.flash').forEach(function(e){ e.classList.remove('flash'); });
+  document.querySelectorAll('.pin.sel').forEach(function(e){ e.classList.remove('sel'); });
+}
+// 겹친 핀은 맨 뒤에 있으면 안 잡히므로, 마우스 올리면 DOM 맨 끝으로 옮겨 맨 앞에 그린다
+function bringFront(g){ g.parentNode.appendChild(g); }
+// 카드 박스 안에서만 스크롤. box.scrollTop 직접 지정이라 어떤 환경에서도 확실히 이동한다.
+// (네이티브 smooth/ rAF는 탭이 그리지 않는 환경에선 멈춰서 안 먹는다 → 직접 지정으로 보장)
+function _scrollBox(box, target){
+  var max = box.scrollHeight - box.clientHeight;
+  target = Math.max(0, Math.min(target, max));
+  try { box.scrollTo({ top: target, behavior: 'smooth' }); } catch(e) {}  // 지원되면 부드럽게
+  box.scrollTop = target;  // 항상 확실히 착지
+}
+// 핀 클릭 → '카드 박스 안에서만' 해당 카드로 스크롤 + 하이라이트.
+// 페이지 전체는 안 밀린다(개발화면을 계속 보면서 카드만 이동). 여러 열이어도 id로 정확히 찾음.
+function _selPin(uuid){
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  p.classList.add('sel');   // 그 핀만 커지고
+  bringFront(p);            // 맨 앞으로
+}
+// 유형 탭 전환 (그 그룹 카드만 보이게)
+function showTab(gi){
+  gi = String(gi);
+  document.querySelectorAll('.panel').forEach(function(p){ p.hidden = (p.id !== 'panel-' + gi); });
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-idx') === gi); });
+  var box = document.getElementById('cards'); if(box){ box.scrollTop = 0; }
+}
+function focusCard(uuid){
+  _clearHL();
+  var c = document.getElementById('issue-' + uuid);
+  var box = document.getElementById('cards');
+  if(!c || !box){ return; }
+  var panel = c.closest('.panel');        // 그 카드가 속한 탭으로 먼저 전환
+  if(panel){ showTab(panel.id.replace('panel-', '')); }
+  c.classList.add('hl');
+  _selPin(uuid);
+  _scrollBox(box, c.offsetTop - (box.clientHeight - c.offsetHeight) / 2);
+}
+// 통과 처리 제출 전 확인(사유 필수)
+function _confirmPass(f){
+  var r = (f.reason.value || '').trim();
+  if(!r){ alert('통과 사유를 입력하세요.'); return false; }
+  return confirm('이 이슈를 「협의통과」로 처리할까요?\n사유: ' + r);
+}
+// 카드 클릭 → 같은 uuid 핀이 커지고 맨 앞으로(+깜빡). 개발화면은 상단 고정이라 스크롤 불필요.
+function focusPin(uuid){
+  _clearHL();
+  var p = document.getElementById('pin-' + uuid);
+  if(!p){ return; }
+  var c = document.getElementById('issue-' + uuid);
+  if(c){ c.classList.add('hl'); }
+  void p.getBoundingClientRect();
+  p.classList.add('flash');
+  _selPin(uuid);
+}
+</script>
+</body></html>
