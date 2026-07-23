@@ -40,7 +40,8 @@ def transform(html: str) -> str:
     html = _RCHIP_RE.sub(r'<span class="rchip\1">\2</span>', html)
     html = html.replace('href="/?unresolved=1"', 'href="/unresolved/"')
     html = _SCREEN_HREF_RE.sub(lambda m: f'href="{m.group(1)}/"', html)
-    html = _SCREEN_JS_RE.sub(lambda m: f"location.href='{m.group(1)}/'", html)
+    # 행 클릭(JS location.href)도 href처럼 BASE_PATH 접두어를 붙인다(안 붙이면 루트로 가 404).
+    html = _SCREEN_JS_RE.sub(lambda m: f"location.href='{BASE_PATH}{m.group(1)}/'", html)
     html = html.replace('href="/', f'href="{BASE_PATH}/')
     html = html.replace('src="/uploads/', f'src="{BASE_PATH}/uploads/')
     html = html.replace(
