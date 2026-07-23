@@ -19,7 +19,7 @@ import portal
 import queries
 
 BASE = Path(__file__).resolve().parent
-OUT = BASE / "docs"
+OUT = BASE.parent / "docs"  # GitHub Pages는 저장소 최상위 /docs만 배포 소스로 허용
 BASE_PATH = "/dev-screen-qa"
 
 _FORM_UPL_RE = re.compile(r'<form class="upl".*?</form>', re.S)
