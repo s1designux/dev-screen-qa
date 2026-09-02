@@ -3,64 +3,157 @@
 <head>
 <meta charset="utf-8">
 <style>
-  :root{--bg:#fff;--panel:#f7f7f8;--line:#e5e7eb;--text:#18181b;--muted:#71717a;--blue:#2563eb;--orange:#ea580c;--red:#dc2626;--green:#15803d;--yellow:#ca8a04}
-  @media(prefers-color-scheme:dark){:root{--bg:#1f2025;--panel:#292b31;--line:#3f424b;--text:#f4f4f5;--muted:#a1a1aa;--blue:#60a5fa;--orange:#fb923c;--red:#f87171;--green:#4ade80;--yellow:#facc15}}
-  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-  header{height:52px;padding:0 14px;display:flex;align-items:center;border-bottom:1px solid var(--line);font-weight:800}header span{margin-left:auto;color:var(--muted);font-size:11px;font-weight:600}
-  main{padding:12px 14px 24px;overflow:auto;height:calc(100vh - 52px)}
-  .steps{display:flex;gap:5px;margin-bottom:12px}.step{flex:1;text-align:center;padding:6px 3px;border-radius:7px;background:var(--panel);color:var(--muted);font-size:11px}.step.on{background:#dbeafe;color:#1d4ed8;font-weight:800}.step.done{color:var(--green);font-weight:700}
-  .card{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;background:var(--bg)}.card h3{font-size:12px;margin:0 0 9px}.sub{font-size:11px;color:var(--muted);line-height:1.5}
-  button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer}button:hover{border-color:var(--blue)}button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}button.ghost{background:transparent}button.danger{color:var(--red)}button:disabled{opacity:.45;cursor:default}.wide{width:100%;justify-content:center;margin-top:7px}
-  .drop{border:1.5px dashed var(--line);border-radius:9px;padding:14px 8px;text-align:center;color:var(--muted);cursor:pointer;background:var(--panel)}.drop.over{border-color:var(--blue);color:var(--blue)}input[type=file]{display:none}
-  .ok{color:var(--green);font-weight:700}.warn{color:var(--orange)}.bad{color:var(--red)}.status{font-size:11px;margin-top:7px;white-space:pre-wrap;line-height:1.45}
-  .pair{border:1px solid var(--line);border-radius:9px;padding:9px;margin-bottom:7px}.pair-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}.pair-name{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.conf{font-size:10px;padding:2px 7px;border-radius:999px;background:#ffedd5;color:#9a3412}.conf.high{background:#dcfce7;color:#166534}
-  select{width:100%;font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--text)}
-  .summary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.chip{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:4px 8px}.chip b{font-size:12px}
-  .screen-nav{display:flex;align-items:center;gap:7px;margin-bottom:10px}.screen-nav button{padding:5px 8px}.screen-title{flex:1;text-align:center;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .number-group{margin:11px 0}.number-title{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px}.numbers{display:flex;gap:6px;flex-wrap:wrap}.num{width:34px;height:34px;padding:0;border-radius:50%;font-weight:800;background:var(--bg)}.num.review{border-color:var(--orange);color:var(--orange)}.num.confirmed{border-color:var(--red);background:var(--red);color:#fff}.num.excluded{border-color:var(--muted);color:var(--muted);opacity:.45}.num.hold{border-color:var(--yellow);color:var(--yellow)}.num.sel{outline:3px solid #93c5fd;outline-offset:2px}
-  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.actions button{padding:7px 3px;font-size:11px}.actions .confirm{color:var(--red)}.actions .hold{color:var(--yellow)}
-  .progress{height:7px;border-radius:999px;background:var(--panel);overflow:hidden;margin-top:8px}.progress i{display:block;height:100%;background:var(--blue);width:0;transition:width .2s}
-  .cap-item{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 2px;border-bottom:1px solid var(--line)}
-  .cap-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
-  .cap-del{padding:2px 7px;font-size:11px;color:var(--red)}
-  .hidden{display:none!important}.tip{font-size:11px;color:var(--muted);background:var(--panel);border-radius:8px;padding:8px 9px;line-height:1.45;margin-bottom:10px}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}
+  /* ── writing-test 디자인 스타일 적용 ── */
+  *{box-sizing:border-box}
+  html,body{scrollbar-width:none;-ms-overflow-style:none}
+  ::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+  body{margin:0;background:#FFFFFF;color:#353535;font:12px 'Pretendard',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:0}
+  header{height:56px;padding:0 20px;display:flex;align-items:center;border-bottom:1px solid #e0e0e0;font-size:14px;font-weight:700;color:#222222;background:#FFFFFF}
+  header span{margin-left:auto;color:#999999;font-size:11px;font-weight:500}
+  main{padding:20px;overflow:auto;height:calc(100vh - 56px)}
+
+  /* ── 단계 프로세스 바 ── */
+  .steps{display:flex;align-items:center;margin-bottom:20px;position:relative}
+  .step-item{display:flex;align-items:center;gap:8px;flex:1;position:relative}
+  .step-circle{width:24px;height:24px;border-radius:50%;border:2px solid #D9D9D9;background:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#999999;flex-shrink:0;transition:all .2s}
+  .step-label{font-size:11px;color:#999999;font-weight:500;white-space:nowrap;transition:color .2s}
+  .step-line{flex:1;height:2px;background:#D9D9D9;margin:0 8px;transition:background .2s}
+  .step-item.on .step-circle{border-color:#1D6CEB;background:#1D6CEB;color:#FFFFFF}
+  .step-item.on .step-label{color:#1D6CEB;font-weight:700}
+  .step-item.done .step-circle{border-color:#2E7D32;background:#2E7D32;color:#FFFFFF}
+  .step-item.done .step-label{color:#2E7D32;font-weight:600}
+  .step-line.done{background:#2E7D32}
+  .step-line.active{background:#1D6CEB}
+
+  /* 카드 */
+  .card{border:1px solid #D9D9D9;border-radius:4px;padding:16px;margin-bottom:12px;background:#FFFFFF}
+  .card h3{font-size:13px;font-weight:700;color:#222222;margin:0 0 10px}
+  .sub{font-size:11px;color:#888888;line-height:1.6}
+
+  /* 버튼 — writing-test 규격 */
+  button{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px;font-weight:500;border:1px solid #D9D9D9;background:#FFFFFF;color:#353535;padding:0 12px;height:40px;border-radius:4px;cursor:pointer;line-height:40px;white-space:nowrap}
+  button:hover{border-color:#B8CCEF;color:#1D6CEB}
+  button:disabled{background:#F5F5F5;border-color:#D9D9D9;color:#C4C4C4;cursor:not-allowed}
+  button.primary{background:#1D6CEB;border-color:#1D6CEB;color:#FFFFFF;font-weight:700}
+  button.primary:hover{background:#1756bc}
+  button.primary:disabled{background:#F5F5F5;border-color:#D9D9D9;color:#C4C4C4}
+  button.ghost{background:transparent;border-color:transparent}
+  button.ghost:hover{background:#F5F5F5;border-color:#D9D9D9}
+  button.danger{color:#D32F2F}
+  .wide{width:100%;display:block;margin-top:8px}
+
+  /* 드롭 영역 */
+  .drop{border:1.5px dashed #D9D9D9;border-radius:4px;padding:16px 10px;text-align:center;color:#999999;cursor:pointer;background:#FAFAFA;font-size:12px}
+  .drop.over{border-color:#1D6CEB;color:#1D6CEB;background:#F0F6FF}
+  input[type=file]{display:none}
+
+  /* 상태 텍스트 */
+  .ok{color:#2E7D32;font-weight:700}
+  .warn{color:#E65100}
+  .bad{color:#D32F2F}
+  .status{font-size:11px;margin-top:8px;white-space:pre-wrap;line-height:1.5;color:#888888}
+
+  /* 매칭 쌍 — 라인 구분 */
+  .pair{padding:12px 0;border-bottom:1px solid #EEEEEE}
+  .pair:last-child{border-bottom:none}
+  .pair-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .pair-name{flex:1;font-weight:700;font-size:12px;color:#222222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conf{font-size:10px;padding:3px 8px;border-radius:999px;background:#FFF3E0;color:#BF360C;font-weight:600}
+  .conf.high{background:#E8F5E9;color:#1B5E20}
+
+  /* 셀렉트 */
+  select{width:100%;font:inherit;padding:8px 10px;border:1px solid #D9D9D9;border-radius:4px;background:#FFFFFF;color:#353535;font-size:12px}
+
+  /* 요약 칩 */
+  .summary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-size:11px;border:1px solid #D9D9D9;border-radius:999px;padding:4px 10px;color:#555555;background:#FFFFFF}
+  .chip b{font-size:12px;color:#222222}
+
+  /* 화면 네비 */
+  .screen-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .screen-nav button{padding:0 10px;height:36px;line-height:36px;font-size:12px}
+  .screen-title{flex:1;text-align:center;font-weight:700;font-size:13px;color:#222222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* 번호 행 — 가로 행 구분 */
+  .number-group{margin:14px 0}
+  .number-title{font-size:11px;color:#888888;font-weight:700;margin-bottom:8px}
+  .number-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #F0F0F0}
+  .number-row:last-child{border-bottom:none}
+  .num{width:30px;height:30px;padding:0;border-radius:50%;font-weight:800;font-size:12px;background:#FFFFFF;line-height:30px;text-align:center;flex-shrink:0}
+  .num.review{border-color:#E65100;color:#E65100}
+  .num.confirmed{border-color:#D32F2F;background:#D32F2F;color:#FFFFFF}
+  .num.excluded{border-color:#999999;color:#999999;opacity:.45}
+  .num.hold{border-color:#F9A825;color:#F9A825}
+  .num.sel{outline:3px solid #90CAF9;outline-offset:2px}
+  .num-reason{flex:1;font-size:11px;color:#888888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* 액션 버튼 그리드 */
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .actions button{padding:0 4px;font-size:11px;height:36px;line-height:36px}
+  .actions .confirm{color:#D32F2F}
+  .actions .hold{color:#F9A825}
+
+  /* 프로그레스 바 */
+  .progress{height:6px;border-radius:999px;background:#F5F5F5;overflow:hidden;margin-top:10px}
+  .progress i{display:block;height:100%;background:#1D6CEB;width:0;transition:width .2s}
+
+  /* 로딩 화면 */
+  .loading-view{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center}
+  .loading-view .spinner{width:40px;height:40px;border:3px solid #F5F5F5;border-top:3px solid #1D6CEB;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-view .loading-title{font-size:14px;font-weight:700;color:#222222;margin-bottom:8px}
+  .loading-view .loading-sub{font-size:12px;color:#888888;margin-bottom:16px}
+
+  /* 캡처 목록 아이템 */
+  .cap-item{display:flex;align-items:center;gap:8px;font-size:11px;padding:6px 2px;border-bottom:1px solid #EEEEEE}
+  .cap-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888888}
+  .cap-del{padding:2px 8px;font-size:11px;color:#D32F2F;height:auto;line-height:normal;border:none;background:transparent}
+
+  /* 유틸 */
+  .hidden{display:none!important}
+  .tip{font-size:11px;color:#888888;background:#FAFAFA;border-radius:4px;padding:10px 12px;line-height:1.5;margin-bottom:12px;border:1px solid #EEEEEE}
+  .row{display:flex;gap:8px;align-items:center}
+  .row>*{flex:1}
 </style>
 </head>
 <body>
 <!-- 코드를 고칠 때마다 아래 업데이트 시각도 함께 갱신한다. -->
-<header>개발화면 이미지 검수 <span>1.0 · 업데이트 2026-09-01 17:55</span></header>
+<header>개발화면 이미지 검수 <span>1.0 · 업데이트 2026-09-02 15:00</span></header>
 <main>
   <div class="steps">
-    <div class="step on" id="stepPrepare">1 준비</div><div class="step" id="stepMatch">2 연결</div><div class="step" id="stepReview">3 검토</div>
+    <div class="step-item on" id="stepPrepare"><div class="step-circle">1</div><div class="step-label">준비</div></div>
+    <div class="step-line" id="line1"></div>
+    <div class="step-item" id="stepMatch"><div class="step-circle">2</div><div class="step-label">연결</div></div>
+    <div class="step-line" id="line2"></div>
+    <div class="step-item" id="stepReview"><div class="step-circle">3</div><div class="step-label">검토</div></div>
   </div>
 
   <section id="prepareView">
     <div class="card">
-      <h3>디자인 화면</h3>
-      <div class="sub">디자인 프레임과 개발화면 이미지를 함께 선택해도 자동으로 구분합니다.<br>이 버튼은 캡처 목록을 지금 선택한 것으로 <b>새로 만듭니다</b>(이전 목록 대체).</div>
-      <button class="wide" id="readDesigns">선택 항목 자동으로 읽기</button>
+      <h3>화면 선택</h3>
+      <div class="sub">Figma에서 디자인 원본 프레임과 개발화면 캡처 이미지를 함께 선택한 뒤 아래 버튼을 누르세요.<br>디자인 프레임과 캡처 이미지를 자동으로 구분합니다.</div>
+      <button class="primary wide" id="readDesigns">선택 항목 읽기</button>
       <div class="status" id="designStatus">아직 선택하지 않았어요.</div>
-    </div>
-    <div class="card">
-      <h3>개발화면 캡처</h3>
-      <button class="wide" id="readFigmaCaptures">선택한 Figma 이미지 추가</button>
-      <div class="sub" style="margin:8px 0;text-align:center">또는</div>
-      <div class="drop" id="captureDrop">PNG·JPG 여러 장 불러오기</div>
-      <input id="captureFiles" type="file" accept="image/png,image/jpeg" multiple>
-      <div class="status" id="captureStatus">아직 불러온 캡처가 없어요.</div>
+      <div class="status" id="captureStatus" style="margin-top:4px"></div>
       <div id="capList"></div>
     </div>
     <div class="tip">화면 이름은 참고만 합니다. 실제 연결은 화면의 색·윤곽·배치를 비교해 추천합니다. AI 토큰은 사용하지 않습니다.</div>
-    <button class="primary wide" id="startMatch" disabled>화면 연결 시작</button>
+    <button class="primary wide" id="startMatch" disabled>다음: 화면 연결</button>
   </section>
 
   <section id="matchView" class="hidden">
     <div class="summary" id="matchSummary"></div>
     <div id="pairList"></div>
     <div class="tip">추천이 틀리면 목록에서 사람이 직접 캡처를 바꿀 수 있습니다.</div>
-    <div class="row"><button id="backPrepare">← 준비</button><button class="primary" id="runCompare">자동 비교 시작</button></div>
-    <div id="compareProgress" class="hidden">
-      <div class="status" id="compareStatus"></div><div class="progress"><i id="progressBar"></i></div>
+    <div class="row"><button id="backPrepare">← 준비</button><button class="primary" id="runCompare">검수 시작</button></div>
+  </section>
+
+  <section id="loadingView" class="hidden">
+    <div class="loading-view">
+      <div class="spinner"></div>
+      <div class="loading-title" id="loadingTitle">검수 진행 중</div>
+      <div class="loading-sub" id="loadingStatus">화면 모양을 비교하는 중…</div>
+      <div class="progress" style="width:200px"><i id="progressBar"></i></div>
     </div>
   </section>
 
@@ -70,8 +163,7 @@
     <div id="numberLists"></div>
     <div class="card hidden" id="selectedCard">
       <h3 id="selectedTitle">후보 선택됨</h3>
-      <div class="sub">캔버스에서 번호·틀린 영역과 디자인 원본 레이어를 확인하세요.</div>
-      <button class="wide" id="focusCanvas">캔버스에서 다시 보기</button>
+      <div class="sub" id="selectedDesc"></div>
       <button class="wide ghost" id="toggleOverlay">겹쳐보기</button>
       <div class="actions"><button class="confirm" data-status="confirmed">오류 확정</button><button data-status="excluded">제외</button><button class="hold" data-status="hold">보류</button></div>
       <button class="wide ghost" id="clearSelect">선택 해제</button>
@@ -90,8 +182,18 @@ function uid(prefix){return prefix+Date.now().toString(36)+Math.floor(Math.rando
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function setView(name){
-  prepareView.classList.toggle("hidden",name!=="prepare");matchView.classList.toggle("hidden",name!=="match");reviewView.classList.toggle("hidden",name!=="review");
-  stepPrepare.className="step "+(name==="prepare"?"on":"done");stepMatch.className="step "+(name==="match"?"on":name==="review"?"done":"");stepReview.className="step "+(name==="review"?"on":"");
+  prepareView.classList.toggle("hidden",name!=="prepare");
+  matchView.classList.toggle("hidden",name!=="match");
+  loadingView.classList.toggle("hidden",name!=="loading");
+  reviewView.classList.toggle("hidden",name!=="review");
+  // 단계 표시
+  var steps=["prepare","match","review"],order={prepare:0,match:1,loading:1,review:2};
+  var cur=order[name]||0;
+  stepPrepare.className="step-item "+(cur===0?"on":cur>0?"done":"");
+  stepMatch.className="step-item "+(cur===1?"on":cur>1?"done":"");
+  stepReview.className="step-item "+(cur===2?"on":"");
+  line1.className="step-line"+(cur>0?" done":"")+(cur===1?" active":"");
+  line2.className="step-line"+(cur>1?" done":"")+(cur===2?" active":"");
 }
 function bytesToImage(bytes,type){return new Promise(function(resolve,reject){var blob=new Blob([bytes],{type:type||"image/png"}),url=URL.createObjectURL(blob),img=new Image();img.onload=function(){URL.revokeObjectURL(url);resolve(img);};img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("이미지를 읽지 못했어요."));};img.src=url;});}
 function fileBytes(file){return new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(new Uint8Array(r.result));};r.onerror=reject;r.readAsArrayBuffer(file);});}
@@ -117,29 +219,13 @@ function renderCaptureList(){
 }
 function showCaptureStatus(){
   var figmaCount=captures.filter(function(c){return c.source==="figma";}).length;
-  captureStatus.className="status "+(captures.length?"ok":"bad");
-  captureStatus.textContent=captures.length?("캡처 "+captures.length+"개 준비됨"+(figmaCount?" · Figma "+figmaCount+"개":"")):"아직 불러온 캡처가 없어요.";
+  captureStatus.className="status "+(captures.length?"ok":"");
+  captureStatus.textContent=captures.length?("개발 캡처 "+captures.length+"개 준비됨"+(figmaCount?" · Figma "+figmaCount+"개":"")):"";
   renderCaptureList();updateReady();
 }
 function updateReady(){startMatch.disabled=!(designs.length&&captures.length);}
 
 readDesigns.onclick=function(){messageTarget="design";designStatus.className="status";designStatus.textContent="선택 항목을 구분해 읽는 중…";post({type:"read-selected-assets"});};
-readFigmaCaptures.onclick=function(){messageTarget="capture";captureStatus.className="status";captureStatus.textContent="선택한 Figma 이미지를 읽는 중…";post({type:"read-selected-captures"});};
-captureDrop.onclick=function(){captureFiles.click();};
-captureDrop.ondragover=function(e){e.preventDefault();captureDrop.classList.add("over");};captureDrop.ondragleave=function(){captureDrop.classList.remove("over");};
-captureDrop.ondrop=function(e){e.preventDefault();captureDrop.classList.remove("over");loadCaptureFiles(e.dataTransfer.files);};captureFiles.onchange=function(){loadCaptureFiles(captureFiles.files);};
-async function loadCaptureFiles(list){
-  var files=[].slice.call(list).filter(function(f){return /^image\/(png|jpeg)$/.test(f.type);});captures=[];captureById={};
-  captureStatus.className="status";captureStatus.textContent="캡처를 읽는 중…";
-  for(var i=0;i<files.length;i++){try{var c=await makeCapture(files[i]);captures.push(c);captureById[c.id]=c;captureStatus.textContent=(i+1)+" / "+files.length+" 읽는 중…";}catch(e){}}
-  rebuildCaptureIndex();captureStatus.className="status "+(captures.length?"ok":"bad");captureStatus.textContent=captures.length?("캡처 "+captures.length+"개 준비됨"):"읽을 수 있는 PNG·JPG가 없어요.";renderCaptureList();updateReady();
-}
-
-async function addFigmaCaptures(items){
-  var incoming=[];for(var i=0;i<(items||[]).length;i++){try{incoming.push(await makeFigmaCapture(items[i]));}catch(e){}}
-  captures=mergeCaptureItems(captures,incoming);rebuildCaptureIndex();showCaptureStatus();
-}
-
 function canvasFor(w,h){var c=document.createElement("canvas");c.width=w;c.height=h;return c;}
 function drawDesign(img,maxSide){var q=Math.min(maxSide/img.width,maxSide/img.height),w=Math.max(8,Math.round(img.width*q)),h=Math.max(8,Math.round(img.height*q)),c=canvasFor(w,h),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);return{canvas:c,ctx:x,w:w,h:h,q:q};}
 function edgeData(imageData,w,h){var src=imageData.data,out=new Uint8Array(w*h);function lum(i){return src[i]*.299+src[i+1]*.587+src[i+2]*.114;}for(var y=1;y<h-1;y++)for(var x=1;x<w-1;x++){var i=(y*w+x)*4,gx=lum(i+4)-lum(i-4),gy=lum(i+w*4)-lum(i-w*4);out[y*w+x]=Math.min(255,Math.abs(gx)+Math.abs(gy));}return out;}
@@ -148,7 +234,6 @@ function edgeScore(a,b){var v=edgeScoreBand(a,b,1,0,a.length);return v==null?0:v
 function renderCaptureEdge(img,w,h,s,tx,ty){var c=canvasFor(w,h),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.setTransform(s,0,0,s,tx,ty);x.drawImage(img,0,0);x.setTransform(1,0,0,1,0,0);return edgeData(x.getImageData(0,0,w,h),w,h);}
 function makeSpace(img,maxSide){var d=drawDesign(img,maxSide);d.edge=edgeData(d.ctx.getImageData(0,0,d.w,d.h),d.w,d.h);return d;}
 function scoreModel(space,captureImg,s,tx,ty){
-  // 헤더·메인타이틀이 있는 상단 35% 일치에 크게 가중해, 화면 세로 길이가 달라도 상단 기준으로 겹친다.
   var e=renderCaptureEdge(captureImg,space.w,space.h,s*space.q,tx*space.q,ty*space.q);
   var full=edgeScoreBand(space.edge,e,space.w,0,space.h);
   if(full==null)return 0;
@@ -156,7 +241,6 @@ function scoreModel(space,captureImg,s,tx,ty){
   return top==null?full:top*.75+full*.25;
 }
 function refineModel(fine,captureImg,designImg,seed,steps){
-  // 고해상도 공간에서 보폭을 절반씩 줄이며 미세 조정한다.
   var best={score:scoreModel(fine,captureImg,seed.s,seed.tx,seed.ty),s:seed.s,tx:seed.tx,ty:seed.ty};
   (steps||[.05,.025,.012,.006,.003]).forEach(function(st){
     var cur=best;
@@ -178,7 +262,6 @@ function searchAlignment(designImg,captureImg,fast){
   });});});
   grid.sort(function(a,b){return b.score-a.score;});
   if(fast)return grid[0];
-  // 대략 탐색 상위 후보를 서로 다른 자리에서 여러 개 골라 각각 미세 조정 후 최고점을 쓴다.
   var fine=makeSpace(designImg,320),seeds=[],best=null;
   for(var i=0;i<grid.length&&seeds.length<5;i++){
     var g=grid[i],dup=false;
@@ -188,8 +271,6 @@ function searchAlignment(designImg,captureImg,fast){
     var r=refineModel(fine,captureImg,designImg,g);
     if(!best||r.score>best.score)best=r;
   }
-  // 캡처 가이드(같은 폭·스크롤 맨 위) 기준인 "폭 맞춤+상단 맞춤"을 기본으로 삼고,
-  // 자동 탐색이 확실히 더 좋을 때(점수 15% 이상 우위)만 그 결과를 쓴다.
   var guide=refineModel(fine,captureImg,designImg,{s:designImg.width/captureImg.width,tx:0,ty:0},[.012,.006,.003]);
   if(!best||guide.score>=best.score*.85){guide.mode="guide";return guide;}
   best.mode="auto";
@@ -197,9 +278,6 @@ function searchAlignment(designImg,captureImg,fast){
 }
 
 // ── 기준 요소 정렬 ──────────────────────────────────────────────
-// 디자인 프레임에서 읽은 상단의 또렷한 요소(로고·타이틀 등)를 기준 후보로 골라,
-// 각 요소의 이미지 조각을 개발 캡처 안에서 찾아 세로 시작 높이 차이를 계산한다.
-// (디자인에만 있는 브라우저 탭 영역 등으로 시작 높이가 달라도 기준 요소로 맞춘다.)
 function grayEdges(img,w,h){var c=canvasFor(w,h),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);return edgeData(x.getImageData(0,0,w,h),w,h);}
 function pickAnchors(design){
   var seen=[],out=[];
@@ -223,7 +301,7 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b){
   if(pw<8||ph<5)return null;
   var energy=0,y,x;
   for(y=0;y<ph;y++)for(x=0;x<pw;x++)energy+=dEdge[(py+y)*dw+px+x];
-  if(energy<pw*ph*6)return null; // 특징이 흐린 영역은 기준으로 쓰지 않는다.
+  if(energy<pw*ph*6)return null;
   var cnt=Math.ceil(ph/2)*Math.ceil(pw/2);
   function sadAt(xx,yy){var sad=0;for(var y2=0;y2<ph;y2+=2){var dr=(py+y2)*dw+px,cr=(yy+y2)*cw+xx;for(var x2=0;x2<pw;x2+=2)sad+=Math.abs(dEdge[dr+x2]-cEdge[cr+x2]);}return sad;}
   var x0=Math.max(0,px-24),x1=Math.min(cw-pw,px+24),bestSad=Infinity,bx=px,by=0,yy,xx;
@@ -234,12 +312,12 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b){
 }
 function median(list){var a=list.slice().sort(function(x,y){return x-y;});return a[Math.floor(a.length/2)];}
 function anchorAlignment(design,designImg,captureImg){
-  var s=designImg.width/captureImg.width; // 폭 맞춤(캡처 가이드) 배율 전제
-  var half=Math.max(1,Math.ceil(designImg.width/640)); // 탐색은 축소본에서
+  var s=designImg.width/captureImg.width;
+  var half=Math.max(1,Math.ceil(designImg.width/640));
   var dw=Math.max(8,Math.round(designImg.width/half)),dh=Math.max(8,Math.round(designImg.height/half));
   var ch=Math.max(8,Math.round(captureImg.height*s/half)),cw=dw;
   var dEdge=grayEdges(designImg,dw,dh),cEdge=grayEdges(captureImg,cw,ch);
-  var lg=(designImg.width/design.width)/half; // 디자인 논리 px → 축소 공간 px
+  var lg=(designImg.width/design.width)/half;
   var votes=[];
   pickAnchors(design).forEach(function(e){
     var b={x:e.box.x*lg,y:e.box.y*lg,w:e.box.w*lg,h:e.box.h*lg};
@@ -247,7 +325,6 @@ function anchorAlignment(design,designImg,captureImg){
     if(m&&m.q>.45)votes.push({tx:m.tx*half,ty:m.ty*half,q:m.q});
   });
   if(!votes.length)return null;
-  // 같은 오프셋(±8px)에 합의한 표가 가장 많은 무리를 채택한다.
   var best=null;
   votes.forEach(function(v){
     var group=votes.filter(function(o){return Math.abs(o.ty-v.ty)<=8;});
@@ -288,8 +365,6 @@ function designValuesFor(design,box){
   var lines=[];chosen.forEach(function(e){var v=e.values;if(e.kind==="text"){var bits=[];if(v.fontSize!=null)bits.push("크기 "+v.fontSize);if(v.fontWeight!=null)bits.push("굵기 "+v.fontWeight);if(v.fontFamily)bits.push("글꼴 "+v.fontFamily);if(v.lineHeight!=null)bits.push("줄높이 "+v.lineHeight);if(v.color)bits.push("색 "+v.color);lines.push(bits.join(" · "));}else{var sb=[];if(v.width!=null&&v.height!=null)sb.push(v.width+"×"+v.height);if(v.fill)sb.push("배경 "+v.fill);if(v.stroke)sb.push("테두리 "+v.stroke);if(v.radius!=null)sb.push("둥글기 "+v.radius);lines.push(sb.join(" · "));}});
   return{ids:chosen.map(function(e){return e.id;}),text:lines.filter(Boolean).join("\n")};
 }
-// 디자인의 글자 요소 위치를 이용해 글자 영역만 고해상도로 정밀 비교한다.
-// (연한 플레이스홀더처럼 축소 블록 비교가 놓치는 글자 차이를 잡는다.)
 function textDiffCandidates(design,designImg,capture,model){
   var out=[],els=(design.elements||[]).filter(function(e){return e.kind==="text"&&e.box.h>=8&&e.box.h<=70&&e.box.w>=30;});
   if(!els.length)return out;
@@ -303,8 +378,6 @@ function textDiffCandidates(design,designImg,capture,model){
     var energy=0,yy,xx;
     for(yy=0;yy<bh;yy++)for(xx=0;xx<bw;xx++)energy+=dE[(by+yy)*W+bx+xx];
     if(energy<bw*bh*4)return;
-    // 획이 같은 자리에 겹치는지(XOR 불일치 비율)로 판단한다.
-    // 같은 글자는 렌더링이 달라도 겹치고(≈0.15), 다른 글자는 안 겹친다(≈0.55).
     var best=1;
     for(var dy=-4;dy<=4;dy++)for(var dxo=-4;dxo<=4;dxo++){
       var miss=0,uni=0;
@@ -323,15 +396,12 @@ function buildDiff(design,designImg,capture,model,pairId){
   var max=360,q=Math.min(max/designImg.width,max/designImg.height),w=Math.max(24,Math.round(designImg.width*q)),h=Math.max(24,Math.round(designImg.height*q));
   var dc=canvasFor(w,h),cc=canvasFor(w,h),dx=dc.getContext("2d"),cx=cc.getContext("2d");dx.fillStyle="#fff";dx.fillRect(0,0,w,h);dx.drawImage(designImg,0,0,w,h);cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.setTransform(model.s*q,0,0,model.s*q,model.tx*q,model.ty*q);cx.drawImage(capture.img,0,0);cx.setTransform(1,0,0,1,0,0);
   var dd=dx.getImageData(0,0,w,h),cd=cx.getImageData(0,0,w,h),de=edgeData(dd,w,h),ce=edgeData(cd,w,h),block=5,cols=Math.ceil(w/block),rows=Math.ceil(h/block),mask=new Uint8Array(cols*rows);
-  // 가로 띠(밴드)마다 세로 오프셋을 다시 맞춘다.
-  // 컴포넌트 사이 간격이 달라 아래 전체가 밀린 경우, 밀린 지점 아래를 재동기화해 연쇄 오탐을 막는다.
   var bandH=24,nBands=Math.max(1,Math.ceil(h/bandH)),bandDy=new Int16Array(nBands);
   function bandSad(y0,y1,dy){var sad=0,n=0;for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=h)continue;for(var x=0;x<w;x+=2){var a=de[y*w+x],b=ce[cy*w+x];if(a>12||b>12){sad+=Math.abs(a-b);n++;}}}return n>=30?sad/n:999;}
   for(var bi=0;bi<nBands;bi++){
     var by0=bi*bandH,by1=Math.min(h,by0+bandH),bestDy=0,bestS=bandSad(by0,by1,0);
     for(var bdy=-24;bdy<=24;bdy+=2){if(!bdy)continue;var s0=bandSad(by0,by1,bdy);if(s0<bestS*.8){bestS=s0;bestDy=bdy;}}
     for(var bdy2=bestDy-1;bdy2<=bestDy+1;bdy2++){if(bdy2===bestDy)continue;var s1=bandSad(by0,by1,bdy2);if(s1<bestS){bestS=s1;bestDy=bdy2;}}
-    // 이동한 결과가 실제로 잘 맞을 때만 인정한다(없는 내용을 억지로 이동해 맞추는 것 방지).
     bandDy[bi]=(bestDy!==0&&bestS<28)?bestDy:0;
   }
   function dyAt(yPix){return bandDy[Math.min(nBands-1,Math.max(0,Math.floor(yPix/bandH)))];}
@@ -345,11 +415,9 @@ function buildDiff(design,designImg,capture,model,pairId){
   var boxes=mergeBoxes(connectedBoxes(mask,cols,rows),1).filter(function(b){return b.cells>=2&&b.w*b.h<cols*rows*.75;}).sort(function(a,b){return b.cells-a.cells;}).slice(0,18),scaleX=design.width/designImg.width,scaleY=design.height/designImg.height;
   function regionEnergy(e,x0,y0,x1,y1){var s=0,n=0;for(var y=Math.max(0,y0);y<Math.min(h,y1);y++)for(var x=Math.max(0,x0);x<Math.min(w,x1);x++){s+=e[y*w+x];n++;}return n?s/n:0;}
   var cands=boxes.map(function(b,i){var pad=3,wx=Math.max(0,b.x*block-pad),wy=Math.max(0,b.y*block-pad),ww=Math.min(w-wx,b.w*block+pad*2),wh=Math.min(h-wy,b.h*block+pad*2),bdy=dyAt(wy+wh/2),designPx={x:wx/q,y:wy/q,w:ww/q,h:wh/q},raw={x:(designPx.x-model.tx)/model.s,y:((wy+bdy)/q-model.ty)/model.s,w:designPx.w/model.s,h:designPx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=clamp(raw.w,4,capture.width-raw.x);raw.h=clamp(raw.h,4,capture.height-raw.y);var logical={x:designPx.x*scaleX,y:designPx.y*scaleY,w:designPx.w*scaleX,h:designPx.h*scaleY},dv=designValuesFor(design,logical);
-    // 디자인에만 내용이 있으면 '누락', 개발 캡처에만 있으면 '삭제필요', 둘 다 있으면 단순 차이.
     var dEn=regionEnergy(de,wx,wy,wx+ww,wy+wh),cEn=regionEnergy(ce,wx,wy+bdy,wx+ww,wy+wh+bdy),label=null;
     if(dEn>8&&cEn<dEn*.35)label="누락";else if(cEn>8&&dEn<cEn*.35)label="삭제필요";
-    return{id:pairId+"_c"+(i+1),no:i+1,status:"review",rawBox:raw,designBox:logical,designNodeIds:dv.ids,label:label};});
-  // 글자 영역 정밀 비교 결과를 뒤에 보탠다(이미 잡힌 영역과 겹치면 생략).
+    return{id:pairId+"_c"+(i+1),no:i+1,status:"review",rawBox:raw,designBox:logical,designNodeIds:dv.ids,designValues:dv.text,label:label};});
   textDiffCandidates(design,designImg,capture,model).forEach(function(t){
     var dPx=t.box,logical={x:dPx.x*scaleX,y:dPx.y*scaleY,w:dPx.w*scaleX,h:dPx.h*scaleY};
     for(var i2=0;i2<cands.length;i2++){if(intersection(cands[i2].designBox,logical)>logical.w*logical.h*.4)return;}
@@ -357,41 +425,88 @@ function buildDiff(design,designImg,capture,model,pairId){
     var raw={x:(dPx.x-model.tx)/model.s,y:((dPx.y+bdy4/q)-model.ty)/model.s,w:dPx.w/model.s,h:dPx.h/model.s};
     raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=clamp(raw.w,4,capture.width-raw.x);raw.h=clamp(raw.h,4,capture.height-raw.y);
     var no=cands.length+1;
-    cands.push({id:pairId+"_c"+no,no:no,status:"review",rawBox:raw,designBox:logical,designNodeIds:t.elId?[t.elId]:[],label:"글자 차이"});
+    var dvt=designValuesFor(design,logical);
+    cands.push({id:pairId+"_c"+no,no:no,status:"review",rawBox:raw,designBox:logical,designNodeIds:t.elId?[t.elId]:[],designValues:dvt.text,label:"글자 차이"});
   });
   return cands;
 }
 
 runCompare.onclick=async function(){
-  var active=pairs.filter(function(p){return p.captureId;});if(!active.length)return;messageTarget="compare";runCompare.disabled=true;compareProgress.classList.remove("hidden");results=[];
-  for(var i=0;i<active.length;i++){var p=active[i],d=designs[p.designIndex],cap=captureById[p.captureId],img=designImages[d.id];compareStatus.textContent=(i+1)+" / "+active.length+" · "+d.name+" 자동 정렬·차이 찾는 중…";progressBar.style.width=Math.round(i/active.length*100)+"%";await new Promise(function(r){setTimeout(r,20);});var model=anchorAlignment(d,img,cap.img)||searchAlignment(img,cap.img,false),cands=buildDiff(d,img,cap,model,p.id),logicalScale=img.width/d.width;var result={pairId:p.id,design:d,capture:cap,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands};results.push(result);await renderResultToCanvas(result);}
-  progressBar.style.width="100%";compareStatus.textContent="자동 비교 완료 · 결과를 캔버스에 표시했어요.";runCompare.disabled=false;currentResult=0;selectedCandidateId=null;setView("review");renderReview();
+  var active=pairs.filter(function(p){return p.captureId;});if(!active.length)return;
+  messageTarget="compare";runCompare.disabled=true;
+  setView("loading");
+  results=[];
+  for(var i=0;i<active.length;i++){
+    var p=active[i],d=designs[p.designIndex],cap=captureById[p.captureId],img=designImages[d.id];
+    loadingStatus.textContent=(i+1)+" / "+active.length+" · "+d.name+" 정렬·차이 찾는 중…";
+    progressBar.style.width=Math.round(i/active.length*100)+"%";
+    await new Promise(function(r){setTimeout(r,20);});
+    var model=anchorAlignment(d,img,cap.img)||searchAlignment(img,cap.img,false),cands=buildDiff(d,img,cap,model,p.id),logicalScale=img.width/d.width;
+    var result={pairId:p.id,design:d,capture:cap,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands};
+    results.push(result);await renderResultToCanvas(result);
+  }
+  progressBar.style.width="100%";
+  loadingStatus.textContent="완료! 결과를 표시합니다…";
+  runCompare.disabled=false;currentResult=0;selectedCandidateId=null;
+  await new Promise(function(r){setTimeout(r,400);});
+  setView("review");renderReview();
 };
 function canvasCandidates(result){var ds=result.capture.displayScale;return result.candidates.map(function(c){return Object.assign({},c,{rawBox:{x:c.rawBox.x*ds,y:c.rawBox.y*ds,w:c.rawBox.w*ds,h:c.rawBox.h*ds}});});}
 function renderResultToCanvas(r){return new Promise(function(resolve){renderWaiters[r.pairId]=resolve;post({type:"render-results",pairId:r.pairId,designId:r.design.id,designName:r.design.name,captureBytes:Array.from(r.capture.displayBytes),candidates:canvasCandidates(r)});});}
 
 function countStatus(r,s){return r.candidates.filter(function(c){return c.status===s;}).length;}
+function candidateReason(c){
+  // 오류 사유: label이 있으면 그것, 없으면 디자인 원본값이 있으면 "디자인값과 다름", 아니면 "색상·형태 차이"
+  if(c.label)return c.label;
+  if(c.designValues)return "디자인값과 다름";
+  return "색상·형태 차이";
+}
 function renderReview(){
   if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
   reviewSummary.innerHTML='<span class="chip">정렬 <b>'+(r.alignment&&r.alignment.mode==="anchor"?"기준 요소 "+r.alignment.anchors+"개":r.alignment&&r.alignment.mode==="guide"?"가이드 기준":"자동")+'</b></span><span class="chip">검토 <b>'+countStatus(r,"review")+'</b></span><span class="chip">확정 <b>'+countStatus(r,"confirmed")+'</b></span><span class="chip">제외 <b>'+countStatus(r,"excluded")+'</b></span><span class="chip">보류 <b>'+countStatus(r,"hold")+'</b></span>';
-  var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"}],html="";groups.forEach(function(g){var list=r.candidates.filter(function(c){return c.status===g.k;});if(!list.length)return;html+='<div class="number-group"><div class="number-title">'+g.t+'</div><div class="numbers">'+list.map(function(c){return'<button class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'" data-id="'+c.id+'">'+c.no+'</button>';}).join("")+'</div></div>';});if(!r.candidates.length)html='<div class="tip">눈에 띄는 차이 후보를 찾지 못했어요.</div>';numberLists.innerHTML=html;
+  var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"}],html="";
+  groups.forEach(function(g){
+    var list=r.candidates.filter(function(c){return c.status===g.k;});
+    if(!list.length)return;
+    html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
+    list.forEach(function(c){
+      html+='<div class="number-row"><button class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'" data-id="'+c.id+'">'+c.no+'</button><span class="num-reason">'+esc(candidateReason(c))+'</span></div>';
+    });
+    html+='</div>';
+  });
+  if(!r.candidates.length)html='<div class="tip">눈에 띄는 차이 후보를 찾지 못했어요.</div>';
+  numberLists.innerHTML=html;
   numberLists.querySelectorAll(".num").forEach(function(b){b.onclick=function(){selectCandidate(b.dataset.id);};});
-  selectedCard.classList.toggle("hidden",!selectedCandidateId);if(selectedCandidateId){var c=findCandidate(selectedCandidateId);selectedTitle.textContent="후보 "+(c?c.no:"")+(c&&c.label?" · "+c.label:"")+" 선택됨";}
+  selectedCard.classList.toggle("hidden",!selectedCandidateId);
+  if(selectedCandidateId){
+    var c=findCandidate(selectedCandidateId);
+    selectedTitle.textContent="후보 "+(c?c.no:"")+(c&&c.label?" · "+c.label:"")+" 선택됨";
+    // 패널 안에 오류 사유·디자인 원본값 표시
+    var descParts=[];
+    if(c&&c.label)descParts.push("유형: "+c.label);
+    if(c&&c.designValues)descParts.push("디자인 원본: "+c.designValues);
+    if(!descParts.length)descParts.push("캔버스에서 번호·틀린 영역을 확인하세요.");
+    selectedDesc.innerHTML=esc(descParts.join("\n")).replace(/\n/g,"<br>");
+  }
 }
 function findCandidate(id){for(var i=0;i<results.length;i++)for(var j=0;j<results[i].candidates.length;j++)if(results[i].candidates[j].id===id)return results[i].candidates[j];return null;}
 function selectCandidate(id){selectedCandidateId=id;post({type:"focus-candidate",candidateId:id});renderReview();}
 prevScreen.onclick=function(){if(currentResult>0){currentResult--;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};nextScreen.onclick=function(){if(currentResult<results.length-1){currentResult++;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};
-focusCanvas.onclick=function(){if(selectedCandidateId)post({type:"focus-candidate",candidateId:selectedCandidateId});};clearSelect.onclick=function(){selectedCandidateId=null;post({type:"clear-focus"});renderReview();};
+clearSelect.onclick=function(){selectedCandidateId=null;post({type:"clear-focus"});renderReview();};
 selectedCard.querySelectorAll("[data-status]").forEach(function(b){b.onclick=function(){var c=findCandidate(selectedCandidateId);if(!c)return;c.status=b.dataset.status;post({type:"candidate-status",candidateId:c.id,status:c.status});renderReview();};});
 toggleOverlay.onclick=function(){
-  // 검수 결과 프레임(개발 캡처) 위에 디자인 이미지를 반투명으로 겹친다. 화면 이동 없음.
   var r=results[currentResult],cap=r.capture,sF=r.alignmentForFigma;
   var boardW=Math.max(240,r.design.width),k=boardW/(cap.width*cap.displayScale),f=cap.displayScale*k/sF.s;
   post({type:"toggle-overlay",pairId:r.pairId,designBytes:Array.from(r.design.bytes),
     box:{x:-sF.tx/sF.s*cap.displayScale*k,y:-sF.ty/sF.s*cap.displayScale*k,w:r.design.width*f,h:r.design.height*f}});
 };
 
-window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){if((m.designs||[]).length){designs=m.designs;designImages={};}designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length){captures=[];captureById={};await addFigmaCaptures(m.captures);}updateReady();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?compareStatus:designStatus;target.className="status bad";target.textContent=m.message;Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="overlay-changed"){toggleOverlay.textContent=m.visible?"겹쳐보기 끄기":"겹쳐보기";}};
+window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){if((m.designs||[]).length){designs=m.designs;designImages={};}designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length){captures=[];captureById={};await addFigmaCaptures(m.captures);}updateReady();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="overlay-changed"){toggleOverlay.textContent=m.visible?"겹쳐보기 끄기":"겹쳐보기";}};
+
+async function addFigmaCaptures(items){
+  var incoming=[];for(var i=0;i<(items||[]).length;i++){try{incoming.push(await makeFigmaCapture(items[i]));}catch(e){}}
+  captures=mergeCaptureItems(captures,incoming);rebuildCaptureIndex();showCaptureStatus();
+}
 
 async function runSelfTest(){
   var checks=[];function check(name,ok){checks.push({name:name,ok:!!ok});}
