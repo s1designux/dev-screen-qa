@@ -1,4 +1,4 @@
-// 개발화면 이미지 검수 1.0 — Figma 문서 읽기와 캔버스 결과 표시.
+// 개발화면 검수기 — Figma 문서 읽기와 캔버스 결과 표시.
 // 이미지 비교는 ui.html의 로컬 Canvas 엔진이 맡고, 이 파일은 살아 있는 디자인값과
 // 개발 캡처 위 번호·영역·기준값 쪽지를 만든다. 외부 통신과 자동 오류 확정은 없다.
 
@@ -59,14 +59,14 @@ function safeStrokeWidth(node) {
   return null;
 }
 
-function readDesignElement(node, rootBox) {
+function readDesignElement(node, rootBox, depth, parentId, parentType) {
   var bb = node.absoluteBoundingBox;
   if (!bb || bb.width < 1 || bb.height < 1) return null;
   var box = {
     x: round1(bb.x - rootBox.x), y: round1(bb.y - rootBox.y),
     w: round1(bb.width), h: round1(bb.height)
   };
-  var base = { id: node.id, name: node.name || node.type, type: node.type, box: box };
+  var base = { id: node.id, name: node.name || node.type, type: node.type, box: box, depth: depth, parentId: parentId || null, parentType: parentType || null };
   if (node.type === "TEXT") {
     var fn = safeFont(node);
     base.kind = "text";
@@ -83,11 +83,12 @@ function readDesignElement(node, rootBox) {
     };
     return base;
   }
-  var fill = null, stroke = null;
+  var fill = null, stroke = null, hasImage = false;
   try { fill = firstSolid(node.fills); } catch (e) {}
+  try { hasImage = Array.isArray(node.fills) && node.fills.some(function (p) { return p && p.type === "IMAGE" && p.visible !== false; }); } catch (e1) {}
   try { stroke = firstSolid(node.strokes); } catch (e2) {}
-  if (!fill && !stroke && !/^(FRAME|COMPONENT|INSTANCE|RECTANGLE|ELLIPSE)$/.test(node.type)) return null;
-  base.kind = "shape";
+  if (!fill && !stroke && !hasImage && !/^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION|RECTANGLE|ELLIPSE)$/.test(node.type)) return null;
+  base.kind = hasImage ? "image" : /^(VECTOR|BOOLEAN_OPERATION|STAR|POLYGON|LINE)$/.test(node.type) ? "icon" : "shape";
   base.text = "";
   base.values = {
     width: round1(bb.width), height: round1(bb.height),
@@ -100,17 +101,17 @@ function readDesignElement(node, rootBox) {
 function collectDesign(root) {
   var rb = root.absoluteBoundingBox;
   var items = [];
-  function walk(n) {
+  function walk(n, depth, parentId, parentType) {
     if (n.id !== root.id && n.visible !== false && n.absoluteBoundingBox) {
-      var el = readDesignElement(n, rb);
+      var el = readDesignElement(n, rb, depth, parentId, parentType);
       if (el) {
         var b = el.box;
         if (b.x < rb.width && b.y < rb.height && b.x + b.w > 0 && b.y + b.h > 0) items.push(el);
       }
     }
-    if ("children" in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i]);
+    if ("children" in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i], depth + 1, n.id, n.type);
   }
-  walk(root);
+  walk(root, 0, null, null);
   return items;
 }
 
@@ -130,6 +131,26 @@ function selectableCapture(node) {
   return !!(node && node.absoluteBoundingBox && typeof node.exportAsync === "function" && hasImageFill(node) && !hasChildren);
 }
 
+function selectionGeometry(selection) {
+  var selected = selection || figma.currentPage.selection;
+  var designs = [], captures = [];
+  selected.forEach(function (node) {
+    var bb = node.absoluteBoundingBox;
+    if (!bb) return;
+    var item = { id: node.id, x: round1(bb.x), y: round1(bb.y), width: round1(bb.width), height: round1(bb.height) };
+    if (selectableCapture(node)) captures.push(item);
+    else if (selectableFrame(node)) designs.push(item);
+  });
+  return { designs: designs, captures: captures };
+}
+
+function postSelectionStatus() {
+  var status = selectionGeometry();
+  figma.ui.postMessage({ type: "selection-status", designs: status.designs, captures: status.captures });
+}
+
+if (typeof figma.on === "function") figma.on("selectionchange", postSelectionStatus);
+
 async function exportCaptureNode(node, index) {
   var bb = node.absoluteBoundingBox;
   var maxSide = Math.max(bb.width, bb.height);
@@ -140,6 +161,8 @@ async function exportCaptureNode(node, index) {
     nodeId: node.id,
     name: node.name || ("Figma 이미지 " + (index + 1)),
     source: "figma",
+    x: round1(bb.x), y: round1(bb.y),
+    width: round1(bb.width), height: round1(bb.height),
     bytes: Array.from(bytes)
   };
 }
@@ -165,6 +188,7 @@ async function exportSelectedDesigns() {
     var bytes = await root.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
     out.push({
       id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
+      x: round1(bb.x), y: round1(bb.y),
       width: round1(bb.width), height: round1(bb.height),
       bytes: Array.from(bytes), elements: collectDesign(root)
     });
@@ -267,15 +291,42 @@ async function buildCanvasResult(msg) {
     var w = Math.max(8, c.rawBox.w * sx), h = Math.max(8, c.rawBox.h * sy);
     var rect = figma.createRectangle(); board.appendChild(rect); rect.name = "후보 영역 " + c.no;
     rect.x = x; rect.y = y; rect.resize(w, h);
-    rect.fills = [{ type: "SOLID", color: col, opacity: 0.08 }];
-    rect.strokes = [{ type: "SOLID", color: col }]; rect.strokeWeight = 2; rect.cornerRadius = 4;
+    rect.fills = [{ type: "SOLID", color: col, opacity: c.kind === "spacing" ? 0.16 : 0.08 }];
+    rect.strokes = [{ type: "SOLID", color: col }]; rect.strokeWeight = c.kind === "spacing" ? 1 : 2; rect.cornerRadius = 4;
+    var spacingNodes = [];
+    if (c.kind === "spacing") {
+      (c.rawAnchorBoxes || []).forEach(function (ab, ai) {
+        var anchor = figma.createRectangle(); board.appendChild(anchor); anchor.name = "간격 기준 컴포넌트 " + (ai + 1);
+        anchor.x = Math.max(0, ab.x * sx); anchor.y = Math.max(0, ab.y * sy);
+        anchor.resize(Math.max(8, Math.min(devW - anchor.x, ab.w * sx)), Math.max(8, Math.min(devH - anchor.y, ab.h * sy)));
+        anchor.fills = []; anchor.strokes = [{ type: "SOLID", color: col, opacity: 0.55 }]; anchor.strokeWeight = 1; anchor.cornerRadius = 4;
+        spacingNodes.push(anchor);
+      });
+      function measureRect(name, mx, my, mw, mh) {
+        var mark = figma.createRectangle(); board.appendChild(mark); mark.name = name;
+        mark.x = mx; mark.y = my; mark.resize(Math.max(1, mw), Math.max(1, mh));
+        mark.fills = [{ type: "SOLID", color: col, opacity: 0.9 }]; mark.strokes = [];
+        spacingNodes.push(mark);
+      }
+      if (c.axis === "vertical") {
+        var centerX = x + w / 2;
+        measureRect("간격 측정선", centerX - 0.75, y, 1.5, h);
+        measureRect("간격 측정 위", centerX - 6, y, 12, 1.5);
+        measureRect("간격 측정 아래", centerX - 6, y + h - 1.5, 12, 1.5);
+      } else {
+        var centerY = y + h / 2;
+        measureRect("간격 측정선", x, centerY - 0.75, w, 1.5);
+        measureRect("간격 측정 왼쪽", x, centerY - 6, 1.5, 12);
+        measureRect("간격 측정 오른쪽", x + w - 1.5, centerY - 6, 1.5, 12);
+      }
+    }
     var badge = figma.createEllipse(); board.appendChild(badge); badge.resize(26, 26);
     badge.x = Math.min(Math.max(-8, x - 10), devW - 18); badge.y = Math.min(Math.max(-8, y - 10), devH - 18);
     badge.fills = [{ type: "SOLID", color: col }];
     var num = makeText(font, String(c.no), 13, { r: 1, g: 1, b: 1 }); board.appendChild(num);
     num.resize(26, 26); num.textAlignHorizontal = "CENTER"; num.textAlignVertical = "CENTER";
     num.x = badge.x; num.y = badge.y;
-    var nodes = [rect, badge, num];
+    var nodes = [rect].concat(spacingNodes,[badge, num]);
 
     if (c.label) {
       var tagText = makeText(font, c.label, 10, { r: 1, g: 1, b: 1 });
@@ -343,6 +394,10 @@ async function updateCandidateStatus(candidateId, status) {
       if (n.type === "RECTANGLE" && n.name.indexOf("후보 영역") === 0) {
         n.strokes = [{ type: "SOLID", color: col }]; n.fills = [{ type: "SOLID", color: col, opacity: 0.08 }];
       }
+      if (n.type === "RECTANGLE" && n.name.indexOf("간격 기준 컴포넌트") === 0) {
+        n.strokes = [{ type: "SOLID", color: col, opacity: 0.55 }]; n.fills = [];
+      }
+      if (n.type === "RECTANGLE" && n.name.indexOf("간격 측정") === 0) n.fills = [{ type: "SOLID", color: col, opacity: 0.9 }];
       if (n.type === "ELLIPSE") n.fills = [{ type: "SOLID", color: col }];
     });
   }
@@ -370,7 +425,9 @@ async function toggleOverlay(msg) {
 
 figma.ui.onmessage = async function (msg) {
   try {
-    if (msg.type === "read-selected-designs") {
+    if (msg.type === "request-selection-status") {
+      postSelectionStatus();
+    } else if (msg.type === "read-selected-designs") {
       var designs = await exportSelectedDesigns();
       figma.ui.postMessage({ type: "designs-read", designs: designs });
     } else if (msg.type === "read-selected-assets") {
@@ -390,6 +447,7 @@ figma.ui.onmessage = async function (msg) {
           var bytes = await root.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
           assetDesigns.push({
             id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
+            x: round1(bb.x), y: round1(bb.y),
             width: round1(bb.width), height: round1(bb.height),
             bytes: Array.from(bytes), elements: collectDesign(root)
           });
