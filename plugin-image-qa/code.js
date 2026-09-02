@@ -184,7 +184,7 @@ async function exportSelectedDesigns() {
     var root = selected[i];
     var bb = root.absoluteBoundingBox;
     var maxSide = Math.max(bb.width, bb.height);
-    var scale = Math.min(1, 1200 / Math.max(1, maxSide));
+    var scale = Math.min(1, 4096 / Math.max(1, maxSide)); // 디자인도 원본 해상도로 읽어 작은 아이콘·10px 글자까지 비교한다.
     var bytes = await root.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
     out.push({
       id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
@@ -443,7 +443,7 @@ figma.ui.onmessage = async function (msg) {
           var root = selectedDesigns[i];
           var bb = root.absoluteBoundingBox;
           var maxSide = Math.max(bb.width, bb.height);
-          var scale = Math.min(1, 1200 / Math.max(1, maxSide));
+          var scale = Math.min(1, 4096 / Math.max(1, maxSide)); // 디자인도 원본 해상도로 읽어 작은 아이콘·10px 글자까지 비교한다.
           var bytes = await root.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
           assetDesigns.push({
             id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,

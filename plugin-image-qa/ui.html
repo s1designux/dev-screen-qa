@@ -97,7 +97,7 @@
   .number-title{font-size:11px;color:#888888;font-weight:700;margin-bottom:8px}
   .number-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #F0F0F0}
   .number-row:last-child{border-bottom:none}
-  .candidate-hit{min-width:0;height:36px;padding:0 4px;border-color:transparent;display:flex;align-items:center;gap:7px;line-height:normal;text-align:left}
+  .candidate-hit{min-width:0;min-height:36px;height:auto;padding:4px 4px;border-color:transparent;display:flex;align-items:center;gap:7px;line-height:normal;text-align:left}
   .candidate-hit:hover{background:#F7FAFF;border-color:#DCE7F8}
   .num{width:30px;height:30px;padding:0;border:1px solid #D9D9D9;border-radius:50%;font-weight:800;font-size:12px;background:#FFFFFF;line-height:28px;text-align:center;flex-shrink:0}
   .num.review{border-color:#E65100;color:#E65100}
@@ -105,7 +105,10 @@
   .num.excluded{border-color:#999999;color:#999999;opacity:.45}
   .num.hold{border-color:#F9A825;color:#F9A825}
   .num.sel{outline:3px solid #90CAF9;outline-offset:2px}
-  .num-reason{flex:1;font-size:11px;color:#888888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .num-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .num-reason{font-size:11px;color:#888888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .num-detail{font-size:10px;color:#AAAAAA;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tip.notice{border-color:#F3E2B3;background:#FFF9EA;color:#7A5A00}
   .candidate-actions{display:flex;gap:4px}
   .candidate-actions button{height:30px;line-height:28px;padding:0 7px;font-size:10px}
   .candidate-actions .confirm{color:#D32F2F}
@@ -156,7 +159,7 @@
       </div>
     </div>
   </div>
-  <span class="update-time">업데이트 2026-09-02 14:34</span>
+  <span class="update-time">업데이트 2026-09-02 16:30</span>
 </header>
 <main>
   <section id="prepareView">
@@ -317,7 +320,7 @@ function pickAnchors(design){
   });
   return out;
 }
-function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b){
+function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b,win){
   var px=clamp(Math.round(b.x),0,dw-1),py=clamp(Math.round(b.y),0,dh-1);
   var pw=Math.min(dw-px,Math.round(b.w)),ph=Math.min(dh-py,Math.round(b.h));
   if(pw<8||ph<5)return null;
@@ -326,10 +329,14 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b){
   if(energy<pw*ph*6)return null;
   var cnt=Math.ceil(ph/2)*Math.ceil(pw/2);
   function sadAt(xx,yy){var sad=0;for(var y2=0;y2<ph;y2+=2){var dr=(py+y2)*dw+px,cr=(yy+y2)*cw+xx;for(var x2=0;x2<pw;x2+=2)sad+=Math.abs(dEdge[dr+x2]-cEdge[cr+x2]);}return sad;}
-  var x0=Math.max(0,px-24),x1=Math.min(cw-pw,px+24),bestSad=Infinity,bx=px,by=0,yy,xx;
-  if(x1<x0)return null;
-  for(yy=0;yy<=ch-ph;yy+=2)for(xx=x0;xx<=x1;xx+=2){var s2=sadAt(xx,yy);if(s2<bestSad){bestSad=s2;bx=xx;by=yy;}}
-  for(yy=Math.max(0,by-2);yy<=Math.min(ch-ph,by+2);yy++)for(xx=Math.max(x0,bx-2);xx<=Math.min(x1,bx+2);xx++){var s3=sadAt(xx,yy);if(s3<bestSad){bestSad=s3;bx=xx;by=yy;}}
+  // win이 있으면 이미 찾은 자리(tx,ty) 주변 ±r만 1px 단위로 다듬는다(원본 해상도 미세 보정용).
+  var x0,x1,y0,y1,stepc;
+  if(win){x0=Math.max(0,Math.round(px-win.tx-win.r));x1=Math.min(cw-pw,Math.round(px-win.tx+win.r));y0=Math.max(0,Math.round(py-win.ty-win.r));y1=Math.min(ch-ph,Math.round(py-win.ty+win.r));stepc=1;}
+  else{x0=Math.max(0,px-24);x1=Math.min(cw-pw,px+24);y0=0;y1=ch-ph;stepc=2;}
+  var bestSad=Infinity,bx=px,by=0,yy,xx;
+  if(x1<x0||y1<y0)return null;
+  for(yy=y0;yy<=y1;yy+=stepc)for(xx=x0;xx<=x1;xx+=stepc){var s2=sadAt(xx,yy);if(s2<bestSad){bestSad=s2;bx=xx;by=yy;}}
+  if(stepc>1)for(yy=Math.max(0,by-2);yy<=Math.min(ch-ph,by+2);yy++)for(xx=Math.max(x0,bx-2);xx<=Math.min(x1,bx+2);xx++){var s3=sadAt(xx,yy);if(s3<bestSad){bestSad=s3;bx=xx;by=yy;}}
   return{tx:px-bx,ty:py-by,q:clamp(1-bestSad/(cnt*255),0,1)};
 }
 function median(list){var a=list.slice().sort(function(x,y){return x-y;});return a[Math.floor(a.length/2)];}
@@ -339,23 +346,34 @@ function anchorAlignment(design,designImg,captureImg){
   var dw=Math.max(8,Math.round(designImg.width/half)),dh=Math.max(8,Math.round(designImg.height/half));
   var ch=Math.max(8,Math.round(captureImg.height*s/half)),cw=dw;
   var dEdge=grayEdges(designImg,dw,dh),cEdge=grayEdges(captureImg,cw,ch);
-  var lg=(designImg.width/design.width)/half;
+  var lg=(designImg.width/design.width)/half,anchors=pickAnchors(design);
   var votes=[];
-  pickAnchors(design).forEach(function(e){
+  anchors.forEach(function(e){
     var b={x:e.box.x*lg,y:e.box.y*lg,w:e.box.w*lg,h:e.box.h*lg};
     var m=matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b);
     if(m&&m.q>.45)votes.push({tx:m.tx*half,ty:m.ty*half,q:m.q});
   });
   if(!votes.length)return null;
-  var best=null;
+  // 세로·가로 둘 다 같은 값을 말하는 기준 요소 무리를 고른다(내용이 달라진 글자가 엉뚱한 곳에 붙는 것을 걸러냄).
+  var best=null,tol=Math.max(8,4*half);
   votes.forEach(function(v){
-    var group=votes.filter(function(o){return Math.abs(o.ty-v.ty)<=8;});
-    var qsum=group.reduce(function(a,o){return a+o.q;},0);
-    if(!best||group.length>best.group.length||(group.length===best.group.length&&qsum>best.qsum))best={group:group,qsum:qsum};
+    var group=votes.filter(function(o){return Math.abs(o.ty-v.ty)<=tol&&Math.abs(o.tx-v.tx)<=tol;});
+    var qsum=group.reduce(function(a,o){return a+o.q;},0),weight=group.length+(Math.abs(v.tx)<=tol?1.5:0); // 화면이 가로로 통째로 밀리는 일은 드물다. 가로 밀림 무리는 표가 확실히 많아야 이긴다.
+    if(!best||weight>best.weight||(weight===best.weight&&qsum>best.qsum))best={group:group,qsum:qsum,weight:weight};
   });
   var g=best.group;
-  if(g.length<2&&!(votes.length===1&&votes[0].q>.7))return null;
-  return{s:s,tx:median(g.map(function(v){return v.tx;})),ty:median(g.map(function(v){return v.ty;})),score:best.qsum/g.length,mode:"anchor",anchors:g.length};
+  if(g.length<2&&!(g[0].q>.7&&Math.abs(g[0].tx)<=tol))return null;
+  var tx=median(g.map(function(v){return v.tx;})),ty=median(g.map(function(v){return v.ty;}));
+  if(half>1){
+    // 축소본에서 찾은 자리를 원본 해상도에서 ±몇 px 다듬어 가로 6px 같은 양자화 오차를 없앤다.
+    var fw=designImg.width,fh=designImg.height,fch=Math.max(8,Math.round(captureImg.height*s)),dEf=grayEdges(designImg,fw,fh),cEf=grayEdges(captureImg,fw,fch),lgf=designImg.width/design.width,fine=[];
+    anchors.forEach(function(e){
+      var b={x:e.box.x*lgf,y:e.box.y*lgf,w:e.box.w*lgf,h:e.box.h*lgf},m=matchAnchorPatch(dEf,fw,fh,cEf,fw,fch,b,{tx:tx,ty:ty,r:half*2+2});
+      if(m&&m.q>.45&&Math.abs(m.tx-tx)<=tol&&Math.abs(m.ty-ty)<=tol)fine.push(m);
+    });
+    if(fine.length){tx=median(fine.map(function(v){return v.tx;}));ty=median(fine.map(function(v){return v.ty;}));}
+  }
+  return{s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length};
 }
 async function ensureDesignImages(){for(var i=0;i<designs.length;i++)if(!designImages[designs[i].id])designImages[designs[i].id]=await bytesToImage(new Uint8Array(designs[i].bytes),"image/png");}
 function rowBox(item,kind,index){return{kind:kind,index:index,item:item,x:Number(item.x),y:Number(item.y),h:Number(kind==="design"?item.height:item.canvasHeight)};}
@@ -422,62 +440,42 @@ function designValuesFor(design,box){
   return{ids:chosen.map(function(e){return e.id;}),kinds:chosen.map(function(e){return e.kind;}),text:lines.filter(Boolean).join("\n")};
 }
 function edgeStats(edge,W,H,x0,y0,w,h){
-  var count=0,minX=w,minY=h,maxX=-1,maxY=-1,rowOn=[],lines=0,inLine=false;
-  for(var y=0;y<h;y++){var py=y0+y,rowCount=0;if(py<0||py>=H){rowOn[y]=false;continue;}for(var x=0;x<w;x++){var px=x0+x;if(px<0||px>=W||edge[py*W+px]<=30)continue;count++;rowCount++;if(x<minX)minX=x;if(y<minY)minY=y;if(x>maxX)maxX=x;if(y>maxY)maxY=y;}rowOn[y]=rowCount>=Math.max(3,Math.round(w*.018));}
-  rowOn.forEach(function(on){if(on&&!inLine){lines++;inLine=true;}else if(!on)inLine=false;});
+  // 글자 영역 통계. 폭·높이는 실제로 글자가 지나가는 줄(픽셀 3개 이상)만으로 재서 떠도는 점 하나에 흔들리지 않게 한다.
+  var count=0,minX=w,minY=h,maxX=-1,maxY=-1,rowOn=[],lines=0,off=99;
+  for(var y=0;y<h;y++){var py=y0+y,rowCount=0,rMin=w,rMax=-1;if(py<0||py>=H){rowOn[y]=false;continue;}for(var x=0;x<w;x++){var px=x0+x;if(px<0||px>=W||edge[py*W+px]<=30)continue;count++;rowCount++;if(x<rMin)rMin=x;if(x>rMax)rMax=x;}
+    rowOn[y]=rowCount>=Math.max(3,Math.round(w*.018));if(rowOn[y]){if(rMin<minX)minX=rMin;if(rMax>maxX)maxX=rMax;if(y<minY)minY=y;if(y>maxY)maxY=y;}}
+  rowOn.forEach(function(on){if(on){if(off>=3)lines++;off=0;}else off++;});
   return{count:count,w:maxX>=minX?maxX-minX+1:0,h:maxY>=minY?maxY-minY+1:0,lines:lines};
 }
-function classifyTextDifference(best,dx,dy,designStats,captureStats){
+var LABEL_MISSING="디자인에 있는 요소가 개발 화면에 없습니다.",LABEL_EXTRA="디자인에 없는 요소가 표시되어 있습니다.",LABEL_MOVED="요소의 위치 또는 정렬이 다릅니다.",LABEL_ICON="아이콘 또는 이미지가 다르게 보입니다.",LABEL_COLOR="색상이 다르게 보입니다.",LABEL_SHAPE="요소의 모양 또는 크기가 다릅니다.",LABEL_TEXT_CONTENT="글자 내용 또는 표기가 다르게 보입니다.",LABEL_TEXT_WRAP="줄바꿈 또는 말줄임 표시가 다릅니다.",LABEL_TEXT_SIZE="글자 영역의 폭과 높이가 다릅니다.",LABEL_TEXT_POS="글자 영역의 위치 또는 정렬이 다릅니다.",LABEL_TEXT_FONT="폰트 모양이 다르게 보입니다.",LABEL_TEXT_SHAPE="글자 모양이 다르게 보입니다.";
+function classifyTextDifference(best,dx,dy,designStats,captureStats,ncc){
+  // best = 글자 윤곽 불일치 비율(0 같음 ~ 1 전혀 다름). 줄 수 → 내용(폭만 변함) → 크기 → 위치 → 폰트 순으로 판단한다.
   var moved=Math.abs(dx)>=3||Math.abs(dy)>=3;
-  var wr=designStats.w?captureStats.w/designStats.w:1,hr=designStats.h?captureStats.h/designStats.h:1;
-  if(designStats.lines&&captureStats.lines&&designStats.lines!==captureStats.lines&&(designStats.lines>captureStats.lines||Math.max(designStats.lines,captureStats.lines)>=3||captureStats.lines>designStats.lines&&wr<.9))return"줄바꿈 또는 말줄임 표시가 다릅니다.";
-  if(best>=.5&&wr<.72&&hr>.78&&hr<1.22)return"줄바꿈 또는 말줄임 표시가 다릅니다.";
-  if(best<.68&&(wr>1.15||wr<.85||hr>1.15||hr<.85))return"글자 영역의 폭과 높이가 다릅니다.";
-  if(moved&&best<.58)return"글자 영역의 위치 또는 정렬이 다릅니다.";
+  var wr=designStats.w?captureStats.w/designStats.w:1,hr=designStats.h?captureStats.h/designStats.h:1,dl=designStats.lines||0,cl=captureStats.lines||0;
+  if(dl&&cl&&dl!==cl&&(dl>cl||Math.max(dl,cl)>=3||cl>dl&&wr<.9))return LABEL_TEXT_WRAP;
+  if(hr>.8&&hr<1.25&&(wr<.85||wr>1.18)&&best>=.3)return LABEL_TEXT_CONTENT;
+  if(ncc!=null&&ncc<.65&&hr>.8&&hr<1.25&&best>=.4)return LABEL_TEXT_CONTENT; // 밝기 패턴까지 안 맞으면 글씨체가 아니라 글자 자체가 다른 것
+  if((wr>1.15||wr<.85||hr>1.15||hr<.85)&&(best<.68||Math.abs(wr-hr)<=.35))return LABEL_TEXT_SIZE;
+  if(moved&&best<.58)return LABEL_TEXT_POS;
   var density=designStats.count?captureStats.count/designStats.count:1;
-  if(best<.62&&(density>1.25||density<.8))return"폰트 모양이 다르게 보입니다.";
-  if(best>=.5)return"글자 모양이 다르게 보입니다.";
-  return"폰트 모양이 다르게 보입니다.";
+  if(best<.62&&(density>1.25||density<.8))return LABEL_TEXT_FONT;
+  if(best>=.55&&hr>.85&&hr<1.15&&wr>.85&&wr<1.18)return LABEL_TEXT_CONTENT;
+  if(best>=.5)return LABEL_TEXT_SHAPE;
+  return LABEL_TEXT_FONT;
 }
 function allEdgePoints(edge,W,H,box,maxPoints){
   var pts=[],x0=Math.max(0,Math.floor(box.x)),y0=Math.max(0,Math.floor(box.y)),x1=Math.min(W,Math.ceil(box.x+box.w)),y1=Math.min(H,Math.ceil(box.y+box.h));
   for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++)if(edge[y*W+x]>30)pts.push({x:x,y:y});
   var limit=maxPoints||520;if(pts.length>limit){var step=Math.ceil(pts.length/limit),sample=[];for(var i=0;i<pts.length;i+=step)sample.push(pts[i]);pts=sample;}return pts;
 }
+function edgeNear(e,W,H,x,y){for(var yy=-1;yy<=1;yy++)for(var xx=-1;xx<=1;xx++){var px=x+xx,py=y+yy;if(px>=0&&py>=0&&px<W&&py<H&&e[py*W+px]>30)return true;}return false;}
 function textEdgeMismatch(designEdge,captureEdge,W,H,box,dx,dy){
+  // 1px 어긋남은 같은 것으로 보는 대칭 불일치 비율. 렌더러 차이(피그마 vs 브라우저)에 덜 흔들린다.
   var miss=0,uni=0,x0=Math.max(0,Math.floor(box.x)),y0=Math.max(0,Math.floor(box.y)),x1=Math.min(W,Math.ceil(box.x+box.w)),y1=Math.min(H,Math.ceil(box.y+box.h));
-  for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx;if(cx<0||cx>=W)continue;var a=designEdge[y*W+x]>30,b=captureEdge[cy*W+cx]>30;if(a||b){uni++;if(a!==b)miss++;}}}return uni>=24?miss/uni:1;
+  for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx;if(cx<0||cx>=W)continue;var a=designEdge[y*W+x]>30,b=captureEdge[cy*W+cx]>30;if(a||b){uni++;if(a&&!edgeNear(captureEdge,W,H,cx,cy))miss++;else if(b&&!a&&!edgeNear(designEdge,W,H,x,y))miss++;}}}
+  return uni>=24?miss/uni:1;
 }
-function textDiffCandidates(design,designImg,capture,model,localDyAt){
-  var out=[],els=(design.elements||[]).filter(function(e){return e.kind==="text"&&e.box.h>=8&&e.box.h<=260&&e.box.w>=20;});
-  if(!els.length)return out;
-  var W=designImg.width,H=designImg.height,dE=grayEdges(designImg,W,H);
-  var c=canvasFor(W,H),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.setTransform(model.s,0,0,model.s,model.tx,model.ty);x.drawImage(capture.img,0,0);x.setTransform(1,0,0,1,0,0);
-  var cE=edgeData(x.getImageData(0,0,W,H),W,H),lg=W/design.width;
-  els.forEach(function(e){
-    var b=e.box,bx=clamp(Math.round(b.x*lg)-3,0,W-1),by=clamp(Math.round(b.y*lg)-3,0,H-1);
-    var bw=Math.min(W-bx,Math.round(b.w*lg)+6),bh=Math.min(H-by,Math.round(b.h*lg)+6);
-    if(bw<12||bh<6)return;
-    var textBox={x:bx,y:by,w:bw,h:bh},points=allEdgePoints(dE,W,H,textBox,520);if(points.length<16)return;
-    var localDy=localDyAt?Math.round(localDyAt(by+bh/2)):0,zeroMatch=componentEdgeMatch(cE,W,H,points,0,localDy),bestMatch=zeroMatch,bestDx=0,bestDy=0;
-    for(var dy=-16;dy<=16;dy+=2)for(var dxo=-16;dxo<=16;dxo+=2){var match=componentEdgeMatch(cE,W,H,points,dxo,localDy+dy),dist=Math.abs(dxo)+Math.abs(dy),bestDist=Math.abs(bestDx)+Math.abs(bestDy);if(match>bestMatch+.008||(Math.abs(match-bestMatch)<=.008&&dist<bestDist)){bestMatch=match;bestDx=dxo;bestDy=dy;}}
-    var coarseDx=bestDx,coarseDy=bestDy;for(var dy2=coarseDy-1;dy2<=coarseDy+1;dy2++)for(var dx2=coarseDx-1;dx2<=coarseDx+1;dx2++){var match2=componentEdgeMatch(cE,W,H,points,dx2,localDy+dy2),dist2=Math.abs(dx2)+Math.abs(dy2),bestDist2=Math.abs(bestDx)+Math.abs(bestDy);if(match2>bestMatch+.008||(Math.abs(match2-bestMatch)<=.008&&dist2<bestDist2)){bestMatch=match2;bestDx=dx2;bestDy=dy2;}}
-    if(bestMatch<zeroMatch+.08){bestDx=0;bestDy=0;bestMatch=zeroMatch;}
-    var best=textEdgeMismatch(dE,cE,W,H,textBox,bestDx,localDy+bestDy),moved=Math.abs(bestDx)>=3||Math.abs(bestDy)>=3;
-    if((moved||best>.28)&&best<1){
-      var expand=Math.min(28,Math.max(8,Math.round(Math.max(bw,bh)*.12))),ds=edgeStats(dE,W,H,bx,by,bw,bh),cs=edgeStats(cE,W,H,bx+bestDx-expand,by+localDy+bestDy-expand,bw+expand*2,bh+expand*2),ox=Math.min(bx,bx+bestDx),oy=Math.min(by,by+bestDy),ow=bw+Math.abs(bestDx),oh=bh+Math.abs(bestDy);
-      out.push({box:{x:ox,y:oy,w:ow,h:oh},sim:best,elId:e.id,label:classifyTextDifference(best,bestDx,bestDy,ds,cs),confidence:clamp(Math.round((.55+Math.min(.35,best)*.7)*100),52,92)});
-    }
-  });
-  out.sort(function(a,b){return b.sim-a.sim;});
-  return out.slice(0,6);
-}
-function isGapComponent(e){
-  if(!e||e.kind==="text"||!e.box||e.box.w<12||e.box.h<12)return false;
-  var values=e.values||{},visibleBoundary=!!(values.fill||values.stroke||e.kind==="image"||e.kind==="icon");
-  if(!visibleBoundary)return false;
-  return /^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION)$/.test(e.type)||(e.depth===1&&/^(RECTANGLE|ELLIPSE|VECTOR|BOOLEAN_OPERATION|STAR|POLYGON)$/.test(e.type));
-}
+function edgeCount(edge,W,H,box,dx,dy){var n=0,x0=Math.max(0,Math.floor(box.x+dx)),y0=Math.max(0,Math.floor(box.y+dy)),x1=Math.min(W,Math.ceil(box.x+box.w+dx)),y1=Math.min(H,Math.ceil(box.y+box.h+dy));for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++)if(edge[y*W+x]>30)n++;return n;}
 function componentEdgePoints(edge,W,H,box){
   var pts=[],x0=Math.max(0,Math.floor(box.x)-3),y0=Math.max(0,Math.floor(box.y)-3),x1=Math.min(W,Math.ceil(box.x+box.w)+3),y1=Math.min(H,Math.ceil(box.y+box.h)+3),band=5;
   for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var nearOuter=x<=box.x+band||x>=box.x+box.w-band||y<=box.y+band||y>=box.y+box.h-band;if(nearOuter&&edge[y*W+x]>30)pts.push({x:x,y:y});}
@@ -492,22 +490,29 @@ function componentEdgeMatch(edge,W,H,points,dx,dy){
   }
   return hit/points.length;
 }
-function componentShiftMap(design,de,ce,w,h){
-  var sx=w/design.width,sy=h/design.height,items=(design.elements||[]).filter(isGapComponent).filter(function(e){return e.box.w*e.box.h<design.width*design.height*.72;}).slice(0,40),out={};
-  items.forEach(function(e){
-    var pb={x:e.box.x*sx,y:e.box.y*sy,w:e.box.w*sx,h:e.box.h*sy},pts=componentEdgePoints(de,w,h,pb);if(pts.length<16)return;
-    var zero=componentEdgeMatch(ce,w,h,pts,0,0),best={dx:0,dy:0,score:zero};
-    for(var dy=-48;dy<=48;dy+=4)for(var dx=-48;dx<=48;dx+=4){var score=componentEdgeMatch(ce,w,h,pts,dx,dy),dist=Math.abs(dx)+Math.abs(dy),bestDist=Math.abs(best.dx)+Math.abs(best.dy);if(score>best.score+.008||(Math.abs(score-best.score)<=.008&&dist<bestDist))best={dx:dx,dy:dy,score:score};}
-    var coarse=best;
-    for(var dy2=coarse.dy-4;dy2<=coarse.dy+4;dy2++)for(var dx2=coarse.dx-4;dx2<=coarse.dx+4;dx2++){var score2=componentEdgeMatch(ce,w,h,pts,dx2,dy2),dist2=Math.abs(dx2)+Math.abs(dy2),bestDist2=Math.abs(best.dx)+Math.abs(best.dy);if(score2>best.score+.008||(Math.abs(score2-best.score)<=.008&&dist2<bestDist2))best={dx:dx2,dy:dy2,score:score2};}
-    if(best.score>=.48&&(best.dx===0&&best.dy===0||best.score>=zero+.08))out[e.id]={element:e,box:pb,dx:best.dx,dy:best.dy,sx:sx,sy:sy,score:best.score,zero:zero};
-  });
-  var claimed=[];
-  Object.keys(out).map(function(id){return out[id];}).sort(function(a,b){var aZero=a.dx===0&&a.dy===0?1:0,bZero=b.dx===0&&b.dy===0?1:0;return bZero-aZero||b.score-a.score;}).forEach(function(v){
-    var target={x:v.box.x+v.dx,y:v.box.y+v.dy,w:v.box.w,h:v.box.h},conflict=claimed.some(function(c){return intersection(target,c)>Math.min(target.w*target.h,c.w*c.h)*.6;});
-    if(conflict)delete out[v.element.id];else claimed.push(target);
-  });
+function dilateEdges(edge,W,H,r){
+  // 윤곽을 r px 두껍게 만든 사본. 성긴 간격으로 훑을 때 가는 글자 윤곽을 놓치지 않게 한다.
+  var out=new Uint8Array(W*H);
+  for(var y=0;y<H;y++)for(var x=0;x<W;x++){if(edge[y*W+x]<=30)continue;for(var yy=Math.max(0,y-r);yy<=Math.min(H-1,y+r);yy++)for(var xx=Math.max(0,x-r);xx<=Math.min(W-1,x+r);xx++)out[yy*W+xx]=255;}
   return out;
+}
+function searchShift(edge,W,H,points,base,rx,ry,step,coarseEdge){
+  // base 주변 ±rx/±ry 범위를 step 간격으로(두껍게 만든 윤곽으로) 훑고, 가장 잘 맞는 자리 주변을 원본 윤곽으로 1px 단위로 다듬는다. 동점이면 덜 움직인 쪽.
+  var zero=componentEdgeMatch(edge,W,H,points,base.dx,base.dy),best={dx:base.dx,dy:base.dy,score:zero},cE=coarseEdge||edge;
+  // 성긴 훑기에서 점수가 높은 자리를 여러 개(최대 4) 남겨 두고, 각각을 원본 윤곽으로 다듬어 진짜 가장 잘 맞는 자리를 고른다.
+  var tops=[{dx:base.dx,dy:base.dy,score:componentEdgeMatch(cE,W,H,points,base.dx,base.dy)}];
+  function offerTop(c){for(var i=0;i<tops.length;i++){if(Math.abs(tops[i].dx-c.dx)<=step&&Math.abs(tops[i].dy-c.dy)<=step){if(c.score>tops[i].score)tops[i]=c;return;}}tops.push(c);tops.sort(function(a,b){return b.score-a.score;});if(tops.length>4)tops.pop();}
+  for(var dy=-ry;dy<=ry;dy+=step)for(var dx=-rx;dx<=rx;dx+=step){if(!dx&&!dy)continue;var sc=componentEdgeMatch(cE,W,H,points,base.dx+dx,base.dy+dy);if(sc>=.35)offerTop({dx:base.dx+dx,dy:base.dy+dy,score:sc});}
+  function consider(dx,dy){var sc=componentEdgeMatch(edge,W,H,points,dx,dy),dist=Math.abs(dx-base.dx)+Math.abs(dy-base.dy),bd=Math.abs(best.dx-base.dx)+Math.abs(best.dy-base.dy);if(sc>best.score+.008||(Math.abs(sc-best.score)<=.008&&dist<bd))best={dx:dx,dy:dy,score:sc};}
+  var r=coarseEdge?step+1:step-1;
+  tops.forEach(function(cb){for(var dy2=cb.dy-r;dy2<=cb.dy+r;dy2++)for(var dx2=cb.dx-r;dx2<=cb.dx+r;dx2++)consider(dx2,dy2);});
+  best.zero=zero;return best;
+}
+function isGapComponent(e){
+  if(!e||e.kind==="text"||!e.box||e.box.w<12||e.box.h<12)return false;
+  var values=e.values||{},visibleBoundary=!!(values.fill||values.stroke||e.kind==="image"||e.kind==="icon");
+  if(!visibleBoundary)return false;
+  return /^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION)$/.test(e.type)||(e.depth===1&&/^(RECTANGLE|ELLIPSE|VECTOR|BOOLEAN_OPERATION|STAR|POLYGON)$/.test(e.type));
 }
 function axisOverlap(a,b,axis){var start=axis==="vertical"?Math.max(a.x,b.x):Math.max(a.y,b.y),end=axis==="vertical"?Math.min(a.x+a.w,b.x+b.w):Math.min(a.y+a.h,b.y+b.h),base=axis==="vertical"?Math.min(a.w,b.w):Math.min(a.h,b.h);return Math.max(0,end-start)/Math.max(1,base);}
 function componentGapPairs(shiftMap){
@@ -519,7 +524,6 @@ function componentGapPairs(shiftMap){
     });
   });});return pairs;
 }
-function componentGapCandidates(design,de,ce,w,h){return componentGapPairs(componentShiftMap(design,de,ce,w,h));}
 function coherentLowerRegionShift(votes,h,bandH){
   var lowerStart=Math.floor(votes.length*.55),usable=votes.filter(function(v){return v.bi>=lowerStart&&v.dy!==0&&v.score<28&&v.zero<999&&v.score<v.zero*.72;});
   if(usable.length<2)return null;
@@ -532,79 +536,327 @@ function coherentLowerRegionShift(votes,h,bandH){
   var dy=median(best.map(function(v){return v.dy;})),maxSafe=Math.min(18,Math.max(6,Math.round(h*.055)));
   return{dy:dy,startBand:Math.min.apply(null,best.map(function(v){return v.bi;})),support:best.length,safe:Math.abs(dy)<=maxSafe,maxSafe:maxSafe};
 }
-function buildDiff(design,designImg,capture,model,pairId){
-  var max=360,q=Math.min(max/designImg.width,max/designImg.height),w=Math.max(24,Math.round(designImg.width*q)),h=Math.max(24,Math.round(designImg.height*q));
-  var dc=canvasFor(w,h),cc=canvasFor(w,h),dx=dc.getContext("2d"),cx=cc.getContext("2d");dx.fillStyle="#fff";dx.fillRect(0,0,w,h);dx.drawImage(designImg,0,0,w,h);cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.setTransform(model.s*q,0,0,model.s*q,model.tx*q,model.ty*q);cx.drawImage(capture.img,0,0);cx.setTransform(1,0,0,1,0,0);
-  var dd=dx.getImageData(0,0,w,h),cd=cx.getImageData(0,0,w,h),de=edgeData(dd,w,h),ce=edgeData(cd,w,h),block=5,cols=Math.ceil(w/block),rows=Math.ceil(h/block),mask=new Uint8Array(cols*rows);
-  var componentShifts=componentShiftMap(design,de,ce,w,h),gapMatches=componentGapPairs(componentShifts);
-  var bandH=24,nBands=Math.max(1,Math.ceil(h/bandH)),bandDy=new Int16Array(nBands),bandVotes=[];
-  function bandSad(y0,y1,dy){var sad=0,n=0;for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=h)continue;for(var x=0;x<w;x+=2){var a=de[y*w+x],b=ce[cy*w+x];if(a>12||b>12){sad+=Math.abs(a-b);n++;}}}return n>=30?sad/n:999;}
-  for(var bi=0;bi<nBands;bi++){
-    var by0=bi*bandH,by1=Math.min(h,by0+bandH),bestDy=0,zeroS=bandSad(by0,by1,0),bestS=zeroS;
-    for(var bdy=-24;bdy<=24;bdy+=2){if(!bdy)continue;var s0=bandSad(by0,by1,bdy);if(s0<bestS*.8){bestS=s0;bestDy=bdy;}}
-    for(var bdy2=bestDy-1;bdy2<=bestDy+1;bdy2++){if(bdy2===bestDy)continue;var s1=bandSad(by0,by1,bdy2);if(s1<bestS){bestS=s1;bestDy=bdy2;}}
-    bandDy[bi]=(bestDy!==0&&bestS<28)?bestDy:0;
-    bandVotes.push({bi:bi,dy:bestDy,zero:zeroS,score:bestS});
+
+// ── 요소 단위(unit)와 구역(section) ─────────────────────────────
+function boxContains(outer,inner){return inner.x>=outer.x-1&&inner.y>=outer.y-1&&inner.x+inner.w<=outer.x+outer.w+1&&inner.y+inner.h<=outer.y+outer.h+1;}
+function boxUnion(a,b){var x=Math.min(a.x,b.x),y=Math.min(a.y,b.y);return{x:x,y:y,w:Math.max(a.x+a.w,b.x+b.w)-x,h:Math.max(a.y+a.h,b.y+b.h)-y};}
+function isVisibleShape(e){var v=e.values||{};return !!(v.fill||v.stroke)||e.kind==="image"||e.kind==="icon";}
+function isContainerType(e){return /^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION)$/.test(e.type);}
+function childMap(design){var m={};(design.elements||[]).forEach(function(e){var p=e.parentId||"root";(m[p]||(m[p]=[])).push(e);});return m;}
+function descendantsOf(e,children){var out=[],st=(children[e.id]||[]).slice();while(st.length){var c=st.pop();out.push(c);(children[c.id]||[]).forEach(function(x){st.push(x);});}return out;}
+function collectUnits(design){
+  // 비교 단위: 글자 / 아이콘·이미지 묶음 / 테두리나 배경이 보이는 도형. 아이콘의 부속 벡터는 묶음 하나로 합친다.
+  var els=design.elements||[],children=childMap(design),absorbed={},units=[],frameArea=design.width*design.height;
+  els.forEach(function(e){
+    if(absorbed[e.id])return;var b=e.box;if(!b||b.w<4||b.h<4)return;
+    if(b.w*b.h>frameArea*.9)return;
+    var desc=descendantsOf(e,children),iconish=function(d){return d.kind==="icon"||d.kind==="image";};
+    if(iconish(e)){units.push({el:e,kind:"icon",container:false});desc.forEach(function(d){absorbed[d.id]=1;});return;}
+    if(desc.length&&b.w<=96&&b.h<=96&&desc.some(iconish)&&desc.every(function(d){return iconish(d)||(d.kind!=="text"&&!isVisibleShape(d));})){units.push({el:e,kind:"icon",container:false});desc.forEach(function(d){absorbed[d.id]=1;});return;}
+    if(e.kind==="text"){if(b.h>=6)units.push({el:e,kind:"text",container:false});return;}
+    if(e.kind==="shape"&&isVisibleShape(e)&&b.w>=6&&b.h>=6)units.push({el:e,kind:"shape",container:desc.length>0});
+  });
+  return units;
+}
+function buildSections(design,units){
+  // 구역: 세로 25% 이상이거나 가로 60% 이상인 큰 묶음 중 비교 단위를 2개 이상 품은 것. 자식 중 그런 묶음이 둘 이상이면 자식으로 쪼갠다.
+  var children=childMap(design),frameArea=design.width*design.height,out=[];
+  function unitsIn(e){return units.filter(function(u){return u.el!==e&&boxContains(e.box,u.el.box);}).length;}
+  function qualifies(e){return isContainerType(e)&&e.box.w*e.box.h<frameArea*.95&&(e.box.h>=design.height*.25||e.box.w>=design.width*.6)&&unitsIn(e)>=2;}
+  function visit(e){
+    var kids=children[e.id]||[],q=qualifies(e),qk=kids.filter(qualifies);
+    if(q&&qk.length<2){out.push({el:e,box:e.box});return;}
+    if(q||e.box.w*e.box.h>=frameArea*.5)kids.forEach(function(k){if(isContainerType(k))visit(k);});
   }
-  var lowerShift=coherentLowerRegionShift(bandVotes,h,bandH);
-  if(lowerShift)for(var li=lowerShift.startBand;li<nBands;li++)bandDy[li]=lowerShift.safe?lowerShift.dy:0;
-  function dyAt(yPix){return bandDy[Math.min(nBands-1,Math.max(0,Math.floor(yPix/bandH)))];}
+  var byId={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});(design.elements||[]).filter(function(e){return !e.parentId||!byId[e.parentId];}).forEach(function(e){if(isContainerType(e))visit(e);});
+  out.sort(function(a,b){return a.box.y-b.box.y||a.box.x-b.box.x;});
+  var root={el:null,box:{x:0,y:0,w:design.width,h:design.height},root:true};
+  out.forEach(function(s){s.units=[];});root.units=[];
+  units.forEach(function(u){var cx=u.el.box.x+u.el.box.w/2,cy=u.el.box.y+u.el.box.h/2,best=null;out.forEach(function(s){if(cx>=s.box.x&&cx<=s.box.x+s.box.w&&cy>=s.box.y&&cy<=s.box.y+s.box.h&&(!best||s.box.w*s.box.h<best.box.w*best.box.h))best=s;});(best||root).units.push(u);u.section=best||root;});
+  root.offset={dx:0,dy:0};root.matched=true;
+  return{sections:out,root:root};
+}
+function unitPoints(u,ctx){
+  var lg=ctx.lg,b=u.el.box,pad=u.kind==="text"?3:u.kind==="icon"?2:0,pb={x:b.x*lg-pad,y:b.y*lg-pad,w:b.w*lg+pad*2,h:b.h*lg+pad*2};
+  var pts=u.kind==="shape"&&u.container?componentEdgePoints(ctx.dE,ctx.W,ctx.H,pb):allEdgePoints(ctx.dE,ctx.W,ctx.H,pb,520);
+  return{pb:pb,pts:pts};
+}
+function estimateSectionOffset(section,ctx,base,opts){
+  // 구역 안의 단위 몇 개로 그 구역만의 세로·가로 밀림을 찾는다. 두 개 이상이 같은 값을 말해야 믿는다.
+  base=base||{dx:0,dy:0};opts=opts||{};
+  var lg=ctx.lg,candidates=section.units.slice().sort(function(a,b){
+    var ar=(a.kind==="text"?0:a.kind==="shape"&&a.el.values&&a.el.values.stroke?1:2),br=(b.kind==="text"?0:b.kind==="shape"&&b.el.values&&b.el.values.stroke?1:2);
+    if(ar!==br)return ar-br;return b.el.box.w*b.el.box.h-a.el.box.w*a.el.box.h;
+  }),votes=[],tried=0,rx=Math.max(24,Math.round(ctx.W*(opts.rxRatio||.06))),ry=Math.max(40,Math.round(ctx.H*(opts.ryRatio||.2))),step=Math.max(3,Math.round(4*lg)),maxTry=opts.maxTry||6;
+  for(var i=0;i<candidates.length&&tried<maxTry;i++){
+    var u=candidates[i],p=unitPoints(u,ctx);if(p.pts.length<24)continue;tried++;
+    var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,rx,ry,step,ctx.cEd);
+    if(r.score>=.5)votes.push({dx:r.dx,dy:r.dy,q:r.score,n:p.pts.length});
+  }
+  // 같은 값을 말하는 표를 묶는다. 처음엔 촘촘하게(±4px), 안 모이면 느슨하게(±16px: 구역 안 간격이 조금씩 다른 경우) 다시 묶는다.
+  var baseTol=Math.max(3,Math.round(4*lg)),best=null,tol=baseTol;
+  [baseTol,baseTol*4].some(function(t){
+    tol=t;best=null;
+    votes.forEach(function(v){var group=votes.filter(function(o){return Math.abs(o.dx-v.dx)<=t&&Math.abs(o.dy-v.dy)<=t;}),qsum=group.reduce(function(a,o){return a+o.q;},0),nsum=group.reduce(function(a,o){return a+o.n;},0),mag=Math.abs(v.dx)+Math.abs(v.dy);
+      // 동률이면 윤곽 점이 더 많은(큰) 요소들의 말을, 그다음엔 덜 움직인 쪽을 믿는다.
+      var weight=group.length+(Math.abs(v.dx)<=baseTol?1.5:0); // 화면 전체가 가로로 밀리는 일은 드물다. 가로 밀림 무리는 표가 확실히 많아야 이긴다.
+      if(!best||weight>best.weight||(weight===best.weight&&(nsum>best.nsum||(nsum===best.nsum&&mag<best.mag))))best={group:group,qsum:qsum,nsum:nsum,mag:mag,weight:weight};});
+    return !!best&&best.group.length>=2;
+  });
+  if(best&&(best.group.length>=2||(best.group[0].q>.7&&Math.abs(best.group[0].dx)<=baseTol))){section.offset={dx:median(best.group.map(function(v){return v.dx;})),dy:median(best.group.map(function(v){return v.dy;}))};section.matched=true;section.support=best.group.length;}
+  else{section.offset={dx:base.dx,dy:base.dy};section.matched=false;section.support=0;}
+  return section;
+}
+function isDecorationSection(section,design){
+  // 짝을 못 찾은 구역이 화면 위/아래 끝에 붙어 있고 가로로 거의 꽉 차면 브라우저 틀 같은 디자인 전용 장식으로 본다.
+  if(section.matched||!section.el)return false;var b=section.box;
+  var touchesEdge=b.y<=2||b.y+b.h>=design.height-2;return touchesEdge&&b.w>=design.width*.8;
+}
+function inkAverage(data,W,H,box,dx,dy){
+  // 패치 평균색과 60 이상 다른 픽셀(잉크)의 평균색. 굵기·안티앨리어싱이 달라도 색만 비교하려는 용도.
+  var x0=Math.max(0,Math.floor(box.x+dx)),y0=Math.max(0,Math.floor(box.y+dy)),x1=Math.min(W,Math.ceil(box.x+box.w+dx)),y1=Math.min(H,Math.ceil(box.y+box.h+dy));
+  if(x1<=x0||y1<=y0)return null;var avg=averageCell(data,W,H,x0,y0,x1,y1),ink=[];
+  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var i=(y*W+x)*4,c=[data[i],data[i+1],data[i+2]],d=colorDistance(c,avg);if(d>60)ink.push({c:c,d:d});}
+  if(ink.length<30)return null;ink.sort(function(a,b){return b.d-a.d;});var core=ink.slice(0,Math.max(8,Math.round(ink.length*.15))),r=0,g=0,b=0;
+  core.forEach(function(k){r+=k.c[0];g+=k.c[1];b+=k.c[2];});return{color:[r/core.length,g/core.length,b/core.length],n:ink.length};
+}
+function interiorAverage(data,W,H,box,dx,dy,inset){var x0=Math.max(0,Math.floor(box.x+dx+inset)),y0=Math.max(0,Math.floor(box.y+dy+inset)),x1=Math.min(W,Math.ceil(box.x+box.w+dx-inset)),y1=Math.min(H,Math.ceil(box.y+box.h+dy-inset));return x1-x0>=4&&y1-y0>=4?averageCell(data,W,H,x0,y0,x1,y1):null;}
+function blurLum(data,W,H,x,y){var r=0,n=0;for(var yy=-1;yy<=1;yy++)for(var xx=-1;xx<=1;xx++){var px=x+xx,py=y+yy;if(px<0||py<0||px>=W||py>=H)continue;var i=(py*W+px)*4;r+=data[i]*.299+data[i+1]*.587+data[i+2]*.114;n++;}return r/n;}
+function grayPatchNCC(dd,cd,W,H,box,dx,dy){
+  // 살짝 흐린 밝기 패턴의 상관계수(1 같음 ~ 0 무관). 같은 글자는 렌더러가 달라도 0.7 위, 다른 글자는 0.6 아래로 갈린다(실측).
+  var x0=Math.max(0,Math.floor(box.x)),y0=Math.max(0,Math.floor(box.y)),x1=Math.min(W,Math.ceil(box.x+box.w)),y1=Math.min(H,Math.ceil(box.y+box.h)),n=0,sa=0,sb=0,saa=0,sbb=0,sab=0;
+  for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx;if(cx<0||cx>=W)continue;var a=blurLum(dd,W,H,x,y),b=blurLum(cd,W,H,cx,cy);n++;sa+=a;sb+=b;saa+=a*a;sbb+=b*b;sab+=a*b;}}
+  if(n<16)return 1;var ma=sa/n,mb=sb/n,va=saa/n-ma*ma,vb=sbb/n-mb*mb;if(va<1||vb<1)return va<1&&vb<1?1:0;return clamp((sab/n-ma*mb)/Math.sqrt(va*vb),-1,1);
+}
+function exactEdgeMismatchMin(dE,cE,W,H,box,dx,dy){
+  // 허용 오차 없는 윤곽 불일치(±1px 중 최솟값). 작은 글자의 내용 차이를 가르는 두 번째 잣대.
+  var best=1,x0=Math.max(0,Math.floor(box.x)),y0=Math.max(0,Math.floor(box.y)),x1=Math.min(W,Math.ceil(box.x+box.w)),y1=Math.min(H,Math.ceil(box.y+box.h));
+  for(var oy=-1;oy<=1;oy++)for(var ox=-1;ox<=1;ox++){var miss=0,uni=0;for(var y=y0;y<y1;y++){var cy=y+dy+oy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx+ox;if(cx<0||cx>=W)continue;var a=dE[y*W+x]>30,b=cE[cy*W+cx]>30;if(a||b){uni++;if(a!==b)miss++;}}}var m=uni>=24?miss/uni:1;if(m<best)best=m;}
+  return best;
+}
+function textSegmentCheck(ctx,pb,dx,dy){
+  // 긴 글자줄을 토막 내어 일부 글자만 바뀐 곳(예: 이름 세 글자)을 찾는다.
+  // 렌더러 차이로 글자 폭이 조금씩 달라져 뒤로 갈수록 어긋나는 '흐름(drift)'은 직선으로 맞춰 준 뒤 판단한다.
+  var segW=Math.max(24,Math.round(pb.h*2)),step=Math.max(8,Math.round(segW/2));if(pb.w<segW*3)return null;
+  var segs=[],md=Math.max(3,Math.round(pb.w*.1)),dd=ctx.dd.data,cd=ctx.cd.data,W=ctx.W,H=ctx.H;
+  for(var x=pb.x;x+segW<=pb.x+pb.w+step;x+=step){var seg={x:x,y:pb.y,w:Math.min(segW,pb.x+pb.w-x),h:pb.h};if(seg.w<segW*.6)break;if(edgeCount(ctx.dE,W,H,seg,0,0)<20&&edgeCount(ctx.cE,W,H,seg,dx,dy)<20)continue;
+    var best=-2,bestO=0;for(var o=-md;o<=md;o+=2){var n=grayPatchNCC(dd,cd,W,H,seg,dx+o,dy);if(n>best){best=n;bestO=o;}}segs.push({seg:seg,free:best,offset:bestO});}
+  if(segs.length<3)return null;
+  // 확신 있는 토막들로 흐름 직선(기울기·절편)을 중앙값으로 맞춘다.
+  var conf=segs.filter(function(g){return g.free>=.7;}),slope=0,icept=0;
+  if(conf.length>=2){var slopes=[];for(var i=0;i<conf.length;i++)for(var j=i+1;j<conf.length;j++){var dxs=conf[j].seg.x-conf[i].seg.x;if(dxs>=segW)slopes.push((conf[j].offset-conf[i].offset)/dxs);}slope=slopes.length?median(slopes):0;icept=median(conf.map(function(g){return g.offset-slope*(g.seg.x-pb.x);}));}
+  var good=0,worst=2,bad=[],cur=null,misaligned=0,devTol=Math.max(4,Math.round(segW*.25));
+  segs.forEach(function(g){var o=Math.round(slope*(g.seg.x-pb.x)+icept),n=-2;for(var o2=o-2;o2<=o+2;o2++){var v=grayPatchNCC(dd,cd,W,H,g.seg,dx+o2,dy);if(v>n)n=v;}g.ncc=n;if(n<worst)worst=n;if(n>=.6)good++;
+    // 흐름 직선에서 갑자기 튀는 토막 = 글자 수나 띄어쓰기가 달라진 자리(작은 글자에서 몇 글자 바뀜은 여기로만 잡힌다)
+    var jump=g.free>=.7&&Math.abs(g.offset-o)>=devTol;if(jump)misaligned++;
+    if(n<.45||jump){var bx={x:Math.max(pb.x,g.seg.x-step),y:pb.y,w:Math.min(pb.x+pb.w,g.seg.x+g.seg.w+step)-Math.max(pb.x,g.seg.x-step),h:pb.h};if(cur&&bx.x<=cur.x+cur.w+1)cur=boxUnion(cur,bx);else{if(cur)bad.push(cur);cur=bx;}}});
+  if(cur)bad.push(cur);
+  return{segments:segs.length,goodRatio:good/segs.length,ncc:worst,boxes:bad.slice(0,3),drift:slope,misaligned:misaligned};
+}
+function compareUnit(u,ctx){
+  var sec=u.section,lg=ctx.lg,p=unitPoints(u,ctx);if(p.pts.length<12)return null;
+  var base={dx:Math.round(sec.offset.dx),dy:Math.round(sec.offset.dy)},range=Math.round((u.container||isGapComponent(u.el)?48:36)*lg),step=Math.max(1,Math.round(2*lg));
+  var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range,range,Math.max(step,Math.round(4*lg)),ctx.cEd);
+  if(r.score<.35&&p.pts.length>=24){ // 가까운 데서 못 찾으면 '없음'이라 하기 전에 한 번 더 멀리(3배) 찾아본다. 확실히 보일 때만 인정.
+    var wide=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range*3,range*3,Math.max(step,Math.round(4*lg)),ctx.cEd);if(wide.score>=.6&&wide.score>=r.zero+.3)r=wide;
+  }
+  if(r.score<r.zero+.08)r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};
+  var dCount=edgeCount(ctx.dE,ctx.W,ctx.H,p.pb,0,0),cCount=edgeCount(ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy),capRatio=dCount?cCount/dCount:1;
+  var mismatch=textEdgeMismatch(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);
+  var mx=(r.dx-base.dx)/lg,my=(r.dy-base.dy)/lg;
+  var ncc=null,exact=null;
+  function textMetrics(){ncc=grayPatchNCC(ctx.dd.data,ctx.cd.data,ctx.W,ctx.H,p.pb,r.dx,r.dy);exact=exactEdgeMismatchMin(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);}
+  if(u.kind==="text")textMetrics();
+  var movedNow=Math.abs(mx)>=4||Math.abs(my)>=4,badMove=movedNow&&((u.kind==="text"&&(r.score<.85||mismatch>.28||ncc<.68||exact>.42))||(u.kind==="icon"&&(r.score<.8||mismatch>.3))||(u.kind==="shape"&&r.score<.7));
+  if(badMove){
+    // 글자는 옮긴 자리에서 거의 완전히 겹칠 때만 '이동'이다. 일부만 겹치면 내용이 달라진 것이므로 제자리에서 비교한다.
+    r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};cCount=edgeCount(ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);capRatio=dCount?cCount/dCount:1;mismatch=textEdgeMismatch(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);mx=0;my=0;if(u.kind==="text")textMetrics();
+  }
+  return{u:u,sec:sec,pb:p.pb,pts:p.pts,base:base,best:r,zero:r.zero,capRatio:capRatio,mismatch:mismatch,moveX:mx,moveY:my,moved:Math.abs(mx)>=4||Math.abs(my)>=4,missing:r.score<.35&&capRatio<(u.kind==="text"?.25:.4),ncc:ncc,exact:exact};
+}
+function resolveClaims(results){
+  // 같은 모양이 여러 개일 때 사라진 하나가 이웃 자리로 '이동'한 척 매칭되는 것을 막는다. 먼저 자리 잡은 쪽이 임자.
+  var claimed=[];
+  results.slice().sort(function(a,b){return (a.moved?1:0)-(b.moved?1:0)||b.best.score-a.best.score;}).forEach(function(res){
+    if(res.missing)return;var t={x:res.pb.x+res.best.dx,y:res.pb.y+res.best.dy,w:res.pb.w,h:res.pb.h};
+    var conflict=claimed.some(function(c){return c.owner.u.el.parentId===res.u.el.parentId&&intersection(t,c.box)>Math.min(t.w*t.h,c.box.w*c.box.h)*.6;});
+    if(conflict&&res.moved){res.missing=true;res.best={dx:res.base.dx,dy:res.base.dy,score:0,zero:0};res.moved=false;res.moveX=0;res.moveY=0;}
+    else claimed.push({box:t,owner:res});
+  });
+}
+function ancestorResult(res,byId,resultByElId){var p=res.u.el.parentId;while(p&&byId[p]){if(resultByElId[p])return resultByElId[p];p=byId[p].parentId;}return null;}
+function pxText(v){var n=Math.round(Math.abs(v));return n?n+"px":"";}
+function moveDetail(mx,my){var parts=[];if(Math.abs(my)>=3)parts.push((my>0?"아래로 ":"위로 ")+"약 "+pxText(my));if(Math.abs(mx)>=3)parts.push((mx>0?"오른쪽으로 ":"왼쪽으로 ")+"약 "+pxText(mx));return "개발 캡처에서 디자인보다 "+parts.join(", ")+" 밀려 보입니다.";}
+
+function textDiffCandidates(design,designImg,capture,model,localDyAt){
+  // 글자 요소만 비교하는 얇은 진입점(자체 검사·호환용). 실제 검수는 buildDiff가 같은 엔진으로 전 요소를 본다.
+  var W=designImg.width,H=designImg.height,lg=W/design.width;
+  var dc=canvasFor(W,H),dx=dc.getContext("2d");dx.fillStyle="#fff";dx.fillRect(0,0,W,H);dx.drawImage(designImg,0,0,W,H);
+  var c=canvasFor(W,H),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.setTransform(model.s,0,0,model.s,model.tx,model.ty);x.drawImage(capture.img,0,0);x.setTransform(1,0,0,1,0,0);
+  var dd=dx.getImageData(0,0,W,H),cd=x.getImageData(0,0,W,H),byId={},ctx;(design.elements||[]).forEach(function(e){byId[e.id]=e;});ctx={W:W,H:H,lg:lg,dE:edgeData(dd,W,H),cE:edgeData(cd,W,H),dd:dd,cd:cd,design:design,byId:byId};var out=[];
+  collectUnits(design).filter(function(u){return u.kind==="text";}).forEach(function(u){
+    var cy=(u.el.box.y+u.el.box.h/2)*lg;u.section={offset:{dx:0,dy:localDyAt?Math.round(localDyAt(cy)):0},matched:true};
+    var res=compareUnit(u,ctx);if(!res||res.missing)return;
+    var cand=textCandidateFor(res,ctx);if(!cand&&res.moved)cand={label:LABEL_TEXT_POS,confidence:70};
+    if(cand)out.push({box:res.pb,sim:res.mismatch,elId:u.el.id,label:cand.label,detail:cand.detail,confidence:cand.confidence});
+  });
+  out.sort(function(a,b){return b.sim-a.sim;});return out.slice(0,6);
+}
+function parentInnerBox(el,ctx){
+  // 글자를 감싸는 가장 가까운 테두리·배경 있는 부모의 안쪽 상자(디자인 이미지 px). 글자 통계가 부모 테두리를 글자로 오해하지 않게 한다.
+  var byId=ctx.byId||{},p=el.parentId;while(p&&byId[p]){var e=byId[p];if(e.kind==="shape"&&isVisibleShape(e)){var sw=(e.values&&e.values.strokeWidth)||0,inset=(sw+2)*ctx.lg;return{x:e.box.x*ctx.lg+inset,y:e.box.y*ctx.lg+inset,w:e.box.w*ctx.lg-inset*2,h:e.box.h*ctx.lg-inset*2};}p=e.parentId;}return null;
+}
+function growInkBox(ctx,pb,dx,dy,inner){
+  // 개발 캡처의 글자가 디자인 상자보다 크면 상자를 잉크가 끊기는 곳까지 넓혀 실제 글자 크기를 잰다. 부모 테두리 안쪽을 넘지 않는다.
+  var cd=ctx.cd.data,W=ctx.W,H=ctx.H,box={x:pb.x,y:pb.y,w:pb.w,h:pb.h},lim=inner||{x:0,y:0,w:W,h:H};
+  var bg=averageCell(ctx.dd.data,W,H,Math.max(0,Math.floor(pb.x)),Math.max(0,Math.floor(pb.y)),Math.min(W,Math.ceil(pb.x+pb.w)),Math.min(H,Math.ceil(pb.y+pb.h)));
+  function inkRow(y){var cy=Math.round(y+dy);if(cy<0||cy>=H)return false;var n=0;for(var x=Math.max(0,Math.floor(box.x+dx));x<Math.min(W,Math.ceil(box.x+box.w+dx));x++){var i=(cy*W+x)*4;if(colorDistance([cd[i],cd[i+1],cd[i+2]],bg)>60&&++n>=3)return true;}return false;}
+  function inkCol(x){var cx=Math.round(x+dx);if(cx<0||cx>=W)return false;var n=0;for(var y=Math.max(0,Math.floor(box.y+dy));y<Math.min(H,Math.ceil(box.y+box.h+dy));y++){var i=(y*W+cx)*4;if(colorDistance([cd[i],cd[i+1],cd[i+2]],bg)>60&&++n>=2)return true;}return false;}
+  var maxV=Math.round(pb.h),maxH=Math.round(pb.w*.6),g;
+  for(g=0;g<maxV&&box.y-1>=lim.y&&inkRow(box.y-1);g++){box.y--;box.h++;}
+  for(g=0;g<maxV&&box.y+box.h<lim.y+lim.h&&inkRow(box.y+box.h);g++)box.h++;
+  for(g=0;g<maxH&&box.x-1>=lim.x&&inkCol(box.x-1);g++){box.x--;box.w++;}
+  for(g=0;g<maxH&&box.x+box.w<lim.x+lim.w&&inkCol(box.x+box.w);g++)box.w++;
+  return box;
+}
+function textCandidateFor(res,ctx){
+  var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H;
+  var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";
+  var small=u.el.box.h<12,seg=textSegmentCheck(ctx,pb,r.dx,r.dy),same;res.segInfo=seg;
+  if(seg){
+    // 긴 글자줄: 토막 대부분이 맞고 일부만 틀리면 그 자리만 짚어 준다. 전부 맞으면 같은 글자.
+    if(seg.goodRatio>=.6&&seg.boxes.length){var onlyJump=seg.ncc>=.45;return{label:LABEL_TEXT_CONTENT,boxes:seg.boxes,detail:(onlyJump?"이 줄의 글자 수나 띄어쓰기가 디자인과 달라 보입니다(작은 글자는 정확한 자리를 눈으로 확인). ":"이 줄의 일부 글자가 다르게 보입니다. ")+"디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"”",confidence:onlyJump?(small?55:62):clamp(Math.round(55+(1-Math.max(0,seg.ncc))*30),55,88)};}
+    same=seg.goodRatio>=.9&&!seg.boxes.length;
+  }else same=res.mismatch<=.3&&res.ncc>=.6&&res.exact<=.42;
+  if(same){
+    if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)return{label:LABEL_COLOR,detail:"디자인 글자색 "+(u.el.values&&u.el.values.color||"")+" · 개발 캡처의 글자색이 다르게 보입니다.",confidence:clamp(Math.round(50+colorDistance(dInk.color,cInk.color)/4),55,88)};
+    return null;
+  }
+  var ds=edgeStats(ctx.dE,W,H,Math.round(pb.x),Math.round(pb.y),Math.round(pb.w),Math.round(pb.h)),csBox=growInkBox(ctx,pb,r.dx,r.dy,parentInnerBox(u.el,ctx));
+  var cs=edgeStats(ctx.cE,W,H,Math.round(csBox.x+r.dx),Math.round(csBox.y+r.dy),Math.round(csBox.w),Math.round(csBox.h));
+  res.textStats={ds:ds,cs:cs};
+  var localBoxes=seg&&seg.boxes.length&&seg.goodRatio>=.4?seg.boxes:null;
+  if(ds.lines<=1&&ds.h&&cs.h>ds.h*1.35&&Math.abs(cs.w/Math.max(1,ds.w)-cs.h/ds.h)>.3)cs={count:cs.count,w:cs.w,h:ds.h,lines:1}; // 한 줄 글자의 높이는 폭과 같이 변한다. 따로 튀면 옆 요소가 섞인 것.
+  var label=classifyTextDifference(Math.max(res.mismatch,res.exact),0,0,ds,cs,res.ncc),detail=designText?"디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"” — 개발 캡처의 글자와 눈으로 대조해 주세요.":null;
+  if(localBoxes)detail="이 줄의 일부 글자가 다르게 보입니다. "+(detail||"");
+  if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)detail=(detail?detail+" ":"")+"글자색도 다르게 보입니다(디자인 "+(u.el.values&&u.el.values.color||"")+").";
+  return{label:label,boxes:localBoxes,detail:detail,confidence:small?clamp(Math.round(50+Math.max(0,.68-res.ncc)*40),50,66):clamp(Math.round((.55+Math.min(.35,Math.max(res.mismatch,res.exact-.2))*.7)*100),52,92)};
+}
+
+function buildDiff(design,designImg,capture,model,pairId){
+  var W=designImg.width,H=designImg.height,lg=W/design.width,scaleX=design.width/W,scaleY=design.height/H;
+  var dcF=canvasFor(W,H),dxF=dcF.getContext("2d");dxF.fillStyle="#fff";dxF.fillRect(0,0,W,H);dxF.drawImage(designImg,0,0,W,H);
+  var ccF=canvasFor(W,H),cxF=ccF.getContext("2d");cxF.fillStyle="#fff";cxF.fillRect(0,0,W,H);cxF.setTransform(model.s,0,0,model.s,model.tx,model.ty);cxF.drawImage(capture.img,0,0);cxF.setTransform(1,0,0,1,0,0);
+  var ddF=dxF.getImageData(0,0,W,H),cdF=cxF.getImageData(0,0,W,H);
+  var byId={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});
+  var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId};
+  ctx.cEd=dilateEdges(ctx.cE,W,H,Math.max(1,Math.round(1*lg)));
+  var units=collectUnits(design),sectionInfo=buildSections(design,units),sections=sectionInfo.sections,notices=[];
+  // 구역마다(구역 밖 요소 묶음도 포함) 전역 정렬 주변을 넓게 훑어 자기 밀림을 찾는다.
+  sections.forEach(function(s){estimateSectionOffset(s,ctx);});
+  if(sectionInfo.root.units.length){estimateSectionOffset(sectionInfo.root,ctx);sectionInfo.root.matched=true;}
+  sections.forEach(function(s){if(isDecorationSection(s,design)){s.excluded=true;notices.push("‘"+(s.el.name||"이름 없는 영역")+"’ 영역은 개발 캡처에서 짝을 찾지 못해 브라우저 틀 같은 디자인 전용 장식으로 보고 비교에서 제외했어요.");}});
+  var results=[],resultByElId={};
+  units.forEach(function(u){if(u.section.excluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
+  resolveClaims(results);
+  function toRaw(bx){var raw={x:(bx.x-model.tx)/model.s,y:(bx.y-model.ty)/model.s,w:bx.w/model.s,h:bx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));return raw;}
+  function logicalOf(bx){return{x:bx.x*scaleX,y:bx.y*scaleY,w:bx.w*scaleX,h:bx.h*scaleY};}
+  function shifted(bx,dx,dy){return{x:bx.x+dx,y:bx.y+dy,w:bx.w,h:bx.h};}
+  var cands=[];
+  function push(c){c.status="review";cands.push(c);}
+  // 1) 누락 — 부모가 이미 누락이면 자식은 말하지 않는다.
+  results.forEach(function(res){
+    if(!res.missing)return;var anc=ancestorResult(res,byId,resultByElId);if(anc&&anc.missing)return;
+    var logical=logicalOf(res.pb),dv=designValuesFor(design,logical);
+    push({kind:"missing",rawBox:toRaw(shifted(res.pb,res.base.dx,res.base.dy)),designBox:logical,designNodeIds:[res.u.el.id],designValues:dv.text,label:LABEL_MISSING,detail:res.u.kind==="text"?"디자인 글자: “"+String(res.u.el.text||"").slice(0,60)+"”":null,confidence:clamp(Math.round(60+(1-res.capRatio)*30),55,90)});
+  });
+  // 2) 컴포넌트 간격 — 테두리가 보이는 형제 컴포넌트끼리
+  var shiftMap={};
+  results.forEach(function(res){if(!res.missing&&isGapComponent(res.u.el))shiftMap[res.u.el.id]={element:res.u.el,box:res.pb,dx:res.best.dx-res.base.dx,dy:res.best.dy-res.base.dy,sx:lg,sy:lg,score:res.best.score,zero:res.zero};});
+  var gapMatches=componentGapPairs(shiftMap),gapExplained={};
+  function logicalMove(v){return{dx:v.dx/v.sx,dy:v.dy/v.sy};}
+  gapMatches.forEach(function(g){
+    var am=logicalMove(g.a),bm=logicalMove(g.b),aMag=Math.abs(am.dx)+Math.abs(am.dy),bMag=Math.abs(bm.dx)+Math.abs(bm.dy),anchor=bMag>=aMag?g.b:g.a,anchorMove=logicalMove(anchor),anchorIsB=anchor===g.b;
+    results.forEach(function(res){if(!res.moved)return;var same=Math.abs(res.moveX-anchorMove.dx)<=2&&Math.abs(res.moveY-anchorMove.dy)<=2,eb=res.u.el.box,ab=anchor.element.box,downstream;
+      if(g.axis==="vertical")downstream=anchorIsB?eb.y>=ab.y-2:eb.y+eb.h<=ab.y+ab.h+2;else downstream=anchorIsB?eb.x>=ab.x-2:eb.x+eb.w<=ab.x+ab.w+2;
+      if(same&&downstream)gapExplained[res.u.el.id]=1;});
+  });
+  gapMatches.forEach(function(g){
+    var a=g.a.element.box,b=g.b.element.box,axis=g.axis,designGap=g.designGap,logical,rb,anchors=[g.a,g.b].map(function(v){return toRaw(shifted(v.box,v.dx+resultByElId[v.element.id].base.dx,v.dy+resultByElId[v.element.id].base.dy));}),estimatedGap=Math.max(0,designGap+g.deltaLogical);
+    var A=resultByElId[g.a.element.id],B=resultByElId[g.b.element.id],ax=g.a.box.x+A.best.dx,ay=g.a.box.y+A.best.dy,bx=g.b.box.x+B.best.dx,by=g.b.box.y+B.best.dy;
+    if(axis==="vertical"){var lx=Math.max(a.x,b.x),lr=Math.min(a.x+a.w,b.x+b.w);logical={x:lx,y:a.y+a.h,w:Math.max(4,lr-lx),h:Math.max(4,designGap)};var py1=ay+g.a.box.h,py2=by,px1=Math.max(ax,bx),px2=Math.min(ax+g.a.box.w,bx+g.b.box.w);rb={x:px1,y:Math.min(py1,py2),w:Math.max(4,px2-px1),h:Math.max(4,Math.abs(py2-py1))};}
+    else{var ly=Math.max(a.y,b.y),lb=Math.min(a.y+a.h,b.y+b.h);logical={x:a.x+a.w,y:ly,w:Math.max(4,designGap),h:Math.max(4,lb-ly)};var px3=ax+g.a.box.w,px4=bx,py3=Math.max(ay,by),py4=Math.min(ay+g.a.box.h,by+g.b.box.h);rb={x:Math.min(px3,px4),y:py3,w:Math.max(4,Math.abs(px4-px3)),h:Math.max(4,py4-py3)};}
+    push({kind:"spacing",axis:axis,rawBox:toRaw(rb),rawAnchorBoxes:anchors,designBox:logical,designNodeIds:[g.a.element.id,g.b.element.id],designValues:"디자인 간격 "+Math.round(designGap)+"px · 개발 이미지 약 "+Math.round(estimatedGap)+"px",label:axis==="vertical"?"컴포넌트 사이의 세로 간격이 다릅니다.":"컴포넌트 사이의 가로 간격이 다릅니다.",confidence:clamp(Math.round(g.confidence*100),50,94)});
+  });
+  // 3) 위치 이동 — 부모와 같이 움직인 자식은 빼고, 같은 방향·같은 양으로 붙어서 움직인 요소는 한 번호로 묶는다.
+  var movedList=results.filter(function(res){if(res.missing||!res.moved||gapExplained[res.u.el.id])return false;var anc=ancestorResult(res,byId,resultByElId);return !(anc&&anc.moved&&Math.abs(anc.moveX-res.moveX)<=2&&Math.abs(anc.moveY-res.moveY)<=2);}).sort(function(a,b){return a.pb.y-b.pb.y||a.pb.x-b.pb.x;}),groups=[];
+  movedList.forEach(function(res){var g=null;for(var i=0;i<groups.length;i++){var o=groups[i];if(Math.abs(o.moveX-res.moveX)<=4&&Math.abs(o.moveY-res.moveY)<=4&&res.pb.y-(o.box.y+o.box.h)<=60*lg&&res.pb.x<o.box.x+o.box.w+40*lg&&res.pb.x+res.pb.w>o.box.x-40*lg){g=o;break;}}
+    if(g){g.items.push(res);g.box=boxUnion(g.box,res.pb);}else groups.push({moveX:res.moveX,moveY:res.moveY,items:[res],box:res.pb});});
+  groups.forEach(function(g){
+    var first=g.items[0],target=shifted(g.box,first.best.dx,first.best.dy),origin=shifted(g.box,first.base.dx,first.base.dy),logicalOld=logicalOf(g.box),logicalNew=logicalOf(shifted(g.box,first.best.dx-first.base.dx,first.best.dy-first.base.dy)),dv=designValuesFor(design,logicalOld);
+    push({kind:"position",rawBox:toRaw(boxUnion(origin,target)),designBox:boxUnion(logicalOld,logicalNew),designNodeIds:g.items.map(function(r){return r.u.el.id;}),designValues:dv.text,label:LABEL_MOVED,detail:moveDetail(g.moveX,g.moveY)+(g.items.length>1?" (요소 "+g.items.length+"개가 함께)":""),confidence:clamp(Math.round(Math.min.apply(null,g.items.map(function(r){return r.best.score;}))*100),50,94)});
+  });
+  // 4) 제자리 차이 — 글자·아이콘·도형별로 판단
+  results.forEach(function(res){
+    if(res.missing)return;var u=res.u,r=res.best,pb=res.pb,label=null,detail=null,confidence=null;
+    if(u.kind==="text"){var tc=textCandidateFor(res,ctx);if(tc){label=tc.label;detail=tc.detail;confidence=tc.confidence;}}
+    else if(u.kind==="icon"){if(res.mismatch>.4){label=LABEL_ICON;confidence=clamp(Math.round(50+res.mismatch*40),55,90);}}
+    else{
+      var v=u.el.values||{},inset=3+(v.strokeWidth||0);
+      if(v.fill){var dAvg=interiorAverage(ctx.dd.data,W,H,pb,0,0,inset),cAvg=interiorAverage(ctx.cd.data,W,H,pb,r.dx,r.dy,inset);if(dAvg&&cAvg&&colorDistance(dAvg,cAvg)>45){label=LABEL_COLOR;detail="디자인 배경 "+v.fill+" · 개발 캡처의 색이 다르게 보입니다.";confidence=clamp(Math.round(50+colorDistance(dAvg,cAvg)/3),55,90);}}
+      if(!label&&res.mismatch>.35){label=LABEL_SHAPE;confidence=clamp(Math.round(50+res.mismatch*40),55,88);}
+    }
+    if(!label)return;var boxes=(u.kind==="text"&&tc&&tc.boxes&&tc.boxes.length)?tc.boxes:[pb];
+    boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical);push({kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence});});
+  });
+  // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
+  cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
+  cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
+  cands.forEach(function(c,i){c.no=i+1;c.id=pairId+"_c"+(i+1);});
+  cands.notices=notices;cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
+  return cands;
+}
+function uncoveredAreaCandidates(design,designImg,capture,model,results,sections,root,ctx){
+  var max=360,q=Math.min(max/designImg.width,max/designImg.height),w=Math.max(24,Math.round(designImg.width*q)),h=Math.max(24,Math.round(designImg.height*q)),lg=ctx.lg;
+  var dc=canvasFor(w,h),cc=canvasFor(w,h),dx=dc.getContext("2d"),cx=cc.getContext("2d");dx.fillStyle="#fff";dx.fillRect(0,0,w,h);dx.drawImage(designImg,0,0,w,h);cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.setTransform(model.s*q,0,0,model.s*q,model.tx*q,model.ty*q);cx.drawImage(capture.img,0,0);cx.setTransform(1,0,0,1,0,0);
+  var dd=dx.getImageData(0,0,w,h),cd=cx.getImageData(0,0,w,h),de=edgeData(dd,w,h),ce=edgeData(cd,w,h),block=5,cols=Math.ceil(w/block),rows=Math.ceil(h/block),mask=new Uint8Array(cols*rows),covered=new Uint8Array(cols*rows);
+  var hasSections=sections.length>0||results.length>0;
+  // 구역별 밀림. 구역이 하나도 없으면(요소 정보가 없을 때) 예전처럼 24px 띠 단위로 하단 묶음 밀림만 보정한다.
+  var bandH=24,nBands=Math.max(1,Math.ceil(h/bandH)),bandDy=new Int16Array(nBands);
+  if(!hasSections){
+    var bandVotes=[];
+    function bandSad(y0,y1,dyy){var sad=0,n=0;for(var y=y0;y<y1;y++){var cy=y+dyy;if(cy<0||cy>=h)continue;for(var x=0;x<w;x+=2){var a=de[y*w+x],b=ce[cy*w+x];if(a>12||b>12){sad+=Math.abs(a-b);n++;}}}return n>=30?sad/n:999;}
+    for(var bi=0;bi<nBands;bi++){var by0=bi*bandH,by1=Math.min(h,by0+bandH),bestDy=0,zeroS=bandSad(by0,by1,0),bestS=zeroS;for(var bdy=-24;bdy<=24;bdy+=2){if(!bdy)continue;var s0=bandSad(by0,by1,bdy);if(s0<bestS*.8){bestS=s0;bestDy=bdy;}}for(var bdy2=bestDy-1;bdy2<=bestDy+1;bdy2++){if(bdy2===bestDy)continue;var s1=bandSad(by0,by1,bdy2);if(s1<bestS){bestS=s1;bestDy=bdy2;}}bandDy[bi]=(bestDy!==0&&bestS<28)?bestDy:0;bandVotes.push({bi:bi,dy:bestDy,zero:zeroS,score:bestS});}
+    var lowerShift=coherentLowerRegionShift(bandVotes,h,bandH);if(lowerShift)for(var li=lowerShift.startBand;li<nBands;li++)bandDy[li]=lowerShift.safe?lowerShift.dy:0;
+  }
+  var qs=q*lg; // 논리 px → 축소 px
+  function offsetAt(xPix,yPix){
+    if(!hasSections)return{dx:0,dy:bandDy[Math.min(nBands-1,Math.max(0,Math.floor(yPix/bandH)))]};
+    var lx=xPix/qs,ly=yPix/qs,best=null;sections.forEach(function(s){if(s.matched&&!s.excluded&&lx>=s.box.x&&lx<=s.box.x+s.box.w&&ly>=s.box.y&&ly<=s.box.y+s.box.h&&(!best||s.box.w*s.box.h<best.box.w*best.box.h))best=s;});
+    if(!best){ // 어느 구역에도 안 들면 세로로 가장 가까운(짝을 찾은) 구역의 밀림을 따른다
+      var pool=sections.filter(function(s){return s.matched&&!s.excluded;});if(root.units.length)pool.push(root);var bd=Infinity;pool.forEach(function(s){var d=ly<s.box.y?s.box.y-ly:ly>s.box.y+s.box.h?ly-(s.box.y+s.box.h):0;if(d<bd){bd=d;best=s;}});}
+    var o=best?best.offset:root.offset;return{dx:Math.round(o.dx*q),dy:Math.round(o.dy*q)};
+  }
+  function coverBox(bx,pad){var x0=Math.max(0,Math.floor((bx.x*q)/block)-pad),y0=Math.max(0,Math.floor((bx.y*q)/block)-pad),x1=Math.min(cols-1,Math.floor(((bx.x+bx.w)*q)/block)+pad),y1=Math.min(rows-1,Math.floor(((bx.y+bx.h)*q)/block)+pad);for(var yy=y0;yy<=y1;yy++)for(var xx=x0;xx<=x1;xx++)covered[yy*cols+xx]=1;}
+  results.forEach(function(res){coverBox(res.pb,0);coverBox({x:res.pb.x+res.best.dx,y:res.pb.y+res.best.dy,w:res.pb.w,h:res.pb.h},0);});
+  sections.forEach(function(s){if(s.excluded)coverBox({x:s.box.x*lg,y:s.box.y*lg,w:s.box.w*lg,h:s.box.h*lg},0);});
   for(var gy=0;gy<rows;gy++)for(var gx=0;gx<cols;gx++){
-    var x0=gx*block,y0=gy*block,x1=Math.min(w,x0+block),y1=Math.min(h,y0+block),bdy3=dyAt(y0+block/2);
-    if(y0+bdy3<0||y1+bdy3>h)bdy3=0;
-    var a=averageCell(dd.data,w,h,x0,y0,x1,y1),b=averageCell(cd.data,w,h,x0,y0+bdy3,x1,y1+bdy3),ed=0,n=0;
-    for(var yy=y0;yy<y1;yy++)for(var xx=x0;xx<x1;xx++){ed+=Math.abs(de[yy*w+xx]-ce[(yy+bdy3)*w+xx]);n++;}
-    var diff=colorDistance(a,b)>36||(n&&ed/n>48);mask[gy*cols+gx]=diff?1:0;
+    if(covered[gy*cols+gx])continue;
+    var x0=gx*block,y0=gy*block,x1=Math.min(w,x0+block),y1=Math.min(h,y0+block),o=offsetAt(x0+block/2,y0+block/2),odx=o.dx,ody=o.dy;
+    if(y0+ody<0||y1+ody>h)ody=0;if(x0+odx<0||x1+odx>w)odx=0;
+    var a=averageCell(dd.data,w,h,x0,y0,x1,y1),b=averageCell(cd.data,w,h,x0+odx,y0+ody,x1+odx,y1+ody),ed=0,n=0;
+    for(var yy=y0;yy<y1;yy++)for(var xx=x0;xx<x1;xx++){ed+=Math.abs(de[yy*w+xx]-ce[(yy+ody)*w+xx+odx]);n++;}
+    mask[gy*cols+gx]=(colorDistance(a,b)>36||(n&&ed/n>48))?1:0;
   }
   var boxes=mergeBoxes(connectedBoxes(mask,cols,rows),1).filter(function(b){return b.cells>=2&&b.w*b.h<cols*rows*.75;}).sort(function(a,b){return b.cells-a.cells;}).slice(0,18),scaleX=design.width/designImg.width,scaleY=design.height/designImg.height;
   function regionEnergy(e,x0,y0,x1,y1){var s=0,n=0;for(var y=Math.max(0,y0);y<Math.min(h,y1);y++)for(var x=Math.max(0,x0);x<Math.min(w,x1);x++){s+=e[y*w+x];n++;}return n?s/n:0;}
-  var cands=boxes.map(function(b,i){var pad=3,wx=Math.max(0,b.x*block-pad),wy=Math.max(0,b.y*block-pad),ww=Math.min(w-wx,b.w*block+pad*2),wh=Math.min(h-wy,b.h*block+pad*2),bdy=dyAt(wy+wh/2),designPx={x:wx/q,y:wy/q,w:ww/q,h:wh/q},raw={x:(designPx.x-model.tx)/model.s,y:((wy+bdy)/q-model.ty)/model.s,w:designPx.w/model.s,h:designPx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=clamp(raw.w,4,capture.width-raw.x);raw.h=clamp(raw.h,4,capture.height-raw.y);var logical={x:designPx.x*scaleX,y:designPx.y*scaleY,w:designPx.w*scaleX,h:designPx.h*scaleY},dv=designValuesFor(design,logical);
-    var dEn=regionEnergy(de,wx,wy,wx+ww,wy+wh),cEn=regionEnergy(ce,wx,wy+bdy,wx+ww,wy+wh+bdy),label=null;
-    if(dEn>8&&cEn<dEn*.35)label="디자인에 있는 요소가 개발 화면에 없습니다.";
-    else if(cEn>8&&dEn<cEn*.35)label="디자인에 없는 요소가 표시되어 있습니다.";
-    else if((dv.kinds||[]).some(function(k){return k==="image"||k==="icon";}))label="아이콘 또는 이미지가 다르게 보입니다.";
-    else{var dAvg=averageCell(dd.data,w,h,wx,wy,wx+ww,wy+wh),cAvg=averageCell(cd.data,w,h,wx,wy+bdy,wx+ww,wy+wh+bdy);label=colorDistance(dAvg,cAvg)>45&&Math.abs(dEn-cEn)<12?"색상이 다르게 보입니다.":"요소의 모양 또는 크기가 다릅니다.";}
-    return{id:pairId+"_c"+(i+1),no:i+1,status:"review",rawBox:raw,designBox:logical,designNodeIds:dv.ids,designValues:dv.text,label:label};});
-  function logicalMove(v){return{dx:v.dx/v.sx,dy:v.dy/v.sy};}
-  function movedEnough(v){var m=logicalMove(v);return Math.abs(m.dx)>=3||Math.abs(m.dy)>=3;}
-  function expandedBox(b,pad){return{x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};}
-  var movedComponents=Object.keys(componentShifts).map(function(id){return componentShifts[id];}).filter(movedEnough),gapExplained={};
-  gapMatches.forEach(function(g){
-    var am=logicalMove(g.a),bm=logicalMove(g.b),aMag=Math.abs(am.dx)+Math.abs(am.dy),bMag=Math.abs(bm.dx)+Math.abs(bm.dy),anchor=bMag>=aMag?g.b:g.a,anchorMove=logicalMove(anchor),anchorIsB=anchor===g.b;
-    movedComponents.forEach(function(v){var m=logicalMove(v),same=Math.abs(m.dx-anchorMove.dx)<=2&&Math.abs(m.dy-anchorMove.dy)<=2,downstream=true;
-      if(g.axis==="vertical")downstream=anchorIsB?v.element.box.y>=anchor.element.box.y-2:v.element.box.y+v.element.box.h<=anchor.element.box.y+anchor.element.box.h+2;
-      else downstream=anchorIsB?v.element.box.x>=anchor.element.box.x-2:v.element.box.x+v.element.box.w<=anchor.element.box.x+anchor.element.box.w+2;
-      if(same&&downstream)gapExplained[v.element.id]=1;
-    });
-  });
-  function candidateTouchesMoved(c){return movedComponents.some(function(v){var m=logicalMove(v),oldBox=expandedBox(v.element.box,5),newBox=expandedBox({x:v.element.box.x+m.dx,y:v.element.box.y+m.dy,w:v.element.box.w,h:v.element.box.h},5);return intersection(c.designBox,oldBox)>0||intersection(c.designBox,newBox)>0;});}
-  cands=cands.filter(function(c){var missingOrExtra=c.label==="디자인에 있는 요소가 개발 화면에 없습니다."||c.label==="디자인에 없는 요소가 표시되어 있습니다.";return !(missingOrExtra&&candidateTouchesMoved(c));});
-  movedComponents.forEach(function(v){if(gapExplained[v.element.id])return;var m=logicalMove(v),old=v.element.box,logical={x:Math.min(old.x,old.x+m.dx),y:Math.min(old.y,old.y+m.dy),w:old.w+Math.abs(m.dx),h:old.h+Math.abs(m.dy)},rawBox=reducedToRaw({x:v.box.x+v.dx,y:v.box.y+v.dy,w:v.box.w,h:v.box.h}),dv=designValuesFor(design,old);cands.push({status:"review",kind:"position",rawBox:rawBox,designBox:logical,designNodeIds:[v.element.id],designValues:dv.text,label:"요소의 위치 또는 정렬이 다릅니다.",confidence:clamp(Math.round(v.score*100),50,94)});});
-  textDiffCandidates(design,designImg,capture,model,function(yFull){return dyAt(yFull*q)/q;}).forEach(function(t){
-    var dPx=t.box,logical={x:dPx.x*scaleX,y:dPx.y*scaleY,w:dPx.w*scaleX,h:dPx.h*scaleY};
-    for(var i2=0;i2<cands.length;i2++){if(intersection(cands[i2].designBox,logical)>logical.w*logical.h*.4){if(cands[i2].label!=="디자인에 있는 요소가 개발 화면에 없습니다."&&cands[i2].label!=="디자인에 없는 요소가 표시되어 있습니다."){cands[i2].label=t.label;cands[i2].confidence=t.confidence;cands[i2].designNodeIds=t.elId?[t.elId]:cands[i2].designNodeIds;}return;}}
-    var bdy4=dyAt(dPx.y*q+dPx.h*q/2);
-    var raw={x:(dPx.x-model.tx)/model.s,y:((dPx.y+bdy4/q)-model.ty)/model.s,w:dPx.w/model.s,h:dPx.h/model.s};
-    raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=clamp(raw.w,4,capture.width-raw.x);raw.h=clamp(raw.h,4,capture.height-raw.y);
-    var no=cands.length+1;
-    var dvt=designValuesFor(design,logical);
-    cands.push({id:pairId+"_c"+no,no:no,status:"review",rawBox:raw,designBox:logical,designNodeIds:t.elId?[t.elId]:[],designValues:dvt.text,label:t.label,confidence:t.confidence});
-  });
-  function reducedToRaw(rb){var full={x:rb.x/q,y:rb.y/q,w:rb.w/q,h:rb.h/q},raw={x:(full.x-model.tx)/model.s,y:(full.y-model.ty)/model.s,w:full.w/model.s,h:full.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));return raw;}
-  gapMatches.forEach(function(g){
-    var a=g.a.element.box,b=g.b.element.box,axis=g.axis,designGap=g.designGap,logical,rb,anchors=[g.a,g.b].map(function(v){return reducedToRaw({x:v.box.x+v.dx,y:v.box.y+v.dy,w:v.box.w,h:v.box.h});}),axisScale=axis==="vertical"?h/design.height:w/design.width,estimatedGap=Math.max(0,designGap+g.deltaPx/axisScale);
-    if(axis==="vertical"){
-      var lx=Math.max(a.x,b.x),lr=Math.min(a.x+a.w,b.x+b.w);logical={x:lx,y:a.y+a.h,w:Math.max(4,lr-lx),h:Math.max(4,designGap)};
-      var py1=g.a.box.y+g.a.box.h+g.a.dy,py2=g.b.box.y+g.b.dy,px1=Math.max(g.a.box.x+g.a.dx,g.b.box.x+g.b.dx),px2=Math.min(g.a.box.x+g.a.box.w+g.a.dx,g.b.box.x+g.b.box.w+g.b.dx);rb={x:px1,y:Math.min(py1,py2),w:Math.max(4,px2-px1),h:Math.max(4,Math.abs(py2-py1))};
-    }else{
-      var ly=Math.max(a.y,b.y),lb=Math.min(a.y+a.h,b.y+b.h);logical={x:a.x+a.w,y:ly,w:Math.max(4,designGap),h:Math.max(4,lb-ly)};
-      var px3=g.a.box.x+g.a.box.w+g.a.dx,px4=g.b.box.x+g.b.dx,py3=Math.max(g.a.box.y+g.a.dy,g.b.box.y+g.b.dy),py4=Math.min(g.a.box.y+g.a.box.h+g.a.dy,g.b.box.y+g.b.box.h+g.b.dy);rb={x:Math.min(px3,px4),y:py3,w:Math.max(4,Math.abs(px4-px3)),h:Math.max(4,py4-py3)};
-    }
-    var no=cands.length+1,label=axis==="vertical"?"컴포넌트 사이의 세로 간격이 다릅니다.":"컴포넌트 사이의 가로 간격이 다릅니다.";
-    cands.push({id:pairId+"_c"+no,no:no,status:"review",kind:"spacing",axis:axis,rawBox:reducedToRaw(rb),rawAnchorBoxes:anchors,designBox:logical,designNodeIds:[g.a.element.id,g.b.element.id],designValues:"디자인 간격 "+Math.round(designGap)+"px · 개발 이미지 약 "+Math.round(estimatedGap)+"px",label:label,confidence:clamp(Math.round(g.confidence*100),50,94)});
-  });
-  cands.forEach(function(c,i){c.no=i+1;c.id=pairId+"_c"+(i+1);});
-  return cands;
+  return boxes.map(function(b){var pad=3,wx=Math.max(0,b.x*block-pad),wy=Math.max(0,b.y*block-pad),ww=Math.min(w-wx,b.w*block+pad*2),wh=Math.min(h-wy,b.h*block+pad*2),o=offsetAt(wx+ww/2,wy+wh/2),designPx={x:wx/q,y:wy/q,w:ww/q,h:wh/q},raw={x:((wx+o.dx)/q-model.tx)/model.s,y:((wy+o.dy)/q-model.ty)/model.s,w:designPx.w/model.s,h:designPx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=clamp(raw.w,4,capture.width-raw.x);raw.h=clamp(raw.h,4,capture.height-raw.y);var logical={x:designPx.x*scaleX,y:designPx.y*scaleY,w:designPx.w*scaleX,h:designPx.h*scaleY},dv=designValuesFor(design,logical);
+    var dEn=regionEnergy(de,wx,wy,wx+ww,wy+wh),cEn=regionEnergy(ce,wx+o.dx,wy+o.dy,wx+ww+o.dx,wy+wh+o.dy),label;
+    if(dEn>8&&cEn<dEn*.35)label=LABEL_MISSING;
+    else if(cEn>8&&dEn<cEn*.35)label=LABEL_EXTRA;
+    else if((dv.kinds||[]).some(function(k){return k==="image"||k==="icon";}))label=LABEL_ICON;
+    else{var dAvg=averageCell(dd.data,w,h,wx,wy,wx+ww,wy+wh),cAvg=averageCell(cd.data,w,h,wx+o.dx,wy+o.dy,wx+ww+o.dx,wy+wh+o.dy);label=colorDistance(dAvg,cAvg)>45&&Math.abs(dEn-cEn)<12?LABEL_COLOR:LABEL_SHAPE;}
+    return{status:"review",kind:"area",rawBox:raw,designBox:logical,designNodeIds:dv.ids,designValues:dv.text,label:label};});
 }
 
 async function runCompare(){
@@ -618,7 +870,7 @@ async function runCompare(){
     progressBar.style.width=Math.round(i/active.length*100)+"%";
     await new Promise(function(r){setTimeout(r,20);});
     var model=anchorAlignment(d,img,cap.img)||searchAlignment(img,cap.img,false),cands=buildDiff(d,img,cap,model,p.id),logicalScale=img.width/d.width;
-    var result={pairId:p.id,design:d,capture:cap,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands};
+    var result={pairId:p.id,design:d,capture:cap,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands,notices:cands.notices||[],sections:cands.sections||[]};
     results.push(result);await renderResultToCanvas(result);
   }
   progressBar.style.width="100%";
@@ -666,12 +918,13 @@ function renderReview(){
   if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
   setOverlayButton(!!overlayVisibleByPair[r.pairId]);
   var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"}],html="";
+  if(r.notices&&r.notices.length)html+='<div class="tip notice">'+r.notices.map(esc).join('<br>')+'</div>';
   groups.forEach(function(g){
     var list=r.candidates.filter(function(c){return c.status===g.k;});
     if(!list.length)return;
     html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
     list.forEach(function(c){
-      html+='<div class="number-row"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-reason">'+esc(candidateReason(c))+'</span></button><span class="candidate-actions"><button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button></span></div>';
+      html+='<div class="number-row"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions"><button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button></span></div>';
     });
     html+='</div>';
   });
@@ -722,9 +975,11 @@ async function runSelfTest(){
   var values=designValuesFor(design,{x:18,y:18,w:90,h:30});check("디자인 원본값 찾기",values.ids[0]==="t1"&&values.text.indexOf("크기 16")>=0);
   var st={count:100,w:40,h:16};
   check("글자 위치·정렬 안내",classifyTextDifference(.45,3,0,st,st)==="글자 영역의 위치 또는 정렬이 다릅니다.");
-  check("글자 영역 크기 안내",classifyTextDifference(.5,0,0,st,{count:100,w:48,h:16})==="글자 영역의 폭과 높이가 다릅니다.");
+  check("글자 영역 크기 안내",classifyTextDifference(.5,0,0,st,{count:100,w:48,h:22})==="글자 영역의 폭과 높이가 다릅니다.");
+  check("글자 내용 차이 안내(폭만 달라짐)",classifyTextDifference(.5,0,0,st,{count:80,w:30,h:16})==="글자 내용 또는 표기가 다르게 보입니다.");
   check("폰트 모양 안내",classifyTextDifference(.5,0,0,st,{count:130,w:40,h:16})==="폰트 모양이 다르게 보입니다.");
-  check("글자 모양 안내",classifyTextDifference(.7,0,0,st,st)==="글자 모양이 다르게 보입니다.");
+  check("글자 모양 안내",classifyTextDifference(.5,0,0,st,st)==="글자 모양이 다르게 보입니다.");
+  check("같은 크기인데 크게 다르면 내용 차이 안내",classifyTextDifference(.7,0,0,st,st)==="글자 내용 또는 표기가 다르게 보입니다.");
   check("글자 스타일은 폰트 모양으로 안내",classifyTextDifference(.4,0,0,st,st)==="폰트 모양이 다르게 보입니다.");
   check("줄바꿈·말줄임 안내",classifyTextDifference(.55,0,0,{count:100,w:80,h:32,lines:2},{count:70,w:64,h:16,lines:1})==="줄바꿈 또는 말줄임 표시가 다릅니다.");
   var model={s:2,tx:10,ty:20},d={x:50,y:60,w:40,h:20},raw={x:(d.x-model.tx)/model.s,y:(d.y-model.ty)/model.s,w:d.w/model.s,h:d.h/model.s};check("원본 좌표 복원",raw.x===20&&raw.y===20&&raw.w===20&&raw.h===10);

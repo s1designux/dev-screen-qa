@@ -9,3 +9,10 @@ Thumbs.db
 
 # local settings
 .claude/settings.local.json
+
+# plugin-image-qa 재현 생성물
+*.overlay.png
+*.align.png
+*.harness.html
+validation-image-qa/repro/*.json
+!validation-image-qa/repro/elements*.json
