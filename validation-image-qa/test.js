@@ -177,6 +177,38 @@ if (!mainCode.includes('TRIM_KEY') || !mainCode.includes('set-capture-trim') || 
 }
 console.log('✓ 검수 범위 저장(캡처 노드)과 캔버스 제외 띠 표시');
 
+// 글자 가변·불가변 판별: Figma에서 역할 재료(부모 이름 사슬·글자 속성 이름)를 읽고, 설정값을 디자인 프레임에 저장한다.
+const roleRoot = { id: 'root', type: 'FRAME', absoluteBoundingBox: { x: 0, y: 0, width: 400, height: 300 }, children: [
+  { id: 'inst', name: 'Input/Default', type: 'INSTANCE', visible: true, absoluteBoundingBox: { x: 20, y: 20, width: 300, height: 48 }, fills: [], strokes: [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }], children: [
+    { id: 'wrap', name: 'Frame 3', type: 'FRAME', visible: true, absoluteBoundingBox: { x: 30, y: 30, width: 200, height: 28 }, fills: [], strokes: [], children: [
+      { id: 'txt', name: '아이디를 입력해 주세요.', type: 'TEXT', visible: true, absoluteBoundingBox: { x: 36, y: 34, width: 160, height: 20 }, characters: '아이디를 입력해 주세요.', fills: [], fontSize: 14, fontWeight: 400, fontName: { family: 'Pretendard', style: 'Regular' }, componentPropertyReferences: { characters: 'placeholder#12:3' } }
+    ] }
+  ] }
+] };
+const roleEls = context.collectDesign(roleRoot);
+const roleText = roleEls.filter((e) => e.kind === 'text')[0];
+if (!roleText || !Array.isArray(roleText.chain) || roleText.chain.length !== 2 || roleText.chain[0].n !== 'Frame 3' || roleText.chain[1].n !== 'Input/Default' || roleText.chain[1].t !== 'INSTANCE' || roleText.propRef !== 'placeholder') {
+  console.error('글자 역할 재료(부모 이름 사슬·글자 속성 이름) 수집 규칙이 깨졌습니다.', roleText && roleText.chain, roleText && roleText.propRef);
+  process.exit(1);
+}
+if (!mainCode.includes('POLICY_KEY') || !mainCode.includes('"set-design-policy"') || !mainCode.includes('function readDesignPolicy(') || !mainCode.includes('policy: readDesignPolicy(root)') || !mainCode.includes('status === "variable"')) {
+  console.error('화면 종류·글자 가변 설정을 디자인 프레임에 저장하고 읽는 규칙 또는 가변 번호 색 규칙이 깨졌습니다.');
+  process.exit(1);
+}
+const policyFrame = { data: {}, getPluginData(k) { return this.data[k] || ''; }, setPluginData(k, v) { this.data[k] = v; } };
+if (context.readDesignPolicy(policyFrame) !== null) { console.error('설정값이 없을 때 null이어야 합니다.'); process.exit(1); }
+policyFrame.setPluginData('imageQaPolicy', JSON.stringify({ screenType: 'common', variable: { 'n1': true } }));
+const readPolicy = context.readDesignPolicy(policyFrame);
+if (!readPolicy || readPolicy.screenType !== 'common' || readPolicy.variable.n1 !== true) { console.error('디자인 프레임의 설정값 읽기가 깨졌습니다.'); process.exit(1); }
+policyFrame.setPluginData('imageQaPolicy', '{broken');
+if (context.readDesignPolicy(policyFrame) !== null) { console.error('깨진 설정값은 null이어야 합니다.'); process.exit(1); }
+console.log('✓ 글자 역할 재료 수집과 화면 종류·가변 설정 저장');
+if (!uiSource.includes('function buildTextPolicy(') || !uiSource.includes('function applyTextPolicy(') || !uiSource.includes('function screenTypeOf(') || !uiSource.includes('function repeatedRowIds(') || !uiSource.includes('function buttonLikeIds(') || !uiSource.includes('id="kindCommon"') || !uiSource.includes('id="kindData"') || !uiSource.includes('data-override="fixed"') || !uiSource.includes('data-override="variable"') || !uiSource.includes('k:"variable",t:"가변 글자·요소",fold:true') || !uiSource.includes('function applyUnitPolicy(') || !uiSource.includes('function applyCandidatePolicy(') || !uiSource.includes('variable:"가변 글자(내용 미검사)"')) {
+  console.error('글자 가변·불가변 판별(4층 규칙·접힌 묶음·고정/가변 버튼·화면 종류 스위치) 규칙이 깨졌습니다.');
+  process.exit(1);
+}
+console.log('✓ 글자 가변·불가변 판별 흐름(패널·규칙 함수)');
+
 let exported;
 imageNode.name = '개발 캡처';
 imageNode.exportAsync = async () => new Uint8Array([1, 2, 3]);

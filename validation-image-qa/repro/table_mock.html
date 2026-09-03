@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="utf-8"><title>표 화면 목업</title><style>
+/* 표 화면 재현용 목업. ?v=design 은 디자인 시안, ?v=dev 는 개발 캡처(데이터가 다르고 실제 오류 3개가 섞여 있음).
+   ?elements=1 을 붙이면 화면 대신 요소 목록 JSON(run.js 형식)을 pre#elements 에 쓴다. */
+html,body{margin:0;width:1200px;height:700px;background:#FFFFFF;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#222222}
+.el{position:absolute;box-sizing:border-box}
+.txt{white-space:nowrap;line-height:1}
+#hd{left:0;top:0;width:1200px;height:64px;background:#F7F9FC;border-bottom:1px solid #E0E4EA}
+#ttl{left:40px;top:22px;font-size:20px;font-weight:700}
+#sum{left:40px;top:96px;font-size:14px;font-weight:700;color:#1D6CEB}
+#note{left:180px;top:98px;font-size:12px;color:#888888}
+#btn{left:1040px;top:84px;width:120px;height:40px;background:#1D6CEB;border-radius:4px}
+#btnt{left:1084px;top:96px;font-size:14px;font-weight:700;color:#FFFFFF}
+#tbl{left:40px;top:150px;width:1120px;height:280px;border:1px solid #D9D9D9}
+.row{left:40px;width:1120px;height:48px;border-bottom:1px solid #EEEEEE}
+#h0{top:150px;height:40px;background:#F3F4F6}
+.cell{height:48px}
+.cell .txt{font-size:14px}
+#h0 .txt{font-size:13px;font-weight:700;color:#555555}
+.badge{width:64px;height:24px;border-radius:12px;background:#E8F1FF;display:flex;align-items:center;justify-content:center}
+.badge .txt{position:static}
+.badge .txt{font-size:12px;color:#1D6CEB;font-weight:700}
+#ok{left:1064px;top:456px;width:96px;height:36px;border:1px solid #1D6CEB;border-radius:4px;background:#FFFFFF}
+#okt{left:1097px;top:467px;font-size:13px;color:#1D6CEB;font-weight:700}
+#ft{left:40px;top:664px;font-size:11px;color:#999999}
+</style></head><body>
+<script>
+var q={};location.search.replace(/^\?/,"").split("&").forEach(function(p){var k=p.split("=");if(k[0])q[k[0]]=decodeURIComponent(k[1]||"");});
+var dev=q.v==="dev";
+var cols=[["이름",120],["연락처",200],["운행일",200],["차량번호",200],["상태",120]];
+var design=[["김영희","010-1234-5678","2026.09.01","12가 3456","운행중"],["박철수","010-2345-6789","2026.09.02","34나 5678","대기"],["이민준","010-3456-7890","2026.09.02","56다 7890","운행중"],["최서연","010-4567-8901","2026.09.03","78라 9012","운행중"]];
+var devRows=[["홍길동","010-9999-0001","2026.09.03","11가 0001","대기"],["강하늘","010-9999-0002","2026.09.03","22나 0002","운행중"],["오세훈","010-9999-0003","2026.09.04","33다 0003","대기"],["윤아름","010-9999-0004","2026.09.04","44라 0004","대기"]];
+var rows=dev?devRows:design;
+// 개발 캡처의 실제 오류 3개: 버튼 문구(조회→상세 조회하기), 컬럼 제목(연락처→담당자 휴대전화번호), 요약 글자색(파랑→빨강). 데이터·숫자 차이는 오류가 아니다.
+// (같은 글꼴·같은 길이의 짧은 글자 바꿔치기(조회→검색)는 현재 엔진이 구분하지 못한다 — 별건의 엔진 한계)
+var E=[];
+function el(id,cls,style,attrs){var d=document.createElement("div");d.id=id;d.className="el "+(cls||"");if(style)d.setAttribute("style",style);for(var k in attrs||{})d.setAttribute("data-"+k,attrs[k]);document.body.appendChild(d);E.push(d);return d;}
+function txt(id,text,style,attrs,parent){var d=el(id,"txt",style,attrs);d.textContent=text;d.setAttribute("data-kind","text");if(parent)d.setAttribute("data-parent",parent);return d;}
+el("hd","","",{name:"Header",type:"FRAME",fill:"#F7F9FC",stroke:"#E0E4EA"});
+txt("ttl","차량 운행 목록","",{name:"차량 운행 목록",fs:20,fw:700,color:"#222222"},"hd");
+txt("sum",dev?"전체 9":"전체 9,999",dev?"color:#D32F2F":"",{name:dev?"전체 9":"전체 9,999",fs:14,fw:700,color:"#1D6CEB"});
+txt("note","※ 운행일은 출발 기준입니다.","",{name:"※ 운행일은 출발 기준입니다.",fs:12,fw:400,color:"#888888"});
+el("btn","","",{name:"Button/Primary",type:"INSTANCE",fill:"#1D6CEB",radius:4});
+txt("btnt",dev?"상세 조회하기":"조회",dev?"left:1052px":"",{name:"Label",fs:14,fw:700,color:"#FFFFFF",propRef:"label"},"btn");
+el("tbl","","",{name:"Table",type:"FRAME",stroke:"#D9D9D9"});
+var hrow=el("h0","row","",{name:"Table/Header",type:"INSTANCE",fill:"#F3F4F6"});hrow.setAttribute("data-parent","tbl");
+var x=40;cols.forEach(function(c,i){var cell=el("h0c"+i,"cell","left:"+x+"px;top:150px;width:"+c[1]+"px;height:40px",{name:"Table/Header cell",type:"INSTANCE"});cell.setAttribute("data-parent","h0");
+  var t=(dev&&i===1)?"담당자 휴대전화번호":c[0];txt("h0t"+i,t,"left:"+(x+16)+"px;top:164px",{name:t,fs:13,fw:700,color:"#555555"},"h0c"+i);x+=c[1];});
+rows.forEach(function(r,ri){var top=190+ri*48,row=el("r"+ri,"row","top:"+top+"px",{name:"Table/Row",type:"INSTANCE"});row.setAttribute("data-parent","tbl");var cx=40;
+  cols.forEach(function(c,ci){var cell=el("r"+ri+"c"+ci,"cell","left:"+cx+"px;top:"+top+"px;width:"+c[1]+"px",{name:"Table/Cell",type:"INSTANCE"});cell.setAttribute("data-parent","r"+ri);
+    if(ci===4){var b=el("r"+ri+"b","badge","left:"+(cx+16)+"px;top:"+(top+12)+"px",{name:"Badge",type:"INSTANCE",fill:"#E8F1FF",radius:12});b.setAttribute("data-parent","r"+ri+"c"+ci);
+      var bt=txt("r"+ri+"t"+ci,r[ci],"",{name:r[ci],fs:12,fw:700,color:"#1D6CEB"},"r"+ri+"b");b.appendChild(bt);}
+    else txt("r"+ri+"t"+ci,r[ci],"left:"+(cx+16)+"px;top:"+(top+17)+"px",{name:r[ci],fs:14,fw:400,color:"#222222"},"r"+ri+"c"+ci);
+    cx+=c[1];});});
+el("ok","","",{name:"Button/Secondary",type:"INSTANCE",fill:"#FFFFFF",stroke:"#1D6CEB",radius:4});
+txt("okt","확인","",{name:"Label",fs:13,fw:700,color:"#1D6CEB",propRef:"label"},"ok");
+txt("ft","© S-1 Corp. All Rights Reserved.","",{name:"© S-1 Corp. All Rights Reserved.",fs:11,fw:400,color:"#999999"});
+if(q.elements==="1"){
+  // run.js 가 읽는 형식: frame + cols + rows. 부모 이름 사슬(chain)과 글자 속성 이름(propRef)도 함께 낸다.
+  var colsOut=["id","type","kind","depth","parentId","x","y","w","h","fill","stroke","strokeWidth","radius","text","fontSize","fontWeight","color","name","chain","propRef"];
+  var byId={};E.forEach(function(d){byId[d.id]=d;});
+  function depthOf(d){var n=0,p=d.getAttribute("data-parent");while(p&&byId[p]){n++;p=byId[p].getAttribute("data-parent");}return n+1;}
+  function chainOf(d){var out=[],p=d.getAttribute("data-parent");while(p&&byId[p]&&out.length<4){var pd=byId[p];out.push({n:pd.getAttribute("data-name")||"",t:pd.getAttribute("data-type")||"FRAME"});p=pd.getAttribute("data-parent");}return out;}
+  var out=E.map(function(d){var b=d.getBoundingClientRect(),isText=d.getAttribute("data-kind")==="text";
+    return[d.id,isText?"TEXT":(d.getAttribute("data-type")||"FRAME"),isText?"text":"shape",depthOf(d),d.getAttribute("data-parent")||null,Math.round(b.left*10)/10,Math.round(b.top*10)/10,Math.round(b.width*10)/10,Math.round(b.height*10)/10,
+      isText?null:(d.getAttribute("data-fill")||null),isText?null:(d.getAttribute("data-stroke")||null),d.getAttribute("data-stroke")?1:null,d.getAttribute("data-radius")?Number(d.getAttribute("data-radius")):null,
+      isText?d.textContent:"",isText?Number(d.getAttribute("data-fs")):null,isText?Number(d.getAttribute("data-fw")):null,isText?d.getAttribute("data-color"):null,d.getAttribute("data-name")||d.id,isText?chainOf(d):null,d.getAttribute("data-propRef")||null];});
+  if(q.noname==="1")out.forEach(function(r){r[17]=r[0];r[18]=null;r[19]=null;}); // 이름 없는 피그마(맨 프레임)일 때의 판별을 보기 위한 변형
+  var pre=document.createElement("pre");pre.id="elements";pre.textContent=JSON.stringify({frame:{id:"table-mock",name:"차량 운행 목록",width:1200,height:700},cols:colsOut,rows:out});document.body.appendChild(pre);
+  document.title="ELEMENTS DONE";
+}
+</script>
+</body></html>

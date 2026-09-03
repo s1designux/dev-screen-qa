@@ -15,6 +15,7 @@ Figma 없이도 엔진 변경이 실제 화면에서 어떤 후보를 내는지 
 | `design_login_1920x1080.png` / `elements_login.json` | 프레임 `8177:263051` "웹_로그인 화면" |
 | `dev_login_1920x934.png` | 퍼블리싱 `login.html` 헤드리스 캡처 |
 | `dev_login_chrome_1920x1054.png` | 위 캡처 위에 브라우저 탭·주소창·북마크 띠(120px)를 얹은 합성본 (`make_chrome_capture.html`로 생성). 실제 검수 때 크롬 탭이 찍힌 캡처를 재현 |
+| `table_mock.html` → `design_table_1200x700.png` / `dev_table_1200x700.png` / `elements_table.json` / `elements_table_noname.json` | **표 화면 목업**(`node make_table_case.js`로 생성). 개발 캡처는 표 데이터·요약 숫자(전체 9,999→9)·상태 칩이 다르고, 진짜 오류 3개(버튼 문구 조회→상세 조회하기 · 컬럼 제목 연락처→담당자 휴대전화번호 · 요약 글자색 파랑→빨강)가 섞여 있다. 요소 목록은 부모 이름 사슬(`chain`)·글자 속성 이름(`propRef`)을 포함하며, `_noname`은 이름 없는 피그마(맨 프레임)를 흉내 낸 것 |
 
 ## 실행
 
@@ -23,8 +24,12 @@ cd validation-image-qa/repro
 DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html findid
 DEV_PNG=dev2_findId_1920x934.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html findid-latest
 ELEMENTS_JSON=elements_login.json DESIGN_PNG=design_login_1920x1080.png DEV_PNG=dev_login_1920x934.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html login
+node make_table_case.js   # 표 목업 PNG·요소 목록 생성(최초 1회)
+ELEMENTS_JSON=elements_table.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html table
+ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html table-noname
 ```
 
+`SCREEN_TYPE=common|data`로 화면 종류를 정할 수 있습니다(없으면 프레임 이름으로 추정). 출력의 `(가변 글자 묶음)`은 가변 판정으로 접힌 후보, `{source:가변|고정}`은 판정 근거입니다.
 `DESIGN_MAX`는 code.js의 디자인 export 배율 규칙(최대 4096)을 흉내 냅니다. 결과 JSON에는 디버그용으로
 구역별 밀림(`sections`), 요소별 비교값(`units`), 기준 요소 표(`anchorVotes`)가 함께 들어 있습니다.
 생성물(`*.json`, `*.overlay.png`, `*.align.png`, `*.harness.html`)은 커밋하지 않습니다.

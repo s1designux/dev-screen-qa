@@ -121,6 +121,21 @@
   .num.confirmed{border-color:#D32F2F;background:#D32F2F;color:#FFFFFF}
   .num.excluded{border-color:#999999;color:#999999;opacity:.45}
   .num.hold{border-color:#F9A825;color:#F9A825}
+  .num.variable{border-color:#5B7DB1;color:#5B7DB1;opacity:.6}
+  .candidate-actions .var{color:#5B7DB1}
+  .number-group.fold .number-title{cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+  .number-group.fold .number-title:hover{color:#1D6CEB}
+  .number-group.fold .number-title .caret{flex:none;width:10px;font-size:9px;color:#8AA4C8;transition:transform .15s}
+  .number-group.fold.open .number-title .caret{transform:rotate(90deg)}
+  .number-group.fold .fold-body{display:none}
+  .number-group.fold.open .fold-body{display:block}
+  .number-group.fold .fold-hint{font-size:10px;color:#AAAAAA;line-height:1.5;margin:-2px 0 6px}
+  .screen-kind{flex:none;display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:11px;color:#888888}
+  .screen-kind .sk-label{flex:none}
+  .screen-kind button{flex:1;min-width:0;height:26px;line-height:24px;padding:0 6px;font-size:11px;border-color:#D9D9D9;background:#FFFFFF;color:#555555;margin:0;font-weight:500}
+  .screen-kind button:hover{border-color:#BFBFBF;background:#FAFAFA}
+  .screen-kind button.on{border-color:#1D6CEB;color:#1D6CEB;font-weight:700;background:#F7FAFF}
+  .screen-kind .sk-auto{flex:none;font-size:10px;color:#AAAAAA}
   .num.sel{outline:3px solid #90CAF9;outline-offset:2px}
   .num-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .num-reason{font-size:11px;color:#888888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -249,6 +264,7 @@
 
   <section id="reviewView" class="hidden">
     <div class="screen-nav"><button id="prevScreen">←</button><div class="screen-title" id="screenTitle"></div><button id="nextScreen">→</button></div>
+    <div class="screen-kind" id="screenKind" title="어디에 속한지 알 수 없는 글자를 어떻게 볼지 정합니다. 공통화면(로그인·회원가입·아이디/비밀번호 찾기·약관·오류·빈 상태)은 문구가 고정, 그 외 화면은 데이터라서 바뀔 수 있다고 봅니다. 버튼·라벨·안내 문구는 어느 화면이든 고정, 숫자·날짜·반복되는 행의 글자는 어느 화면이든 가변으로 봅니다."><span class="sk-label">이 화면</span><button id="kindCommon" type="button">공통화면 · 문구 고정</button><button id="kindData" type="button">일반화면 · 데이터 가변</button><span class="sk-auto" id="kindAuto"></span></div>
     <div class="range-card" id="rangeCard">
       <div class="range-head">
         <button class="range-toggle" id="rangeToggle" type="button" aria-expanded="false" aria-controls="rangeBody"><span class="caret" aria-hidden="true">▶</span><b>검수 범위</b><span class="range-sum" id="rangeSummary"></span></button>
@@ -509,17 +525,17 @@ function applySelectionStatus(message){
   else designStatus.textContent=rowProblemText(rowResult.invalid);
 }
 backPrepare.onclick=function(){setView("prepare");post({type:"request-selection-status"});};
-var STATUS_LABEL={review:"검토 필요",confirmed:"오류확정",excluded:"제외",hold:"보류"};
+var STATUS_LABEL={review:"검토 필요",confirmed:"오류확정",excluded:"제외",hold:"보류",variable:"가변 글자(내용 미검사)"};
 function statusLabel(v){return STATUS_LABEL[v]||"검토 필요";}
 function todayText(){var d=new Date(),p=function(n){return(n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
 function buildReportPayload(r){
   // 캔버스 메모장에 그릴 내용. 상태·사유·상세·디자인 원본값을 번호 순서대로 담는다.
-  var counts={review:0,confirmed:0,excluded:0,hold:0};
+  var counts={review:0,confirmed:0,excluded:0,hold:0,variable:0};
   var rows=r.candidates.map(function(c){
     counts[c.status]=(counts[c.status]||0)+1;
     return{no:c.no,status:c.status,statusText:statusLabel(c.status),reason:candidateReason(c),detail:c.detail||"",designValues:c.designValues||""};
   });
-  var summary="후보 "+rows.length+"건 · 검토 필요 "+counts.review+" · 오류확정 "+counts.confirmed+" · 제외 "+counts.excluded+" · 보류 "+counts.hold;
+  var summary="후보 "+(rows.length-counts.variable)+"건 · 검토 필요 "+counts.review+" · 오류확정 "+counts.confirmed+" · 제외 "+counts.excluded+" · 보류 "+counts.hold+(counts.variable?" · 가변 글자(내용 미검사) "+counts.variable:"");
   var g=r.range||{},warn=!g.captureTop&&!!g.stripDetected;
   return{type:"build-report",pairId:r.pairId,screenName:r.design.name||"검수 화면",date:todayText(),
     summary:summary,rangeText:"검수 범위 — "+rangeSummaryText(g,warn),rows:rows};
@@ -548,6 +564,131 @@ function edgeStats(edge,W,H,x0,y0,w,h){
   return{count:count,w:maxX>=minX?maxX-minX+1:0,h:maxY>=minY?maxY-minY+1:0,lines:lines};
 }
 var LABEL_MISSING="디자인에 있는 요소가 개발 화면에 없습니다.",LABEL_EXTRA="디자인에 없는 요소가 표시되어 있습니다.",LABEL_MOVED="요소의 위치 또는 정렬이 다릅니다.",LABEL_ICON="아이콘 또는 이미지가 다르게 보입니다.",LABEL_COLOR="색상이 다르게 보입니다.",LABEL_SHAPE="요소의 모양 또는 크기가 다릅니다.",LABEL_TEXT_CONTENT="글자 내용 또는 표기가 다르게 보입니다.",LABEL_TEXT_WRAP="줄바꿈 또는 말줄임 표시가 다릅니다.",LABEL_TEXT_SIZE="글자 영역의 폭과 높이가 다릅니다.",LABEL_TEXT_POS="글자 영역의 위치 또는 정렬이 다릅니다.",LABEL_TEXT_FONT="폰트 모양이 다르게 보입니다.",LABEL_TEXT_SHAPE="글자 모양이 다르게 보입니다.";
+// ── 글자 가변·불가변 판별 ─────────────────────────────
+// 글자 자체가 아니라 "어디에 놓인 글자인지"로 정한다.
+// 순서: 사람이 정한 것 > 글자 꼴·문구(숫자·날짜·안내문) > 컴포넌트 역할(이름) > 반복되는 행 > 버튼 모양 > 화면 종류(공통/일반).
+var SCREEN_COMMON_RE=/로그인|log-?in|sign-?in|회원\s*가입|sign-?up|아이디\s*찾기|비밀번호\s*(찾기|재설정|변경)|비번\s*찾기|약관|개인정보|오류|에러|error|404|500|점검|빈\s*상태|empty/i;
+var COPY_FIXED_RE=/(주세요|하세요|십시오|바랍니다|됩니다|입니다|없습니다|있습니다|합니다|하시겠습니까|할까요)[.?!)]*$/;
+var FOOTER_FIXED_RE=/사업자\s*등록\s*번호|대표(이사)?\s*[:：]|©|copyright|all rights reserved|통신판매업|개인정보\s*(처리|보호)/i;
+var VAR_PATTERN_RE=/\d{1,3}(,\d{3})+|\d{4,}|\d{4}\s*[.\-\/년]\s*\d{1,2}\s*[.\-\/월]\s*\d{1,2}|\b\d{1,2}:\d{2}\b|\d{2,4}-\d{3,4}-\d{4}|\d+(\.\d+)?\s*%|\d+\s*(건|명|원)(?![가-힣])|홍길동|김철수|이영희|lorem|dummy|더미|샘플|sample|텍스트\s*(입력|텍스트)|^[\d,.\-+\s]*\d[\d,.\-+\s]*$/i;
+var ROLE_FIXED_RE=/button|btn|버튼|label|라벨|placeholder|플레이스홀더|hint|힌트|title|타이틀|제목|heading|header|head|\bth\b|\btabs?\b|탭|menu|메뉴|\bnav|gnb|lnb|snb|footer|푸터|caption|캡션|toast|토스트|link|링크|checkbox|체크박스|radio|라디오|toggle|토글|switch|스위치|dropdown|select|셀렉트|breadcrumb|pagination|페이지네이션|tooltip|툴팁|helper|guide|안내|empty|modal|dialog|팝업|popup|stepper|step/i;
+var ROLE_VAR_RE=/\bvalue\b|content|data|데이터|\bcell\b|셀|\brow\b|\btr\b|\btd\b|list[\s-]?item|sample|샘플|dummy|더미|record|레코드/i;
+function isDefaultLayerName(name,text){name=String(name||"");return !name||name===String(text||"")||/^\d+:\d+$/.test(name)||/^(Frame|Group|Rectangle|Text|Instance|Component|Vector|Ellipse|Line)\s*\d*$/i.test(name);}
+function screenTypeOf(design){
+  // 저장된 값이 있으면 그것, 없으면 화면 이름으로 추정한다(공통화면: 로그인·회원가입·아이디/비밀번호 찾기·약관·오류·빈 상태).
+  var p=design&&design.policy;
+  if(p&&(p.screenType==="common"||p.screenType==="data"))return{type:p.screenType,auto:false};
+  return{type:SCREEN_COMMON_RE.test(String(design&&design.name||""))?"common":"data",auto:true};
+}
+function textPatternKind(text){
+  // 글자 꼴만으로 알 수 있는 것: 회사 정보·안내 문구(…해 주세요)는 고정, 숫자·날짜·전화번호·자리표시 값은 가변.
+  var t=String(text||"").trim();if(!t)return null;
+  if(FOOTER_FIXED_RE.test(t))return"fixed";
+  if(VAR_PATTERN_RE.test(t))return"variable";
+  if(COPY_FIXED_RE.test(t))return"fixed";
+  return null;
+}
+function roleKind(e){
+  // 컴포넌트 역할: 글자가 묶인 속성 이름 → 글자 레이어 이름 → 가까운 부모 이름 순서. 같은 이름 안에서는 고정 쪽 낱말이 이긴다(Table 안의 Button은 버튼).
+  var names=[];if(e.propRef)names.push(e.propRef);if(!isDefaultLayerName(e.name,e.text))names.push(e.name);
+  (e.chain||[]).forEach(function(c){var n=typeof c==="string"?c:c&&c.n;if(n&&!isDefaultLayerName(n))names.push(n);});
+  for(var i=0;i<names.length;i++){var n=names[i];if(ROLE_FIXED_RE.test(n))return{kind:"fixed",name:n};if(ROLE_VAR_RE.test(n))return{kind:"variable",name:n};}
+  return null;
+}
+function repeatedRowIds(design){
+  // 같은 부모 아래 같은 모양의 묶음이 3개 이상, 두 줄 이상으로 쌓여 있고 각각 안에 요소가 2개 이상이면 데이터 행(표·목록·카드)으로 본다.
+  // 가로로 한 줄만 반복되는 것(탭·메뉴·푸터 링크)은 데이터가 아니다.
+  var children=childMap(design),out={};
+  Object.keys(children).forEach(function(pid){
+    var kids=children[pid].filter(function(k){return isContainerType(k)&&(children[k.id]||[]).length>=2;});if(kids.length<3)return;
+    var groups={};kids.forEach(function(k){var key=k.type+"|"+Math.round(k.box.w/12)+"|"+Math.round(k.box.h/6);(groups[key]||(groups[key]=[])).push(k);}); // 이름은 보지 않는다(Row 1·Row 2처럼 달라도 같은 행)
+    Object.keys(groups).forEach(function(key){
+      var g=groups[key];if(g.length<3)return;
+      var ys=[];g.forEach(function(k){var cy=k.box.y+k.box.h/2;if(!ys.some(function(y){return Math.abs(y-cy)<k.box.h*.5;}))ys.push(cy);});
+      if(ys.length<2)return;
+      g.forEach(function(k){out[k.id]=g.length;descendantsOf(k,children).forEach(function(d){out[d.id]=g.length;});});
+    });
+  });
+  return out;
+}
+function buttonLikeIds(design){
+  // 이름이 없어도 알 수 있는 버튼: 채움·테두리가 있는 작은 상자 안에 글자 하나가 가운데 놓인 것. 버튼 문구는 고정이다.
+  var children=childMap(design),out={};
+  (design.elements||[]).forEach(function(e){
+    if(!isContainerType(e)||e.kind!=="shape"||!isVisibleShape(e))return;var b=e.box;if(b.w>260||b.h>64||b.h<20)return;
+    var desc=descendantsOf(e,children),texts=desc.filter(function(d){return d.kind==="text";});if(texts.length!==1)return;
+    if(desc.some(function(d){return d.kind==="shape"&&isVisibleShape(d)&&d.box.w*d.box.h>b.w*b.h*.5;}))return;
+    var t=texts[0].box,cx=Math.abs((t.x+t.w/2)-(b.x+b.w/2)),cy=Math.abs((t.y+t.h/2)-(b.y+b.h/2));
+    if(cx<=4&&cy<=3)out[texts[0].id]=1;
+  });
+  return out;
+}
+function buildTextPolicy(design){
+  // 글자 요소마다 {variable, reason, source}. source: manual / pattern / role / repeat / button / screen
+  var st=screenTypeOf(design),manual=(design.policy&&design.policy.variable)||{},repeats=repeatedRowIds(design),buttons=buttonLikeIds(design),map={};
+  (design.elements||[]).forEach(function(e){
+    var r;
+    if(e.kind!=="text"){ // 글자가 아닌 요소는 반복 행 안에 있을 때만 가변(칩·아이콘이 데이터 따라 바뀜). 사람이 정한 것은 그대로.
+      if(manual[e.id]===true)r={variable:true,reason:"사람이 가변으로 정함",source:"manual"};
+      else if(manual[e.id]===false)r={variable:false,reason:"사람이 고정으로 정함",source:"manual"};
+      else if(repeats[e.id])r={variable:true,reason:"반복되는 행·카드 안의 요소 ("+repeats[e.id]+"개 반복, 데이터에 따라 자리·내용이 바뀜)",source:"repeat"};
+      if(r)map[e.id]=r;return;
+    }
+    if(manual[e.id]===true)r={variable:true,reason:"사람이 가변으로 정함",source:"manual"};
+    else if(manual[e.id]===false)r={variable:false,reason:"사람이 고정으로 정함",source:"manual"};
+    else{
+      var pk=textPatternKind(e.text),role=pk?null:roleKind(e);
+      if(pk==="variable")r={variable:true,reason:"숫자·날짜·자리표시 값",source:"pattern"};
+      else if(pk==="fixed")r={variable:false,reason:"안내 문구",source:"pattern"};
+      else if(role)r={variable:role.kind==="variable",reason:(role.kind==="variable"?"데이터 자리":"고정 문구 자리")+" ("+role.name+")",source:"role"};
+      else if(repeats[e.id])r={variable:true,reason:"반복되는 행·카드 안의 글자 ("+repeats[e.id]+"개 반복)",source:"repeat"};
+      else if(buttons[e.id])r={variable:false,reason:"버튼 문구",source:"button"};
+      else r=st.type==="common"?{variable:false,reason:"공통화면의 글자",source:"screen"}:{variable:true,reason:"일반화면의 글자(데이터일 수 있음)",source:"screen"};
+    }
+    map[e.id]=r;
+  });
+  map.screenType=st;return map;
+}
+var CONTENT_LABELS=[LABEL_TEXT_CONTENT,LABEL_TEXT_WRAP,LABEL_TEXT_SIZE,LABEL_TEXT_FONT,LABEL_TEXT_SHAPE];
+function applyTextPolicy(c,pol){
+  // 가변 글자면 내용에 따라 달라지는 후보(내용·줄바꿈·폭·글씨체·모양)는 '가변 글자' 묶음으로 내리고, 높이·색 차이만 검토 후보로 남긴다.
+  // 사람이 이미 판정(오류확정·제외·보류)한 번호는 건드리지 않는다.
+  if(!c||c.kind!=="text"||!c.base)return c;
+  c.policy=pol||null;var judged=c.status==="confirmed"||c.status==="excluded"||c.status==="hold",alt=c.textAlt||{};
+  var contentish=CONTENT_LABELS.indexOf(c.base.label)>=0;
+  if(!pol||!pol.variable||!contentish){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="review";return c;}
+  var tag="가변 글자("+pol.reason+") · 내용 차이는 오류로 세지 않았어요.";
+  if(alt.heightRatio&&(alt.heightRatio<.8||alt.heightRatio>1.25)){c.label=LABEL_TEXT_SIZE;c.detail=tag+" 그런데 글자 높이가 디자인과 다르게 보입니다. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,70);if(c.status==="variable")c.status="review";return c;}
+  if(alt.colorDiff>70){c.label=LABEL_COLOR;c.detail=tag+" 그런데 글자색이 다르게 보입니다(디자인 "+(alt.designColor||"")+").";c.confidence=clamp(Math.round(50+alt.colorDiff/4),55,88);if(c.status==="variable")c.status="review";return c;}
+  c.label=c.base.label;c.detail=tag+" "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,50);
+  if(!judged)c.status="variable";return c;
+}
+var ROW_UNIT_KINDS={position:1,shape:1,icon:1};
+function applyUnitPolicy(c,pol){
+  // 글자가 아닌 요소(칩·아이콘·도형)의 위치·모양·색 후보: 반복 행 안의 요소면 데이터에 따라 달라질 수 있어 '가변' 묶음으로 내린다. 누락·간격은 그대로.
+  if(!c||!ROW_UNIT_KINDS[c.kind]||!c.base)return c;
+  c.policy=pol||null;var judged=c.status==="confirmed"||c.status==="excluded"||c.status==="hold";
+  if(!pol||!pol.variable){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="review";return c;}
+  c.label=c.base.label;c.detail="가변 요소("+pol.reason+") · 데이터가 달라서 생긴 차이일 수 있어요. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,50);
+  if(!judged)c.status="variable";return c;
+}
+function policyFor(map,c){
+  // 후보가 가리키는 디자인 요소가 모두 가변이어야 가변. 하나라도 고정이면 고정으로 본다.
+  var ids=c.designNodeIds||[];if(!ids.length)return null;var pols=ids.map(function(id){return map[id]||null;});
+  if(pols.some(function(p){return !p||!p.variable;}))return pols[0]&&!pols[0].variable?pols[0]:null;
+  return pols[0];
+}
+function applyCandidatePolicy(c,map){
+  if(c.kind==="text")return applyTextPolicy(c,policyFor(map,c));
+  if(ROW_UNIT_KINDS[c.kind])return applyUnitPolicy(c,policyFor(map,c));
+  return c;
+}
+function applyPolicyToResult(r){
+  // 화면 종류나 사람의 판단이 바뀌면 다시 비교하지 않고 후보의 묶음만 다시 정한다. 상태가 바뀐 번호를 돌려준다(캔버스 색 갱신용).
+  var map=buildTextPolicy(r.design);r.design.policyMap=map;var changed=[];
+  r.candidates.forEach(function(c){if(!c.base)return;var before=c.status;applyCandidatePolicy(c,map);if(c.status!==before)changed.push(c);});
+  return changed;
+}
 function classifyTextDifference(best,dx,dy,designStats,captureStats,ncc){
   // best = 글자 윤곽 불일치 비율(0 같음 ~ 1 전혀 다름). 줄 수 → 내용(폭만 변함) → 크기 → 위치 → 폰트 순으로 판단한다.
   var moved=Math.abs(dx)>=3||Math.abs(dy)>=3;
@@ -880,6 +1021,7 @@ function growInkBox(ctx,pb,dx,dy,inner){
 function textCandidateFor(res,ctx){
   var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H;
   var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";
+  res.inkColorDiff=dInk&&cInk?colorDistance(dInk.color,cInk.color):0;res.heightRatio=null; // 가변 글자 판정 때 내용과 무관하게 남길 색·높이 차이
   var small=u.el.box.h<12,seg=textSegmentCheck(ctx,pb,r.dx,r.dy),same;res.segInfo=seg;
   if(seg){
     // 긴 글자줄: 토막 대부분이 맞고 일부만 틀리면 그 자리만 짚어 준다. 전부 맞으면 같은 글자.
@@ -895,6 +1037,7 @@ function textCandidateFor(res,ctx){
   res.textStats={ds:ds,cs:cs};
   var localBoxes=seg&&seg.boxes.length&&seg.goodRatio>=.4?seg.boxes:null;
   if(ds.lines<=1&&ds.h&&cs.h>ds.h*1.35&&Math.abs(cs.w/Math.max(1,ds.w)-cs.h/ds.h)>.3)cs={count:cs.count,w:cs.w,h:ds.h,lines:1}; // 한 줄 글자의 높이는 폭과 같이 변한다. 따로 튀면 옆 요소가 섞인 것.
+  res.heightRatio=ds.h?cs.h/ds.h:null;
   var label=classifyTextDifference(Math.max(res.mismatch,res.exact),0,0,ds,cs,res.ncc),detail=designText?"디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"” — 개발 캡처의 글자와 눈으로 대조해 주세요.":null;
   if(localBoxes)detail="이 줄의 일부 글자가 다르게 보입니다. "+(detail||"");
   if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)detail=(detail?detail+" ":"")+"글자색도 다르게 보입니다(디자인 "+(u.el.values&&u.el.values.color||"")+").";
@@ -954,7 +1097,8 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
     if(g){g.items.push(res);g.box=boxUnion(g.box,res.pb);}else groups.push({moveX:res.moveX,moveY:res.moveY,items:[res],box:res.pb});});
   groups.forEach(function(g){
     var first=g.items[0],target=shifted(g.box,first.best.dx,first.best.dy),origin=shifted(g.box,first.base.dx,first.base.dy),logicalOld=logicalOf(g.box),logicalNew=logicalOf(shifted(g.box,first.best.dx-first.base.dx,first.best.dy-first.base.dy)),dv=designValuesFor(design,logicalOld);
-    push({kind:"position",rawBox:toRaw(boxUnion(origin,target)),designBox:boxUnion(logicalOld,logicalNew),designNodeIds:g.items.map(function(r){return r.u.el.id;}),designValues:dv.text,label:LABEL_MOVED,detail:moveDetail(g.moveX,g.moveY)+(g.items.length>1?" (요소 "+g.items.length+"개가 함께)":""),confidence:clamp(Math.round(Math.min.apply(null,g.items.map(function(r){return r.best.score;}))*100),50,94)});
+    var pc={kind:"position",rawBox:toRaw(boxUnion(origin,target)),designBox:boxUnion(logicalOld,logicalNew),designNodeIds:g.items.map(function(r){return r.u.el.id;}),designValues:dv.text,label:LABEL_MOVED,detail:moveDetail(g.moveX,g.moveY)+(g.items.length>1?" (요소 "+g.items.length+"개가 함께)":""),confidence:clamp(Math.round(Math.min.apply(null,g.items.map(function(r){return r.best.score;}))*100),50,94)};
+    pc.base={label:pc.label,detail:pc.detail,confidence:pc.confidence};push(pc);
   });
   // 4) 제자리 차이 — 글자·아이콘·도형별로 판단
   results.forEach(function(res){
@@ -967,8 +1111,14 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
       if(!label&&res.mismatch>.35){label=LABEL_SHAPE;confidence=clamp(Math.round(50+res.mismatch*40),55,88);}
     }
     if(!label)return;var boxes=(u.kind==="text"&&tc&&tc.boxes&&tc.boxes.length)?tc.boxes:[pb];
-    boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical);push({kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence});});
+    boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical),c={kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence};
+      c.base={label:label,detail:detail,confidence:confidence}; // 가변 판정을 되돌릴 수 있게 원래 판정을 남긴다
+      if(u.kind==="text")c.textAlt={heightRatio:res.heightRatio||null,colorDiff:res.inkColorDiff||0,designColor:u.el.values&&u.el.values.color||""};
+      push(c);});
   });
+  // 가변·불가변 판정 — 가변 글자의 내용 차이, 반복 행 안 요소의 위치·모양·색 차이는 '가변' 묶음으로 내린다(숨기지 않는다).
+  var policyMap=design.policyMap=buildTextPolicy(design);
+  cands.forEach(function(c){applyCandidatePolicy(c,policyMap);});
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
   ctx.bands=bands;cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
   cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
@@ -1136,18 +1286,21 @@ function setOverlayButton(visible){
 function renderReview(){
   if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;
   if(flashScreen){flashScreen=false;screenTitle.classList.remove("flash");void screenTitle.offsetWidth;screenTitle.classList.add("flash");}prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
-  setOverlayButton(!!overlayVisibleByPair[r.pairId]);renderRange(r);renderCompareView(r);
-  var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"}],html="";
+  setOverlayButton(!!overlayVisibleByPair[r.pairId]);renderScreenKind(r);renderRange(r);renderCompareView(r);
+  var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"},{k:"variable",t:"가변 글자·요소",fold:true}],html="";
   var extraNotices=(r.notices||[]).filter(function(n){return !/^디자인 (위쪽|아래쪽) ‘|^개발 캡처 위쪽 /.test(n);}); // 검수 범위 카드가 이미 보여주는 내용은 뺀다
   if(extraNotices.length)html+='<div class="tip notice">'+extraNotices.map(esc).join('<br>')+'</div>';
   groups.forEach(function(g){
     var list=r.candidates.filter(function(c){return c.status===g.k;});
     if(!list.length)return;
-    html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
+    if(g.fold)html+='<div class="number-group fold'+(variableOpen?' open':'')+'" data-fold="'+g.k+'"><div class="number-title" role="button" tabindex="0" aria-expanded="'+(variableOpen?'true':'false')+'"><span class="caret" aria-hidden="true">▶</span>'+g.t+' '+list.length+'건 · 내용은 직접 확인</div><div class="fold-body"><div class="fold-hint">숫자·날짜·표 데이터처럼 바뀔 수 있는 글자와, 반복되는 행 안의 칩·아이콘입니다. 내용 차이는 오류로 세지 않았고, 글자의 색·높이·누락은 계속 검사합니다. 고정 문구라면 ‘고정’을 눌러 검토 후보로 올리세요.</div>';
+    else html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
     list.forEach(function(c){
-      html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions"><button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button></span></div>';
+      var actions=g.k==="variable"?'<button class="row-action var" data-id="'+c.id+'" data-override="fixed" title="고정 문구로 보고 내용까지 검사">고정</button>':
+        '<button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button>'+(c.kind==="text"&&c.base&&g.k==="review"?'<button class="row-action var" data-id="'+c.id+'" data-override="variable" title="바뀔 수 있는 글자로 보고 내용 차이는 오류로 세지 않기">가변</button>':'');
+      html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions">'+actions+'</span></div>';
     });
-    html+='</div>';
+    html+=g.fold?'</div></div>':'</div>';
   });
   if(!r.candidates.length)html='<div class="tip">눈에 띄는 차이 후보를 찾지 못했어요.</div>';
   numberLists.innerHTML=html;
@@ -1155,8 +1308,28 @@ function renderReview(){
   var selRow=selectedCandidateId?numberLists.querySelector('[data-row="'+selectedCandidateId+'"]'):null;
   if(selRow&&selRow.scrollIntoView)selRow.scrollIntoView({block:flashSelected?"center":"nearest"}); // 선택한 번호가 목록에서 보이게
   if(selRow&&flashSelected){selRow.classList.add("flash");flashSelected=false;}
-  numberLists.querySelectorAll(".row-action").forEach(function(b){b.onclick=function(){setCandidateStatus(b.dataset.id,b.dataset.status);};});
+  numberLists.querySelectorAll(".row-action[data-status]").forEach(function(b){b.onclick=function(){setCandidateStatus(b.dataset.id,b.dataset.status);};});
+  numberLists.querySelectorAll(".row-action[data-override]").forEach(function(b){b.onclick=function(){setTextOverride(b.dataset.id,b.dataset.override==="variable");};});
+  numberLists.querySelectorAll(".number-group.fold .number-title").forEach(function(t){t.onclick=function(){variableOpen=!variableOpen;renderReview();};});
 }
+var variableOpen=false; // '가변 글자' 묶음은 접힌 것이 기본
+function savePolicy(d){post({type:"set-design-policy",designId:d.id,policy:d.policy||null});}
+function pushPolicyChanges(r){applyPolicyToResult(r).forEach(function(k){post({type:"candidate-status",candidateId:k.id,status:k.status});});}
+function setTextOverride(id,variable){
+  // 사람이 '가변'/'고정'을 누르면 그 글자(디자인 노드)를 기억해 두고, 같은 글자의 후보를 바로 다시 묶는다. 다음 검수부터는 자동으로 같은 판정.
+  var r=results[currentResult],c=findCandidate(id);if(!r||!c)return;var nid=(c.designNodeIds||[])[0];if(!nid)return;
+  var d=r.design;d.policy=d.policy||{};d.policy.variable=d.policy.variable||{};d.policy.variable[nid]=!!variable;
+  savePolicy(d);pushPolicyChanges(r);if(variable)variableOpen=true;renderReview();
+}
+function setScreenKind(type){
+  var r=results[currentResult];if(!r)return;var d=r.design;d.policy=d.policy||{};d.policy.screenType=type;savePolicy(d);
+  results.forEach(function(x){if(x.design===d)pushPolicyChanges(x);});renderReview();
+}
+function renderScreenKind(r){
+  var st=screenTypeOf(r.design);kindCommon.classList.toggle("on",st.type==="common");kindData.classList.toggle("on",st.type==="data");
+  kindCommon.setAttribute("aria-pressed",st.type==="common"?"true":"false");kindData.setAttribute("aria-pressed",st.type==="data"?"true":"false");kindAuto.textContent=st.auto?"(이름으로 추정)":"";
+}
+kindCommon.onclick=function(){setScreenKind("common");};kindData.onclick=function(){setScreenKind("data");};
 var rangeOpen=false,flashSelected=false,flashScreen=false;
 function rangeSummaryText(g,warn){
   g=g||{};
@@ -1567,6 +1740,82 @@ async function runSelfTest(){
   results=[];currentResult=0;overlayVisibleByPair={};
   var mainStyle=getComputedStyle(document.querySelector("main"));
   check("본문 상단 빈 여백 축소",parseInt(mainStyle.paddingTop,10)<=8&&getComputedStyle(document.querySelector("header")).height!=="64px");
+  // ── 글자 가변·불가변 판별
+  check("화면 이름으로 공통화면 추정(로그인)",screenTypeOf({name:"웹_로그인 화면"}).type==="common"&&screenTypeOf({name:"웹_로그인 화면"}).auto===true);
+  check("화면 이름으로 공통화면 추정(아이디 찾기·약관·오류)",["웹_ 아이디 찾기(휴대전화번호) 화면","이용약관","오류 페이지","비밀번호 재설정"].every(function(n){return screenTypeOf({name:n}).type==="common";}));
+  check("그 외 화면은 일반화면(데이터 가변)",screenTypeOf({name:"차량 운행 목록"}).type==="data"&&screenTypeOf({name:"대시보드"}).type==="data");
+  check("저장된 화면 종류가 이름 추정보다 우선",screenTypeOf({name:"웹_로그인 화면",policy:{screenType:"data"}}).type==="data"&&screenTypeOf({name:"웹_로그인 화면",policy:{screenType:"data"}}).auto===false);
+  check("숫자·날짜·전화번호·자리표시 값은 가변",["전체 9,999","2026.01.01","2026-09-03","010-1234-5678","14:30","홍길동","12건","3","85%","2026년 9월 3일"].every(function(t){return textPatternKind(t)==="variable";}));
+  check("안내 문구·회사 정보는 고정",["아이디를 입력해 주세요.","비밀번호를 입력해 주세요.","검색 결과가 없습니다.","저장하시겠습니까?","(주)에스원   사업자등록번호 208-81-13342","© S-1 Corp. All Rights Reserved."].every(function(t){return textPatternKind(t)==="fixed";}));
+  check("글자 꼴만으로 모르는 것은 판단 유보",["전체","이름","아이디 저장","로그인","1:1 문의","한국어"].every(function(t){return textPatternKind(t)===null;}));
+  check("컴포넌트 역할 — 버튼·라벨·플레이스홀더·탭·컬럼 제목은 고정",[{text:"로그인",chain:[{n:"Button/Primary",t:"INSTANCE"}]},{text:"아이디",propRef:"label"},{text:"입력",propRef:"placeholder"},{text:"운행",chain:[{n:"Tab item",t:"INSTANCE"}]},{text:"이름",chain:[{n:"Table/Header cell",t:"INSTANCE"}]}].every(function(e){var r=roleKind(e);return r&&r.kind==="fixed";}));
+  check("컴포넌트 역할 — 표 셀·행·값 자리는 가변",[{text:"김영희",chain:[{n:"Table/Cell",t:"INSTANCE"},{n:"Table/Row",t:"INSTANCE"}]},{text:"3대",propRef:"value"},{text:"가",chain:[{n:"List item",t:"INSTANCE"}]}].every(function(e){var r=roleKind(e);return r&&r.kind==="variable";}));
+  check("같은 이름 안에서는 고정 낱말이 이김(표 안의 버튼·Table≠Tab)",roleKind({text:"삭제",chain:[{n:"Button/Text",t:"INSTANCE"},{n:"Table/Cell",t:"INSTANCE"}]}).kind==="fixed"&&roleKind({text:"x",chain:[{n:"Table/Cell",t:"INSTANCE"}]}).kind==="variable");
+  check("기본 이름(Frame 12·글자 그대로·노드 id)은 역할 판단에 안 씀",roleKind({text:"전체",name:"전체",chain:[{n:"Frame 12",t:"FRAME"},{n:"8177:1",t:"FRAME"}]})===null);
+  function mkRow(i,y,extra){return[{id:"r"+i,type:"FRAME",kind:"shape",parentId:"tbl",box:{x:20,y:y,w:600,h:40},values:{fill:"#FFFFFF"}},{id:"r"+i+"a",kind:"text",parentId:"r"+i,text:extra[0],box:{x:30,y:y+10,w:80,h:20},values:{color:"#222222"}},{id:"r"+i+"b",kind:"text",parentId:"r"+i,text:extra[1],box:{x:200,y:y+10,w:80,h:20},values:{color:"#222222"}}];}
+  var tableDesign={name:"차량 운행 목록",width:700,height:400,elements:[
+    {id:"tbl",type:"FRAME",kind:"shape",parentId:null,box:{x:20,y:40,w:600,h:300},values:{stroke:"#DDDDDD"}},
+    {id:"hd",type:"FRAME",kind:"shape",parentId:"tbl",box:{x:20,y:40,w:600,h:36},values:{fill:"#F5F5F5"}},{id:"hda",kind:"text",parentId:"hd",text:"이름",box:{x:30,y:48,w:60,h:20},values:{}},{id:"hdb",kind:"text",parentId:"hd",text:"연락처",box:{x:200,y:48,w:60,h:20},values:{}},
+    {id:"btn",type:"FRAME",kind:"shape",parentId:null,box:{x:520,y:10,w:100,h:28},values:{fill:"#1D6CEB"}},{id:"btnt",kind:"text",parentId:"btn",text:"조회",box:{x:556,y:15,w:28,h:18},values:{}},
+    {id:"tot",kind:"text",parentId:null,text:"전체 9,999",box:{x:20,y:10,w:80,h:20},values:{}},
+    {id:"lone",kind:"text",parentId:null,text:"운행",box:{x:300,y:10,w:40,h:20},values:{}}
+  ].concat(mkRow(1,80,["가나다","010-1111-2222"]),mkRow(2,120,["라마바","010-3333-4444"]),mkRow(3,160,["사아자","010-5555-6666"]))};
+  var tp=buildTextPolicy(tableDesign);
+  check("반복되는 행(3개↑, 세로로 쌓임) 안의 글자는 가변",tp.r1a.variable&&tp.r2a.variable&&tp.r3a.variable&&tp.r1a.source==="repeat"&&tp.r1b.source==="pattern");
+  check("버튼 모양(상자 가운데 글자 하나)은 이름 없어도 고정",tp.btnt.variable===false&&tp.btnt.source==="button");
+  check("숫자가 든 요약 글자는 가변(전체 9,999)",tp.tot.variable&&tp.tot.source==="pattern");
+  check("일반화면에서 어디 속한지 모르는 글자는 가변으로 기울임(접힌 묶음)",tp.lone.variable&&tp.lone.source==="screen"&&tp.hda.source==="screen"&&tp.screenType.type==="data");
+  tableDesign.policy={screenType:"common"};tp=buildTextPolicy(tableDesign);
+  check("공통화면으로 바꾸면 모르는 글자는 고정, 반복 행·숫자는 그대로 가변",tp.lone.variable===false&&tp.hda.variable===false&&tp.r1a.variable&&tp.tot.variable);
+  tableDesign.policy={screenType:"common",variable:{hda:true,r1a:false}};tp=buildTextPolicy(tableDesign);
+  check("사람이 정한 것이 규칙보다 우선(가변·고정 양쪽)",tp.hda.variable===true&&tp.hda.source==="manual"&&tp.r1a.variable===false&&tp.r1a.source==="manual");
+  var tabsDesign={name:"목록",width:400,height:100,elements:[{id:"tabs",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:400,h:40},values:{}}].concat([0,1,2,3].map(function(i){return{id:"t"+i,type:"FRAME",kind:"shape",parentId:"tabs",box:{x:i*100,y:0,w:100,h:40},values:{}};})).concat([0,1,2,3].map(function(i){return{id:"t"+i+"x",kind:"text",parentId:"t"+i,text:"탭"+i,box:{x:i*100+30,y:10,w:40,h:20},values:{}};})).concat([0,1,2,3].map(function(i){return{id:"t"+i+"i",kind:"icon",parentId:"t"+i,box:{x:i*100+5,y:10,w:20,h:20},values:{}};}))};
+  check("가로로 한 줄만 반복되는 것(탭·메뉴)은 데이터 행이 아님",Object.keys(repeatedRowIds(tabsDesign)).length===0);
+  var loginDesign={name:"웹_로그인 화면",width:400,height:300,elements:[{id:"in",type:"INSTANCE",kind:"shape",parentId:null,box:{x:20,y:20,w:300,h:48},values:{stroke:"#CCCCCC"}},{id:"ph",kind:"text",parentId:"in",text:"아이디를 입력해 주세요.",chain:[{n:"Input/Default",t:"INSTANCE"}],box:{x:36,y:34,w:160,h:20},values:{}},{id:"lb",kind:"text",parentId:null,text:"아이디 저장",box:{x:20,y:90,w:80,h:20},values:{}},{id:"bt",kind:"text",parentId:null,text:"로그인",chain:[{n:"Button/Primary",t:"INSTANCE"}],box:{x:150,y:130,w:60,h:20},values:{}},{id:"ft",kind:"text",parentId:null,text:"(주)에스원   사업자등록번호 208-81-13342",box:{x:20,y:260,w:300,h:16},values:{}}]};
+  var lp=buildTextPolicy(loginDesign);
+  check("로그인 화면: 플레이스홀더·라벨·버튼·회사 정보 전부 고정",[lp.ph,lp.lb,lp.bt,lp.ft].every(function(x){return x.variable===false;})&&lp.ph.source==="pattern"&&lp.lb.source==="screen"&&lp.bt.source==="role");
+  function mkTextCand(label,alt){return{kind:"text",status:"review",designNodeIds:["n1"],label:label,detail:"디자인 글자: “전체 9,999”",confidence:80,base:{label:label,detail:"디자인 글자: “전체 9,999”",confidence:80},textAlt:alt||{}};}
+  var vc=applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT),{variable:true,reason:"숫자·날짜·자리표시 값"});
+  check("가변 글자의 내용 차이 → '가변 글자' 상태로 내림(라벨은 유지, 사유에 이유)",vc.status==="variable"&&vc.label===LABEL_TEXT_CONTENT&&vc.detail.indexOf("가변 글자(숫자·날짜·자리표시 값)")===0&&vc.confidence<=50);
+  check("가변 글자라도 글자색이 다르면 색상 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120,designColor:"#1D6CEB"}),{variable:true,reason:"x"}).status==="review"&&applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120}),{variable:true,reason:"x"}).label===LABEL_COLOR);
+  check("가변 글자라도 글자 높이가 다르면 크기 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).label===LABEL_TEXT_SIZE&&applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).status==="review");
+  check("내용과 무관한 후보(색·위치)는 가변이어도 그대로 검토",applyTextPolicy(mkTextCand(LABEL_COLOR),{variable:true,reason:"x"}).status==="review"&&applyTextPolicy(mkTextCand(LABEL_TEXT_POS),{variable:true,reason:"x"}).status==="review");
+  var backC=applyTextPolicy(applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT),{variable:true,reason:"x"}),{variable:false,reason:"y"});
+  check("고정으로 되돌리면 원래 판정 그대로 복구",backC.status==="review"&&backC.label===LABEL_TEXT_CONTENT&&backC.detail==="디자인 글자: “전체 9,999”"&&backC.confidence===80);
+  var judgedC=mkTextCand(LABEL_TEXT_CONTENT);judgedC.status="confirmed";applyTextPolicy(judgedC,{variable:true,reason:"x"});
+  check("사람이 이미 판정한 번호는 가변 판정이 건드리지 않음",judgedC.status==="confirmed");
+  var rowPol=buildTextPolicy(tableDesign);
+  check("반복 행 안의 칩·도형에도 가변 항목(데이터 따라 자리·내용이 바뀜)",rowPol.r1&&rowPol.r1.variable&&rowPol.r1.source==="repeat"&&!rowPol.btn&&!rowPol.tbl);
+  var chipMove={kind:"position",status:"review",designNodeIds:["r1"],label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94,base:{label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94}};
+  check("반복 행 안 요소의 위치 이동 후보는 가변 묶음으로",applyCandidatePolicy(chipMove,rowPol).status==="variable"&&chipMove.detail.indexOf("가변 요소(")===0);
+  var btnMove={kind:"position",status:"review",designNodeIds:["btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
+  check("행 밖 요소의 위치 이동은 그대로 검토",applyCandidatePolicy(btnMove,rowPol).status==="review");
+  var mixed={kind:"position",status:"review",designNodeIds:["r1","btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
+  check("고정 요소가 하나라도 섞인 묶음 이동은 검토 유지",applyCandidatePolicy(mixed,rowPol).status==="review");
+  var missTxt={kind:"missing",status:"review",designNodeIds:["r1a"],label:LABEL_MISSING,base:{label:LABEL_MISSING}};
+  check("누락 후보는 가변이어도 검토 유지(구조 차이)",applyCandidatePolicy(missTxt,rowPol).status==="review");
+  // 패널: 가변 묶음 접힘·고정/가변 버튼·화면 종류 스위치·저장 메시지
+  var polDesign={id:"pd",name:"차량 운행 목록",width:400,height:300,elements:[{id:"n1",kind:"text",parentId:null,text:"전체 9,999",box:{x:20,y:20,w:80,h:20},values:{}},{id:"n2",kind:"text",parentId:null,text:"운행",box:{x:20,y:60,w:40,h:20},values:{}}]};
+  var polR={pairId:"pp",design:polDesign,capture:{img:canvasFor(10,10),width:10,height:10,displayScale:1},alignment:{s:1,tx:0,ty:0},notices:[],sections:[],range:{bands:[],designTop:0,designBottom:0,captureTop:0},
+    candidates:[Object.assign(mkTextCand(LABEL_TEXT_CONTENT),{id:"pp_c1",no:1,designNodeIds:["n1"],designBox:{x:20,y:20,w:80,h:20},rawBox:{x:20,y:20,w:80,h:20}}),Object.assign(mkTextCand(LABEL_TEXT_CONTENT),{id:"pp_c2",no:2,designNodeIds:["n2"],designBox:{x:20,y:60,w:40,h:20},rawBox:{x:20,y:60,w:40,h:20}})]};
+  applyPolicyToResult(polR);results=[polR];currentResult=0;selectedCandidateId=null;variableOpen=false;compareOn=false;
+  var polSent=[],polRealPost=post;post=function(m){polSent.push(m);};
+  renderReview();
+  var foldEl=numberLists.querySelector(".number-group.fold");
+  check("가변 글자는 접힌 묶음으로(기본 접힘) · 건수 표시",!!foldEl&&!foldEl.classList.contains("open")&&foldEl.textContent.indexOf("가변 글자·요소 2건")>=0&&getComputedStyle(foldEl.querySelector(".fold-body")).display==="none");
+  check("화면 종류 스위치가 일반화면(이름 추정)으로 표시",kindData.classList.contains("on")&&!kindCommon.classList.contains("on")&&kindAuto.textContent.indexOf("추정")>=0);
+  foldEl.querySelector(".number-title").onclick();
+  check("묶음 제목을 누르면 펼쳐짐 · '고정' 버튼 제공",numberLists.querySelector(".number-group.fold").classList.contains("open")&&numberLists.querySelectorAll('[data-override="fixed"]').length===2);
+  numberLists.querySelector('[data-override="fixed"][data-id="pp_c2"]').onclick();
+  check("'고정'을 누르면 검토 후보로 올라오고 디자인 프레임에 저장·캔버스 색 갱신",polR.candidates[1].status==="review"&&polDesign.policy.variable.n2===false&&polSent.some(function(m){return m.type==="set-design-policy"&&m.designId==="pd"&&m.policy.variable.n2===false;})&&polSent.some(function(m){return m.type==="candidate-status"&&m.candidateId==="pp_c2"&&m.status==="review";}));
+  check("검토 후보의 글자 행에는 '가변' 버튼",numberLists.querySelectorAll('[data-override="variable"][data-id="pp_c2"]').length===1);
+  numberLists.querySelector('[data-override="variable"][data-id="pp_c2"]').onclick();
+  check("'가변'을 누르면 다시 가변 묶음으로(사람 판정 기억)",polR.candidates[1].status==="variable"&&polDesign.policy.variable.n2===true&&polR.candidates[1].detail.indexOf("사람이 가변으로 정함")>=0);
+  kindCommon.onclick();
+  check("화면 종류를 공통으로 바꾸면 저장되고 표시가 바뀜(사람이 정한 것은 유지)",polDesign.policy.screenType==="common"&&kindCommon.classList.contains("on")&&kindAuto.textContent===""&&polSent.some(function(m){return m.type==="set-design-policy"&&m.policy.screenType==="common";})&&polR.candidates[1].status==="variable"&&polR.candidates[0].status==="variable");
+  var polPayload=buildReportPayload(polR);
+  check("레포트 요약은 가변 글자를 후보 수에서 빼고 따로 적음",polPayload.summary.indexOf("후보 0건")===0&&polPayload.summary.indexOf("가변 글자(내용 미검사) 2")>=0&&polPayload.rows[0].statusText==="가변 글자(내용 미검사)");
+  post=polRealPost;results=[];currentResult=0;selectedCandidateId=null;variableOpen=false;compareOn=true;
   var failed=checks.filter(function(c){return!c.ok;});document.body.innerHTML='<pre id="selftest">SELFTEST '+(failed.length?'FAIL':'PASS')+'\n'+checks.map(function(c){return(c.ok?'✓ ':'✗ ')+c.name;}).join('\n')+'</pre>';document.title=failed.length?'SELFTEST FAIL':'SELFTEST PASS';
 }
 if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});

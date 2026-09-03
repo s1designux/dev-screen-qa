@@ -13,7 +13,8 @@ var reportNodeByPair = {};
 var compareNodeByPair = {};
 var lastProgrammaticSelectionAt = 0;
 var TRIM_KEY = "imageQaTopTrim";
-var OVERLAY_FIX_KEY = "imageQaOverlayFix"; // 사람이 직접 끌어 맞춘 겹쳐보기 위치(캡처 노드 좌표계) // 사람이 정한 검수 범위(캡처 위쪽 제외 px). 캡처 노드에 남겨 다음 검수에도 쓴다.
+var OVERLAY_FIX_KEY = "imageQaOverlayFix";
+var POLICY_KEY = "imageQaPolicy"; // 디자인 프레임에 두는 작은 설정값: 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부. 검수 결과가 아니라 설정이다. // 사람이 직접 끌어 맞춘 겹쳐보기 위치(캡처 노드 좌표계) // 사람이 정한 검수 범위(캡처 위쪽 제외 px). 캡처 노드에 남겨 다음 검수에도 쓴다.
 var resultNodeByPair = {};
 var candidateNodeById = {};
 var overlayNodeByPair = {};
@@ -66,7 +67,15 @@ function safeStrokeWidth(node) {
   return null;
 }
 
-function readDesignElement(node, rootBox, depth, parentId, parentType) {
+function textPropRef(node) {
+  // 이 글자가 컴포넌트의 어느 글자 속성(label, placeholder, value…)에 묶여 있는지. 없으면 null.
+  try {
+    var refs = node.componentPropertyReferences;
+    if (refs && refs.characters) return String(refs.characters).replace(/#.*$/, "");
+  } catch (e) {}
+  return null;
+}
+function readDesignElement(node, rootBox, depth, parentId, parentType, chain) {
   var bb = node.absoluteBoundingBox;
   if (!bb || bb.width < 1 || bb.height < 1) return null;
   var box = {
@@ -78,6 +87,8 @@ function readDesignElement(node, rootBox, depth, parentId, parentType) {
     var fn = safeFont(node);
     base.kind = "text";
     base.text = String(node.characters || "").slice(0, 120);
+    base.chain = (chain || []).slice(0, 4); // 가까운 순서의 부모 이름·종류(역할 판단용: Input / Button / Table 행 …)
+    base.propRef = textPropRef(node);
     base.values = {
       text: base.text,
       fontSize: safeNumber(node.fontSize),
@@ -108,18 +119,29 @@ function readDesignElement(node, rootBox, depth, parentId, parentType) {
 function collectDesign(root) {
   var rb = root.absoluteBoundingBox;
   var items = [];
-  function walk(n, depth, parentId, parentType) {
+  function walk(n, depth, parentId, parentType, chain) {
     if (n.id !== root.id && n.visible !== false && n.absoluteBoundingBox) {
-      var el = readDesignElement(n, rb, depth, parentId, parentType);
+      var el = readDesignElement(n, rb, depth, parentId, parentType, chain);
       if (el) {
         var b = el.box;
         if (b.x < rb.width && b.y < rb.height && b.x + b.w > 0 && b.y + b.h > 0) items.push(el);
       }
     }
-    if ("children" in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i], depth + 1, n.id, n.type);
+    var nextChain = n.id === root.id ? [] : [{ n: String(n.name || ""), t: n.type }].concat(chain || []).slice(0, 4);
+    if ("children" in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i], depth + 1, n.id, n.type, nextChain);
   }
-  walk(root, 0, null, null);
+  walk(root, 0, null, null, []);
   return items;
+}
+
+function readDesignPolicy(node) {
+  // 디자인 프레임에 저장된 설정값(화면 종류·글자 가변 여부). 없거나 깨졌으면 null.
+  try {
+    var raw = node.getPluginData ? node.getPluginData(POLICY_KEY) : "";
+    if (!raw) return null;
+    var p = JSON.parse(raw);
+    return p && typeof p === "object" ? p : null;
+  } catch (e) { return null; }
 }
 
 function selectableFrame(n) {
@@ -237,7 +259,7 @@ async function exportSelectedDesigns() {
       id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
       x: round1(bb.x), y: round1(bb.y),
       width: round1(bb.width), height: round1(bb.height),
-      bytes: Array.from(bytes), elements: collectDesign(root)
+      bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root)
     });
   }
   return out;
@@ -267,9 +289,10 @@ function statusColor(status) {
   if (status === "confirmed") return paint("DC2626");
   if (status === "excluded") return paint("6B7280");
   if (status === "hold") return paint("CA8A04");
+  if (status === "variable") return paint("5B7DB1"); // 가변 글자(내용은 검사하지 않음)
   return paint("EA580C");
 }
-function statusOpacity(status) { return status === "excluded" ? 0.25 : 1; }
+function statusOpacity(status) { return status === "excluded" ? 0.25 : status === "variable" ? 0.4 : 1; }
 function makeText(font, value, size, color) {
   var t = figma.createText();
   t.fontName = font; t.characters = value; t.fontSize = size;
@@ -861,7 +884,7 @@ figma.ui.onmessage = async function (msg) {
             id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
             x: round1(bb.x), y: round1(bb.y),
             width: round1(bb.width), height: round1(bb.height),
-            bytes: Array.from(bytes), elements: collectDesign(root)
+            bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root)
           });
         }
       }
@@ -902,6 +925,10 @@ figma.ui.onmessage = async function (msg) {
         var bbT = capNode.absoluteBoundingBox, sc = bbT ? Math.min(1, 4096 / Math.max(1, Math.max(bbT.width, bbT.height))) : 1;
         capNode.setPluginData(TRIM_KEY, String(Math.max(0, Math.round((Number(msg.topTrim) || 0) / sc)))); // 노드 좌표계(export 배율 되돌림)로 저장
       }
+    } else if (msg.type === "set-design-policy") {
+      // 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부를 디자인 프레임에 작은 설정값으로 저장한다.
+      var policyNode = msg.designId ? await figma.getNodeByIdAsync(msg.designId) : null;
+      if (policyNode && policyNode.setPluginData) policyNode.setPluginData(POLICY_KEY, msg.policy ? JSON.stringify(msg.policy) : "");
     } else if (msg.type === "notify") {
       figma.notify(msg.message);
     }

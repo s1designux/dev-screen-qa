@@ -8,7 +8,8 @@ const ui = fs.readFileSync(fs.existsSync(uiPath) ? uiPath : '/Users/designgroup_
 const el = JSON.parse(fs.readFileSync(path.join(here, process.env.ELEMENTS_JSON || 'elements.json'), 'utf8'));
 const elements = el.rows.map(r => {
   const o = {}; el.cols.forEach((c, i) => o[c] = r[i]);
-  const e = { id: o.id, name: o.id, type: o.type, kind: o.kind, depth: o.depth, parentId: o.parentId, parentType: null, box: { x: o.x, y: o.y, w: o.w, h: o.h }, text: o.text || '' };
+  const e = { id: o.id, name: o.name || o.id, type: o.type, kind: o.kind, depth: o.depth, parentId: o.parentId, parentType: null, box: { x: o.x, y: o.y, w: o.w, h: o.h }, text: o.text || '' };
+  if (o.chain) e.chain = o.chain; if (o.propRef) e.propRef = o.propRef; // 역할 판단용(있을 때만)
   if (o.kind === 'text') e.values = { text: o.text, fontSize: o.fontSize, fontWeight: o.fontWeight, fontFamily: 'Pretendard Variable', fontStyle: '', lineHeight: '130%', color: o.color, textAlign: 'LEFT' };
   else e.values = { width: o.w, height: o.h, fill: o.fill, stroke: o.stroke, strokeWidth: o.strokeWidth, radius: o.radius, opacity: 1 };
   return e;
@@ -41,7 +42,7 @@ async function __run(){
   var scale=Math.min(1,${process.env.DESIGN_MAX||1200}/Math.max(full.width,full.height));
   var dc=canvasFor(Math.round(full.width*scale),Math.round(full.height*scale));dc.getContext("2d").drawImage(full,0,0,dc.width,dc.height);
   var cap=await __load(${JSON.stringify(devB64)});
-  var design={id:${JSON.stringify(el.frame.id)},name:"design",width:${el.frame.width},height:${el.frame.height},elements:${JSON.stringify(elements)}};
+  var design={id:${JSON.stringify(el.frame.id)},name:${JSON.stringify(el.frame.name||"design")},width:${el.frame.width},height:${el.frame.height},elements:${JSON.stringify(elements)},policy:${process.env.SCREEN_TYPE?JSON.stringify({screenType:process.env.SCREEN_TYPE}):"null"}}; // SCREEN_TYPE=common|data 로 화면 종류를 정할 수 있다(없으면 프레임 이름으로 추정)
   var capture={img:cap,width:cap.width,height:cap.height};
   var t0=performance.now();
   if(${JSON.stringify(process.env.TOP_TRIM||'')}!=="")capture.topTrim=Number(${JSON.stringify(process.env.TOP_TRIM||'0')});
@@ -57,7 +58,7 @@ async function __run(){
   function __exactMin(box,dx,dy){var c=window.__ctx,W=c.W,H=c.H,best=1;for(var oy=-1;oy<=1;oy++)for(var ox=-1;ox<=1;ox++){var miss=0,uni=0;for(var y=Math.floor(box.y);y<box.y+box.h;y++)for(var x=Math.floor(box.x);x<box.x+box.w;x++){var cx=x+dx+ox,cy=y+dy+oy;if(x<0||y<0||x>=W||y>=H||cx<0||cy<0||cx>=W||cy>=H)continue;var a=c.dE[y*W+x]>30,b=c.cE[cy*W+cx]>30;if(a||b){uni++;if(a!==b)miss++;}}var m=uni?miss/uni:1;if(m<best)best=m;}return best;}
   window.__unitDbg.forEach(function(u){if(u.kind!=="text")return;var c=window.__ctx,pb=u.pb,segW=Math.max(24,Math.round(pb.h*2)),step=Math.max(8,Math.round(segW/2)),segs=[];for(var x=pb.x;x+segW<=pb.x+pb.w+step;x+=step){var seg={x:x,y:pb.y,w:Math.min(segW,pb.x+pb.w-x),h:pb.h};if(seg.w<segW*.6)break;var bestN=-2,bestO=0,md=Math.max(3,Math.round(pb.w*.1));for(var o=-md;o<=md;o+=2){var nn=grayPatchNCC(c.dd.data,c.cd.data,c.W,c.H,seg,u.dx+o,u.dy);if(nn>bestN){bestN=nn;bestO=o;}}segs.push([Math.round(x),+grayPatchNCC(c.dd.data,c.cd.data,c.W,c.H,seg,u.dx,u.dy).toFixed(2),+bestN.toFixed(2),bestO]);}u.segs=segs;u.bncc=+__blurNCC(u.pb,u.dx,u.dy).toFixed(2);u.exact=+__exactMin(u.pb,u.dx,u.dy).toFixed(2);});
 
-  var lite=cands.map(function(c){return{no:c.no,kind:c.kind||"area",label:c.label,detail:c.detail,confidence:c.confidence,rawBox:{x:Math.round(c.rawBox.x),y:Math.round(c.rawBox.y),w:Math.round(c.rawBox.w),h:Math.round(c.rawBox.h)},designBox:{x:Math.round(c.designBox.x),y:Math.round(c.designBox.y),w:Math.round(c.designBox.w),h:Math.round(c.designBox.h)},designNodeIds:c.designNodeIds,designValues:c.designValues};});
+  var lite=cands.map(function(c){return{no:c.no,status:c.status,policy:c.policy?c.policy.source+":"+(c.policy.variable?"가변":"고정"):null,kind:c.kind||"area",label:c.label,detail:c.detail,confidence:c.confidence,rawBox:{x:Math.round(c.rawBox.x),y:Math.round(c.rawBox.y),w:Math.round(c.rawBox.w),h:Math.round(c.rawBox.h)},designBox:{x:Math.round(c.designBox.x),y:Math.round(c.designBox.y),w:Math.round(c.designBox.w),h:Math.round(c.designBox.h)},designNodeIds:c.designNodeIds,designValues:c.designValues};});
   var ov=canvasFor(cap.width,cap.height),ox=ov.getContext("2d");ox.drawImage(cap,0,0);
   cands.forEach(function(c){var col=c.kind==="spacing"?"#CA8A04":"#EA580C";ox.strokeStyle=col;ox.lineWidth=3;ox.strokeRect(c.rawBox.x,c.rawBox.y,c.rawBox.w,c.rawBox.h);ox.fillStyle=col;ox.beginPath();ox.arc(c.rawBox.x-6,c.rawBox.y-6,14,0,7);ox.fill();ox.fillStyle="#fff";ox.font="bold 15px sans-serif";ox.textAlign="center";ox.textBaseline="middle";ox.fillText(String(c.no),c.rawBox.x-6,c.rawBox.y-6);});
   // 정렬된 디자인을 개발 이미지 좌표계로 반투명 겹침
@@ -86,4 +87,4 @@ if (process.env.CASE_FILE) { console.log(text); process.exit(0); }
 const out = JSON.parse(text);
 console.log('model', JSON.stringify(out.model), 'timing', JSON.stringify(out.timing));
 console.log('notices',out.notices);console.log('range',JSON.stringify(out.range));console.log('sections',JSON.stringify(out.sections));
-out.candidates.forEach(c => console.log(`#${c.no} [${c.kind}] ${c.label} ${c.detail?'— '+c.detail:''} conf=${c.confidence || '-'} raw=${JSON.stringify(c.rawBox)} design=${JSON.stringify(c.designBox)} nodes=${(c.designNodeIds || []).join(',')}`));
+out.candidates.forEach(c => console.log(`#${c.no} [${c.kind}]${c.status==='variable'?' (가변 글자 묶음)':''}${c.policy?' {'+c.policy+'}':''} ${c.label} ${c.detail?'— '+c.detail:''} conf=${c.confidence || '-'} raw=${JSON.stringify(c.rawBox)} design=${JSON.stringify(c.designBox)} nodes=${(c.designNodeIds || []).join(',')}`));
