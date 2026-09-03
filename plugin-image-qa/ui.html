@@ -117,10 +117,8 @@
   .candidate-hit{min-width:0;min-height:36px;height:auto;padding:4px 4px;border-color:transparent;display:flex;align-items:center;gap:7px;line-height:normal;text-align:left}
   .candidate-hit:hover{background:#F7FAFF;border-color:#DCE7F8}
   .num{width:30px;height:30px;padding:0;border:1px solid #D9D9D9;border-radius:50%;font-weight:800;font-size:12px;background:#FFFFFF;line-height:28px;text-align:center;flex-shrink:0}
-  .num.review{border-color:#E65100;color:#E65100}
   .num.confirmed{border-color:#D32F2F;background:#D32F2F;color:#FFFFFF}
   .num.excluded{border-color:#999999;color:#999999;opacity:.45}
-  .num.hold{border-color:#F9A825;color:#F9A825}
   .num.variable{border-color:#5B7DB1;color:#5B7DB1;opacity:.6}
   .candidate-actions .var{color:#5B7DB1}
   .number-group.fold .number-title{cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
@@ -531,17 +529,17 @@ function applySelectionStatus(message){
   else designStatus.textContent=rowProblemText(rowResult.invalid);
 }
 backPrepare.onclick=function(){setView("prepare");post({type:"request-selection-status"});};
-var STATUS_LABEL={review:"검토 필요",confirmed:"오류확정",excluded:"제외",hold:"보류",variable:"가변 글자(내용 미검사)"};
-function statusLabel(v){return STATUS_LABEL[v]||"검토 필요";}
+var STATUS_LABEL={confirmed:"오류확정",excluded:"제외(오류 아님)",variable:"가변 글자(내용 미검사)"};
+function statusLabel(v){return STATUS_LABEL[v]||"오류확정";}
 function todayText(){var d=new Date(),p=function(n){return(n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
 function buildReportPayload(r){
   // 캔버스 메모장에 그릴 내용. 상태·사유·상세·디자인 원본값을 번호 순서대로 담는다.
-  var counts={review:0,confirmed:0,excluded:0,hold:0,variable:0};
+  var counts={confirmed:0,excluded:0,variable:0};
   var rows=r.candidates.map(function(c){
     counts[c.status]=(counts[c.status]||0)+1;
     return{no:c.no,status:c.status,statusText:statusLabel(c.status),reason:candidateReason(c),detail:c.detail||"",designValues:c.designValues||""};
   });
-  var summary="후보 "+(rows.length-counts.variable)+"건 · 검토 필요 "+counts.review+" · 오류확정 "+counts.confirmed+" · 제외 "+counts.excluded+" · 보류 "+counts.hold+(counts.variable?" · 가변 글자(내용 미검사) "+counts.variable:"");
+  var summary="후보 "+(rows.length-counts.variable)+"건 · 오류확정 "+counts.confirmed+" · 제외 "+counts.excluded+(counts.variable?" · 가변 글자(내용 미검사) "+counts.variable:"");
   var g=r.range||{},warn=!g.captureTop&&!!g.stripDetected;
   return{type:"build-report",pairId:r.pairId,screenName:r.design.name||"검수 화면",date:todayText(),
     summary:summary,rangeText:"검수 범위 — "+rangeSummaryText(g,warn),rows:rows};
@@ -657,15 +655,15 @@ function buildTextPolicy(design){
 }
 var CONTENT_LABELS=[LABEL_TEXT_CONTENT,LABEL_TEXT_WRAP,LABEL_TEXT_SIZE,LABEL_TEXT_FONT,LABEL_TEXT_SHAPE];
 function applyTextPolicy(c,pol){
-  // 가변 글자면 내용에 따라 달라지는 후보(내용·줄바꿈·폭·글씨체·모양)는 '가변 글자' 묶음으로 내리고, 높이·색 차이만 검토 후보로 남긴다.
-  // 사람이 이미 판정(오류확정·제외·보류)한 번호는 건드리지 않는다.
+  // 가변 글자면 내용에 따라 달라지는 후보(내용·줄바꿈·폭·글씨체·모양)는 '가변 글자' 묶음으로 내리고, 높이·색 차이만 오류 후보로 남긴다.
+  // 사람이 직접 누른 번호(오류확정·제외)는 건드리지 않는다.
   if(!c||c.kind!=="text"||!c.base)return c;
-  c.policy=pol||null;var judged=c.status==="confirmed"||c.status==="excluded"||c.status==="hold",alt=c.textAlt||{};
+  c.policy=pol||null;var judged=!!c.userSet,alt=c.textAlt||{};
   var contentish=CONTENT_LABELS.indexOf(c.base.label)>=0;
-  if(!pol||!pol.variable||!contentish){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="review";return c;}
+  if(!pol||!pol.variable||!contentish){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="confirmed";return c;}
   var tag="가변 글자("+pol.reason+") · 내용 차이는 오류로 세지 않았어요.";
-  if(alt.heightRatio&&(alt.heightRatio<.8||alt.heightRatio>1.25)){c.label=LABEL_TEXT_SIZE;c.detail=tag+" 그런데 글자 높이가 디자인과 다르게 보입니다. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,70);if(c.status==="variable")c.status="review";return c;}
-  if(alt.colorDiff>70){c.label=LABEL_COLOR;c.detail=tag+" 그런데 글자색이 다르게 보입니다(디자인 "+(alt.designColor||"")+").";c.confidence=clamp(Math.round(50+alt.colorDiff/4),55,88);if(c.status==="variable")c.status="review";return c;}
+  if(alt.heightRatio&&(alt.heightRatio<.8||alt.heightRatio>1.25)){c.label=LABEL_TEXT_SIZE;c.detail=tag+" 그런데 글자 높이가 디자인과 다르게 보입니다. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,70);if(c.status==="variable")c.status="confirmed";return c;}
+  if(alt.colorDiff>70){c.label=LABEL_COLOR;c.detail=tag+" 그런데 글자색이 다르게 보입니다(디자인 "+(alt.designColor||"")+").";c.confidence=clamp(Math.round(50+alt.colorDiff/4),55,88);if(c.status==="variable")c.status="confirmed";return c;}
   c.label=c.base.label;c.detail=tag+" "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,50);
   if(!judged)c.status="variable";return c;
 }
@@ -673,8 +671,8 @@ var ROW_UNIT_KINDS={position:1,shape:1,icon:1};
 function applyUnitPolicy(c,pol){
   // 글자가 아닌 요소(칩·아이콘·도형)의 위치·모양·색 후보: 반복 행 안의 요소면 데이터에 따라 달라질 수 있어 '가변' 묶음으로 내린다. 누락·간격은 그대로.
   if(!c||!ROW_UNIT_KINDS[c.kind]||!c.base)return c;
-  c.policy=pol||null;var judged=c.status==="confirmed"||c.status==="excluded"||c.status==="hold";
-  if(!pol||!pol.variable){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="review";return c;}
+  c.policy=pol||null;var judged=!!c.userSet;
+  if(!pol||!pol.variable){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="confirmed";return c;}
   c.label=c.base.label;c.detail="가변 요소("+pol.reason+") · 데이터가 달라서 생긴 차이일 수 있어요. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,50);
   if(!judged)c.status="variable";return c;
 }
@@ -1100,7 +1098,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   function logicalOf(bx){return{x:bx.x*scaleX,y:bx.y*scaleY,w:bx.w*scaleX,h:bx.h*scaleY};}
   function shifted(bx,dx,dy){return{x:bx.x+dx,y:bx.y+dy,w:bx.w,h:bx.h};}
   var cands=[];
-  function push(c){c.status="review";cands.push(c);}
+  function push(c){c.status="confirmed";cands.push(c);}
   // 1) 누락 — 부모가 이미 누락이면 자식은 말하지 않는다.
   results.forEach(function(res){
     if(!res.missing)return;var anc=ancestorResult(res,byId,resultByElId);if(anc&&anc.missing)return;
@@ -1203,7 +1201,7 @@ function uncoveredAreaCandidates(design,designImg,capture,model,results,sections
     else if(cEn>8&&dEn<cEn*.35)label=LABEL_EXTRA;
     else if((dv.kinds||[]).some(function(k){return k==="image"||k==="icon";}))label=LABEL_ICON;
     else{var dAvg=averageCell(dd.data,w,h,wx,wy,wx+ww,wy+wh),cAvg=averageCell(cd.data,w,h,wx+o.dx,wy+o.dy,wx+ww+o.dx,wy+wh+o.dy);label=colorDistance(dAvg,cAvg)>45&&Math.abs(dEn-cEn)<12?LABEL_COLOR:LABEL_SHAPE;}
-    return{status:"review",kind:"area",rawBox:raw,designBox:logical,designNodeIds:dv.ids,designValues:dv.text,label:label};});
+    return{status:"confirmed",kind:"area",rawBox:raw,designBox:logical,designNodeIds:dv.ids,designValues:dv.text,label:label};});
 }
 
 async function runCompare(){
@@ -1353,17 +1351,17 @@ function renderReview(){
     document.getElementById("overlayRecheck").onclick=function(){recompareWithOverlay();};
     return;
   }
-  var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"},{k:"variable",t:"가변 글자·요소",fold:true}],html="";
+  var groups=[{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외(오류 아님)"},{k:"variable",t:"가변 글자·요소",fold:true}],html="";
   var extraNotices=(r.notices||[]).filter(function(n){return !/^디자인 (위쪽|아래쪽) ‘|^개발 캡처 (위|아래)쪽 /.test(n);}); // 검수 범위 카드가 이미 보여주는 내용은 뺀다
   if(extraNotices.length)html+='<div class="tip notice">'+extraNotices.map(esc).join('<br>')+'</div>';
   groups.forEach(function(g){
     var list=r.candidates.filter(function(c){return c.status===g.k;});
     if(!list.length)return;
-    if(g.fold)html+='<div class="number-group fold'+(variableOpen?' open':'')+'" data-fold="'+g.k+'"><div class="number-title" role="button" tabindex="0" aria-expanded="'+(variableOpen?'true':'false')+'"><span class="caret" aria-hidden="true">▶</span>'+g.t+' '+list.length+'건 · 내용은 직접 확인</div><div class="fold-body"><div class="fold-hint">숫자·날짜·표 데이터처럼 바뀔 수 있는 글자와, 반복되는 행 안의 칩·아이콘입니다. 내용 차이는 오류로 세지 않았고, 글자의 색·높이·누락은 계속 검사합니다. 고정 문구라면 ‘고정’을 눌러 검토 후보로 올리세요.</div>';
+    if(g.fold)html+='<div class="number-group fold'+(variableOpen?' open':'')+'" data-fold="'+g.k+'"><div class="number-title" role="button" tabindex="0" aria-expanded="'+(variableOpen?'true':'false')+'"><span class="caret" aria-hidden="true">▶</span>'+g.t+' '+list.length+'건 · 내용은 직접 확인</div><div class="fold-body"><div class="fold-hint">숫자·날짜·표 데이터처럼 바뀔 수 있는 글자와, 반복되는 행 안의 칩·아이콘입니다. 내용 차이는 오류로 세지 않았고, 글자의 색·높이·누락은 계속 검사합니다. 고정 문구라면 ‘고정’을 눌러 오류 후보로 올리세요.</div>';
     else html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
     list.forEach(function(c){
       var actions=g.k==="variable"?'<button class="row-action var" data-id="'+c.id+'" data-override="fixed" title="고정 문구로 보고 내용까지 검사">고정</button>':
-        '<button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button>'+(c.kind==="text"&&c.base&&g.k==="review"?'<button class="row-action var" data-id="'+c.id+'" data-override="variable" title="바뀔 수 있는 글자로 보고 내용 차이는 오류로 세지 않기">가변</button>':'');
+        '<button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button>'+(c.kind==="text"&&c.base&&g.k==="confirmed"?'<button class="row-action var" data-id="'+c.id+'" data-override="variable" title="바뀔 수 있는 글자로 보고 내용 차이는 오류로 세지 않기">가변</button>':'');
       html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions">'+actions+'</span></div>';
     });
     html+=g.fold?'</div></div>':'</div>';
@@ -1544,7 +1542,7 @@ function focusCandidateFromCanvas(id){
   }
   return false;
 }
-function setCandidateStatus(id,status){var c=findCandidate(id);if(!c)return;c.status=status;post({type:"candidate-status",candidateId:c.id,status:c.status});renderReview();}
+function setCandidateStatus(id,status){var c=findCandidate(id);if(!c)return;c.status=status;c.userSet=true;post({type:"candidate-status",candidateId:c.id,status:c.status});renderReview();}
 prevScreen.onclick=function(){if(currentResult>0){currentResult--;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};nextScreen.onclick=function(){if(currentResult<results.length-1){currentResult++;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};
 function overlayPlacement(r){
   // 겹쳐보기 자리: 비교한 영역(디자인 틀 띠를 뺀 부분)의 맨 위를, 개발 캡처에서 내용이 시작되는 자리(잘라낸 띠 아래)에 맞춘다.
@@ -1826,7 +1824,7 @@ async function runSelfTest(){
   results=[];currentResult=0;selectedCandidateId=null;
   // 캔버스에 나란히 보기 카드 보내기
   var cvR={pairId:"cv",design:{id:"cvd",width:400,height:300,bytes:[]},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},
-    candidates:[{id:"cv1",no:1,status:"review",label:"글자 내용 또는 표기가 다르게 보입니다.",detail:"디자인 글자: “가나다”",designValues:"크기 16",designBox:{x:40,y:80,w:140,h:22},rawBox:{x:40,y:110,w:140,h:22}}],
+    candidates:[{id:"cv1",no:1,status:"confirmed",label:"글자 내용 또는 표기가 다르게 보입니다.",detail:"디자인 글자: “가나다”",designValues:"크기 16",designBox:{x:40,y:80,w:140,h:22},rawBox:{x:40,y:110,w:140,h:22}}],
     notices:[],sections:[],range:{designTop:40,designBottom:0,captureTop:70}};
   designImages["cvd"]=pageDes;results=[cvR];currentResult=0;selectedCandidateId="cv1";compareOn=true;canvasCompareKey=null;
   var sent=[],realPost=post;post=function(m){sent.push(m);};
@@ -1847,8 +1845,8 @@ async function runSelfTest(){
   check("패널 안 나란히 보기는 없음",!document.getElementById("compareStrip")&&typeof window.renderCompareStrip==="undefined");
   post=realPost;results=[];currentResult=0;selectedCandidateId=null;canvasCompareKey=null;delete designImages["cvd"];
   // 캔버스에서 번호를 눌렀을 때 패널이 따라오는지
-  var twoA={pairId:"pa",design:{id:"da",name:"화면A",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"a1",no:1,status:"review",label:"가",designBox:{x:1,y:1,w:9,h:9},rawBox:{x:1,y:1,w:9,h:9}}],notices:[],sections:[],range:{}};
-  var twoB={pairId:"pb",design:{id:"db",name:"화면B",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"b7",no:7,status:"review",label:"나",designBox:{x:2,y:2,w:9,h:9},rawBox:{x:2,y:2,w:9,h:9}}],notices:[],sections:[],range:{}};
+  var twoA={pairId:"pa",design:{id:"da",name:"화면A",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"a1",no:1,status:"confirmed",label:"가",designBox:{x:1,y:1,w:9,h:9},rawBox:{x:1,y:1,w:9,h:9}}],notices:[],sections:[],range:{}};
+  var twoB={pairId:"pb",design:{id:"db",name:"화면B",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"b7",no:7,status:"confirmed",label:"나",designBox:{x:2,y:2,w:9,h:9},rawBox:{x:2,y:2,w:9,h:9}}],notices:[],sections:[],range:{}};
   results=[twoA,twoB];currentResult=0;selectedCandidateId=null;compareWhere="canvas";canvasCompareKey=null;
   var sentSel=[],realPost2=post;post=function(m){sentSel.push(m);};
   // 캔버스에서 검수 화면(프레임·카드·레포트)을 눌렀을 때
@@ -1872,13 +1870,13 @@ async function runSelfTest(){
   // 검수 레포트 만들기
   var repR={pairId:"rp",design:{id:"rd",name:"웹_로그인 화면",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},
     candidates:[{id:"r1",no:1,status:"confirmed",label:"글자 내용 또는 표기가 다르게 보입니다.",detail:"디자인 글자: “가나다”",designValues:"크기 16"},
-                {id:"r2",no:2,status:"review",label:"요소의 위치 또는 정렬이 다릅니다.",detail:"",designValues:""},
+                {id:"r2",no:2,status:"confirmed",label:"요소의 위치 또는 정렬이 다릅니다.",detail:"",designValues:""},
                 {id:"r3",no:3,status:"excluded",label:"",detail:"",designValues:"크기 20"}],
     notices:[],sections:[],range:{designTop:101,designBottom:0,captureTop:119,stripDetected:119}};
   var payload=buildReportPayload(repR);
-  check("레포트 내용에 번호·사유·상태가 담김",payload.type==="build-report"&&payload.rows.length===3&&payload.rows[0].no===1&&payload.rows[0].statusText==="오류확정"&&payload.rows[1].statusText==="검토 필요"&&payload.rows[2].statusText==="제외");
+  check("레포트 내용에 번호·사유·상태가 담김",payload.type==="build-report"&&payload.rows.length===3&&payload.rows[0].no===1&&payload.rows[0].statusText==="오류확정"&&payload.rows[1].statusText==="오류확정"&&payload.rows[2].statusText==="제외(오류 아님)");
   check("사유가 없으면 대체 문구를 넣음",payload.rows[2].reason==="디자인값과 다름");
-  check("레포트에 건수 요약",payload.summary==="후보 3건 · 검토 필요 1 · 오류확정 1 · 제외 1 · 보류 0");
+  check("레포트에 건수 요약",payload.summary==="후보 3건 · 오류확정 2 · 제외 1");
   check("레포트에 검수 범위와 화면 이름",payload.rangeText==="검수 범위 — 디자인 위 101px 제외 · 개발 위 119px 제외"&&payload.screenName==="웹_로그인 화면"&&/^\d{4}-\d{2}-\d{2}$/.test(payload.date));
   var repSent=[],repPost=post;post=function(m){repSent.push(m);};
   results=[repR];currentResult=0;buildReport.onclick();
@@ -1977,26 +1975,27 @@ async function runSelfTest(){
   var loginDesign={name:"웹_로그인 화면",width:400,height:300,elements:[{id:"in",type:"INSTANCE",kind:"shape",parentId:null,box:{x:20,y:20,w:300,h:48},values:{stroke:"#CCCCCC"}},{id:"ph",kind:"text",parentId:"in",text:"아이디를 입력해 주세요.",chain:[{n:"Input/Default",t:"INSTANCE"}],box:{x:36,y:34,w:160,h:20},values:{}},{id:"lb",kind:"text",parentId:null,text:"아이디 저장",box:{x:20,y:90,w:80,h:20},values:{}},{id:"bt",kind:"text",parentId:null,text:"로그인",chain:[{n:"Button/Primary",t:"INSTANCE"}],box:{x:150,y:130,w:60,h:20},values:{}},{id:"ft",kind:"text",parentId:null,text:"(주)에스원   사업자등록번호 208-81-13342",box:{x:20,y:260,w:300,h:16},values:{}}]};
   var lp=buildTextPolicy(loginDesign);
   check("로그인 화면: 플레이스홀더·라벨·버튼·회사 정보 전부 고정",[lp.ph,lp.lb,lp.bt,lp.ft].every(function(x){return x.variable===false;})&&lp.ph.source==="pattern"&&lp.lb.source==="screen"&&lp.bt.source==="role");
-  function mkTextCand(label,alt){return{kind:"text",status:"review",designNodeIds:["n1"],label:label,detail:"디자인 글자: “전체 9,999”",confidence:80,base:{label:label,detail:"디자인 글자: “전체 9,999”",confidence:80},textAlt:alt||{}};}
+  function mkTextCand(label,alt){return{kind:"text",status:"confirmed",designNodeIds:["n1"],label:label,detail:"디자인 글자: “전체 9,999”",confidence:80,base:{label:label,detail:"디자인 글자: “전체 9,999”",confidence:80},textAlt:alt||{}};}
   var vc=applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT),{variable:true,reason:"숫자·날짜·자리표시 값"});
   check("가변 글자의 내용 차이 → '가변 글자' 상태로 내림(라벨은 유지, 사유에 이유)",vc.status==="variable"&&vc.label===LABEL_TEXT_CONTENT&&vc.detail.indexOf("가변 글자(숫자·날짜·자리표시 값)")===0&&vc.confidence<=50);
-  check("가변 글자라도 글자색이 다르면 색상 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120,designColor:"#1D6CEB"}),{variable:true,reason:"x"}).status==="review"&&applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120}),{variable:true,reason:"x"}).label===LABEL_COLOR);
-  check("가변 글자라도 글자 높이가 다르면 크기 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).label===LABEL_TEXT_SIZE&&applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).status==="review");
-  check("내용과 무관한 후보(색·위치)는 가변이어도 그대로 검토",applyTextPolicy(mkTextCand(LABEL_COLOR),{variable:true,reason:"x"}).status==="review"&&applyTextPolicy(mkTextCand(LABEL_TEXT_POS),{variable:true,reason:"x"}).status==="review");
+  check("가변 글자라도 글자색이 다르면 색상 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120,designColor:"#1D6CEB"}),{variable:true,reason:"x"}).status==="confirmed"&&applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT,{colorDiff:120}),{variable:true,reason:"x"}).label===LABEL_COLOR);
+  check("가변 글자라도 글자 높이가 다르면 크기 후보로 검토",applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).label===LABEL_TEXT_SIZE&&applyTextPolicy(mkTextCand(LABEL_TEXT_WRAP,{heightRatio:1.5}),{variable:true,reason:"x"}).status==="confirmed");
+  check("내용과 무관한 후보(색·위치)는 가변이어도 그대로 검토",applyTextPolicy(mkTextCand(LABEL_COLOR),{variable:true,reason:"x"}).status==="confirmed"&&applyTextPolicy(mkTextCand(LABEL_TEXT_POS),{variable:true,reason:"x"}).status==="confirmed");
   var backC=applyTextPolicy(applyTextPolicy(mkTextCand(LABEL_TEXT_CONTENT),{variable:true,reason:"x"}),{variable:false,reason:"y"});
-  check("고정으로 되돌리면 원래 판정 그대로 복구",backC.status==="review"&&backC.label===LABEL_TEXT_CONTENT&&backC.detail==="디자인 글자: “전체 9,999”"&&backC.confidence===80);
-  var judgedC=mkTextCand(LABEL_TEXT_CONTENT);judgedC.status="confirmed";applyTextPolicy(judgedC,{variable:true,reason:"x"});
-  check("사람이 이미 판정한 번호는 가변 판정이 건드리지 않음",judgedC.status==="confirmed");
+  check("고정으로 되돌리면 원래 판정 그대로 복구",backC.status==="confirmed"&&backC.label===LABEL_TEXT_CONTENT&&backC.detail==="디자인 글자: “전체 9,999”"&&backC.confidence===80);
+  var judgedC=mkTextCand(LABEL_TEXT_CONTENT);judgedC.status="excluded";judgedC.userSet=true;applyTextPolicy(judgedC,{variable:true,reason:"x"});
+  var autoC=mkTextCand(LABEL_TEXT_CONTENT);applyTextPolicy(autoC,{variable:true,reason:"x"});
+  check("사람이 직접 누른 번호는 가변 판정이 건드리지 않음(안 누른 기본값은 가변으로 내려감)",judgedC.status==="excluded"&&autoC.status==="variable");
   var rowPol=buildTextPolicy(tableDesign);
   check("반복 행 안의 칩·도형에도 가변 항목(데이터 따라 자리·내용이 바뀜)",rowPol.r1&&rowPol.r1.variable&&rowPol.r1.source==="repeat"&&!rowPol.btn&&!rowPol.tbl);
-  var chipMove={kind:"position",status:"review",designNodeIds:["r1"],label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94,base:{label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94}};
+  var chipMove={kind:"position",status:"confirmed",designNodeIds:["r1"],label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94,base:{label:LABEL_MOVED,detail:"아래로 약 47px",confidence:94}};
   check("반복 행 안 요소의 위치 이동 후보는 가변 묶음으로",applyCandidatePolicy(chipMove,rowPol).status==="variable"&&chipMove.detail.indexOf("가변 요소(")===0);
-  var btnMove={kind:"position",status:"review",designNodeIds:["btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
-  check("행 밖 요소의 위치 이동은 그대로 검토",applyCandidatePolicy(btnMove,rowPol).status==="review");
-  var mixed={kind:"position",status:"review",designNodeIds:["r1","btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
-  check("고정 요소가 하나라도 섞인 묶음 이동은 검토 유지",applyCandidatePolicy(mixed,rowPol).status==="review");
-  var missTxt={kind:"missing",status:"review",designNodeIds:["r1a"],label:LABEL_MISSING,base:{label:LABEL_MISSING}};
-  check("누락 후보는 가변이어도 검토 유지(구조 차이)",applyCandidatePolicy(missTxt,rowPol).status==="review");
+  var btnMove={kind:"position",status:"confirmed",designNodeIds:["btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
+  check("행 밖 요소의 위치 이동은 그대로 검토",applyCandidatePolicy(btnMove,rowPol).status==="confirmed");
+  var mixed={kind:"position",status:"confirmed",designNodeIds:["r1","btn"],label:LABEL_MOVED,detail:"x",confidence:94,base:{label:LABEL_MOVED,detail:"x",confidence:94}};
+  check("고정 요소가 하나라도 섞인 묶음 이동은 검토 유지",applyCandidatePolicy(mixed,rowPol).status==="confirmed");
+  var missTxt={kind:"missing",status:"confirmed",designNodeIds:["r1a"],label:LABEL_MISSING,base:{label:LABEL_MISSING}};
+  check("누락 후보는 가변이어도 검토 유지(구조 차이)",applyCandidatePolicy(missTxt,rowPol).status==="confirmed");
   // 패널: 가변 묶음 접힘·고정/가변 버튼·화면 종류 스위치·저장 메시지
   var polDesign={id:"pd",name:"차량 운행 목록",width:400,height:300,elements:[{id:"n1",kind:"text",parentId:null,text:"전체 9,999",box:{x:20,y:20,w:80,h:20},values:{}},{id:"n2",kind:"text",parentId:null,text:"운행",box:{x:20,y:60,w:40,h:20},values:{}}]};
   var polR={pairId:"pp",design:polDesign,capture:{img:canvasFor(10,10),width:10,height:10,displayScale:1},alignment:{s:1,tx:0,ty:0},notices:[],sections:[],range:{bands:[],designTop:0,designBottom:0,captureTop:0},
@@ -2010,8 +2009,8 @@ async function runSelfTest(){
   foldEl.querySelector(".number-title").onclick();
   check("묶음 제목을 누르면 펼쳐짐 · '고정' 버튼 제공",numberLists.querySelector(".number-group.fold").classList.contains("open")&&numberLists.querySelectorAll('[data-override="fixed"]').length===2);
   numberLists.querySelector('[data-override="fixed"][data-id="pp_c2"]').onclick();
-  check("'고정'을 누르면 검토 후보로 올라오고 디자인 프레임에 저장·캔버스 색 갱신",polR.candidates[1].status==="review"&&polDesign.policy.variable.n2===false&&polSent.some(function(m){return m.type==="set-design-policy"&&m.designId==="pd"&&m.policy.variable.n2===false;})&&polSent.some(function(m){return m.type==="candidate-status"&&m.candidateId==="pp_c2"&&m.status==="review";}));
-  check("검토 후보의 글자 행에는 '가변' 버튼",numberLists.querySelectorAll('[data-override="variable"][data-id="pp_c2"]').length===1);
+  check("'고정'을 누르면 오류 후보로 올라오고 디자인 프레임에 저장·캔버스 색 갱신",polR.candidates[1].status==="confirmed"&&polDesign.policy.variable.n2===false&&polSent.some(function(m){return m.type==="set-design-policy"&&m.designId==="pd"&&m.policy.variable.n2===false;})&&polSent.some(function(m){return m.type==="candidate-status"&&m.candidateId==="pp_c2"&&m.status==="confirmed";}));
+  check("오류확정 글자 행에는 '가변' 버튼",numberLists.querySelectorAll('[data-override="variable"][data-id="pp_c2"]').length===1);
   numberLists.querySelector('[data-override="variable"][data-id="pp_c2"]').onclick();
   check("'가변'을 누르면 다시 가변 묶음으로(사람 판정 기억)",polR.candidates[1].status==="variable"&&polDesign.policy.variable.n2===true&&polR.candidates[1].detail.indexOf("사람이 가변으로 정함")>=0);
   kindCommon.onclick();

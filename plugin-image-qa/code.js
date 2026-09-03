@@ -213,6 +213,16 @@ function postSelectionStatus() {
 
 if (typeof figma.on === "function") figma.on("selectionchange", postSelectionStatus);
 
+// 패널을 닫는 순간 캔버스 번호를 다시 또렷하게 되돌린다.
+// (검수 중 다른 번호를 흐리게 해 둔 상태가 그대로 남아 문서로 읽기 어려운 문제)
+function restoreCandidatesForReading() {
+  allCandidateGroups().forEach(function (g) {
+    if (g.getPluginData(CANDIDATE_STATUS_KEY) === "excluded") { g.remove(); return; } // 검수 제외는 캔버스에서 지운다
+    g.opacity = readingOpacity(g.getPluginData(CANDIDATE_STATUS_KEY));
+  });
+}
+if (typeof figma.on === "function") figma.on("close", restoreCandidatesForReading);
+
 async function exportCaptureNode(node, index) {
   var bb = node.absoluteBoundingBox;
   var maxSide = Math.max(bb.width, bb.height);
@@ -291,11 +301,15 @@ function paint(hex) {
 function statusColor(status) {
   if (status === "confirmed") return paint("DC2626");
   if (status === "excluded") return paint("6B7280");
-  if (status === "hold") return paint("CA8A04");
   if (status === "variable") return paint("5B7DB1"); // 가변 글자(내용은 검사하지 않음)
-  return paint("EA580C");
+  return paint("DC2626"); // 따로 제외하지 않은 후보는 오류확정
 }
 function statusOpacity(status) { return status === "excluded" ? 0.25 : status === "variable" ? 0.4 : 1; }
+// 플러그인 패널을 닫았을 때는 캔버스를 그냥 문서처럼 읽는다.
+// 검수 중 흐림(고른 번호만 진하게)은 걷어내고, 가변 글자만 살짝 옅게 남겨 구분한다.
+// (검수 제외한 번호는 문서에 남길 필요가 없어 캔버스에서 지운다.)
+function readingOpacity(status) { return status === "variable" ? 0.8 : 1; }
+var CANDIDATE_STATUS_KEY = "imageQaCandidateStatus";
 function makeText(font, value, size, color) {
   var t = figma.createText();
   t.fontName = font; t.characters = value; t.fontSize = size;
@@ -598,6 +612,7 @@ async function buildCanvasResult(msg) {
     var group = figma.group(nodes, board); group.name = "검수 번호 " + c.no;
     group.opacity = statusOpacity(c.status);
     group.setPluginData(CANDIDATE_MARK, c.id);
+    group.setPluginData(CANDIDATE_STATUS_KEY, c.status || "");
     group.setPluginData("designNodeIds", JSON.stringify(c.designNodeIds || []));
     candidateNodeById[c.id] = group.id; nodeMap[c.id] = group.id;
   }
@@ -643,6 +658,7 @@ async function updateCandidateStatus(candidateId, status) {
   var node = candidateNodeById[candidateId] ? await figma.getNodeByIdAsync(candidateNodeById[candidateId]) : null;
   if (!node) return;
   node.opacity = statusOpacity(status);
+  node.setPluginData(CANDIDATE_STATUS_KEY, status || "");
   var col = statusColor(status);
   if ("children" in node) {
     node.children.forEach(function (n) {
