@@ -14,6 +14,7 @@ Figma 없이도 엔진 변경이 실제 화면에서 어떤 후보를 내는지 
 | `dev2_findId_1920x934.png` | 퍼블리싱 `findId.html`을 헤드리스 Chrome 1920×934로 찍은 최신 빌드 (글꼴은 폴백) |
 | `design_login_1920x1080.png` / `elements_login.json` | 프레임 `8177:263051` "웹_로그인 화면" |
 | `dev_login_1920x934.png` | 퍼블리싱 `login.html` 헤드리스 캡처 |
+| `dev_login_chrome_1920x1054.png` | 위 캡처 위에 브라우저 탭·주소창·북마크 띠(120px)를 얹은 합성본 (`make_chrome_capture.html`로 생성). 실제 검수 때 크롬 탭이 찍힌 캡처를 재현 |
 
 ## 실행
 

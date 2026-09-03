@@ -44,10 +44,10 @@ async function __run(){
   var design={id:${JSON.stringify(el.frame.id)},name:"design",width:${el.frame.width},height:${el.frame.height},elements:${JSON.stringify(elements)}};
   var capture={img:cap,width:cap.width,height:cap.height};
   var t0=performance.now();
-  var anchor=anchorAlignment(design,dc,cap);
-  var model=anchor||searchAlignment(dc,cap,false);
-  var t1=performance.now();
-  var cands=buildDiff(design,dc,capture,model,"p");
+  if(${JSON.stringify(process.env.TOP_TRIM||'')}!=="")capture.topTrim=Number(${JSON.stringify(process.env.TOP_TRIM||'0')});
+  var pairResult=comparePair({id:"p"},design,capture,dc); // 플러그인과 같은 흐름(틀 띠 판정 → 캡처 위쪽 자르기 → 2차 비교)
+  var model=pairResult.alignment,t1=performance.now();
+  var cands=pairResult.candidates,trimUsed=pairResult.range.captureTop||0;
   var t2=performance.now();
   function __rawNCC(box,dx,dy){var c=window.__ctx,W=c.W,H=c.H,dd=c.dd.data,cd=c.cd.data,n=0,sa=0,sb=0,saa=0,sbb=0,sab=0;for(var y=Math.floor(box.y);y<box.y+box.h;y++)for(var x=Math.floor(box.x);x<box.x+box.w;x++){var cx=x+dx,cy=y+dy;if(x<0||y<0||x>=W||y>=H||cx<0||cy<0||cx>=W||cy>=H)continue;var i=(y*W+x)*4,j=(cy*W+cx)*4,a=dd[i]*.299+dd[i+1]*.587+dd[i+2]*.114,b=cd[j]*.299+cd[j+1]*.587+cd[j+2]*.114;n++;sa+=a;sb+=b;saa+=a*a;sbb+=b*b;sab+=a*b;}var ma=sa/n,mb=sb/n,va=saa/n-ma*ma,vb=sbb/n-mb*mb;if(va<1||vb<1)return 1;return (sab/n-ma*mb)/Math.sqrt(va*vb);}
   window.__unitDbg.forEach(function(u){if(u.kind!=="text"||!u.segInfo)return;var pb=u.pb,segW=Math.max(24,Math.round(pb.h*2)),step=Math.max(8,Math.round(segW/2)),out=[];for(var x=pb.x;x+segW<=pb.x+pb.w+step;x+=step){var seg={x:x,y:pb.y,w:Math.min(segW,pb.x+pb.w-x),h:pb.h};if(seg.w<segW*.6)break;var md=Math.max(3,Math.round(pb.w*.1)),best=-2,bestE=1;for(var o=-md;o<=md;o++){for(var oy=-1;oy<=1;oy++){var v=__rawNCC(seg,u.dx+o,u.dy+oy);if(v>best)best=v;}}for(var o2=-md;o2<=md;o2++){var e=__exactMin(seg,u.dx+o2,u.dy);if(e<bestE)bestE=e;}out.push([Math.round(x),+best.toFixed(2),+bestE.toFixed(2)]);}u.rawSegs=out;});
@@ -61,8 +61,8 @@ async function __run(){
   var ov=canvasFor(cap.width,cap.height),ox=ov.getContext("2d");ox.drawImage(cap,0,0);
   cands.forEach(function(c){var col=c.kind==="spacing"?"#CA8A04":"#EA580C";ox.strokeStyle=col;ox.lineWidth=3;ox.strokeRect(c.rawBox.x,c.rawBox.y,c.rawBox.w,c.rawBox.h);ox.fillStyle=col;ox.beginPath();ox.arc(c.rawBox.x-6,c.rawBox.y-6,14,0,7);ox.fill();ox.fillStyle="#fff";ox.font="bold 15px sans-serif";ox.textAlign="center";ox.textBaseline="middle";ox.fillText(String(c.no),c.rawBox.x-6,c.rawBox.y-6);});
   // 정렬된 디자인을 개발 이미지 좌표계로 반투명 겹침
-  var ovl=canvasFor(cap.width,cap.height),lx=ovl.getContext("2d");lx.drawImage(cap,0,0);lx.globalAlpha=.45;lx.setTransform(1/model.s,0,0,1/model.s,-model.tx/model.s,-model.ty/model.s);lx.drawImage(dc,0,0);lx.setTransform(1,0,0,1,0,0);
-  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
+  var ovl=canvasFor(cap.width,cap.height),lx=ovl.getContext("2d");lx.drawImage(cap,0,0);if(trimUsed){lx.fillStyle="rgba(107,114,128,.55)";lx.fillRect(0,0,cap.width,trimUsed);}lx.globalAlpha=.45;lx.setTransform(1/model.s,0,0,1/model.s,-model.tx/model.s,-model.ty/model.s+trimUsed);lx.drawImage(dc,0,0);lx.setTransform(1,0,0,1,0,0);
+  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,range:pairResult.range,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
   document.body.innerHTML='<pre id="reproOut">'+JSON.stringify(out).replace(/</g,"&lt;")+'</pre><img id="reproOverlay" src="'+ov.toDataURL("image/png")+'"><img id="reproAlign" src="'+ovl.toDataURL("image/png")+'">';
   document.title="REPRO DONE";
 }
@@ -85,5 +85,5 @@ if (text.startsWith('ERROR')) { console.error(text); process.exit(1); }
 if (process.env.CASE_FILE) { console.log(text); process.exit(0); }
 const out = JSON.parse(text);
 console.log('model', JSON.stringify(out.model), 'timing', JSON.stringify(out.timing));
-console.log('notices',out.notices);console.log('sections',JSON.stringify(out.sections));
+console.log('notices',out.notices);console.log('range',JSON.stringify(out.range));console.log('sections',JSON.stringify(out.sections));
 out.candidates.forEach(c => console.log(`#${c.no} [${c.kind}] ${c.label} ${c.detail?'— '+c.detail:''} conf=${c.confidence || '-'} raw=${JSON.stringify(c.rawBox)} design=${JSON.stringify(c.designBox)} nodes=${(c.designNodeIds || []).join(',')}`));

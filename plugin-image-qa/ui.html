@@ -7,8 +7,8 @@
   *{box-sizing:border-box}
   html,body{scrollbar-width:none;-ms-overflow-style:none}
   ::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
-  body{margin:0;background:#FFFFFF;color:#353535;font:12px 'Pretendard',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:0}
-  header{height:64px;padding:8px 20px;display:flex;align-items:flex-start;justify-content:space-between;background:#FFFFFF;color:#222222}
+  body{margin:0;background:#FFFFFF;color:#353535;font:12px 'Pretendard',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:0;height:100vh;display:flex;flex-direction:column}
+  header{flex:none;min-height:40px;padding:8px 20px;display:flex;align-items:flex-start;justify-content:space-between;background:#FFFFFF;color:#222222}
   .header-title{font-size:14px;font-weight:700;line-height:20px}
   .update-time{padding-top:2px;color:#999999;font-size:11px;font-weight:500;line-height:18px}
   .scope-popover{position:relative;width:max-content}
@@ -25,7 +25,7 @@
   .scope-item:first-of-type{border-top:0}
   .scope-item b{color:#353535}
   .scope-item span{color:#6F6F6F}
-  main{padding:12px 20px 20px;overflow:auto;height:calc(100vh - 64px)}
+  main{flex:1;min-height:0;padding:8px 20px 16px;overflow:auto}
 
   /* 카드 */
   .card{border:1px solid #D9D9D9;border-radius:4px;padding:16px;margin-bottom:12px;background:#FFFFFF}
@@ -75,9 +75,21 @@
   .bad{color:#D32F2F}
   .status{font-size:11px;margin-top:8px;white-space:pre-wrap;line-height:1.5;color:#888888}
   .status:empty{display:none}
-  #prepareView{min-height:100%;display:flex;flex-direction:column}
-  #prepareView>.card{margin-bottom:0}
-  .prepare-status{flex:1;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 4px}
+  #prepareView{height:100%;min-height:0;display:flex;flex-direction:column}
+  #prepareView>.card{flex:none;margin-bottom:0}
+  /* 고른 화면이 많아도 패널 전체가 밀리지 않게, 목록 칸 안에서만 스크롤한다(안내와 '검수 시작'은 항상 보이게). */
+  .prepare-status{flex:1;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 4px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#C4C4C4 transparent}
+  .prepare-status::-webkit-scrollbar{display:block!important;width:4px!important}
+  .prepare-status::-webkit-scrollbar-thumb{background:#C4C4C4;border-radius:999px}
+  .prepare-status>*{flex:none}
+  /* 노트북처럼 패널이 낮을 때: 그림 예시부터 접어서 스크롤 없이 다 보이게 한다(자바스크립트가 재 보고 붙인다). */
+  body.prep-compact .pair-example{display:none}
+  body.prep-compact .guide{gap:10px}
+  body.prep-tight #prepareView>.card{padding:12px}
+  body.prep-tight .card h3{margin:0 0 6px}
+  body.prep-tight .guide{gap:8px}
+  body.prep-tight .guide-row.next-step{margin-top:6px}
+  body.prep-tight .example-screen{height:64px}
   .prepare-status .status{margin-top:0}
   .prepare-status #captureStatus{margin-top:4px}
   .prepare-status #capList{width:100%;text-align:left}
@@ -85,10 +97,15 @@
 
   /* 화면 네비 */
   #reviewView{height:100%;min-height:0;display:flex;flex-direction:column}
-  .screen-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .screen-nav{flex:none;display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .screen-nav button{padding:0 10px;height:36px;line-height:36px;font-size:12px}
   .screen-title{flex:1;text-align:center;font-weight:700;font-size:13px;color:#222222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #numberLists{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:2px;scrollbar-width:thin;scrollbar-color:#C4C4C4 transparent}
+  #numberLists{flex:1;min-height:104px;overflow-y:auto;overscroll-behavior:contain;padding-right:2px;scrollbar-width:thin;scrollbar-color:#C4C4C4 transparent}
+  .number-row.sel-row{background:#F7FAFF;border-radius:4px}
+  @keyframes rowFlash{0%{background:#CFE3FF}70%{background:#DCEBFF}100%{background:#F7FAFF}}
+  .number-row.flash{animation:rowFlash 1.4s ease-out}
+  @keyframes titleFlash{0%{color:#1D6CEB}100%{color:#222222}}
+  .screen-title.flash{animation:titleFlash 1.4s ease-out}
   #numberLists::-webkit-scrollbar{display:block!important;width:4px!important}
   #numberLists::-webkit-scrollbar-thumb{background:#C4C4C4;border-radius:999px}
 
@@ -114,10 +131,41 @@
   .candidate-actions .confirm{color:#D32F2F}
   .candidate-actions .active{color:#FFFFFF;background:#555555;border-color:#555555}
   .candidate-actions .confirm.active{background:#D32F2F;border-color:#D32F2F}
+  .bottom-row{flex:none;display:flex;gap:6px;margin-top:8px}
+  .bottom-row button{flex:1;min-width:0;margin:0}
+  .view-row{flex:none;display:flex;gap:6px;margin:0 0 8px}
+  .view-row button{flex:1;min-width:0;margin:0}
   .overlay-control{margin:0 0 10px;border-color:#D9D9D9;background:#FFFFFF;color:#353535;font-weight:500}
   .overlay-control:hover{border-color:#BFBFBF;background:#FAFAFA;color:#353535}
   .overlay-control.on{border-color:#1D6CEB;background:#FFFFFF;color:#1D6CEB;font-weight:700}
   .overlay-control.on:hover{border-color:#1756BC;background:#F7FAFF;color:#1756BC}
+
+  /* 검수 범위 카드 */
+  .range-card{flex:none;border:1px solid #E4EBF7;border-radius:6px;background:#F7FAFF;padding:8px 12px;margin:0 0 8px}
+  .range-head{display:flex;align-items:center;gap:6px;margin-bottom:0}
+  .range-card.open .range-head{margin-bottom:8px}
+  .range-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0;border:0;background:transparent;text-align:left;font-size:12px;color:#222222}
+  .range-toggle:hover,.range-toggle:focus-visible{border:0;background:transparent;color:#1D6CEB}
+  .range-toggle b{font-size:12px;font-weight:700;flex:none}
+  .range-toggle .caret{flex:none;width:12px;color:#8AA4C8;font-size:9px;transition:transform .15s}
+  .range-card.open .range-toggle .caret{transform:rotate(90deg)}
+  .range-sum{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:400;color:#6F8AAE}
+  .range-card.open .range-sum{display:none}
+  .range-body{display:none}
+  .range-card.open .range-body{display:block}
+  .range-head button.range-act{flex:none;height:24px;line-height:22px;padding:0 8px;font-size:11px}
+  .range-line{font-size:11px;color:#555555;line-height:1.55;display:flex;gap:6px}
+  .range-line .range-key{flex:none;width:58px;color:#888888}
+  .range-line .range-warn{color:#B45309}
+  .range-editor{margin-top:10px;padding-top:10px;border-top:1px solid #DCE7F8}
+  .range-editor canvas{display:block;width:100%;border:1px solid #D9D9D9;border-radius:4px;background:#FFFFFF;cursor:ns-resize}
+  .range-editor .row{margin-top:8px}
+  .range-editor label{font-size:11px;color:#555555;display:flex;align-items:center;gap:6px}
+  .range-editor input[type=number]{width:70px;height:28px;border:1px solid #D9D9D9;border-radius:4px;padding:0 8px;font:12px inherit}
+  .range-editor .row button{height:32px;line-height:30px;font-size:12px}
+  .range-hint{font-size:10px;color:#888888;margin-top:6px;line-height:1.5}
+
+  /* 나란히 보기 */
 
   /* 프로그레스 바 */
   .progress{height:6px;border-radius:999px;background:#F5F5F5;overflow:hidden;margin-top:10px}
@@ -159,7 +207,7 @@
       </div>
     </div>
   </div>
-  <span class="update-time">업데이트 2026-09-02 16:30</span>
+  <span class="update-time">업데이트 2026-09-03 03:00</span>
 </header>
 <main>
   <section id="prepareView">
@@ -201,10 +249,26 @@
 
   <section id="reviewView" class="hidden">
     <div class="screen-nav"><button id="prevScreen">←</button><div class="screen-title" id="screenTitle"></div><button id="nextScreen">→</button></div>
-    <button class="wide overlay-control" id="toggleOverlay" aria-pressed="false">겹쳐보기</button>
+    <div class="range-card" id="rangeCard">
+      <div class="range-head">
+        <button class="range-toggle" id="rangeToggle" type="button" aria-expanded="false" aria-controls="rangeBody"><span class="caret" aria-hidden="true">▶</span><b>검수 범위</b><span class="range-sum" id="rangeSummary"></span></button>
+        <button class="range-act" id="rangeAdjust" type="button">조정</button>
+      </div>
+      <div class="range-body" id="rangeBody">
+      <div class="range-line"><span class="range-key">디자인</span><span id="rangeDesign"></span></div>
+      <div class="range-line"><span class="range-key">개발 캡처</span><span id="rangeCapture"></span></div>
+      <div class="range-editor hidden" id="rangeEditor">
+        <canvas id="rangeCanvas" width="340" height="140" aria-label="개발 캡처 위쪽 미리보기. 클릭하거나 끌어서 비교 시작선을 정합니다."></canvas>
+        <div class="range-hint">붉은 선 위쪽은 비교하지 않습니다. 브라우저 탭·주소창·상태바가 끝나는 곳에 선을 맞춰 주세요.</div>
+        <div class="row"><label>위쪽 제외 <input type="number" id="rangeTrim" min="0" step="1"> px</label></div>
+        <div class="row"><button class="primary" id="rangeApply" type="button">이 범위로 다시 비교</button><button id="rangeNone" type="button">제외 안 함</button></div>
+      </div>
+      </div>
+    </div>
+    <div class="view-row"><button class="overlay-control" id="toggleOverlay" aria-pressed="false">겹쳐보기</button><button class="overlay-control" id="compareWhereBtn" type="button" title="나란히 보기를 어디에 표시할지 고릅니다">나란히 보기: 캔버스</button></div>
     <div id="numberLists"></div>
     <div class="tip">자동 비교 결과는 전부 후보입니다. 오류 확정은 사람이 선택한 번호에만 적용됩니다.</div>
-    <button class="wide" id="backPrepare">준비로 돌아가기</button>
+    <div class="bottom-row"><button id="backPrepare">준비로 돌아가기</button><button class="primary" id="buildReport" type="button">검수 레포트 작성</button></div>
   </section>
 </main>
 
@@ -216,14 +280,30 @@ var designImages={},captureById={},messageTarget="design",pendingCompare=false,s
 function uid(prefix){return prefix+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+// 준비 화면이 패널보다 길어지면 그림 예시부터 접어서 스크롤 없이 다 보이게 한다.
+function fitPrepareView(){
+  var main=document.querySelector("main"),pv=document.getElementById("prepareView");
+  if(!main||!pv||pv.classList.contains("hidden"))return;
+  document.body.classList.remove("prep-compact","prep-tight");
+  if(pv.scrollHeight>main.clientHeight+1)document.body.classList.add("prep-compact");
+  if(pv.scrollHeight>main.clientHeight+1)document.body.classList.add("prep-tight");
+}
+window.addEventListener("resize",fitPrepareView);
 function setView(name){
   prepareView.classList.toggle("hidden",name!=="prepare");
   loadingView.classList.toggle("hidden",name!=="loading");
   reviewView.classList.toggle("hidden",name!=="review");
   scopePopover.classList.toggle("hidden",name!=="prepare");
+  if(name==="prepare")fitPrepareView();
 }
 function bytesToImage(bytes,type){return new Promise(function(resolve,reject){var blob=new Blob([bytes],{type:type||"image/png"}),url=URL.createObjectURL(blob),img=new Image();img.onload=function(){URL.revokeObjectURL(url);resolve(img);};img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("이미지를 읽지 못했어요."));};img.src=url;});}
 function fileBytes(file){return new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(new Uint8Array(r.result));};r.onerror=reject;r.readAsArrayBuffer(file);});}
+function canvasPngBytes(canvas){
+  // 캔버스를 PNG 바이트로 바로 바꾼다(비동기 대기 없이). 카드·겹쳐보기 이미지에 쓴다.
+  var b64=canvas.toDataURL("image/png").split(",")[1],bin=atob(b64),out=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+  return out;
+}
 function canvasBytes(canvas){return new Promise(function(resolve){canvas.toBlob(function(blob){var r=new FileReader();r.onload=function(){resolve(new Uint8Array(r.result));};r.readAsArrayBuffer(blob);},"image/png");});}
 async function makeCapture(file){
   var bytes=await fileBytes(file),img=await bytesToImage(bytes,file.type),displayBytes=bytes,displayScale=1;
@@ -234,7 +314,9 @@ async function makeCapture(file){
 }
 async function makeFigmaCapture(data){
   var bytes=new Uint8Array(data.bytes),img=await bytesToImage(bytes,"image/png");
-  return{id:data.id||uid("figma_"),name:data.name||"Figma 이미지",source:"figma",nodeId:data.nodeId||null,x:data.x,y:data.y,canvasWidth:data.width,canvasHeight:data.height,bytes:bytes,displayBytes:bytes,displayScale:1,img:img,width:img.width,height:img.height};
+  return{id:data.id||uid("figma_"),name:data.name||"Figma 이미지",source:"figma",nodeId:data.nodeId||null,x:data.x,y:data.y,canvasWidth:data.width,canvasHeight:data.height,bytes:bytes,displayBytes:bytes,displayScale:1,img:img,width:img.width,height:img.height,
+    topTrim:(typeof data.topTrim==="number"&&isFinite(data.topTrim))?Math.max(0,Math.round(data.topTrim)):null, // 이전에 사람이 정한 검수 범위(캡처 노드에 저장됨)
+    overlayFix:(data.overlayFix&&isFinite(data.overlayFix.dx)&&isFinite(data.overlayFix.dy))?{dx:data.overlayFix.dx,dy:data.overlayFix.dy}:null}; // 사람이 맞춘 겹쳐보기 위치 보정
 }
 function mergeCaptureItems(current,incoming){
   var map={},out=[];current.concat(incoming).forEach(function(c){if(map[c.id]){out[map[c.id]-1]=c;}else{map[c.id]=out.length+1;out.push(c);}});return out;
@@ -242,6 +324,7 @@ function mergeCaptureItems(current,incoming){
 function rebuildCaptureIndex(){captureById={};captures.forEach(function(c){captureById[c.id]=c;});}
 function renderCaptureList(){
   capList.innerHTML=captures.map(function(c,i){return '<div class="cap-item"><span class="cap-name">'+esc(c.name)+'</span><button class="cap-del" data-i="'+i+'" title="목록에서 빼기">✕</button></div>';}).join("");
+  fitPrepareView();
   capList.querySelectorAll(".cap-del").forEach(function(b){b.onclick=function(){captures.splice(Number(b.dataset.i),1);rebuildCaptureIndex();showCaptureStatus();};});
 }
 function showCaptureStatus(){
@@ -304,9 +387,10 @@ function searchAlignment(designImg,captureImg,fast){
 
 // ── 기준 요소 정렬 ──────────────────────────────────────────────
 function grayEdges(img,w,h){var c=canvasFor(w,h),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);return edgeData(x.getImageData(0,0,w,h),w,h);}
-function pickAnchors(design){
-  var seen=[],out=[];
+function pickAnchors(design,excludeBoxes){
+  var seen=[],out=[],ex=excludeBoxes||[];
   var cands=(design.elements||[]).filter(function(e){var b=e.box;
+    if(ex.some(function(x){return boxContains(x,b);}))return false; // 브라우저 틀 같은 제외 띠 안의 요소는 기준으로 삼지 않는다
     return b.y<design.height*.6&&b.w>=24&&b.h>=10&&b.w<=design.width*.8&&b.h<=140;});
   cands.sort(function(a,b){
     var at=a.kind==="text"?0:1,bt=b.kind==="text"?0:1;
@@ -340,13 +424,13 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b,win){
   return{tx:px-bx,ty:py-by,q:clamp(1-bestSad/(cnt*255),0,1)};
 }
 function median(list){var a=list.slice().sort(function(x,y){return x-y;});return a[Math.floor(a.length/2)];}
-function anchorAlignment(design,designImg,captureImg){
+function anchorAlignment(design,designImg,captureImg,opts){
   var s=designImg.width/captureImg.width;
   var half=Math.max(1,Math.ceil(designImg.width/640));
   var dw=Math.max(8,Math.round(designImg.width/half)),dh=Math.max(8,Math.round(designImg.height/half));
   var ch=Math.max(8,Math.round(captureImg.height*s/half)),cw=dw;
   var dEdge=grayEdges(designImg,dw,dh),cEdge=grayEdges(captureImg,cw,ch);
-  var lg=(designImg.width/design.width)/half,anchors=pickAnchors(design);
+  var lg=(designImg.width/design.width)/half,anchors=pickAnchors(design,opts&&opts.excludeBoxes);
   var votes=[];
   anchors.forEach(function(e){
     var b={x:e.box.x*lg,y:e.box.y*lg,w:e.box.w*lg,h:e.box.h*lg};
@@ -425,6 +509,22 @@ function applySelectionStatus(message){
   else designStatus.textContent=rowProblemText(rowResult.invalid);
 }
 backPrepare.onclick=function(){setView("prepare");post({type:"request-selection-status"});};
+var STATUS_LABEL={review:"검토 필요",confirmed:"오류확정",excluded:"제외",hold:"보류"};
+function statusLabel(v){return STATUS_LABEL[v]||"검토 필요";}
+function todayText(){var d=new Date(),p=function(n){return(n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
+function buildReportPayload(r){
+  // 캔버스 메모장에 그릴 내용. 상태·사유·상세·디자인 원본값을 번호 순서대로 담는다.
+  var counts={review:0,confirmed:0,excluded:0,hold:0};
+  var rows=r.candidates.map(function(c){
+    counts[c.status]=(counts[c.status]||0)+1;
+    return{no:c.no,status:c.status,statusText:statusLabel(c.status),reason:candidateReason(c),detail:c.detail||"",designValues:c.designValues||""};
+  });
+  var summary="후보 "+rows.length+"건 · 검토 필요 "+counts.review+" · 오류확정 "+counts.confirmed+" · 제외 "+counts.excluded+" · 보류 "+counts.hold;
+  var g=r.range||{},warn=!g.captureTop&&!!g.stripDetected;
+  return{type:"build-report",pairId:r.pairId,screenName:r.design.name||"검수 화면",date:todayText(),
+    summary:summary,rangeText:"검수 범위 — "+rangeSummaryText(g,warn),rows:rows};
+}
+buildReport.onclick=function(){var r=results[currentResult];if(!r)return;post(buildReportPayload(r));};
 
 function averageCell(data,w,h,x0,y0,x1,y1){var r=0,g=0,b=0,n=0;for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var i=(y*w+x)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;}return n?[r/n,g/n,b/n]:[255,255,255];}
 function colorDistance(a,b){var dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dr*dr+dg*dg+db*db);}
@@ -607,11 +707,69 @@ function estimateSectionOffset(section,ctx,base,opts){
   else{section.offset={dx:base.dx,dy:base.dy};section.matched=false;section.support=0;}
   return section;
 }
-function isDecorationSection(section,design){
-  // 짝을 못 찾은 구역이 화면 위/아래 끝에 붙어 있고 가로로 거의 꽉 차면 브라우저 틀 같은 디자인 전용 장식으로 본다.
-  if(section.matched||!section.el)return false;var b=section.box;
-  var touchesEdge=b.y<=2||b.y+b.h>=design.height-2;return touchesEdge&&b.w>=design.width*.8;
+// ── 검수 범위: 브라우저 틀·상태바 같은 '틀 띠' 찾기 ─────────────────────
+// 자동 판정은 전부 후보다. 패널의 '검수 범위'에서 사람이 조정한다.
+var FRAME_NAME_RE=/브라우저|browser|chrome|크롬|탭 ?바|tab ?bar|\burl\b|주소 ?창|address ?bar|status ?bar|상태 ?바|safe ?area|notch|home ?indicator|navigation ?bar|device ?frame|bezel|mockup|목업/i;
+var FRAME_TEXT_RE=/https?:\/\/|www\.|\.(com|net|kr|io|do|html?)(\/|$)|^\d{1,2}:\d{2}$/i;
+function frameBandEdge(box,design){
+  // 화면 위/아래 끝에 붙어 있고 가로로 거의 꽉 찬 얇은 영역만 틀 띠 후보다. 어느 끝인지 돌려준다.
+  var top=box.y<=2,bottom=box.y+box.h>=design.height-2;
+  if(!(top||bottom)||box.w<design.width*.8||box.h>design.height*.25||box.h<8)return null;return top?"top":"bottom";
 }
+function sectionLooksLikeFrame(section,children){
+  // 이름이나 글자(URL·시계)로 브라우저 틀/상태바가 분명한 구역
+  var e=section.el;if(!e)return false;if(FRAME_NAME_RE.test(e.name||""))return true;
+  return descendantsOf(e,children).some(function(d){return FRAME_NAME_RE.test(d.name||"")||(d.kind==="text"&&FRAME_TEXT_RE.test(String(d.text||"").trim()));});
+}
+function decideFrameBands(sections,root,design,model,lg,children,captureHeight,preset){
+  // 위/아래 끝의 얇은 구역 중 '틀'로 볼 것을 고른다. preset이 있으면(2차 비교) 그 결정을 그대로 쓴다.
+  var out=[];
+  if(preset){sections.forEach(function(s){preset.forEach(function(b){if(s.el&&b.id===s.el.id){s.excluded=true;out.push(b);}});});return out;}
+  var content=sections.filter(function(s){return s.matched&&!frameBandEdge(s.box,design);}),main=null;
+  content.forEach(function(s){if(!main||s.units.length>main.units.length)main=s;});
+  if(root.units.length&&(!main||root.units.length>main.units.length))main=root;
+  var mainDx=main?main.offset.dx:0,nearEdge=Math.max(8,12*lg/model.s);
+  sections.forEach(function(s){
+    var edge=frameBandEdge(s.box,design);if(!edge||!s.el)return;var reason=null;
+    if(sectionLooksLikeFrame(s,children))reason="name";
+    else if(!s.matched)reason="unmatched";
+    else{
+      // 구역의 안쪽 경계가 개발 캡처의 어디에 닿는지. 캡처 바깥이면 디자인 전용 장식이다.
+      var innerEdgeCap=edge==="top"?((s.box.y+s.box.h)*lg-model.ty)/model.s:(s.box.y*lg-model.ty)/model.s;
+      if(edge==="top"&&innerEdgeCap<=nearEdge)reason="offCapture";
+      else if(edge==="bottom"&&innerEdgeCap>=captureHeight-nearEdge)reason="offCapture";
+      else if(Math.abs(s.offset.dx-mainDx)>Math.max(16,design.width*.01)*lg)reason="shifted"; // 본문과 가로 밀림이 다르면 진짜 짝이 아니다(가짜 탭바 ↔ 진짜 크롬)
+    }
+    if(reason){s.excluded=true;out.push({id:s.el.id,name:s.el.name||"이름 없는 영역",box:s.box,edge:edge,reason:reason});}
+  });
+  return out;
+}
+function bandNotice(b){
+  var where=b.edge==="top"?"위쪽":"아래쪽",why=b.reason==="name"?"이름·글자로 보아 브라우저 틀·상태바라서":b.reason==="unmatched"?"개발 캡처에서 짝을 찾지 못해 디자인 전용 장식으로 보고":b.reason==="offCapture"?"개발 캡처 바깥에 해당해 디자인 전용 장식으로 보고":"개발 캡처의 같은 자리와 맞지 않아 브라우저 틀 같은 디자인 전용 장식으로 보고";
+  return "디자인 "+where+" ‘"+b.name+"’ 영역("+Math.round(b.box.h)+"px)은 "+why+" 비교에서 제외했어요.";
+}
+function estimateCaptureContentTop(sections,root,bands,model,lg){
+  // 디자인 내용(틀 띠 아래)의 시작이 개발 캡처의 몇 px에 닿는지. 띠 바로 아래 구역의 밀림을 써서 전체 정렬 오차를 줄인다.
+  var bandBottom=0;bands.forEach(function(b){if(b.edge==="top")bandBottom=Math.max(bandBottom,b.box.y+b.box.h);});
+  var first=null;sections.forEach(function(s){if(s.matched&&!s.excluded&&s.box.y>=bandBottom-2&&(!first||s.box.y<first.box.y))first=s;});
+  var off=first?first.offset:root.offset;
+  return{bandBottom:bandBottom,capY:(bandBottom*lg+off.dy-model.ty)/model.s,fromSection:!!first};
+}
+function snapToSeparator(captureImg,y,win){
+  // 브라우저 틀은 가로로 꽉 찬 경계선에서 끝난다. 추정 위치 ±win 안에서 가장 뚜렷한 가로 경계 행으로 맞춘다.
+  var W=captureImg.width,H=captureImg.height,y0=Math.max(1,Math.round(y-win)),y1=Math.min(H-2,Math.round(y+win));if(y1<=y0)return Math.round(y);
+  var rows=y1-y0+2,c=canvasFor(W,rows),x=c.getContext("2d");x.drawImage(captureImg,0,-(y0-1));var d=x.getImageData(0,0,W,rows).data,best=null,cols=Math.ceil(W/2);
+  for(var r=1;r<rows;r++){var n=0;for(var px=0;px<W;px+=2){var i=(r*W+px)*4,j=((r-1)*W+px)*4,a=d[i]*.299+d[i+1]*.587+d[i+2]*.114,b=d[j]*.299+d[j+1]*.587+d[j+2]*.114;if(Math.abs(a-b)>10)n++;}
+    var frac=n/cols;if(frac>=.6&&(!best||frac>best.frac))best={y:y0-1+r,frac:frac};}
+  return best?best.y:Math.round(y);
+}
+function trimmedCapture(cap,topTrim){
+  // 개발 캡처 위쪽 띠를 잘라낸 비교용 사본. 좌표는 나중에 topTrim만큼 되돌린다.
+  topTrim=Math.max(0,Math.round(topTrim||0));if(!topTrim)return Object.assign({},cap,{topTrim:0});
+  var c=canvasFor(cap.width,Math.max(8,cap.height-topTrim)),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,-topTrim);
+  return Object.assign({},cap,{img:c,height:c.height,topTrim:topTrim});
+}
+function shiftCandidatesDown(cands,dy){if(!dy)return cands;cands.forEach(function(c){c.rawBox.y+=dy;(c.rawAnchorBoxes||[]).forEach(function(b){b.y+=dy;});});return cands;}
 function inkAverage(data,W,H,box,dx,dy){
   // 패치 평균색과 60 이상 다른 픽셀(잉크)의 평균색. 굵기·안티앨리어싱이 달라도 색만 비교하려는 용도.
   var x0=Math.max(0,Math.floor(box.x+dx)),y0=Math.max(0,Math.floor(box.y+dy)),x1=Math.min(W,Math.ceil(box.x+box.w+dx)),y1=Math.min(H,Math.ceil(box.y+box.h+dy));
@@ -743,8 +901,8 @@ function textCandidateFor(res,ctx){
   return{label:label,boxes:localBoxes,detail:detail,confidence:small?clamp(Math.round(50+Math.max(0,.68-res.ncc)*40),50,66):clamp(Math.round((.55+Math.min(.35,Math.max(res.mismatch,res.exact-.2))*.7)*100),52,92)};
 }
 
-function buildDiff(design,designImg,capture,model,pairId){
-  var W=designImg.width,H=designImg.height,lg=W/design.width,scaleX=design.width/W,scaleY=design.height/H;
+function buildDiff(design,designImg,capture,model,pairId,opts){
+  opts=opts||{};var W=designImg.width,H=designImg.height,lg=W/design.width,scaleX=design.width/W,scaleY=design.height/H;
   var dcF=canvasFor(W,H),dxF=dcF.getContext("2d");dxF.fillStyle="#fff";dxF.fillRect(0,0,W,H);dxF.drawImage(designImg,0,0,W,H);
   var ccF=canvasFor(W,H),cxF=ccF.getContext("2d");cxF.fillStyle="#fff";cxF.fillRect(0,0,W,H);cxF.setTransform(model.s,0,0,model.s,model.tx,model.ty);cxF.drawImage(capture.img,0,0);cxF.setTransform(1,0,0,1,0,0);
   var ddF=dxF.getImageData(0,0,W,H),cdF=cxF.getImageData(0,0,W,H);
@@ -755,9 +913,11 @@ function buildDiff(design,designImg,capture,model,pairId){
   // 구역마다(구역 밖 요소 묶음도 포함) 전역 정렬 주변을 넓게 훑어 자기 밀림을 찾는다.
   sections.forEach(function(s){estimateSectionOffset(s,ctx);});
   if(sectionInfo.root.units.length){estimateSectionOffset(sectionInfo.root,ctx);sectionInfo.root.matched=true;}
-  sections.forEach(function(s){if(isDecorationSection(s,design)){s.excluded=true;notices.push("‘"+(s.el.name||"이름 없는 영역")+"’ 영역은 개발 캡처에서 짝을 찾지 못해 브라우저 틀 같은 디자인 전용 장식으로 보고 비교에서 제외했어요.");}});
+  var bands=decideFrameBands(sections,sectionInfo.root,design,model,lg,childMap(design),capture.height,opts.bands);
+  bands.forEach(function(b){notices.push(bandNotice(b));});
+  units.forEach(function(u){u.bandExcluded=!u.section.excluded&&bands.some(function(b){return boxContains(b.box,u.el.box);});}); // 구역 밖 단위라도 띠 안이면 제외
   var results=[],resultByElId={};
-  units.forEach(function(u){if(u.section.excluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
+  units.forEach(function(u){if(u.section.excluded||u.bandExcluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
   resolveClaims(results);
   function toRaw(bx){var raw={x:(bx.x-model.tx)/model.s,y:(bx.y-model.ty)/model.s,w:bx.w/model.s,h:bx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));return raw;}
   function logicalOf(bx){return{x:bx.x*scaleX,y:bx.y*scaleY,w:bx.w*scaleX,h:bx.h*scaleY};}
@@ -810,10 +970,11 @@ function buildDiff(design,designImg,capture,model,pairId){
     boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical);push({kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence});});
   });
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
-  cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
+  ctx.bands=bands;cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
   cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
   cands.forEach(function(c,i){c.no=i+1;c.id=pairId+"_c"+(i+1);});
-  cands.notices=notices;cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
+  cands.notices=notices;cands.bands=bands;cands.contentTop=estimateCaptureContentTop(sections,sectionInfo.root,bands,model,lg);
+  cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
   return cands;
 }
 function uncoveredAreaCandidates(design,designImg,capture,model,results,sections,root,ctx){
@@ -840,6 +1001,7 @@ function uncoveredAreaCandidates(design,designImg,capture,model,results,sections
   function coverBox(bx,pad){var x0=Math.max(0,Math.floor((bx.x*q)/block)-pad),y0=Math.max(0,Math.floor((bx.y*q)/block)-pad),x1=Math.min(cols-1,Math.floor(((bx.x+bx.w)*q)/block)+pad),y1=Math.min(rows-1,Math.floor(((bx.y+bx.h)*q)/block)+pad);for(var yy=y0;yy<=y1;yy++)for(var xx=x0;xx<=x1;xx++)covered[yy*cols+xx]=1;}
   results.forEach(function(res){coverBox(res.pb,0);coverBox({x:res.pb.x+res.best.dx,y:res.pb.y+res.best.dy,w:res.pb.w,h:res.pb.h},0);});
   sections.forEach(function(s){if(s.excluded)coverBox({x:s.box.x*lg,y:s.box.y*lg,w:s.box.w*lg,h:s.box.h*lg},0);});
+  (ctx.bands||[]).forEach(function(b){coverBox({x:b.box.x*lg,y:b.box.y*lg,w:b.box.w*lg,h:b.box.h*lg},0);});
   for(var gy=0;gy<rows;gy++)for(var gx=0;gx<cols;gx++){
     if(covered[gy*cols+gx])continue;
     var x0=gx*block,y0=gy*block,x1=Math.min(w,x0+block),y1=Math.min(h,y0+block),o=offsetAt(x0+block/2,y0+block/2),odx=o.dx,ody=o.dy;
@@ -863,14 +1025,13 @@ async function runCompare(){
   var active=pairs.filter(function(p){return p.captureId;});if(!active.length)return;
   messageTarget="compare";startCompare.disabled=true;
   setView("loading");
-  results=[];overlayVisibleByPair={};
+  results=[];overlayVisibleByPair={};canvasCompareKey=null;
   for(var i=0;i<active.length;i++){
     var p=active[i],d=designs[p.designIndex],cap=captureById[p.captureId],img=designImages[d.id];
     loadingStatus.textContent=(i+1)+" / "+active.length+" · "+d.name+" 정렬·차이 찾는 중…";
     progressBar.style.width=Math.round(i/active.length*100)+"%";
     await new Promise(function(r){setTimeout(r,20);});
-    var model=anchorAlignment(d,img,cap.img)||searchAlignment(img,cap.img,false),cands=buildDiff(d,img,cap,model,p.id),logicalScale=img.width/d.width;
-    var result={pairId:p.id,design:d,capture:cap,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands,notices:cands.notices||[],sections:cands.sections||[]};
+    var result=comparePair(p,d,cap,img);
     results.push(result);await renderResultToCanvas(result);
   }
   progressBar.style.width="100%";
@@ -878,6 +1039,40 @@ async function runCompare(){
   pendingCompare=false;updateReady();currentResult=0;selectedCandidateId=null;
   await new Promise(function(r){setTimeout(r,400);});
   setView("review");renderReview();
+}
+function alignFor(d,img,capImg,excludeBoxes){return anchorAlignment(d,img,capImg,{excludeBoxes:excludeBoxes||[]})||searchAlignment(img,capImg,false);}
+function comparePair(p,d,cap,img){
+  // 1차: 캡처 전체로 정렬·비교해 디자인의 틀 띠와 캡처의 위쪽 띠를 찾는다.
+  // 디자인에도 틀(가짜 탭바)이 있고 캡처 위쪽에도 띠가 있으면 둘 다 틀로 보고 캡처 위쪽을 잘라 2차 비교한다.
+  // 디자인에 틀이 없는데 캡처에만 띠가 있으면 진짜 추가 요소일 수 있으니 자르지 않고 안내만 한다(사람이 검수 범위에서 결정).
+  var manual=cap.topTrim!=null?cap.topTrim:null,trim=0,auto=false,strip=0,model,cands,bandsFirst=null,view=cap;
+  if(manual==null){
+    var m0=alignFor(d,img,cap.img),c0=buildDiff(d,img,cap,m0,p.id),top=c0.contentTop,topBands=c0.bands.filter(function(b){return b.edge==="top";});
+    var minStrip=Math.max(12,Math.round(cap.width*.008)),maxStrip=cap.height*.3;
+    bandsFirst=c0.bands;
+    if(top.capY>=minStrip&&top.capY<=maxStrip){strip=snapToSeparator(cap.img,top.capY,Math.max(6,Math.round(cap.width*.005)));if(topBands.length){trim=strip;auto=true;}}
+    if(!trim){model=m0;cands=c0;if(strip)cands.notices.push("개발 캡처 위쪽 약 "+strip+"px에 디자인에 없는 띠가 있어요. 브라우저 탭·주소창·상태바라면 ‘검수 범위 › 조정’에서 제외해 주세요. 디자인에 없는 요소라면 그대로 두세요.");}
+  }else trim=manual;
+  if(manual!=null||trim){
+    view=trimmedCapture(cap,trim);
+    model=alignFor(d,img,view.img,bandsFirst?bandsFirst.map(function(b){return b.box;}):[]);
+    cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,bandsFirst?{bands:bandsFirst}:{}),trim);
+    if(trim)cands.notices.push("개발 캡처 위쪽 "+trim+"px는 "+(manual!=null?"직접 정한 검수 범위에 따라":"브라우저 탭·주소창 같은 틀로 보고")+" 비교에서 제외했어요.");
+  }
+  var logicalScale=img.width/d.width,bands=cands.bands||[],designTop=0,designBottom=0;
+  bands.forEach(function(b){if(b.edge==="top")designTop=Math.max(designTop,b.box.y+b.box.h);else designBottom=Math.max(designBottom,d.height-b.box.y);});
+  return{pairId:p.id,design:d,capture:cap,view:view,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands,notices:cands.notices||[],sections:cands.sections||[],
+    range:{bands:bands,designTop:Math.round(designTop),designBottom:Math.round(designBottom),captureTop:trim,auto:auto,manual:manual!=null,stripDetected:strip}};
+}
+async function recompareCurrent(topTrim){
+  // 검수 범위를 사람이 바꾼 뒤 현재 화면만 다시 비교한다. 범위는 캡처 노드에 저장해 다음에도 쓴다.
+  var r=results[currentResult];if(!r)return;var p=pairs.filter(function(x){return x.id===r.pairId;})[0];if(!p)return;
+  var cap=r.capture;cap.topTrim=topTrim;if(cap.nodeId)post({type:"set-capture-trim",nodeId:cap.nodeId,topTrim:topTrim});
+  rangeApply.disabled=true;rangeNone.disabled=true;rangeApply.textContent="다시 비교 중…";
+  await new Promise(function(res){setTimeout(res,20);});
+  var next=comparePair(p,r.design,cap,designImages[r.design.id]);results[currentResult]=next;selectedCandidateId=null;overlayVisibleByPair[next.pairId]=false;
+  await renderResultToCanvas(next);
+  rangeApply.disabled=false;rangeNone.disabled=false;rangeApply.textContent="이 범위로 다시 비교";rangeEditor.classList.add("hidden");renderReview();
 }
 async function beginCompareFromAssets(){
   if(!designs.length||!captures.length){
@@ -901,7 +1096,31 @@ startCompare.onclick=function(){
   post({type:"read-selected-assets"});
 };
 function canvasCandidates(result){var ds=result.capture.displayScale;return result.candidates.map(function(c){return Object.assign({},c,{rawBox:{x:c.rawBox.x*ds,y:c.rawBox.y*ds,w:c.rawBox.w*ds,h:c.rawBox.h*ds},rawAnchorBoxes:(c.rawAnchorBoxes||[]).map(function(b){return{x:b.x*ds,y:b.y*ds,w:b.w*ds,h:b.h*ds};})});});}
-function renderResultToCanvas(r){return new Promise(function(resolve){renderWaiters[r.pairId]=resolve;post({type:"render-results",pairId:r.pairId,designId:r.design.id,designName:r.design.name,captureBytes:Array.from(r.capture.displayBytes),candidates:canvasCandidates(r)});});}
+// 캡처에서 "내용이 있는 칸" 지도를 만든다(1=글자·선·버튼 등이 있음, 0=빈 곳).
+// 캔버스에 번호·검수내용을 놓을 때 내용 위를 피하려고 쓴다. 실패하면 null(그때는 겹침만 피함).
+function captureInkMap(cap){
+  try{
+    if(!cap||!cap.img)return null;
+    var dw=Math.max(1,Math.round(cap.width*cap.displayScale)),dh=Math.max(1,Math.round(cap.height*cap.displayScale));
+    var cell=Math.max(6,Math.round(Math.max(dw,dh)/320));
+    var cv=canvasFor(dw,dh),x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,dw,dh);x.drawImage(cap.img,0,0,dw,dh);
+    var d=x.getImageData(0,0,dw,dh).data,cols=Math.ceil(dw/cell),rows=[];
+    for(var r=0;r*cell<dh;r++){
+      var line="";
+      for(var c=0;c<cols;c++){
+        var lo=255,hi=0;
+        for(var yy=r*cell;yy<Math.min(dh,(r+1)*cell);yy+=2)for(var xx=c*cell;xx<Math.min(dw,(c+1)*cell);xx+=2){
+          var i=(yy*dw+xx)*4,g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
+          if(g<lo)lo=g;if(g>hi)hi=g;
+        }
+        line+=(hi-lo)>16?"1":"0";
+      }
+      rows.push(line);
+    }
+    return{cell:cell,cols:cols,rows:rows};
+  }catch(e){return null;}
+}
+function renderResultToCanvas(r){return new Promise(function(resolve){renderWaiters[r.pairId]=resolve;post({type:"render-results",pairId:r.pairId,designId:r.design.id,designName:r.design.name,captureBytes:Array.from(r.capture.displayBytes),candidates:canvasCandidates(r),ink:captureInkMap(r.capture),excludedTop:(r.range?r.range.captureTop:0)*r.capture.displayScale});});}
 
 function candidateReason(c){
   // 오류 사유: label이 있으면 그것, 없으면 디자인 원본값이 있으면 "디자인값과 다름", 아니면 "색상·형태 차이"
@@ -915,36 +1134,170 @@ function setOverlayButton(visible){
   toggleOverlay.textContent=visible?"겹쳐보기 끄기":"겹쳐보기";
 }
 function renderReview(){
-  if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
-  setOverlayButton(!!overlayVisibleByPair[r.pairId]);
+  if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;
+  if(flashScreen){flashScreen=false;screenTitle.classList.remove("flash");void screenTitle.offsetWidth;screenTitle.classList.add("flash");}prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
+  setOverlayButton(!!overlayVisibleByPair[r.pairId]);renderRange(r);renderCompareView(r);
   var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"}],html="";
-  if(r.notices&&r.notices.length)html+='<div class="tip notice">'+r.notices.map(esc).join('<br>')+'</div>';
+  var extraNotices=(r.notices||[]).filter(function(n){return !/^디자인 (위쪽|아래쪽) ‘|^개발 캡처 위쪽 /.test(n);}); // 검수 범위 카드가 이미 보여주는 내용은 뺀다
+  if(extraNotices.length)html+='<div class="tip notice">'+extraNotices.map(esc).join('<br>')+'</div>';
   groups.forEach(function(g){
     var list=r.candidates.filter(function(c){return c.status===g.k;});
     if(!list.length)return;
     html+='<div class="number-group"><div class="number-title">'+g.t+'</div>';
     list.forEach(function(c){
-      html+='<div class="number-row"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions"><button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button></span></div>';
+      html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions"><button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button></span></div>';
     });
     html+='</div>';
   });
   if(!r.candidates.length)html='<div class="tip">눈에 띄는 차이 후보를 찾지 못했어요.</div>';
   numberLists.innerHTML=html;
   numberLists.querySelectorAll(".candidate-hit").forEach(function(b){b.onclick=function(){selectCandidate(b.dataset.id);};});
+  var selRow=selectedCandidateId?numberLists.querySelector('[data-row="'+selectedCandidateId+'"]'):null;
+  if(selRow&&selRow.scrollIntoView)selRow.scrollIntoView({block:flashSelected?"center":"nearest"}); // 선택한 번호가 목록에서 보이게
+  if(selRow&&flashSelected){selRow.classList.add("flash");flashSelected=false;}
   numberLists.querySelectorAll(".row-action").forEach(function(b){b.onclick=function(){setCandidateStatus(b.dataset.id,b.dataset.status);};});
 }
+var rangeOpen=false,flashSelected=false,flashScreen=false;
+function rangeSummaryText(g,warn){
+  g=g||{};
+  return ["디자인 "+(g.designTop?"위 "+g.designTop+"px 제외":"전체"),"개발 "+(g.captureTop?"위 "+g.captureTop+"px 제외":warn?"확인 필요":"전체")].join(" · ");
+}
+function setRangeOpen(open){
+  rangeOpen=!!open;rangeCard.classList.toggle("open",rangeOpen);rangeToggle.setAttribute("aria-expanded",rangeOpen?"true":"false");
+  if(!rangeOpen)rangeEditor.classList.add("hidden");
+}
+function renderRange(r){
+  var g=r.range||{bands:[],designTop:0,designBottom:0,captureTop:0},parts=[];
+  if(g.designTop)parts.push("위쪽 "+g.designTop+"px 제외(브라우저 틀 등)");if(g.designBottom)parts.push("아래쪽 "+g.designBottom+"px 제외");
+  rangeDesign.textContent=parts.length?parts.join(" · "):"전체 비교";
+  var warn=!g.captureTop&&!!g.stripDetected;
+  if(g.captureTop)rangeCapture.textContent="위쪽 "+g.captureTop+"px 제외 · "+(g.manual?"직접 설정":"자동(브라우저 탭·주소창으로 보임)");
+  else if(warn){rangeCapture.innerHTML='<span class="range-warn">위쪽 약 '+g.stripDetected+'px 띠가 있어요 · 지금은 비교에 포함</span>';}
+  else rangeCapture.textContent=g.manual?"전체 비교(직접 설정)":"전체 비교";
+  // 접었을 때 한 줄 요약. 확인이 필요한 상태(제외 안 된 띠)면 펼쳐서 보여준다.
+  rangeSummary.textContent=rangeSummaryText(g,warn);rangeSummary.classList.toggle("range-warn",warn);
+  if(warn&&!rangeOpen)setRangeOpen(true);else setRangeOpen(rangeOpen);
+  rangeTrim.value=g.captureTop||g.stripDetected||0;
+  if(!rangeEditor.classList.contains("hidden"))drawRangeCanvas(r,Number(rangeTrim.value)||0);
+}
+rangeToggle.onclick=function(){setRangeOpen(!rangeOpen);};
+function drawRangeCanvas(r,trim){
+  // 캡처 위쪽 일부를 보여주고 비교 시작선을 그린다.
+  var cap=r.capture,c=rangeCanvas,x=c.getContext("2d"),k=c.width/cap.width,showH=Math.min(cap.height,Math.max(120,Math.round(Math.max(trim*2,cap.height*.25)))),srcH=Math.min(cap.height,showH);
+  c.height=Math.max(60,Math.round(srcH*k));c.dataset.scale=String(k);
+  x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,0,cap.width,srcH,0,0,c.width,c.height);
+  var ly=trim*k;x.fillStyle="rgba(120,120,120,.35)";x.fillRect(0,0,c.width,ly);x.strokeStyle="#D32F2F";x.lineWidth=2;x.beginPath();x.moveTo(0,ly);x.lineTo(c.width,ly);x.stroke();
+  x.fillStyle="#D32F2F";x.font="bold 11px sans-serif";x.textBaseline="bottom";x.fillText(trim?("위쪽 "+trim+"px 제외"):"제외 없음",6,Math.max(12,ly-3));
+}
+function rangeFromEvent(ev){var rect=rangeCanvas.getBoundingClientRect(),k=Number(rangeCanvas.dataset.scale)||1,r=results[currentResult];var y=(ev.clientY-rect.top)*(rangeCanvas.height/rect.height)/k;return clamp(Math.round(y),0,r?r.capture.height:0);}
+rangeAdjust.onclick=function(){var r=results[currentResult];if(!r)return;setRangeOpen(true);var open=rangeEditor.classList.toggle("hidden");if(!open){drawRangeCanvas(r,Number(rangeTrim.value)||0);}};
+rangeTrim.oninput=function(){var r=results[currentResult];if(r)drawRangeCanvas(r,clamp(Number(rangeTrim.value)||0,0,r.capture.height));};
+(function(){var dragging=false;rangeCanvas.onmousedown=function(e){dragging=true;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();};window.addEventListener("mousemove",function(e){if(!dragging)return;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();});window.addEventListener("mouseup",function(){dragging=false;});})();
+rangeApply.onclick=function(){var r=results[currentResult];if(!r)return;recompareCurrent(clamp(Math.round(Number(rangeTrim.value)||0),0,Math.round(r.capture.height*.6)));};
+rangeNone.onclick=function(){recompareCurrent(0);};
+
+function compareCropRegions(r,c){
+  // 같은 논리 배율로 디자인 조각과 개발 조각을 자른다. 개발 쪽은 실제로 표시된 자리(rawBox) 가운데를 기준으로 한다.
+  // 여백은 가로·세로를 따로 잡는다. 한 값으로 잡으면 가로로 긴 글자줄 위아래가 크게 비어 글자가 작아 보인다.
+  var lg=r.alignment?(designImages[r.design.id]||{}).width/r.design.width||1:1,m=r.alignment;
+  var padX=Math.max(20,Math.round(c.designBox.w*.35)),padY=Math.max(16,Math.round(c.designBox.h*1.5)); // 개발 쪽 글자가 더 넓게 그려져도 잘리지 않게 가로 여백을 넉넉히
+  var region={x:c.designBox.x-padX,y:c.designBox.y-padY,w:c.designBox.w+padX*2,h:c.designBox.h+padY*2};
+  var devW=region.w*lg/m.s,devH=region.h*lg/m.s,cx=c.rawBox.x+c.rawBox.w/2,cy=c.rawBox.y+c.rawBox.h/2;
+  return{region:region,design:{x:region.x*lg,y:region.y*lg,w:region.w*lg,h:region.h*lg},dev:{x:cx-devW/2,y:cy-devH/2,w:devW,h:devH},lg:lg};
+}
+function drawCrop(canvas,img,src,outW,outH){var x=canvas.getContext("2d");canvas.width=Math.max(8,Math.round(outW));canvas.height=Math.max(8,Math.round(outH));x.imageSmoothingEnabled=true;x.imageSmoothingQuality="high";x.fillStyle="#fff";x.fillRect(0,0,canvas.width,canvas.height);
+  // 이미지 밖으로 나간 부분은 흰색으로 두고, 안쪽만 그린다.
+  var sx=Math.max(0,src.x),sy=Math.max(0,src.y),ex=Math.min(img.width,src.x+src.w),ey=Math.min(img.height,src.y+src.h);if(ex<=sx||ey<=sy)return;
+  var kx=canvas.width/src.w,ky=canvas.height/src.h;x.drawImage(img,sx,sy,ex-sx,ey-sy,(sx-src.x)*kx,(sy-src.y)*ky,(ex-sx)*kx,(ey-sy)*ky);}
+var compareOn=true,canvasCompareKey=null; // 나란히 보기는 Figma 캔버스에만 그린다. 켜기/끄기만 고른다.
+function compareWhere_btnText(){compareWhereBtn.textContent="나란히 보기: "+(compareOn?"켬":"끔");compareWhereBtn.classList.toggle("on",compareOn);compareWhereBtn.setAttribute("aria-pressed",compareOn?"true":"false");}
+function renderCompareOnCanvas(r){
+  // 나란히 보기는 Figma 캔버스에 카드로 만든다(플러그인 패널 안에는 그리지 않는다).
+  var c=selectedCandidateId&&compareOn?r.candidates.filter(function(k){return k.id===selectedCandidateId;})[0]:null,img=designImages[r.design.id];
+  var key=c&&img?r.pairId+"|"+c.id:null;
+  if(!key){if(canvasCompareKey){canvasCompareKey=null;post({type:"clear-compare"});}return;}
+  if(key===canvasCompareKey)return;
+  canvasCompareKey=key;
+  var crops=compareCropRegions(r,c),outW=1040,outH=Math.max(80,Math.round(outW*crops.region.h/crops.region.w));
+  var dCan=canvasFor(8,8),cCan=canvasFor(8,8);
+  drawCrop(dCan,img,crops.design,outW,outH);drawCrop(cCan,r.capture.img,crops.dev,outW,outH);
+  var dBytes=canvasPngBytes(dCan),cBytes=canvasPngBytes(cCan);
+  post({type:"render-compare",pairId:r.pairId,candidateId:c.id,no:c.no,label:candidateReason(c),detail:c.detail||"",designValues:c.designValues||"",aspect:outH/outW,
+    designBytes:Array.from(dBytes),devBytes:Array.from(cBytes)});
+}
+function renderCompareView(r){renderCompareOnCanvas(r);}
+compareWhereBtn.onclick=function(){
+  compareOn=!compareOn;compareWhere_btnText();
+  if(!compareOn){canvasCompareKey=null;post({type:"clear-compare"});}
+  if(results[currentResult])renderCompareView(results[currentResult]);
+};
+compareWhere_btnText();
 function findCandidate(id){for(var i=0;i<results.length;i++)for(var j=0;j<results[i].candidates.length;j++)if(results[i].candidates[j].id===id)return results[i].candidates[j];return null;}
 function selectCandidate(id){selectedCandidateId=id;post({type:"focus-candidate",candidateId:id});renderReview();}
+function focusResultFromCanvas(pairId){
+  // 캔버스에서 검수 화면(또는 그 화면의 카드·레포트)을 누르면 패널도 그 화면으로 옮긴다.
+  for(var i=0;i<results.length;i++){
+    if(results[i].pairId!==pairId)continue;
+    if(currentResult!==i){currentResult=i;selectedCandidateId=null;flashScreen=true;post({type:"clear-focus"});renderReview();}
+    return true;
+  }
+  return false;
+}
+function focusCandidateFromCanvas(id){
+  // 캔버스에서 번호를 눌렀을 때: 패널 목록의 같은 번호로 옮기고 눈에 띄게 한다. 캔버스 화면은 건드리지 않는다.
+  for(var i=0;i<results.length;i++)for(var j=0;j<results[i].candidates.length;j++){
+    if(results[i].candidates[j].id!==id)continue;
+    if(currentResult!==i)currentResult=i;
+    selectedCandidateId=id;flashSelected=true;renderReview();return true;
+  }
+  return false;
+}
 function setCandidateStatus(id,status){var c=findCandidate(id);if(!c)return;c.status=status;post({type:"candidate-status",candidateId:c.id,status:c.status});renderReview();}
 prevScreen.onclick=function(){if(currentResult>0){currentResult--;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};nextScreen.onclick=function(){if(currentResult<results.length-1){currentResult++;selectedCandidateId=null;post({type:"clear-focus"});renderReview();}};
+function overlayPlacement(r){
+  // 겹쳐보기 자리: 비교한 영역(디자인 틀 띠를 뺀 부분)의 맨 위를, 개발 캡처에서 내용이 시작되는 자리(잘라낸 띠 아래)에 맞춘다.
+  // 세로를 기준 요소 정렬값에 맡기면 기준이 적을 때 수십 px씩 흔들려, 사람이 보기에 자리가 크게 어긋난다.
+  // 사람이 직접 끌어 맞춘 보정(overlayFix)이 있으면 그만큼 더 옮긴다.
+  var cap=r.capture,sF=r.alignmentForFigma,g=r.range||{};
+  var trim=g.captureTop||0,y0=g.designTop||0,y1=Math.max(y0+1,r.design.height-(g.designBottom||0));
+  var K=Math.max(240,r.design.width)/cap.width; // 개발 캡처 원본 px → 결과 프레임 px
+  var autoBox={x:(0-sF.tx)/sF.s*K,y:trim*K,w:r.design.width/sF.s*K,h:(y1-y0)/sF.s*K};
+  var fix=cap.overlayFix||{dx:0,dy:0};
+  return{cropTop:y0,cropBottom:r.design.height-y1,K:K,autoBox:autoBox,fix:fix,
+    box:{x:autoBox.x+fix.dx*K,y:autoBox.y+fix.dy*K,w:autoBox.w,h:autoBox.h}};
+}
+function overlayFixFromPos(r,x,y){
+  // 캔버스에서 사람이 옮긴 자리 → 자동 자리로부터의 보정값(개발 캡처 원본 px)
+  var place=overlayPlacement(r),K=place.K||1;
+  return{dx:Math.round((x-place.autoBox.x)/K),dy:Math.round((y-place.autoBox.y)/K)};
+}
+function applyOverlayPos(r,x,y){
+  // 캔버스에서 겹쳐놓은 디자인을 끌면 그 자리를 그대로 보정값으로 저장한다(따로 누를 것 없음).
+  var fix=overlayFixFromPos(r,x,y);
+  r.capture.overlayFix=(fix.dx||fix.dy)?fix:null;
+  if(r.capture.nodeId)post({type:"set-capture-overlay-fix",nodeId:r.capture.nodeId,fix:r.capture.overlayFix});
+  return fix;
+}
+function overlayMovedOnCanvas(pairId,x,y){
+  for(var i=0;i<results.length;i++)if(results[i].pairId===pairId)return applyOverlayPos(results[i],x,y);
+  return null;
+}
+function overlayDesignBytes(r,place){
+  // 디자인의 브라우저 틀 띠는 겹쳐보기에서도 뺀다(개발 캡처의 진짜 크롬 위에 가짜 탭바가 겹치지 않게).
+  var img=designImages[r.design.id];
+  if(!img||(!place.cropTop&&!place.cropBottom))return new Uint8Array(r.design.bytes);
+  var lg=img.width/r.design.width,top=Math.round(place.cropTop*lg),h=Math.max(1,Math.round(img.height-(place.cropTop+place.cropBottom)*lg));
+  var c=canvasFor(img.width,h);var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,-top);
+  return canvasPngBytes(c);
+}
 toggleOverlay.onclick=function(){
-  var r=results[currentResult],cap=r.capture,sF=r.alignmentForFigma;
-  var boardW=Math.max(240,r.design.width),k=boardW/(cap.width*cap.displayScale),f=cap.displayScale*k/sF.s;
-  post({type:"toggle-overlay",pairId:r.pairId,designBytes:Array.from(r.design.bytes),
-    box:{x:-sF.tx/sF.s*cap.displayScale*k,y:-sF.ty/sF.s*cap.displayScale*k,w:r.design.width*f,h:r.design.height*f}});
+  var r=results[currentResult];if(!r)return;
+  if(overlayVisibleByPair[r.pairId]){post({type:"toggle-overlay",pairId:r.pairId,designBytes:[],box:{x:0,y:0,w:1,h:1}});return;} // 끄기는 이미지가 필요 없다
+  var place=overlayPlacement(r),bytes=overlayDesignBytes(r,place);
+  post({type:"toggle-overlay",pairId:r.pairId,designBytes:Array.from(bytes),box:place.box});
 };
 
-window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="selection-status"){applySelectionStatus(m);}else if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){designs=m.designs||[];designImages={};captures=[];captureById={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length)await addFigmaCaptures(m.captures);else showCaptureStatus();if(pendingCompare)await beginCompareFromAssets();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;pendingCompare=false;updateReady();Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="overlay-changed"){overlayVisibleByPair[m.pairId]=!!m.visible;if(results[currentResult]&&results[currentResult].pairId===m.pairId)setOverlayButton(m.visible);}};
+window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="selection-status"){applySelectionStatus(m);}else if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){designs=m.designs||[];designImages={};captures=[];captureById={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length)await addFigmaCaptures(m.captures);else showCaptureStatus();if(pendingCompare)await beginCompareFromAssets();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;pendingCompare=false;updateReady();Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="candidate-selected"){focusCandidateFromCanvas(m.candidateId);}else if(m.type==="result-selected"){focusResultFromCanvas(m.pairId);}else if(m.type==="overlay-moved"){overlayMovedOnCanvas(m.pairId,m.x,m.y);}else if(m.type==="overlay-changed"){overlayVisibleByPair[m.pairId]=!!m.visible;if(results[currentResult]&&results[currentResult].pairId===m.pairId)setOverlayButton(m.visible);}};
 
 async function addFigmaCaptures(items){
   var incoming=[];for(var i=0;i<(items||[]).length;i++){try{incoming.push(await makeFigmaCapture(items[i]));}catch(e){}}
@@ -1065,6 +1418,155 @@ async function runSelfTest(){
   var farFooter=canvasFor(200,240),ff=farFooter.getContext("2d");ff.fillStyle="#fff";ff.fillRect(0,0,200,240);ff.fillStyle="#222";ff.fillRect(20,20,160,25);ff.fillStyle="#2563eb";ff.fillRect(20,140,160,30);ff.fillStyle="#15803d";ff.fillRect(20,200,160,30);
   var diffFar=buildDiff({width:200,height:240,elements:[]},sdes,{img:farFooter,width:200,height:240},{s:1,tx:0,ty:0},"sl");
   check("큰 하단 이동은 자동 통과 금지",diffFar.length>0);
+  // ── 검수 범위: 틀 띠·캡처 위쪽 띠 ──
+  check("틀 띠 후보 조건(위 끝·가로 꽉 참·얇음)",frameBandEdge({x:0,y:0,w:1920,h:101},{width:1920,height:1080})==="top"&&frameBandEdge({x:0,y:1040,w:1920,h:40},{width:1920,height:1080})==="bottom"&&frameBandEdge({x:0,y:0,w:1920,h:400},{width:1920,height:1080})===null&&frameBandEdge({x:0,y:200,w:1920,h:60},{width:1920,height:1080})===null);
+  var frameDesign={width:400,height:300,elements:[{id:"bar",name:"Browser / Tab bar",type:"FRAME",depth:1,parentId:null,box:{x:0,y:0,w:400,h:40},values:{fill:"#DDDDDD"}},{id:"url",kind:"text",type:"TEXT",depth:2,parentId:"bar",box:{x:20,y:12,w:200,h:16},text:"https://dev.example.com/login.do",values:{}},{id:"plain",name:"Header",type:"FRAME",depth:1,parentId:null,box:{x:0,y:40,w:400,h:40},values:{fill:"#FFFFFF"}},{id:"clock",kind:"text",type:"TEXT",depth:2,parentId:"plain",box:{x:20,y:52,w:40,h:16},text:"9:41",values:{}}]};
+  var fch=childMap(frameDesign);
+  check("이름·URL 글자로 브라우저 틀 판정",sectionLooksLikeFrame({el:frameDesign.elements[0]},fch)===true&&sectionLooksLikeFrame({el:{id:"x",name:"본문",type:"FRAME"}},{})===false);
+  check("시계 글자(상태바)도 틀로 판정",sectionLooksLikeFrame({el:frameDesign.elements[2]},fch)===true);
+  var secA={el:{id:"tab",name:"상단 묶음"},box:{x:0,y:0,w:1920,h:101},matched:true,offset:{dx:108,dy:73},units:[1,2,3]},secB={el:{id:"body",name:"본문"},box:{x:0,y:200,w:1920,h:600},matched:true,offset:{dx:20,dy:50},units:[1,2,3,4,5]},rootS={units:[],offset:{dx:0,dy:0}};
+  var decided=decideFrameBands([secA,secB],rootS,{width:1920,height:1080},{s:1,tx:0,ty:14},1,{},934);
+  check("가짜 탭바가 진짜 크롬과 짝지어져도 틀로 제외",decided.length===1&&decided[0].id==="tab"&&decided[0].reason==="shifted"&&secA.excluded===true&&!secB.excluded);
+  var secH={el:{id:"header",name:"헤더"},box:{x:0,y:0,w:1920,h:80},matched:true,offset:{dx:21,dy:0},units:[1,2,3]};
+  check("본문과 같이 정렬된 진짜 헤더는 제외하지 않음",decideFrameBands([secH,secB],rootS,{width:1920,height:1080},{s:1,tx:0,ty:-120},1,{},934).length===0);
+  var secOff={el:{id:"fake",name:"장식"},box:{x:0,y:0,w:1920,h:100},matched:true,offset:{dx:20,dy:0},units:[1,2]};
+  check("캡처 바깥에 해당하는 위쪽 띠는 틀로 제외",decideFrameBands([secOff,secB],rootS,{width:1920,height:1080},{s:1,tx:0,ty:100},1,{},934)[0].reason==="offCapture");
+  var preset=decideFrameBands([{el:{id:"tab"},box:secA.box,matched:true,offset:{dx:0,dy:0},units:[]}],rootS,{width:1920,height:1080},{s:1,tx:0,ty:0},1,{},934,[{id:"tab",edge:"top",reason:"shifted",box:secA.box,name:"탭바"}]);
+  check("2차 비교는 1차 틀 결정을 그대로 사용",preset.length===1&&preset[0].reason==="shifted");
+  var contentTop=estimateCaptureContentTop([{box:{x:0,y:101,w:1920,h:56},matched:true,excluded:false,offset:{dx:-50,dy:32}}],{offset:{dx:0,dy:0}},[{edge:"top",box:{x:0,y:0,w:1920,h:101}}],{s:1,tx:0,ty:14},1);
+  check("띠 아래 첫 구역 밀림으로 캡처 내용 시작 추정",contentTop.bandBottom===101&&Math.round(contentTop.capY)===119&&contentTop.fromSection===true);
+  var sepCap=canvasFor(300,200),sepX=sepCap.getContext("2d");sepX.fillStyle="#eef0f3";sepX.fillRect(0,0,300,60);sepX.fillStyle="#fff";sepX.fillRect(0,60,300,140);sepX.fillStyle="#222";sepX.fillRect(20,90,100,20);
+  check("가로 경계선에 비교 시작선 맞춤",snapToSeparator(sepCap,66,8)===60&&snapToSeparator(sepCap,150,8)===150);
+  var trimmed=trimmedCapture({img:sepCap,width:300,height:200,displayScale:1},60);
+  check("캡처 위쪽 자른 비교용 사본",trimmed.height===140&&trimmed.topTrim===60&&trimmed.width===300&&trimmedCapture({img:sepCap,width:300,height:200},0).topTrim===0);
+  var shiftedC=shiftCandidatesDown([{rawBox:{x:1,y:2,w:3,h:4},rawAnchorBoxes:[{x:0,y:5,w:1,h:1}]}],60);
+  check("자른 만큼 후보 좌표 되돌리기",shiftedC[0].rawBox.y===62&&shiftedC[0].rawAnchorBoxes[0].y===65);
+  var pageDes=canvasFor(400,300),pdx=pageDes.getContext("2d");pdx.fillStyle="#fff";pdx.fillRect(0,0,400,300);pdx.fillStyle="#dfe3ea";pdx.fillRect(0,0,400,40);pdx.fillStyle="#fff";pdx.fillRect(10,8,120,24);pdx.fillStyle="#333";pdx.font="12px sans-serif";pdx.textBaseline="top";pdx.fillText("디자인 탭 제목",18,13);pdx.fillStyle="#222";pdx.fillRect(40,80,140,22);pdx.fillStyle="#2563eb";pdx.fillRect(40,140,200,40);pdx.fillStyle="#15803d";pdx.fillRect(40,220,320,30);
+  var pageCap=canvasFor(400,330),pcx=pageCap.getContext("2d");pcx.fillStyle="#fff";pcx.fillRect(0,0,400,330);pcx.fillStyle="#e4e7ec";pcx.fillRect(0,0,400,70);pcx.fillStyle="#fff";pcx.fillRect(6,6,90,22);pcx.fillRect(100,6,90,22);pcx.fillStyle="#f1f3f4";pcx.fillRect(30,38,340,24);pcx.fillStyle="#333";pcx.font="11px sans-serif";pcx.textBaseline="top";pcx.fillText("https://dev.example.com/login.do",40,44);pcx.fillStyle="#222";pcx.fillRect(40,110,140,22);pcx.fillStyle="#2563eb";pcx.fillRect(40,170,200,40);pcx.fillStyle="#15803d";pcx.fillRect(40,250,320,30);
+  var pageDesign={id:"pg",name:"page",width:400,height:300,elements:[{id:"tabbar",name:"Browser Tab",type:"FRAME",kind:"shape",depth:1,parentId:null,box:{x:0,y:0,w:400,h:40},values:{fill:"#DFE3EA"}},{id:"tab",type:"RECTANGLE",kind:"shape",depth:2,parentId:"tabbar",box:{x:10,y:8,w:120,h:24},values:{fill:"#FFFFFF"}},{id:"tabtext",type:"TEXT",kind:"text",depth:3,parentId:"tab",box:{x:18,y:13,w:80,h:14},text:"디자인 탭 제목",values:{}},{id:"body",name:"본문",type:"FRAME",kind:"shape",depth:1,parentId:null,box:{x:0,y:40,w:400,h:260},values:{}},{id:"title",type:"RECTANGLE",kind:"shape",depth:2,parentId:"body",box:{x:40,y:80,w:140,h:22},values:{fill:"#222222"}},{id:"btn",type:"RECTANGLE",kind:"shape",depth:2,parentId:"body",box:{x:40,y:140,w:200,h:40},values:{fill:"#2563EB"}},{id:"foot",type:"RECTANGLE",kind:"shape",depth:2,parentId:"body",box:{x:40,y:220,w:320,h:30},values:{fill:"#15803D"}}]};
+  var pagePair=comparePair({id:"pg"},pageDesign,{img:pageCap,width:400,height:330,displayScale:1},pageDes);
+  check("디자인 가짜 탭바 + 캡처 크롬 띠 → 둘 다 제외하고 후보 없음",pagePair.range.designTop===40&&pagePair.range.captureTop>=64&&pagePair.range.captureTop<=74&&pagePair.range.auto===true&&pagePair.candidates.length===0);
+  check("검수 범위 안내문 제공",pagePair.notices.some(function(n){return n.indexOf("비교에서 제외했어요")>=0;})&&pagePair.notices.some(function(n){return n.indexOf("개발 캡처 위쪽")>=0;}));
+  var manualPair=comparePair({id:"pg2"},pageDesign,{img:pageCap,width:400,height:330,displayScale:1,topTrim:70},pageDes);
+  check("직접 정한 검수 범위를 우선 적용",manualPair.range.manual===true&&manualPair.range.captureTop===70&&manualPair.candidates.length===0);
+  var noBarDesign={id:"nb",name:"nb",width:400,height:260,elements:pageDesign.elements.slice(3).map(function(e){return Object.assign({},e,{box:{x:e.box.x,y:e.box.y-40,w:e.box.w,h:e.box.h}});})};
+  var noBarDes=canvasFor(400,260),nbx=noBarDes.getContext("2d");nbx.fillStyle="#fff";nbx.fillRect(0,0,400,260);nbx.drawImage(pageDes,0,-40);
+  var noBarPair=comparePair({id:"nb"},noBarDesign,{img:pageCap,width:400,height:330,displayScale:1},noBarDes);
+  check("디자인에 틀이 없으면 캡처 위쪽 띠를 자동으로 자르지 않고 안내",noBarPair.range.captureTop===0&&noBarPair.range.stripDetected>=60&&noBarPair.notices.some(function(n){return n.indexOf("디자인에 없는 띠")>=0;}));
+  designImages["pg"]=pageDes;
+  var cropRes={design:pageDesign,alignment:{s:1,tx:0,ty:0},capture:{img:pageCap,width:400,height:330}},cropC={designBox:{x:40,y:80,w:140,h:22},rawBox:{x:40,y:150,w:140,h:22}},crops=compareCropRegions(cropRes,cropC);
+  check("나란히 보기 조각은 같은 논리 배율",Math.abs(crops.design.w-crops.dev.w)<.01&&Math.abs(crops.dev.x+crops.dev.w/2-110)<.01&&Math.abs(crops.dev.y+crops.dev.h/2-161)<.01);
+  delete designImages["pg"];
+  check("검수 범위 카드와 나란히 보기 켜기·끄기 버튼 존재",!!document.getElementById("rangeCard")&&!!document.getElementById("rangeEditor")&&!!document.getElementById("compareWhereBtn")&&!document.getElementById("compareStrip"));
+  // 검수 범위 접기 / 비교 영역 크기 / 번호 이동
+  setRangeOpen(false);check("검수 범위 기본은 접힘",!rangeCard.classList.contains("open")&&getComputedStyle(rangeBody).display==="none");
+  rangeToggle.onclick();check("제목 줄을 눌러 펼치기",rangeCard.classList.contains("open")&&getComputedStyle(rangeBody).display!=="none"&&rangeToggle.getAttribute("aria-expanded")==="true");
+  rangeToggle.onclick();check("다시 눌러 접기 · 조정판도 같이 닫힘",!rangeCard.classList.contains("open")&&rangeEditor.classList.contains("hidden"));
+  results=[{pairId:"rp",design:{id:"rd",name:"화면",width:400,height:300},capture:{img:canvasFor(10,10),width:10,height:10,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[],notices:[],sections:[],range:{bands:[],designTop:101,designBottom:0,captureTop:0,stripDetected:119,manual:false,auto:false}}];currentResult=0;
+  renderRange(results[0]);check("제외 안 된 띠가 있으면 펼쳐서 알림",rangeCard.classList.contains("open")&&rangeSummary.textContent.indexOf("확인 필요")>=0);
+  results[0].range={bands:[],designTop:101,designBottom:0,captureTop:119,stripDetected:119,manual:false,auto:true};setRangeOpen(false);renderRange(results[0]);
+  check("접힌 상태 한 줄 요약",!rangeCard.classList.contains("open")&&rangeSummary.textContent==="디자인 위 101px 제외 · 개발 위 119px 제외");
+  results=[];currentResult=0;selectedCandidateId=null;
+  // 캔버스에 나란히 보기 카드 보내기
+  var cvR={pairId:"cv",design:{id:"cvd",width:400,height:300,bytes:[]},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},
+    candidates:[{id:"cv1",no:1,status:"review",label:"글자 내용 또는 표기가 다르게 보입니다.",detail:"디자인 글자: “가나다”",designValues:"크기 16",designBox:{x:40,y:80,w:140,h:22},rawBox:{x:40,y:110,w:140,h:22}}],
+    notices:[],sections:[],range:{designTop:40,designBottom:0,captureTop:70}};
+  designImages["cvd"]=pageDes;results=[cvR];currentResult=0;selectedCandidateId="cv1";compareOn=true;canvasCompareKey=null;
+  var sent=[],realPost=post;post=function(m){sent.push(m);};
+  await renderCompareOnCanvas(cvR);
+  check("캔버스로 나란히 보기 카드 보내기",sent.length===1&&sent[0].type==="render-compare"&&sent[0].no===1&&sent[0].candidateId==="cv1"&&sent[0].designBytes.length>0&&sent[0].devBytes.length>0&&sent[0].aspect>0&&sent[0].designValues.indexOf("크기 16")>=0);
+  sent=[];await renderCompareOnCanvas(cvR);
+  check("같은 번호는 카드를 다시 만들지 않음",sent.length===0);
+  selectedCandidateId=null;sent=[];await renderCompareOnCanvas(cvR);
+  check("선택을 지우면 카드 지우기 전송",sent.length===1&&sent[0].type==="clear-compare");
+  selectedCandidateId="cv1";canvasCompareKey="cv|cv1";sent=[];compareWhereBtn.onclick();
+  check("끄면 캔버스 카드를 지움",compareOn===false&&sent.some(function(m){return m.type==="clear-compare";})&&compareWhereBtn.textContent.indexOf("끔")>=0);
+  sent=[];canvasCompareKey=null;await renderCompareOnCanvas(cvR);
+  check("꺼진 동안에는 카드를 만들지 않음",!sent.some(function(m){return m.type==="render-compare";}));
+  sent=[];compareWhereBtn.onclick();
+  check("다시 켜면 카드를 만듦",compareOn===true&&compareWhereBtn.textContent.indexOf("켬")>=0);
+  sent=[];canvasCompareKey=null;await renderCompareOnCanvas(cvR);
+  check("켠 뒤에는 카드를 다시 만듦",sent.some(function(m){return m.type==="render-compare";}));
+  check("패널 안 나란히 보기는 없음",!document.getElementById("compareStrip")&&typeof window.renderCompareStrip==="undefined");
+  post=realPost;results=[];currentResult=0;selectedCandidateId=null;canvasCompareKey=null;delete designImages["cvd"];
+  // 캔버스에서 번호를 눌렀을 때 패널이 따라오는지
+  var twoA={pairId:"pa",design:{id:"da",name:"화면A",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"a1",no:1,status:"review",label:"가",designBox:{x:1,y:1,w:9,h:9},rawBox:{x:1,y:1,w:9,h:9}}],notices:[],sections:[],range:{}};
+  var twoB={pairId:"pb",design:{id:"db",name:"화면B",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},candidates:[{id:"b7",no:7,status:"review",label:"나",designBox:{x:2,y:2,w:9,h:9},rawBox:{x:2,y:2,w:9,h:9}}],notices:[],sections:[],range:{}};
+  results=[twoA,twoB];currentResult=0;selectedCandidateId=null;compareWhere="canvas";canvasCompareKey=null;
+  var sentSel=[],realPost2=post;post=function(m){sentSel.push(m);};
+  // 캔버스에서 검수 화면(프레임·카드·레포트)을 눌렀을 때
+  currentResult=0;selectedCandidateId="a1";
+  var scrSent=[],scrPost=post;post=function(m){scrSent.push(m);};
+  var switched=focusResultFromCanvas("pb");
+  post=scrPost;
+  check("캔버스에서 2번 검수 화면을 고르면 패널도 2번으로",switched===true&&currentResult===1&&selectedCandidateId===null&&screenTitle.textContent.indexOf("2 / 2")===0);
+  check("화면이 바뀐 것을 제목에서 알림",screenTitle.className.indexOf("flash")>=0);
+  check("같은 화면을 다시 골라도 그대로",focusResultFromCanvas("pb")===true&&currentResult===1);
+  check("모르는 화면은 무시",focusResultFromCanvas("없음")===false);
+  currentResult=0;selectedCandidateId=null;screenTitle.classList.remove("flash");
+  var moved=focusCandidateFromCanvas("b7");
+  post=realPost2;
+  check("캔버스에서 고른 번호가 다른 화면이면 그 화면으로 옮김",moved===true&&currentResult===1&&selectedCandidateId==="b7");
+  check("캔버스에서 고른 번호는 캔버스 화면을 다시 움직이지 않음",!sentSel.some(function(m){return m.type==="focus-candidate";}));
+  var flashRow=numberLists.querySelector('[data-row="b7"]');
+  check("패널 목록에서 그 번호를 눈에 띄게 표시",!!flashRow&&flashRow.className.indexOf("sel-row")>=0&&flashRow.className.indexOf("flash")>=0);
+  check("모르는 번호는 무시",focusCandidateFromCanvas("없는번호")===false);
+  results=[];currentResult=0;selectedCandidateId=null;canvasCompareKey=null;numberLists.innerHTML="";
+  // 검수 레포트 만들기
+  var repR={pairId:"rp",design:{id:"rd",name:"웹_로그인 화면",width:400,height:300},capture:{img:pageCap,width:400,height:330,displayScale:1},alignment:{s:1,tx:0,ty:0},
+    candidates:[{id:"r1",no:1,status:"confirmed",label:"글자 내용 또는 표기가 다르게 보입니다.",detail:"디자인 글자: “가나다”",designValues:"크기 16"},
+                {id:"r2",no:2,status:"review",label:"요소의 위치 또는 정렬이 다릅니다.",detail:"",designValues:""},
+                {id:"r3",no:3,status:"excluded",label:"",detail:"",designValues:"크기 20"}],
+    notices:[],sections:[],range:{designTop:101,designBottom:0,captureTop:119,stripDetected:119}};
+  var payload=buildReportPayload(repR);
+  check("레포트 내용에 번호·사유·상태가 담김",payload.type==="build-report"&&payload.rows.length===3&&payload.rows[0].no===1&&payload.rows[0].statusText==="오류확정"&&payload.rows[1].statusText==="검토 필요"&&payload.rows[2].statusText==="제외");
+  check("사유가 없으면 대체 문구를 넣음",payload.rows[2].reason==="디자인값과 다름");
+  check("레포트에 건수 요약",payload.summary==="후보 3건 · 검토 필요 1 · 오류확정 1 · 제외 1 · 보류 0");
+  check("레포트에 검수 범위와 화면 이름",payload.rangeText==="검수 범위 — 디자인 위 101px 제외 · 개발 위 119px 제외"&&payload.screenName==="웹_로그인 화면"&&/^\d{4}-\d{2}-\d{2}$/.test(payload.date));
+  var repSent=[],repPost=post;post=function(m){repSent.push(m);};
+  results=[repR];currentResult=0;buildReport.onclick();
+  post=repPost;
+  check("‘검수 레포트 작성’ 버튼이 레포트를 요청",repSent.length===1&&repSent[0].type==="build-report"&&repSent[0].pairId==="rp");
+  check("아래 버튼 두 개(준비로 돌아가기·검수 레포트 작성)",!!document.getElementById("backPrepare")&&!!document.getElementById("buildReport")&&document.querySelectorAll(".bottom-row button").length===2);
+  results=[];currentResult=0;
+  // 겹쳐보기 자리
+  var ovR={design:{id:"od",width:1920,height:1080,bytes:[]},capture:{width:1920,height:1054,displayScale:1},alignmentForFigma:{s:1,tx:3,ty:81},range:{designTop:101,designBottom:0,captureTop:119}};
+  var ovPlace=overlayPlacement(ovR);
+  check("겹쳐보기: 잘라낸 개발 캡처 띠만큼 내려서 얹음",Math.round(ovPlace.box.y)===119&&Math.round(ovPlace.box.h)===979&&Math.round(ovPlace.box.w)===1920&&Math.round(ovPlace.box.x)===-3);
+  check("겹쳐보기: 디자인 틀 띠는 잘라서 얹음",ovPlace.cropTop===101&&ovPlace.cropBottom===0);
+  // 개발 캡처가 디자인 절반 크기(960px)로 찍힌 경우: 캡처 1px = 디자인 2px(sF.s=2), 결과 프레임은 디자인 폭 1920
+  var ovR2={design:{id:"od2",width:1920,height:1080,bytes:[]},capture:{width:960,height:540,displayScale:1},alignmentForFigma:{s:2,tx:0,ty:0},range:{designTop:0,designBottom:0,captureTop:0}};
+  var ovPlace2=overlayPlacement(ovR2);
+  check("겹쳐보기: 배율이 달라도 결과 프레임 폭에 맞춤",Math.round(ovPlace2.box.w)===1920&&Math.round(ovPlace2.box.h)===1080&&ovPlace2.box.y===0);
+  var ovR3={design:{id:"od3",width:400,height:800,bytes:[]},capture:{width:400,height:900,displayScale:1},alignmentForFigma:{s:1,tx:0,ty:0},range:{designTop:60,designBottom:40,captureTop:80}};
+  var ovPlace3=overlayPlacement(ovR3);
+  check("겹쳐보기: 위·아래 틀 띠를 모두 뺀 높이로 얹음",ovPlace3.cropTop===60&&ovPlace3.cropBottom===40&&Math.round(ovPlace3.box.y)===80&&Math.round(ovPlace3.box.h)===700);
+  // 겹쳐보기 수동 맞추기
+  var fixR={pairId:"fx",design:{id:"fd",width:1920,height:1080,bytes:[]},capture:{width:1920,height:1054,displayScale:1,nodeId:null,overlayFix:null},alignmentForFigma:{s:1,tx:3,ty:81},range:{designTop:101,designBottom:0,captureTop:119}};
+  var fixPlace=overlayPlacement(fixR);
+  check("보정이 없으면 자동 자리 그대로",Math.round(fixPlace.box.y)===119&&Math.round(fixPlace.box.x)===-3&&fixPlace.fix.dx===0);
+  var got=overlayFixFromPos(fixR,-3+12,119-20);
+  check("끌어 놓은 자리에서 보정값 계산",got.dx===12&&got.dy===-20);
+  fixR.capture.overlayFix=got;
+  var fixPlace2=overlayPlacement(fixR);
+  check("보정을 반영해 다음에도 같은 자리",Math.round(fixPlace2.box.x)===9&&Math.round(fixPlace2.box.y)===99);
+  check("보정을 반영해도 다시 읽으면 같은 값",overlayFixFromPos(fixR,fixPlace2.box.x,fixPlace2.box.y).dx===12);
+  var halfR={pairId:"fh",design:{id:"fh",width:1920,height:1080,bytes:[]},capture:{width:960,height:540,displayScale:1,overlayFix:{dx:5,dy:7}},alignmentForFigma:{s:2,tx:0,ty:0},range:{designTop:0,designBottom:0,captureTop:0}};
+  check("캡처가 절반 크기여도 보정은 캡처 원본 px 기준",Math.round(overlayPlacement(halfR).box.x)===10&&Math.round(overlayPlacement(halfR).box.y)===14);
+  results=[fixR];currentResult=0;overlayVisibleByPair={"fx":true};fixR.capture.nodeId="cap-node";
+  var fxSent=[],fxPost=post;post=function(m){fxSent.push(m);};
+  var movedFix=overlayMovedOnCanvas("fx",-3,119+30);
+  post=fxPost;
+  check("캔버스에서 끌면 그 자리가 바로 저장됨",movedFix&&movedFix.dy===30&&fixR.capture.overlayFix.dy===30&&fxSent.some(function(m){return m.type==="set-capture-overlay-fix"&&m.fix&&m.fix.dy===30;}));
+  fxSent=[];post=function(m){fxSent.push(m);};
+  overlayMovedOnCanvas("fx",-3,119);
+  post=fxPost;
+  check("자동 자리로 되돌려 놓으면 보정도 지워짐",fixR.capture.overlayFix===null&&fxSent.some(function(m){return m.type==="set-capture-overlay-fix"&&m.fix===null;}));
+  check("모르는 화면의 움직임은 무시",overlayMovedOnCanvas("없음",0,0)===null);
+  check("패널에 맞추기 상자는 없음",!document.getElementById("overlayFixCard"));
+  results=[];currentResult=0;overlayVisibleByPair={};
+  var mainStyle=getComputedStyle(document.querySelector("main"));
+  check("본문 상단 빈 여백 축소",parseInt(mainStyle.paddingTop,10)<=8&&getComputedStyle(document.querySelector("header")).height!=="64px");
   var failed=checks.filter(function(c){return!c.ok;});document.body.innerHTML='<pre id="selftest">SELFTEST '+(failed.length?'FAIL':'PASS')+'\n'+checks.map(function(c){return(c.ok?'✓ ':'✗ ')+c.name;}).join('\n')+'</pre>';document.title=failed.length?'SELFTEST FAIL':'SELFTEST PASS';
 }
 if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});
