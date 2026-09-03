@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/sync-agents-md.sh\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "AGENTS.md 링크 확인 중"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -43,3 +43,6 @@ validation-image-qa/repro/prepcase3.js
 validation-image-qa/repro/report_mock.html
 validation-image-qa/repro/scene_mock.html
 validation-image-qa/repro/scrollcase.js
+
+# AGENTS.md 자가복구 백업
+.agents-md-backup/

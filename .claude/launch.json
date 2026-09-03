@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portal",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["portal.py"],
+      "cwd": "mvp0",
+      "port": 8765
+    }
+  ]
+}
