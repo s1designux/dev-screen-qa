@@ -13,6 +13,7 @@ var reportNodeByPair = {};
 var compareNodeByPair = {};
 var lastProgrammaticSelectionAt = 0;
 var TRIM_KEY = "imageQaTopTrim";
+var BOTTOM_TRIM_KEY = "imageQaBottomTrim"; // 사람이 정한 검수 범위(캡처 아래쪽 제외 px). 모바일 하단 내비게이션·홈 바를 빼는 데 쓴다.
 var OVERLAY_FIX_KEY = "imageQaOverlayFix";
 var POLICY_KEY = "imageQaPolicy"; // 디자인 프레임에 두는 작은 설정값: 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부. 검수 결과가 아니라 설정이다. // 사람이 직접 끌어 맞춘 겹쳐보기 위치(캡처 노드 좌표계) // 사람이 정한 검수 범위(캡처 위쪽 제외 px). 캡처 노드에 남겨 다음 검수에도 쓴다.
 var resultNodeByPair = {};
@@ -217,8 +218,9 @@ async function exportCaptureNode(node, index) {
   var maxSide = Math.max(bb.width, bb.height);
   var scale = Math.min(1, 4096 / Math.max(1, maxSide));
   var bytes = await node.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
-  var topTrim = null, overlayFix = null;
+  var topTrim = null, bottomTrim = null, overlayFix = null;
   try { var saved = node.getPluginData ? node.getPluginData(TRIM_KEY) : ""; if (saved !== "") { var n = Number(saved); if (isFinite(n)) topTrim = Math.max(0, Math.round(n * scale)); } } catch (e) {}
+  try { var savedB = node.getPluginData ? node.getPluginData(BOTTOM_TRIM_KEY) : ""; if (savedB !== "") { var nb = Number(savedB); if (isFinite(nb)) bottomTrim = Math.max(0, Math.round(nb * scale)); } } catch (eb) {}
   try {
     var savedFix = node.getPluginData ? node.getPluginData(OVERLAY_FIX_KEY) : "";
     if (savedFix !== "") { var f = JSON.parse(savedFix); if (f && isFinite(f.dx) && isFinite(f.dy)) overlayFix = { dx: Math.round(f.dx * scale), dy: Math.round(f.dy * scale) }; }
@@ -232,6 +234,7 @@ async function exportCaptureNode(node, index) {
     width: round1(bb.width), height: round1(bb.height),
     bytes: Array.from(bytes),
     topTrim: topTrim,
+    bottomTrim: bottomTrim,
     overlayFix: overlayFix
   };
 }
@@ -473,15 +476,25 @@ async function buildCanvasResult(msg) {
 
   var sx = devW / imageSize.width, sy = devH / imageSize.height;
   var excludedTop = Math.max(0, Number(msg.excludedTop) || 0) * sy;
-  if (excludedTop > 0) {
-    // 비교에서 뺀 위쪽 띠는 흐리게 덮고, 실제 검수 범위는 점선으로 표시한다.
-    var dim = figma.createRectangle(); board.appendChild(dim); dim.name = "비교 제외 띠(브라우저 틀)";
-    dim.x = 0; dim.y = 0; dim.resize(devW, Math.max(1, excludedTop));
-    dim.fills = [{ type: "SOLID", color: paint("6B7280"), opacity: 0.55 }]; dim.strokes = [];
-    var dimText = makeText(font, "비교 제외 · 브라우저 틀(검수 범위)", 11, { r: 1, g: 1, b: 1 }); board.appendChild(dimText);
-    dimText.x = 8; dimText.y = Math.max(2, excludedTop / 2 - dimText.height / 2);
+  var excludedBottom = Math.max(0, Number(msg.excludedBottom) || 0) * sy;
+  if (excludedTop > 0 || excludedBottom > 0) {
+    // 비교에서 뺀 위·아래 띠는 흐리게 덮고, 실제 검수 범위는 점선으로 표시한다.
+    if (excludedTop > 0) {
+      var dim = figma.createRectangle(); board.appendChild(dim); dim.name = "비교 제외 띠(브라우저 틀)";
+      dim.x = 0; dim.y = 0; dim.resize(devW, Math.max(1, excludedTop));
+      dim.fills = [{ type: "SOLID", color: paint("6B7280"), opacity: 0.55 }]; dim.strokes = [];
+      var dimText = makeText(font, "비교 제외 · 브라우저 틀(검수 범위)", 11, { r: 1, g: 1, b: 1 }); board.appendChild(dimText);
+      dimText.x = 8; dimText.y = Math.max(2, excludedTop / 2 - dimText.height / 2);
+    }
+    if (excludedBottom > 0) {
+      var dimB = figma.createRectangle(); board.appendChild(dimB); dimB.name = "비교 제외 띠(하단 내비게이션)";
+      dimB.x = 0; dimB.y = Math.max(0, devH - excludedBottom); dimB.resize(devW, Math.max(1, excludedBottom));
+      dimB.fills = [{ type: "SOLID", color: paint("6B7280"), opacity: 0.55 }]; dimB.strokes = [];
+      var dimTextB = makeText(font, "비교 제외 · 하단 내비게이션(검수 범위)", 11, { r: 1, g: 1, b: 1 }); board.appendChild(dimTextB);
+      dimTextB.x = 8; dimTextB.y = Math.max(2, devH - excludedBottom / 2 - dimTextB.height / 2);
+    }
     var rangeRect = figma.createRectangle(); board.appendChild(rangeRect); rangeRect.name = "검수 범위";
-    rangeRect.x = 0; rangeRect.y = excludedTop; rangeRect.resize(devW, Math.max(1, devH - excludedTop));
+    rangeRect.x = 0; rangeRect.y = excludedTop; rangeRect.resize(devW, Math.max(1, devH - excludedTop - excludedBottom));
     rangeRect.fills = []; rangeRect.strokes = [{ type: "SOLID", color: paint("1D6CEB") }]; rangeRect.strokeWeight = 1.5; rangeRect.dashPattern = [8, 6];
   }
   var nodeMap = {};
@@ -803,6 +816,20 @@ async function buildReport(msg) {
   return memo;
 }
 
+async function clearCandidates(pairId) {
+  // 겹쳐보기 자리를 옮기면 이전 번호 표시를 지운다(겹쳐놓은 디자인·개발 캡처는 그대로 둔다).
+  var boardId = resultNodeByPair[pairId];
+  var board = boardId ? await figma.getNodeByIdAsync(boardId) : null;
+  if (!board || !board.findAll) return;
+  var marks = board.findAll(function (n) { return !!(n.getPluginData && n.getPluginData(CANDIDATE_MARK)); });
+  marks.forEach(function (n) {
+    var cid = n.getPluginData(CANDIDATE_MARK);
+    if (candidateNodeById[cid]) delete candidateNodeById[cid];
+    n.remove();
+  });
+  if (marks.length) figma.notify("겹쳐보기 자리를 옮겨 이전 번호를 지웠어요. 패널에서 ‘재검수 진행’을 눌러 주세요.");
+}
+
 function reportOverlayPos(pairId, node) {
   if (node && typeof node.x === "number") figma.ui.postMessage({ type: "overlay-moved", pairId: pairId, x: node.x, y: node.y });
 }
@@ -901,6 +928,8 @@ figma.ui.onmessage = async function (msg) {
       await focusCandidate(msg.candidateId);
     } else if (msg.type === "clear-focus") {
       clearCandidateFocus();
+    } else if (msg.type === "clear-candidates") {
+      await clearCandidates(msg.pairId);
     } else if (msg.type === "candidate-status") {
       await updateCandidateStatus(msg.candidateId, msg.status);
     } else if (msg.type === "toggle-overlay") {
@@ -924,6 +953,7 @@ figma.ui.onmessage = async function (msg) {
       if (capNode && capNode.setPluginData) {
         var bbT = capNode.absoluteBoundingBox, sc = bbT ? Math.min(1, 4096 / Math.max(1, Math.max(bbT.width, bbT.height))) : 1;
         capNode.setPluginData(TRIM_KEY, String(Math.max(0, Math.round((Number(msg.topTrim) || 0) / sc)))); // 노드 좌표계(export 배율 되돌림)로 저장
+        capNode.setPluginData(BOTTOM_TRIM_KEY, String(Math.max(0, Math.round((Number(msg.bottomTrim) || 0) / sc))));
       }
     } else if (msg.type === "set-design-policy") {
       // 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부를 디자인 프레임에 작은 설정값으로 저장한다.

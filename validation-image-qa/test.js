@@ -111,11 +111,16 @@ if (!uiSource.includes('id="rangeToggle"') || !uiSource.includes('id="rangeBody"
   process.exit(1);
 }
 console.log('✓ 검수 범위 접기와 상단 여백');
-if (!uiSource.includes('function overlayPlacement(') || !uiSource.includes('function overlayDesignBytes(') || !uiSource.includes('y:trim*K') || uiSource.includes('y:-sF.ty/sF.s*cap.displayScale*k')) {
+if (!uiSource.includes('function overlayPlacement(') || !uiSource.includes('function overlayDesignBytes(') || !uiSource.includes('y:(trim+nudge.dy)*K') || uiSource.includes('y:-sF.ty/sF.s*cap.displayScale*k')) {
   console.error('겹쳐보기 자리(잘라낸 띠 되돌리기·틀 띠 잘라 얹기) 규칙이 깨졌습니다.');
   process.exit(1);
 }
 console.log('✓ 겹쳐보기 자리 보정');
+if (!uiSource.includes('function markOverlayMoved(') || !uiSource.includes('function foldOverlayFix(') || !uiSource.includes('function recompareWithOverlay(') || !uiSource.includes('id="overlayRecheck"') || !uiSource.includes('type:"clear-candidates"') || !mainCode.includes('async function clearCandidates(')) {
+  console.error('겹쳐보기 자리를 옮긴 뒤 검수내역 리셋·재검수 진행 규칙이 깨졌습니다.');
+  process.exit(1);
+}
+console.log('✓ 겹쳐보기 이동 시 검수내역 리셋과 재검수 진행');
 if (uiSource.includes('id="overlayFixCard"') || uiSource.includes('id="grabOverlay"') || uiSource.includes('id="saveOverlayPos"')) {
   console.error('겹쳐보기 맞추기 상자가 패널에 남아 있습니다(캔버스에서 끌어 저장만 있어야 합니다).');
   process.exit(1);

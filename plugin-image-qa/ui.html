@@ -179,6 +179,7 @@
   .range-editor input[type=number]{width:70px;height:28px;border:1px solid #D9D9D9;border-radius:4px;padding:0 8px;font:12px inherit}
   .range-editor .row button{height:32px;line-height:30px;font-size:12px}
   .range-hint{font-size:10px;color:#888888;margin-top:6px;line-height:1.5}
+  .range-sub{margin-top:12px;padding-top:10px;border-top:1px dashed #DCE7F8;font-size:11px;font-weight:700;color:#555555}
 
   /* 나란히 보기 */
 
@@ -277,6 +278,10 @@
         <canvas id="rangeCanvas" width="340" height="140" aria-label="개발 캡처 위쪽 미리보기. 클릭하거나 끌어서 비교 시작선을 정합니다."></canvas>
         <div class="range-hint">붉은 선 위쪽은 비교하지 않습니다. 브라우저 탭·주소창·상태바가 끝나는 곳에 선을 맞춰 주세요.</div>
         <div class="row"><label>위쪽 제외 <input type="number" id="rangeTrim" min="0" step="1"> px</label></div>
+        <div class="range-sub">아래쪽(모바일 하단 내비게이션·홈 바)</div>
+        <canvas id="rangeCanvasBottom" width="340" height="140" aria-label="개발 캡처 아래쪽 미리보기. 클릭하거나 끌어서 비교 끝선을 정합니다."></canvas>
+        <div class="range-hint">붉은 선 아래쪽은 비교하지 않습니다. 모바일 브라우저 하단 내비게이션·홈 바가 시작되는 곳에 선을 맞춰 주세요.</div>
+        <div class="row"><label>아래쪽 제외 <input type="number" id="rangeTrimBottom" min="0" step="1"> px</label></div>
         <div class="row"><button class="primary" id="rangeApply" type="button">이 범위로 다시 비교</button><button id="rangeNone" type="button">제외 안 함</button></div>
       </div>
       </div>
@@ -332,6 +337,7 @@ async function makeFigmaCapture(data){
   var bytes=new Uint8Array(data.bytes),img=await bytesToImage(bytes,"image/png");
   return{id:data.id||uid("figma_"),name:data.name||"Figma 이미지",source:"figma",nodeId:data.nodeId||null,x:data.x,y:data.y,canvasWidth:data.width,canvasHeight:data.height,bytes:bytes,displayBytes:bytes,displayScale:1,img:img,width:img.width,height:img.height,
     topTrim:(typeof data.topTrim==="number"&&isFinite(data.topTrim))?Math.max(0,Math.round(data.topTrim)):null, // 이전에 사람이 정한 검수 범위(캡처 노드에 저장됨)
+    bottomTrim:(typeof data.bottomTrim==="number"&&isFinite(data.bottomTrim))?Math.max(0,Math.round(data.bottomTrim)):null, // 아래쪽 제외(모바일 하단 내비게이션 등)
     overlayFix:(data.overlayFix&&isFinite(data.overlayFix.dx)&&isFinite(data.overlayFix.dy))?{dx:data.overlayFix.dx,dy:data.overlayFix.dy}:null}; // 사람이 맞춘 겹쳐보기 위치 보정
 }
 function mergeCaptureItems(current,incoming){
@@ -896,19 +902,47 @@ function estimateCaptureContentTop(sections,root,bands,model,lg){
   var off=first?first.offset:root.offset;
   return{bandBottom:bandBottom,capY:(bandBottom*lg+off.dy-model.ty)/model.s,fromSection:!!first};
 }
-function snapToSeparator(captureImg,y,win){
-  // 브라우저 틀은 가로로 꽉 찬 경계선에서 끝난다. 추정 위치 ±win 안에서 가장 뚜렷한 가로 경계 행으로 맞춘다.
-  var W=captureImg.width,H=captureImg.height,y0=Math.max(1,Math.round(y-win)),y1=Math.min(H-2,Math.round(y+win));if(y1<=y0)return Math.round(y);
+function strongestSeparator(captureImg,from,to){
+  // 주어진 구간에서 가로로 꽉 찬(60% 이상) 경계 행 중 가장 뚜렷한 것. 없으면 null.
+  var W=captureImg.width,H=captureImg.height,y0=Math.max(1,Math.round(from)),y1=Math.min(H-2,Math.round(to));if(y1<=y0)return null;
   var rows=y1-y0+2,c=canvasFor(W,rows),x=c.getContext("2d");x.drawImage(captureImg,0,-(y0-1));var d=x.getImageData(0,0,W,rows).data,best=null,cols=Math.ceil(W/2);
   for(var r=1;r<rows;r++){var n=0;for(var px=0;px<W;px+=2){var i=(r*W+px)*4,j=((r-1)*W+px)*4,a=d[i]*.299+d[i+1]*.587+d[i+2]*.114,b=d[j]*.299+d[j+1]*.587+d[j+2]*.114;if(Math.abs(a-b)>10)n++;}
     var frac=n/cols;if(frac>=.6&&(!best||frac>best.frac))best={y:y0-1+r,frac:frac};}
-  return best?best.y:Math.round(y);
+  return best;
 }
-function trimmedCapture(cap,topTrim){
-  // 개발 캡처 위쪽 띠를 잘라낸 비교용 사본. 좌표는 나중에 topTrim만큼 되돌린다.
-  topTrim=Math.max(0,Math.round(topTrim||0));if(!topTrim)return Object.assign({},cap,{topTrim:0});
-  var c=canvasFor(cap.width,Math.max(8,cap.height-topTrim)),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,-topTrim);
-  return Object.assign({},cap,{img:c,height:c.height,topTrim:topTrim});
+function estimateCaptureContentBottom(sections,root,bands,model,lg,design){
+  // 디자인 내용(아래 틀 띠 위)의 끝이 개발 캡처의 몇 px에 닿는지. 띠 바로 위 구역의 밀림을 써서 정렬 오차를 줄인다.
+  var bandTop=design.height;bands.forEach(function(b){if(b.edge==="bottom")bandTop=Math.min(bandTop,b.box.y);});
+  var last=null;sections.forEach(function(s){if(s.matched&&!s.excluded&&s.box.y+s.box.h<=bandTop+2&&(!last||s.box.y+s.box.h>last.box.y+last.box.h))last=s;});
+  var off=last?last.offset:root.offset;
+  return{bandTop:bandTop,capY:(bandTop*lg+off.dy-model.ty)/model.s,fromSection:!!last};
+}
+function snapToSeparator(captureImg,y,win){
+  // 브라우저 틀은 가로로 꽉 찬 경계선에서 끝난다. 추정 위치 ±win 안에서 가장 뚜렷한 가로 경계 행으로 맞춘다.
+  var best=strongestSeparator(captureImg,y-win,y+win);return best?best.y:Math.round(y);
+}
+function rowAverageColor(data,W,y){var r=0,g=0,b=0,n=0;for(var x=0;x<W;x+=2){var i=(y*W+x)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;}return[r/n,g/n,b/n];}
+function detectBottomBar(captureImg){
+  // 캡처 아래쪽(30% 안)에서 가로로 꽉 찬 경계선을 찾아 '아래 띠'의 대략 높이를 잡는다.
+  // 디자인보다 캡처가 길지 않아도(하단 내비게이션이 화면 안에 겹쳐 있어도) 찾을 수 있다.
+  var H=captureImg.height,W=captureImg.width,minB=Math.max(24,Math.round(H*.04)),maxB=Math.round(H*.3);
+  var best=strongestSeparator(captureImg,H-maxB,H-minB);if(!best)return 0;
+  var h=H-best.y;if(h<minB||h>maxB)return 0;
+  // 경계선 아래가 바탕색이 고른 '띠'인지 확인한다(사진·본문이면 위아래 색이 크게 다르다).
+  var c=canvasFor(W,h),x=c.getContext("2d");x.drawImage(captureImg,0,-best.y);var d=x.getImageData(0,0,W,h).data;
+  return colorDistance(rowAverageColor(d,W,Math.min(4,h-2)),rowAverageColor(d,W,h-2))<40?h:0;
+}
+function snapBottomToSeparator(captureImg,fromY){
+  // 하단 내비게이션도 가로로 꽉 찬 경계선에서 시작한다. 디자인 내용이 끝난 자리부터 아래를 훑어 가장 뚜렷한 경계 행을 찾고, '아래쪽 제외 px'로 돌려준다.
+  var H=captureImg.height,best=strongestSeparator(captureImg,fromY,H-2);
+  return Math.max(0,Math.round(H-(best?best.y:Math.round(fromY))));
+}
+function trimmedCapture(cap,topTrim,bottomTrim){
+  // 개발 캡처 위·아래 띠를 잘라낸 비교용 사본. 위쪽 좌표는 나중에 topTrim만큼 되돌린다(아래쪽은 좌표가 그대로다).
+  topTrim=Math.max(0,Math.round(topTrim||0));bottomTrim=Math.max(0,Math.round(bottomTrim||0));
+  if(!topTrim&&!bottomTrim)return Object.assign({},cap,{topTrim:0,bottomTrim:0});
+  var c=canvasFor(cap.width,Math.max(8,cap.height-topTrim-bottomTrim)),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,-topTrim);
+  return Object.assign({},cap,{img:c,height:c.height,topTrim:topTrim,bottomTrim:bottomTrim});
 }
 function shiftCandidatesDown(cands,dy){if(!dy)return cands;cands.forEach(function(c){c.rawBox.y+=dy;(c.rawAnchorBoxes||[]).forEach(function(b){b.y+=dy;});});return cands;}
 function inkAverage(data,W,H,box,dx,dy){
@@ -1124,6 +1158,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
   cands.forEach(function(c,i){c.no=i+1;c.id=pairId+"_c"+(i+1);});
   cands.notices=notices;cands.bands=bands;cands.contentTop=estimateCaptureContentTop(sections,sectionInfo.root,bands,model,lg);
+  cands.contentBottom=estimateCaptureContentBottom(sections,sectionInfo.root,bands,model,lg,design);
   cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
   return cands;
 }
@@ -1190,34 +1225,60 @@ async function runCompare(){
   await new Promise(function(r){setTimeout(r,400);});
   setView("review");renderReview();
 }
-function alignFor(d,img,capImg,excludeBoxes){return anchorAlignment(d,img,capImg,{excludeBoxes:excludeBoxes||[]})||searchAlignment(img,capImg,false);}
+function nudgeModel(m,cap){
+  // 사람이 겹쳐보기로 맞춘 자리(캡처 원본 px)를 정렬식에 반영한다. 디자인px = 캡처px*s + tx 이므로 dx만큼 옮기면 tx는 dx*s만큼 줄어든다.
+  var n=cap&&cap.alignNudge;if(!m||!n||(!n.dx&&!n.dy))return m;
+  return Object.assign({},m,{tx:m.tx-n.dx*m.s,ty:m.ty-n.dy*m.s});
+}
+function alignFor(d,img,capImg,excludeBoxes,cap){return nudgeModel(anchorAlignment(d,img,capImg,{excludeBoxes:excludeBoxes||[]})||searchAlignment(img,capImg,false),cap);}
 function comparePair(p,d,cap,img){
-  // 1차: 캡처 전체로 정렬·비교해 디자인의 틀 띠와 캡처의 위쪽 띠를 찾는다.
-  // 디자인에도 틀(가짜 탭바)이 있고 캡처 위쪽에도 띠가 있으면 둘 다 틀로 보고 캡처 위쪽을 잘라 2차 비교한다.
+  // 1차: 캡처 전체로 정렬·비교해 디자인의 틀 띠와 캡처의 위·아래 띠를 찾는다.
+  // 디자인에도 틀(가짜 탭바·하단 내비게이션)이 있고 캡처의 같은 쪽에도 띠가 있으면 둘 다 틀로 보고 그만큼 잘라 2차 비교한다.
   // 디자인에 틀이 없는데 캡처에만 띠가 있으면 진짜 추가 요소일 수 있으니 자르지 않고 안내만 한다(사람이 검수 범위에서 결정).
-  var manual=cap.topTrim!=null?cap.topTrim:null,trim=0,auto=false,strip=0,model,cands,bandsFirst=null,view=cap;
-  if(manual==null){
-    var m0=alignFor(d,img,cap.img),c0=buildDiff(d,img,cap,m0,p.id),top=c0.contentTop,topBands=c0.bands.filter(function(b){return b.edge==="top";});
-    var minStrip=Math.max(12,Math.round(cap.width*.008)),maxStrip=cap.height*.3;
+  var manual=cap.topTrim!=null?cap.topTrim:null,manualBottom=cap.bottomTrim!=null?cap.bottomTrim:null;
+  var trim=manual!=null?Math.max(0,Math.round(manual)):0,bottom=manualBottom!=null?Math.max(0,Math.round(manualBottom)):0;
+  var auto=false,autoBottom=false,strip=0,model,cands,bandsFirst=null,view=cap;
+  var stripBottom=detectBottomBar(cap.img); // 아래 띠는 정렬 없이 캡처 이미지만 봐도 대략 찾을 수 있다(사람이 이미 정한 화면에서도 참고값으로 보여준다).
+  if(manual==null||manualBottom==null){
+    var m0=alignFor(d,img,cap.img,[],cap),c0=buildDiff(d,img,cap,m0,p.id),maxStrip=cap.height*.3;
     bandsFirst=c0.bands;
-    if(top.capY>=minStrip&&top.capY<=maxStrip){strip=snapToSeparator(cap.img,top.capY,Math.max(6,Math.round(cap.width*.005)));if(topBands.length){trim=strip;auto=true;}}
-    if(!trim){model=m0;cands=c0;if(strip)cands.notices.push("개발 캡처 위쪽 약 "+strip+"px에 디자인에 없는 띠가 있어요. 브라우저 탭·주소창·상태바라면 ‘검수 범위 › 조정’에서 제외해 주세요. 디자인에 없는 요소라면 그대로 두세요.");}
-  }else trim=manual;
-  if(manual!=null||trim){
-    view=trimmedCapture(cap,trim);
-    model=alignFor(d,img,view.img,bandsFirst?bandsFirst.map(function(b){return b.box;}):[]);
-    cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,bandsFirst?{bands:bandsFirst}:{}),trim);
-    if(trim)cands.notices.push("개발 캡처 위쪽 "+trim+"px는 "+(manual!=null?"직접 정한 검수 범위에 따라":"브라우저 탭·주소창 같은 틀로 보고")+" 비교에서 제외했어요.");
+    if(manual==null){
+      var top=c0.contentTop,topBands=c0.bands.filter(function(b){return b.edge==="top";}),minStrip=Math.max(12,Math.round(cap.width*.008));
+      if(top.capY>=minStrip&&top.capY<=maxStrip){strip=snapToSeparator(cap.img,top.capY,Math.max(6,Math.round(cap.width*.005)));if(topBands.length){trim=strip;auto=true;}}
+    }
+    if(manualBottom==null){
+      // 아래쪽도 위쪽과 같은 방법: 디자인 내용이 끝나는 자리가 캡처의 어디인지 재고, 그 아래에 남는 띠를 찾는다.
+      // 캡처가 디자인보다 길지 않으면(내비게이션이 겹쳐 있으면) 이미지만 보고 찾은 값을 쓴다.
+      var bot=c0.contentBottom,botBands=c0.bands.filter(function(b){return b.edge==="bottom";}),minBottom=Math.max(24,Math.round(cap.height*.02));
+      var gap=cap.height-bot.capY;
+      if(gap>=minBottom&&gap<=maxStrip){
+        var sb=snapBottomToSeparator(cap.img,bot.capY);
+        if(sb>=minBottom&&sb<=maxStrip)stripBottom=sb;
+      }
+      if(stripBottom&&botBands.length){bottom=stripBottom;autoBottom=true;}
+    }
+    if(manual==null&&manualBottom==null&&!trim&&!bottom){model=m0;cands=c0;}
   }
+  if(!cands){
+    view=trimmedCapture(cap,trim,bottom);
+    model=alignFor(d,img,view.img,bandsFirst?bandsFirst.map(function(b){return b.box;}):[],cap);
+    cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,bandsFirst?{bands:bandsFirst}:{}),trim);
+  }
+  // 검수 범위 안내(제외했으면 왜 제외했는지, 제외 안 했으면 무엇이 보이는지)
+  if(trim)cands.notices.push("개발 캡처 위쪽 "+trim+"px는 "+(manual!=null?"직접 정한 검수 범위에 따라":"브라우저 탭·주소창 같은 틀로 보고")+" 비교에서 제외했어요.");
+  else if(strip)cands.notices.push("개발 캡처 위쪽 약 "+strip+"px에 디자인에 없는 띠가 있어요. 브라우저 탭·주소창·상태바라면 ‘검수 범위 › 조정’에서 제외해 주세요. 디자인에 없는 요소라면 그대로 두세요.");
+  if(bottom)cands.notices.push("개발 캡처 아래쪽 "+bottom+"px는 "+(manualBottom!=null?"직접 정한 검수 범위에 따라":"모바일 하단 내비게이션·홈 바 같은 틀로 보고")+" 비교에서 제외했어요.");
+  else if(stripBottom&&manualBottom==null)cands.notices.push("개발 캡처 아래쪽 약 "+stripBottom+"px에 디자인에 없는 띠가 있어요. 모바일 하단 내비게이션·홈 바라면 ‘검수 범위 › 조정’에서 제외해 주세요. 디자인에 없는 요소라면 그대로 두세요.");
   var logicalScale=img.width/d.width,bands=cands.bands||[],designTop=0,designBottom=0;
   bands.forEach(function(b){if(b.edge==="top")designTop=Math.max(designTop,b.box.y+b.box.h);else designBottom=Math.max(designBottom,d.height-b.box.y);});
   return{pairId:p.id,design:d,capture:cap,view:view,alignment:model,alignmentForFigma:{s:model.s/logicalScale,tx:model.tx/logicalScale,ty:model.ty/logicalScale},score:model.score,candidates:cands,notices:cands.notices||[],sections:cands.sections||[],
-    range:{bands:bands,designTop:Math.round(designTop),designBottom:Math.round(designBottom),captureTop:trim,auto:auto,manual:manual!=null,stripDetected:strip}};
+    range:{bands:bands,designTop:Math.round(designTop),designBottom:Math.round(designBottom),captureTop:trim,captureBottom:bottom,auto:auto,autoBottom:autoBottom,manual:manual!=null,manualBottom:manualBottom!=null,stripDetected:strip,stripBottomDetected:stripBottom}};
 }
-async function recompareCurrent(topTrim){
+async function recompareCurrent(topTrim,bottomTrim){
   // 검수 범위를 사람이 바꾼 뒤 현재 화면만 다시 비교한다. 범위는 캡처 노드에 저장해 다음에도 쓴다.
   var r=results[currentResult];if(!r)return;var p=pairs.filter(function(x){return x.id===r.pairId;})[0];if(!p)return;
-  var cap=r.capture;cap.topTrim=topTrim;if(cap.nodeId)post({type:"set-capture-trim",nodeId:cap.nodeId,topTrim:topTrim});
+  bottomTrim=Math.max(0,Math.round(bottomTrim||0));
+  var cap=r.capture;cap.topTrim=topTrim;cap.bottomTrim=bottomTrim;if(cap.nodeId)post({type:"set-capture-trim",nodeId:cap.nodeId,topTrim:topTrim,bottomTrim:bottomTrim});
   rangeApply.disabled=true;rangeNone.disabled=true;rangeApply.textContent="다시 비교 중…";
   await new Promise(function(res){setTimeout(res,20);});
   var next=comparePair(p,r.design,cap,designImages[r.design.id]);results[currentResult]=next;selectedCandidateId=null;overlayVisibleByPair[next.pairId]=false;
@@ -1270,7 +1331,7 @@ function captureInkMap(cap){
     return{cell:cell,cols:cols,rows:rows};
   }catch(e){return null;}
 }
-function renderResultToCanvas(r){return new Promise(function(resolve){renderWaiters[r.pairId]=resolve;post({type:"render-results",pairId:r.pairId,designId:r.design.id,designName:r.design.name,captureBytes:Array.from(r.capture.displayBytes),candidates:canvasCandidates(r),ink:captureInkMap(r.capture),excludedTop:(r.range?r.range.captureTop:0)*r.capture.displayScale});});}
+function renderResultToCanvas(r){return new Promise(function(resolve){renderWaiters[r.pairId]=resolve;post({type:"render-results",pairId:r.pairId,designId:r.design.id,designName:r.design.name,captureBytes:Array.from(r.capture.displayBytes),candidates:canvasCandidates(r),ink:captureInkMap(r.capture),excludedTop:(r.range?r.range.captureTop:0)*r.capture.displayScale,excludedBottom:(r.range?r.range.captureBottom||0:0)*r.capture.displayScale});});}
 
 function candidateReason(c){
   // 오류 사유: label이 있으면 그것, 없으면 디자인 원본값이 있으면 "디자인값과 다름", 아니면 "색상·형태 차이"
@@ -1287,8 +1348,13 @@ function renderReview(){
   if(!results.length)return;var r=results[currentResult];screenTitle.textContent=(currentResult+1)+" / "+results.length+" · "+r.design.name;
   if(flashScreen){flashScreen=false;screenTitle.classList.remove("flash");void screenTitle.offsetWidth;screenTitle.classList.add("flash");}prevScreen.disabled=currentResult===0;nextScreen.disabled=currentResult===results.length-1;
   setOverlayButton(!!overlayVisibleByPair[r.pairId]);renderScreenKind(r);renderRange(r);renderCompareView(r);
+  if(r.overlayStale){
+    numberLists.innerHTML='<div class="tip notice"><b>겹쳐보기 자리를 옮겼어요.</b><br>맞춘 자리를 기준으로 다시 검수해야 번호가 맞습니다. 이전 검수내역은 지웠습니다.</div><div class="row"><button class="primary" id="overlayRecheck" type="button">재검수 진행</button></div>';
+    document.getElementById("overlayRecheck").onclick=function(){recompareWithOverlay();};
+    return;
+  }
   var groups=[{k:"review",t:"검토 필요"},{k:"confirmed",t:"오류 확정"},{k:"excluded",t:"제외"},{k:"hold",t:"보류"},{k:"variable",t:"가변 글자·요소",fold:true}],html="";
-  var extraNotices=(r.notices||[]).filter(function(n){return !/^디자인 (위쪽|아래쪽) ‘|^개발 캡처 위쪽 /.test(n);}); // 검수 범위 카드가 이미 보여주는 내용은 뺀다
+  var extraNotices=(r.notices||[]).filter(function(n){return !/^디자인 (위쪽|아래쪽) ‘|^개발 캡처 (위|아래)쪽 /.test(n);}); // 검수 범위 카드가 이미 보여주는 내용은 뺀다
   if(extraNotices.length)html+='<div class="tip notice">'+extraNotices.map(esc).join('<br>')+'</div>';
   groups.forEach(function(g){
     var list=r.candidates.filter(function(c){return c.status===g.k;});
@@ -1333,7 +1399,8 @@ kindCommon.onclick=function(){setScreenKind("common");};kindData.onclick=functio
 var rangeOpen=false,flashSelected=false,flashScreen=false;
 function rangeSummaryText(g,warn){
   g=g||{};
-  return ["디자인 "+(g.designTop?"위 "+g.designTop+"px 제외":"전체"),"개발 "+(g.captureTop?"위 "+g.captureTop+"px 제외":warn?"확인 필요":"전체")].join(" · ");
+  var dev=[];if(g.captureTop)dev.push("위 "+g.captureTop+"px 제외");if(g.captureBottom)dev.push("아래 "+g.captureBottom+"px 제외");
+  return ["디자인 "+(g.designTop?"위 "+g.designTop+"px 제외":"전체"),"개발 "+(dev.length?dev.join(" · "):warn?"확인 필요":"전체")].join(" · ");
 }
 function setRangeOpen(open){
   rangeOpen=!!open;rangeCard.classList.toggle("open",rangeOpen);rangeToggle.setAttribute("aria-expanded",rangeOpen?"true":"false");
@@ -1343,31 +1410,83 @@ function renderRange(r){
   var g=r.range||{bands:[],designTop:0,designBottom:0,captureTop:0},parts=[];
   if(g.designTop)parts.push("위쪽 "+g.designTop+"px 제외(브라우저 틀 등)");if(g.designBottom)parts.push("아래쪽 "+g.designBottom+"px 제외");
   rangeDesign.textContent=parts.length?parts.join(" · "):"전체 비교";
-  var warn=!g.captureTop&&!!g.stripDetected;
-  if(g.captureTop)rangeCapture.textContent="위쪽 "+g.captureTop+"px 제외 · "+(g.manual?"직접 설정":"자동(브라우저 탭·주소창으로 보임)");
-  else if(warn){rangeCapture.innerHTML='<span class="range-warn">위쪽 약 '+g.stripDetected+'px 띠가 있어요 · 지금은 비교에 포함</span>';}
-  else rangeCapture.textContent=g.manual?"전체 비교(직접 설정)":"전체 비교";
+  var warnTop=!g.captureTop&&!!g.stripDetected,warnBottom=!g.captureBottom&&!!g.stripBottomDetected&&!g.manualBottom,warn=warnTop||warnBottom,capParts=[];
+  if(g.captureTop)capParts.push(esc("위쪽 "+g.captureTop+"px 제외 · "+(g.manual?"직접 설정":"자동(브라우저 탭·주소창으로 보임)")));
+  else if(warnTop)capParts.push('<span class="range-warn">위쪽 약 '+g.stripDetected+'px 띠가 있어요 · 지금은 비교에 포함</span>');
+  if(g.captureBottom)capParts.push(esc("아래쪽 "+g.captureBottom+"px 제외 · "+(g.manualBottom?"직접 설정":"자동(하단 내비게이션·홈 바로 보임)")));
+  else if(g.stripBottomDetected){
+    // 사람이 이미 '아래쪽 제외 안 함'을 고른 화면에서는 붉게 알리지 않고 참고값만 보여준다.
+    var bottomHint="아래쪽 약 "+g.stripBottomDetected+"px 띠가 있어요 · 지금은 비교에 포함";
+    capParts.push(warnBottom?'<span class="range-warn">'+esc(bottomHint)+'</span>':esc(bottomHint+"(직접 설정)"));
+  }
+  if(!capParts.length)capParts.push(esc(g.manual||g.manualBottom?"전체 비교(직접 설정)":"전체 비교"));
+  rangeCapture.innerHTML=capParts.join(" · ");
   // 접었을 때 한 줄 요약. 확인이 필요한 상태(제외 안 된 띠)면 펼쳐서 보여준다.
   rangeSummary.textContent=rangeSummaryText(g,warn);rangeSummary.classList.toggle("range-warn",warn);
   if(warn&&!rangeOpen)setRangeOpen(true);else setRangeOpen(rangeOpen);
   rangeTrim.value=g.captureTop||g.stripDetected||0;
-  if(!rangeEditor.classList.contains("hidden"))drawRangeCanvas(r,Number(rangeTrim.value)||0);
+  rangeTrimBottom.value=g.captureBottom||g.stripBottomDetected||0;
+  if(!rangeEditor.classList.contains("hidden"))drawRangeEditor(r);
 }
 rangeToggle.onclick=function(){setRangeOpen(!rangeOpen);};
+var rangeDragging=false;
+function previewShowH(canvas,r,trim){
+  // 끌어 맞추는 동안 미리보기 높이가 바뀌면 화면이 툭 움직여 조준이 어렵다.
+  // 끄는 중에는 높이를 그대로 두고(마우스를 떼면 필요할 때 넓힌다), 같은 화면에서는 한 번 정한 높이를 지킨다.
+  var cap=r.capture,key=r.pairId+"|"+cap.height,cur=Number(canvas.dataset.showH)||0,same=canvas.dataset.viewKey===key;
+  if(cur&&same&&rangeDragging)return cur;
+  var want=Math.min(cap.height,Math.max(120,Math.round(cap.height*.25),Math.round(trim*1.4)));
+  if(cur&&same&&want<=cur)want=cur;
+  canvas.dataset.showH=String(want);canvas.dataset.viewKey=key;
+  return want;
+}
+function growPreviewAfterDrag(canvas,r,trim,draw){
+  // 선을 미리보기 맨 끝까지 끌었으면, 마우스를 뗀 뒤에 보이는 범위를 넓혀 더 끌 수 있게 한다.
+  var showH=Number(canvas.dataset.showH)||0;if(!showH||trim<showH-2||showH>=r.capture.height)return;
+  canvas.dataset.showH=String(Math.min(r.capture.height,Math.round(showH*1.6)));draw();
+}
+function previewLimit(canvas,r){var showH=Number(canvas.dataset.showH)||0;return showH?Math.min(r.capture.height,showH):r.capture.height;}
 function drawRangeCanvas(r,trim){
   // 캡처 위쪽 일부를 보여주고 비교 시작선을 그린다.
-  var cap=r.capture,c=rangeCanvas,x=c.getContext("2d"),k=c.width/cap.width,showH=Math.min(cap.height,Math.max(120,Math.round(Math.max(trim*2,cap.height*.25)))),srcH=Math.min(cap.height,showH);
+  var cap=r.capture,c=rangeCanvas,x=c.getContext("2d"),k=c.width/cap.width,showH=previewShowH(c,r,trim),srcH=Math.min(cap.height,showH);
   c.height=Math.max(60,Math.round(srcH*k));c.dataset.scale=String(k);
   x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,0,cap.width,srcH,0,0,c.width,c.height);
   var ly=trim*k;x.fillStyle="rgba(120,120,120,.35)";x.fillRect(0,0,c.width,ly);x.strokeStyle="#D32F2F";x.lineWidth=2;x.beginPath();x.moveTo(0,ly);x.lineTo(c.width,ly);x.stroke();
   x.fillStyle="#D32F2F";x.font="bold 11px sans-serif";x.textBaseline="bottom";x.fillText(trim?("위쪽 "+trim+"px 제외"):"제외 없음",6,Math.max(12,ly-3));
 }
-function rangeFromEvent(ev){var rect=rangeCanvas.getBoundingClientRect(),k=Number(rangeCanvas.dataset.scale)||1,r=results[currentResult];var y=(ev.clientY-rect.top)*(rangeCanvas.height/rect.height)/k;return clamp(Math.round(y),0,r?r.capture.height:0);}
-rangeAdjust.onclick=function(){var r=results[currentResult];if(!r)return;setRangeOpen(true);var open=rangeEditor.classList.toggle("hidden");if(!open){drawRangeCanvas(r,Number(rangeTrim.value)||0);}};
+function drawRangeCanvasBottom(r,trim){
+  // 캡처 아래쪽 일부를 보여주고 비교 끝선을 그린다.
+  var cap=r.capture,c=rangeCanvasBottom,x=c.getContext("2d"),k=c.width/cap.width,showH=previewShowH(c,r,trim),srcTop=Math.max(0,cap.height-showH);
+  c.height=Math.max(60,Math.round(showH*k));c.dataset.scale=String(k);c.dataset.srcTop=String(srcTop);
+  x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cap.img,0,srcTop,cap.width,showH,0,0,c.width,c.height);
+  var ly=(cap.height-trim-srcTop)*k;x.fillStyle="rgba(120,120,120,.35)";x.fillRect(0,ly,c.width,c.height-ly);x.strokeStyle="#D32F2F";x.lineWidth=2;x.beginPath();x.moveTo(0,ly);x.lineTo(c.width,ly);x.stroke();
+  x.fillStyle="#D32F2F";x.font="bold 11px sans-serif";x.textBaseline="top";x.fillText(trim?("아래쪽 "+trim+"px 제외"):"제외 없음",6,Math.min(c.height-13,ly+3));
+}
+function drawRangeEditor(r){drawRangeCanvas(r,clamp(Number(rangeTrim.value)||0,0,r.capture.height));drawRangeCanvasBottom(r,clamp(Number(rangeTrimBottom.value)||0,0,r.capture.height));}
+function rangeFromEvent(ev){var rect=rangeCanvas.getBoundingClientRect(),k=Number(rangeCanvas.dataset.scale)||1,r=results[currentResult];var y=(ev.clientY-rect.top)*(rangeCanvas.height/rect.height)/k;return clamp(Math.round(y),0,r?previewLimit(rangeCanvas,r):0);}
+function rangeFromEventBottom(ev){
+  // 아래쪽 미리보기는 캡처의 끝부분만 보여준다. 클릭한 자리를 캡처 좌표로 되돌린 뒤 '아래쪽 제외 px'로 바꾼다.
+  var rect=rangeCanvasBottom.getBoundingClientRect(),k=Number(rangeCanvasBottom.dataset.scale)||1,srcTop=Number(rangeCanvasBottom.dataset.srcTop)||0,r=results[currentResult];
+  var y=srcTop+(ev.clientY-rect.top)*(rangeCanvasBottom.height/rect.height)/k;return clamp(Math.round((r?r.capture.height:0)-y),0,r?previewLimit(rangeCanvasBottom,r):0);
+}
+rangeAdjust.onclick=function(){var r=results[currentResult];if(!r)return;setRangeOpen(true);var open=rangeEditor.classList.toggle("hidden");if(!open){drawRangeEditor(r);}};
 rangeTrim.oninput=function(){var r=results[currentResult];if(r)drawRangeCanvas(r,clamp(Number(rangeTrim.value)||0,0,r.capture.height));};
-(function(){var dragging=false;rangeCanvas.onmousedown=function(e){dragging=true;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();};window.addEventListener("mousemove",function(e){if(!dragging)return;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();});window.addEventListener("mouseup",function(){dragging=false;});})();
-rangeApply.onclick=function(){var r=results[currentResult];if(!r)return;recompareCurrent(clamp(Math.round(Number(rangeTrim.value)||0),0,Math.round(r.capture.height*.6)));};
-rangeNone.onclick=function(){recompareCurrent(0);};
+rangeTrimBottom.oninput=function(){var r=results[currentResult];if(r)drawRangeCanvasBottom(r,clamp(Number(rangeTrimBottom.value)||0,0,r.capture.height));};
+(function(){var dragging=false;
+  rangeCanvas.onmousedown=function(e){dragging=true;rangeDragging=true;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();};
+  window.addEventListener("mousemove",function(e){if(!dragging)return;rangeTrim.value=rangeFromEvent(e);rangeTrim.oninput();});
+  window.addEventListener("mouseup",function(){if(!dragging)return;dragging=false;rangeDragging=false;var r=results[currentResult];if(r)growPreviewAfterDrag(rangeCanvas,r,Number(rangeTrim.value)||0,function(){drawRangeCanvas(r,Number(rangeTrim.value)||0);});});})();
+(function(){var dragging=false;
+  rangeCanvasBottom.onmousedown=function(e){dragging=true;rangeDragging=true;rangeTrimBottom.value=rangeFromEventBottom(e);rangeTrimBottom.oninput();};
+  window.addEventListener("mousemove",function(e){if(!dragging)return;rangeTrimBottom.value=rangeFromEventBottom(e);rangeTrimBottom.oninput();});
+  window.addEventListener("mouseup",function(){if(!dragging)return;dragging=false;rangeDragging=false;var r=results[currentResult];if(r)growPreviewAfterDrag(rangeCanvasBottom,r,Number(rangeTrimBottom.value)||0,function(){drawRangeCanvasBottom(r,Number(rangeTrimBottom.value)||0);});});})();
+rangeApply.onclick=function(){
+  var r=results[currentResult];if(!r)return;var cap=Math.round(r.capture.height*.6);
+  var top=clamp(Math.round(Number(rangeTrim.value)||0),0,cap),bottom=clamp(Math.round(Number(rangeTrimBottom.value)||0),0,cap);
+  if(top+bottom>r.capture.height*.8)bottom=Math.max(0,Math.round(r.capture.height*.8)-top); // 위·아래를 합쳐도 검수할 부분은 남긴다
+  recompareCurrent(top,bottom);
+};
+rangeNone.onclick=function(){recompareCurrent(0,0);};
 
 function compareCropRegions(r,c){
   // 같은 논리 배율로 디자인 조각과 개발 조각을 자른다. 개발 쪽은 실제로 표시된 자리(rawBox) 가운데를 기준으로 한다.
@@ -1434,7 +1553,8 @@ function overlayPlacement(r){
   var cap=r.capture,sF=r.alignmentForFigma,g=r.range||{};
   var trim=g.captureTop||0,y0=g.designTop||0,y1=Math.max(y0+1,r.design.height-(g.designBottom||0));
   var K=Math.max(240,r.design.width)/cap.width; // 개발 캡처 원본 px → 결과 프레임 px
-  var autoBox={x:(0-sF.tx)/sF.s*K,y:trim*K,w:r.design.width/sF.s*K,h:(y1-y0)/sF.s*K};
+  var nudge=cap.alignNudge||{dx:0,dy:0}; // 이미 정렬에 반영한 보정. 가로는 정렬식(tx)에 들어 있고, 세로는 여기서 더한다.
+  var autoBox={x:(0-sF.tx)/sF.s*K,y:(trim+nudge.dy)*K,w:r.design.width/sF.s*K,h:(y1-y0)/sF.s*K};
   var fix=cap.overlayFix||{dx:0,dy:0};
   return{cropTop:y0,cropBottom:r.design.height-y1,K:K,autoBox:autoBox,fix:fix,
     box:{x:autoBox.x+fix.dx*K,y:autoBox.y+fix.dy*K,w:autoBox.w,h:autoBox.h}};
@@ -1444,16 +1564,47 @@ function overlayFixFromPos(r,x,y){
   var place=overlayPlacement(r),K=place.K||1;
   return{dx:Math.round((x-place.autoBox.x)/K),dy:Math.round((y-place.autoBox.y)/K)};
 }
+function markOverlayMoved(r){
+  // 겹쳐보기 자리가 바뀌면 이전 번호는 더 이상 맞지 않는다. 검수내역을 비우고 ‘재검수 진행’을 기다린다.
+  if(r.overlayStale)return;
+  r.overlayStale=true;r.candidates=[];selectedCandidateId=null;
+  post({type:"clear-candidates",pairId:r.pairId});
+}
+function foldOverlayFix(cap){
+  // 사람이 맞춘 자리를 정렬 기준으로 삼는다(누적). 반영한 뒤에는 겹쳐보기 보정을 비워 두 번 밀리지 않게 한다.
+  var fix=cap.overlayFix||{dx:0,dy:0},base=cap.alignNudge||{dx:0,dy:0};
+  cap.alignNudge={dx:base.dx+fix.dx,dy:base.dy+fix.dy};
+  cap.overlayFix=null;
+  var keep=(cap.alignNudge.dx||cap.alignNudge.dy)?cap.alignNudge:null;
+  if(cap.nodeId)post({type:"set-capture-overlay-fix",nodeId:cap.nodeId,fix:keep}); // 다음에 열어도 맞춘 자리가 남게 저장
+  return cap.alignNudge;
+}
 function applyOverlayPos(r,x,y){
   // 캔버스에서 겹쳐놓은 디자인을 끌면 그 자리를 그대로 보정값으로 저장한다(따로 누를 것 없음).
-  var fix=overlayFixFromPos(r,x,y);
+  var fix=overlayFixFromPos(r,x,y),prev=r.capture.overlayFix||{dx:0,dy:0};
   r.capture.overlayFix=(fix.dx||fix.dy)?fix:null;
   if(r.capture.nodeId)post({type:"set-capture-overlay-fix",nodeId:r.capture.nodeId,fix:r.capture.overlayFix});
+  if(fix.dx!==prev.dx||fix.dy!==prev.dy)markOverlayMoved(r);
   return fix;
 }
 function overlayMovedOnCanvas(pairId,x,y){
-  for(var i=0;i<results.length;i++)if(results[i].pairId===pairId)return applyOverlayPos(results[i],x,y);
+  for(var i=0;i<results.length;i++)if(results[i].pairId===pairId){
+    var moved=applyOverlayPos(results[i],x,y);
+    if(results[i]===results[currentResult]&&!reviewView.classList.contains("hidden"))renderReview();
+    return moved;
+  }
   return null;
+}
+async function recompareWithOverlay(){
+  // 맞춘 자리를 정렬 기준으로 삼아 이 화면만 다시 검수한다.
+  var r=results[currentResult];if(!r)return;var p=pairs.filter(function(x){return x.id===r.pairId;})[0];if(!p)return;
+  var btn=document.getElementById("overlayRecheck");if(btn){btn.disabled=true;btn.textContent="다시 검수 중…";}
+  foldOverlayFix(r.capture);
+  await new Promise(function(res){setTimeout(res,20);});
+  var next=comparePair(p,r.design,r.capture,designImages[r.design.id]);
+  results[currentResult]=next;selectedCandidateId=null;overlayVisibleByPair[next.pairId]=false;
+  await renderResultToCanvas(next);
+  renderReview();
 }
 function overlayDesignBytes(r,place){
   // 디자인의 브라우저 틀 띠는 겹쳐보기에서도 뺀다(개발 캡처의 진짜 크롬 위에 가짜 탭바가 겹치지 않게).
@@ -1612,6 +1763,21 @@ async function runSelfTest(){
   check("가로 경계선에 비교 시작선 맞춤",snapToSeparator(sepCap,66,8)===60&&snapToSeparator(sepCap,150,8)===150);
   var trimmed=trimmedCapture({img:sepCap,width:300,height:200,displayScale:1},60);
   check("캡처 위쪽 자른 비교용 사본",trimmed.height===140&&trimmed.topTrim===60&&trimmed.width===300&&trimmedCapture({img:sepCap,width:300,height:200},0).topTrim===0);
+  var barCap=canvasFor(400,400),bcx=barCap.getContext("2d");bcx.fillStyle="#fff";bcx.fillRect(0,0,400,400);bcx.fillStyle="#222";bcx.fillRect(40,60,200,20);bcx.fillStyle="#dddddd";bcx.fillRect(0,340,400,2);bcx.fillStyle="#f7f7f7";bcx.fillRect(0,342,400,58);bcx.fillStyle="#111";bcx.fillRect(60,360,24,24);bcx.fillRect(190,360,24,24);bcx.fillRect(320,360,24,24);
+  var barH=detectBottomBar(barCap);
+  check("캡처가 디자인보다 길지 않아도 아래 띠를 대략 잡음",barH>=55&&barH<=62);
+  var photoCap=canvasFor(400,400),phx=photoCap.getContext("2d");phx.fillStyle="#fff";phx.fillRect(0,0,400,400);phx.fillStyle="#dddddd";phx.fillRect(0,340,400,2);var grad=phx.createLinearGradient(0,342,0,400);grad.addColorStop(0,"#ffffff");grad.addColorStop(1,"#103070");phx.fillStyle=grad;phx.fillRect(0,342,400,58);
+  check("아래가 고른 띠가 아니면(사진·본문) 잡지 않음",detectBottomBar(photoCap)===0);
+  var showR={pairId:"showh",capture:{img:barCap,width:400,height:400,displayScale:1}};
+  rangeCanvasBottom.dataset.showH="";rangeCanvasBottom.dataset.viewKey="";
+  var showH0=previewShowH(rangeCanvasBottom,showR,0),showH1=previewShowH(rangeCanvasBottom,showR,40),showH2=previewShowH(rangeCanvasBottom,showR,260);
+  check("끌어 맞추는 동안 미리보기 높이 고정(선이 밖으로 나갈 때만 넓힘)",showH0===showH1&&showH2>showH1);
+  rangeDragging=true;var showHDrag=previewShowH(rangeCanvasBottom,showR,600);rangeDragging=false;
+  check("마우스를 끄는 중에는 미리보기 높이가 안 바뀜",showHDrag===showH2);
+  var growCanvas=rangeCanvasBottom,grew=0;growPreviewAfterDrag(growCanvas,showR,Number(growCanvas.dataset.showH),function(){grew=1;});
+  check("끝까지 끌었으면 손을 뗀 뒤 보이는 범위를 넓힘",grew===1&&Number(growCanvas.dataset.showH)>showH2);
+  var trimmedBoth=trimmedCapture({img:sepCap,width:300,height:200,displayScale:1},60,40);
+  check("캡처 아래쪽도 자른 비교용 사본",trimmedBoth.height===100&&trimmedBoth.topTrim===60&&trimmedBoth.bottomTrim===40&&trimmedCapture({img:sepCap,width:300,height:200},0,0).bottomTrim===0);
   var shiftedC=shiftCandidatesDown([{rawBox:{x:1,y:2,w:3,h:4},rawAnchorBoxes:[{x:0,y:5,w:1,h:1}]}],60);
   check("자른 만큼 후보 좌표 되돌리기",shiftedC[0].rawBox.y===62&&shiftedC[0].rawAnchorBoxes[0].y===65);
   var pageDes=canvasFor(400,300),pdx=pageDes.getContext("2d");pdx.fillStyle="#fff";pdx.fillRect(0,0,400,300);pdx.fillStyle="#dfe3ea";pdx.fillRect(0,0,400,40);pdx.fillStyle="#fff";pdx.fillRect(10,8,120,24);pdx.fillStyle="#333";pdx.font="12px sans-serif";pdx.textBaseline="top";pdx.fillText("디자인 탭 제목",18,13);pdx.fillStyle="#222";pdx.fillRect(40,80,140,22);pdx.fillStyle="#2563eb";pdx.fillRect(40,140,200,40);pdx.fillStyle="#15803d";pdx.fillRect(40,220,320,30);
@@ -1622,6 +1788,23 @@ async function runSelfTest(){
   check("검수 범위 안내문 제공",pagePair.notices.some(function(n){return n.indexOf("비교에서 제외했어요")>=0;})&&pagePair.notices.some(function(n){return n.indexOf("개발 캡처 위쪽")>=0;}));
   var manualPair=comparePair({id:"pg2"},pageDesign,{img:pageCap,width:400,height:330,displayScale:1,topTrim:70},pageDes);
   check("직접 정한 검수 범위를 우선 적용",manualPair.range.manual===true&&manualPair.range.captureTop===70&&manualPair.candidates.length===0);
+  // 모바일 하단 내비게이션: 캡처만 아래로 더 긴 경우
+  var navCap=canvasFor(400,440),ncx=navCap.getContext("2d");ncx.fillStyle="#fff";ncx.fillRect(0,0,400,440);ncx.drawImage(pageCap,0,0);ncx.fillStyle="#dddddd";ncx.fillRect(0,370,400,2);ncx.fillStyle="#111";ncx.fillRect(60,392,30,30);ncx.fillRect(185,392,30,30);ncx.fillRect(310,392,30,30);
+  var navAuto=comparePair({id:"nav"},pageDesign,{img:navCap,width:400,height:440,displayScale:1,topTrim:70},pageDes);
+  check("아래쪽은 자동으로 자르지 않고 알림만",navAuto.range.captureBottom===0&&navAuto.range.stripBottomDetected===70&&navAuto.notices.some(function(n){return n.indexOf("모바일 하단 내비게이션")>=0;}));
+  // 디자인에도 하단 내비게이션(틀)이 있으면 위쪽처럼 아래쪽도 자동으로 대략 잡는다.
+  var navDesignEls=pageDesign.elements.concat([{id:"navbar",name:"Navigation bar",type:"FRAME",kind:"shape",depth:1,parentId:null,box:{x:0,y:300,w:400,h:40},values:{fill:"#F5F5F5"}},
+    {id:"navi1",type:"RECTANGLE",kind:"shape",depth:2,parentId:"navbar",box:{x:60,y:310,w:20,h:20},values:{fill:"#111111"}},
+    {id:"navi2",type:"RECTANGLE",kind:"shape",depth:2,parentId:"navbar",box:{x:190,y:310,w:20,h:20},values:{fill:"#111111"}},
+    {id:"navi3",type:"RECTANGLE",kind:"shape",depth:2,parentId:"navbar",box:{x:320,y:310,w:20,h:20},values:{fill:"#111111"}}]);
+  var navDesign={id:"navd",name:"모바일 화면",width:400,height:340,elements:navDesignEls};
+  var navDes=canvasFor(400,340),ndx=navDes.getContext("2d");ndx.fillStyle="#fff";ndx.fillRect(0,0,400,340);ndx.drawImage(pageDes,0,0);ndx.fillStyle="#f5f5f5";ndx.fillRect(0,300,400,40);ndx.fillStyle="#111";ndx.fillRect(60,310,20,20);ndx.fillRect(190,310,20,20);ndx.fillRect(320,310,20,20);
+  designImages["navd"]=navDes;
+  var navAutoBottom=comparePair({id:"nav3"},navDesign,{img:navCap,width:400,height:440,displayScale:1},navDes);
+  check("디자인에 하단 틀이 있으면 아래쪽도 자동 제외",navAutoBottom.range.autoBottom===true&&navAutoBottom.range.captureBottom>=60&&navAutoBottom.range.captureBottom<=80&&navAutoBottom.notices.some(function(n){return n.indexOf("개발 캡처 아래쪽")>=0&&n.indexOf("하단 내비게이션")>=0;}));
+  delete designImages["navd"];
+  var navManual=comparePair({id:"nav2"},pageDesign,{img:navCap,width:400,height:440,displayScale:1,topTrim:70,bottomTrim:70},pageDes);
+  check("직접 정한 아래쪽 검수 범위 적용",navManual.range.manualBottom===true&&navManual.range.captureBottom===70&&navManual.view.height===300&&navManual.candidates.length===0&&navManual.notices.some(function(n){return n.indexOf("개발 캡처 아래쪽 70px")>=0;}));
   var noBarDesign={id:"nb",name:"nb",width:400,height:260,elements:pageDesign.elements.slice(3).map(function(e){return Object.assign({},e,{box:{x:e.box.x,y:e.box.y-40,w:e.box.w,h:e.box.h}});})};
   var noBarDes=canvasFor(400,260),nbx=noBarDes.getContext("2d");nbx.fillStyle="#fff";nbx.fillRect(0,0,400,260);nbx.drawImage(pageDes,0,-40);
   var noBarPair=comparePair({id:"nb"},noBarDesign,{img:pageCap,width:400,height:330,displayScale:1},noBarDes);
@@ -1630,6 +1813,7 @@ async function runSelfTest(){
   var cropRes={design:pageDesign,alignment:{s:1,tx:0,ty:0},capture:{img:pageCap,width:400,height:330}},cropC={designBox:{x:40,y:80,w:140,h:22},rawBox:{x:40,y:150,w:140,h:22}},crops=compareCropRegions(cropRes,cropC);
   check("나란히 보기 조각은 같은 논리 배율",Math.abs(crops.design.w-crops.dev.w)<.01&&Math.abs(crops.dev.x+crops.dev.w/2-110)<.01&&Math.abs(crops.dev.y+crops.dev.h/2-161)<.01);
   delete designImages["pg"];
+  check("아래쪽 검수 범위 조정 칸 존재",!!document.getElementById("rangeCanvasBottom")&&!!document.getElementById("rangeTrimBottom"));
   check("검수 범위 카드와 나란히 보기 켜기·끄기 버튼 존재",!!document.getElementById("rangeCard")&&!!document.getElementById("rangeEditor")&&!!document.getElementById("compareWhereBtn")&&!document.getElementById("compareStrip"));
   // 검수 범위 접기 / 비교 영역 크기 / 번호 이동
   setRangeOpen(false);check("검수 범위 기본은 접힘",!rangeCard.classList.contains("open")&&getComputedStyle(rangeBody).display==="none");
@@ -1731,11 +1915,30 @@ async function runSelfTest(){
   var movedFix=overlayMovedOnCanvas("fx",-3,119+30);
   post=fxPost;
   check("캔버스에서 끌면 그 자리가 바로 저장됨",movedFix&&movedFix.dy===30&&fixR.capture.overlayFix.dy===30&&fxSent.some(function(m){return m.type==="set-capture-overlay-fix"&&m.fix&&m.fix.dy===30;}));
+  check("겹쳐보기를 옮기면 검수내역이 리셋되고 캔버스 번호도 지움",fixR.overlayStale===true&&fixR.candidates.length===0&&fxSent.some(function(m){return m.type==="clear-candidates"&&m.pairId==="fx";}));
   fxSent=[];post=function(m){fxSent.push(m);};
   overlayMovedOnCanvas("fx",-3,119);
   post=fxPost;
   check("자동 자리로 되돌려 놓으면 보정도 지워짐",fixR.capture.overlayFix===null&&fxSent.some(function(m){return m.type==="set-capture-overlay-fix"&&m.fix===null;}));
   check("모르는 화면의 움직임은 무시",overlayMovedOnCanvas("없음",0,0)===null);
+  // 옮긴 자리로 재검수: 맞춘 자리를 정렬 기준으로 삼는다
+  check("맞춘 자리를 정렬식에 반영",(function(){var m=nudgeModel({s:2,tx:10,ty:20,score:1},{alignNudge:{dx:5,dy:-3}});return m.tx===0&&m.ty===26&&m.score===1;})());
+  check("보정이 없으면 정렬식 그대로",nudgeModel({s:2,tx:10,ty:20},{}).tx===10);
+  fxSent=[];post=function(m){fxSent.push(m);};
+  fixR.capture.overlayFix={dx:12,dy:-20};
+  var folded=foldOverlayFix(fixR.capture);
+  post=fxPost;
+  check("재검수하면 맞춘 자리가 정렬 기준이 되고 겹쳐보기 보정은 비워짐",folded.dx===12&&folded.dy===-20&&fixR.capture.overlayFix===null&&fxSent.some(function(m){return m.type==="set-capture-overlay-fix"&&m.fix&&m.fix.dy===-20;}));
+  fixR.capture.overlayFix={dx:1,dy:2};post=function(m){};
+  check("여러 번 옮겨도 보정이 쌓임",foldOverlayFix(fixR.capture).dy===-18);
+  post=fxPost;
+  fixR.capture.alignNudge={dx:0,dy:30};fixR.capture.overlayFix=null;
+  check("반영한 뒤에도 겹쳐놓은 디자인은 맞춘 자리에 그대로",Math.round(overlayPlacement(fixR).box.y)===149);
+  fixR.capture.alignNudge=null;fixR.design.name="겹쳐보기 시험";fixR.candidates=[];fixR.overlayStale=true;
+  results=[fixR];currentResult=0;selectedCandidateId=null;setView("review");renderReview();
+  var recheckBtn=document.getElementById("overlayRecheck");
+  check("자리를 옮기면 ‘재검수 진행’ 버튼이 뜨고 이전 번호 목록은 사라짐",!!recheckBtn&&recheckBtn.textContent==="재검수 진행"&&numberLists.querySelectorAll(".number-row").length===0);
+  setView("prepare");fixR.overlayStale=false;numberLists.innerHTML="";
   check("패널에 맞추기 상자는 없음",!document.getElementById("overlayFixCard"));
   results=[];currentResult=0;overlayVisibleByPair={};
   var mainStyle=getComputedStyle(document.querySelector("main"));
