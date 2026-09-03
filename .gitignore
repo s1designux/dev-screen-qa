@@ -16,3 +16,30 @@ Thumbs.db
 *.harness.html
 validation-image-qa/repro/*.json
 !validation-image-qa/repro/elements*.json
+
+# 로컬 DB 생성물 (원본은 픽스처, DB는 각자 만들어 쓴다)
+*.db
+
+# 임시 평가 산출물
+eval*.html
+
+# plugin-image-qa 재현용 임시 파일 (픽스처가 아니라 그때그때 만든 확인용)
+validation-image-qa/repro/card_mock.html
+validation-image-qa/repro/card_place_check.js
+validation-image-qa/repro/chip_case.built.js
+validation-image-qa/repro/chip_case.js
+validation-image-qa/repro/chip_err.txt
+validation-image-qa/repro/chip_preview.html
+validation-image-qa/repro/chip_preview.js
+validation-image-qa/repro/chip_preview.png
+validation-image-qa/repro/focus_check.js
+validation-image-qa/repro/ov_after.html
+validation-image-qa/repro/ov_before.html
+validation-image-qa/repro/overlay_check.html
+validation-image-qa/repro/overlay_out.html
+validation-image-qa/repro/prepcase.js
+validation-image-qa/repro/prepcase2.js
+validation-image-qa/repro/prepcase3.js
+validation-image-qa/repro/report_mock.html
+validation-image-qa/repro/scene_mock.html
+validation-image-qa/repro/scrollcase.js
