@@ -39,25 +39,56 @@ def heal(only, other):
     return [t for t in only if t.replace(" ", "") not in joined]
 
 
-def read(img, box, split):
-    """넓은 띠는 좌우로 나눠 읽어야 작은 글자를 놓치지 않는다."""
+def read_once(img, box, split, target_h=560, shift=0.0):
+    """넓은 띠는 좌우로 나눠 읽어야 작은 글자를 놓치지 않는다.
+    shift는 자르는 경계를 조각 폭의 몇 배만큼 옆으로 미는 값(0~0.5) — 두 번째 읽기에서 틀을 바꾸는 데 쓴다."""
     piece = img.crop(box)
     parts, w = [], piece.width
-    ov = int(w / split * 0.10)   # 조각을 겹쳐 잘라 경계에서 글자가 반토막 나지 않게 한다
+    seg = w / split
+    ov = int(seg * 0.10)   # 조각을 겹쳐 잘라 경계에서 글자가 반토막 나지 않게 한다
+    off = int(seg * shift)
+    edges = [0] + [int(seg * i) + off for i in range(1, split)] + [w]
     for i in range(split):
-        p = piece.crop((max(0, w * i // split - ov), 0, min(w, w * (i + 1) // split + ov), piece.height))
-        s = max(1, min(3, int(560 / max(1, p.height))))
+        p = piece.crop((max(0, edges[i] - ov), 0, min(w, edges[i + 1] + ov), piece.height))
+        s = max(1, min(3, int(target_h / max(1, p.height))))
         p = p.resize((p.width * s, p.height * s), Image.LANCZOS)
         got = call(p, READ_ALL)
         parts += [str(t).strip() for t in (got.get("texts") or []) if str(t).strip()]
     return parts
+
+
+def consensus(a, b):
+    """두 번 읽은 결과에서 양쪽 모두에 나온 글자만 인정한다(환각 안전장치).
+    한쪽에서 토막나 읽힌 경우를 봐주기 위해 '이어 붙인 문자열에 들어 있는가'로 본다."""
+    ja = "".join(a).replace(" ", ""); jb = "".join(b).replace(" ", "")
+    keep, dropped = [], []
+    for t in dedup(a):
+        (keep if t.replace(" ", "") in jb else dropped).append(t)
+    for t in dedup(b):
+        if t not in keep and t.replace(" ", "") in ja and t.replace(" ", "") not in "".join(keep).replace(" ", ""):
+            keep.append(t)
+        elif t not in keep and t.replace(" ", "") not in ja:
+            dropped.append(t)
+    return keep, dropped
+
+
+def read(img, box, split):
+    """틀을 바꿔 두 번 읽고 양쪽에 다 나온 것만 쓴다."""
+    a = read_once(img, box, split, target_h=560, shift=0.0)
+    b = read_once(img, box, split + 1, target_h=440, shift=0.35)
+    keep, dropped = consensus(a, b)
+    read.dropped = getattr(read, "dropped", []) + dropped
+    return keep
 
 design = Image.open("design_stay_1920x1080.png")
 dev = Image.open("dev_stay_1920x1081.png")
 out = []
 for name, db, vb in REGIONS:
     split = 3 if (db[2] - db[0]) > 1500 else 2
-    a, b = read(design, db, split), read(dev, vb, split)
+    read.dropped = []
+    a = read(design, db, split); dd = read.dropped
+    read.dropped = []
+    b = read(dev, vb, split); dv = read.dropped
     a, b = dedup(a), dedup(b)
     sa, sb = set(a), set(b)
     only_d = [t for t in a if t not in sb]
@@ -71,10 +102,12 @@ for name, db, vb in REGIONS:
             if t.replace(" ", "") == u.replace(" ", ""):
                 spacing.append((t, u)); only_d.remove(t); only_v.remove(u); break
     out.append({"region": name, "design": a, "dev": b, "spacing": spacing,
-                "only_design": only_d, "only_dev": only_v})
+                "only_design": only_d, "only_dev": only_v,
+                "dropped_design": dd, "dropped_dev": dv})
     print("── %s" % name)
     print("   디자인에만: %s" % (" · ".join(only_d) or "(없음)"))
     print("   개발에만  : %s" % (" · ".join(only_v) or "(없음)"))
     if spacing: print("   띄어쓰기만 다름: %s" % " · ".join("“%s”→“%s”" % p for p in spacing))
+    if dd or dv: print("   ↳ 한 번만 읽혀 버림: 디자인[%s] 개발[%s]" % (" · ".join(dd), " · ".join(dv)))
 json.dump(out, open("vlm_stay.json", "w"), ensure_ascii=False, indent=1)
 print("\n저장: vlm_stay.json")

@@ -53,3 +53,4 @@ ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DE
 
 결과 요약(화면 5개·진짜 오류 27건 전부 잡음, 헛경보는 정렬이 틀어진 로그인 화면에만): 자세한 수치·한계는 메모리 `local-vlm-triage` 참고.
 실제 회사 화면 PNG·보고서·조각 이미지는 커밋하지 않는다(.gitignore).
+| `vlm_region3.py` + `elements_stay_texts.json` | **환각 안전장치.** 디자인 쪽은 AI로 읽지 않고 피그마 글자를 진실값으로, 개발 쪽은 넓은 읽기∪좁은 조각 읽기, 디자인에 없는 글자는 좁은 조각에서도 나와야 인정. 실제 화면(체류시간 관리) 사용자 확정 8/8·환각 0. 안 됐던 시도: 틀 바꿔 두 번 읽기(`vlm_region.py` consensus — 같은 자리 환각은 두 번 다 나옴), 좌표 대게 하기(Ollama 경유 좌표가 못 믿을 수준) |
