@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><title>코드 관리 화면 목업</title><style>
+/* 어려운 경우 재현용 목업 — 표처럼 생겼지만 값이 '사양서에 정해진 고정값'인 코드 관리 화면.
+   ?v=design 디자인 시안 / ?v=dev 개발 캡처 / ?elements=1 요소 목록 JSON. */
+html,body{margin:0;width:1200px;height:760px;background:#FFFFFF;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#222222}
+.el{position:absolute;box-sizing:border-box}
+.txt{white-space:nowrap;line-height:1}
+#hd{left:0;top:0;width:1200px;height:64px;background:#F7F9FC;border-bottom:1px solid #E0E4EA}
+#ttl{left:40px;top:22px;font-size:20px;font-weight:700}
+#fbox{left:40px;top:92px;width:1120px;height:56px;background:#FAFBFC;border:1px solid #E5E8EC;border-radius:4px}
+.flab{font-size:13px;font-weight:700;color:#555555}
+.fval{font-size:13px;color:#222222}
+.sel{height:32px;background:#FFFFFF;border:1px solid #D9D9D9;border-radius:4px}
+#srch{left:1024px;top:104px;width:120px;height:32px;background:#1D6CEB;border-radius:4px}
+#srcht{left:1064px;top:115px;font-size:13px;font-weight:700;color:#FFFFFF}
+#notice{left:40px;top:168px;font-size:12px}
+#cnt{left:40px;top:200px;font-size:13px;font-weight:700;color:#555555}
+#addb{left:1060px;top:190px;width:100px;height:34px;background:#FFFFFF;border:1px solid #1D6CEB;border-radius:4px}
+#addt{left:1096px;top:201px;font-size:13px;font-weight:700;color:#1D6CEB}
+#tbl{left:40px;top:236px;width:1120px;height:328px;border:1px solid #D9D9D9}
+.row{left:40px;width:1120px;height:48px;border-bottom:1px solid #EEEEEE}
+#h0{top:236px;height:40px;background:#F3F4F6}
+.cell{height:48px}
+.cell .txt{font-size:14px}
+#h0 .txt{font-size:13px;font-weight:700;color:#555555}
+#ft{left:40px;top:724px;font-size:11px;color:#999999}
+</style></head><body>
+<script>
+var q={};location.search.replace(/^\?/,"").split("&").forEach(function(p){var k=p.split("=");if(k[0])q[k[0]]=decodeURIComponent(k[1]||"");});
+var dev=q.v==="dev";
+/* ── 심어둔 정답 ────────────────────────────────────────────────
+   진짜 오류(반드시 잡아야 함) 4개
+     A. 코드값  "BUS-01" → "BUS-1"      (사양서에 정해진 고정값인데 바뀜) ★엔진이 놓칠 것으로 예상
+     B. 조회조건 기본값 "전체" → "선택"    (고정이어야 하는 기본값)        ★엔진이 놓칠 것으로 예상
+     C. 버튼 문구 "등록" → "신규 등록"     (고정 문구)
+     D. 안내 문구 색 회색 → 빨강           (색)
+   오류가 아닌 것(잡으면 헛경보) 4개
+     E. 등록일 날짜 다름        (가변)
+     F. 등록자 이름 다름        (가변)
+     G. 목록 건수 "총 24건"→"총 3건" (가변)
+     H. 공지 영역 샘플 문구 → 실제 문구 (디자인의 샘플 문구, 가변 허용)
+   ──────────────────────────────────────────────────────────── */
+var cols=[["코드",160],["구분명",240],["사용여부",160],["등록일",200],["등록자",160]];
+var design=[
+ ["BUS-01","통근버스 운행","사용","2026.01.05","김영희"],
+ ["BUS-02","셔틀 운행","사용","2026.01.05","김영희"],
+ ["BUS-03","임시 운행","미사용","2026.02.10","박철수"]];
+var devRows=[
+ [dev?"BUS-1":"BUS-01","통근버스 운행","사용","2026.08.21","홍길동"],   // A(코드값) + E,F(가변)
+ ["BUS-02","셔틀 운행","사용","2026.08.21","홍길동"],
+ ["BUS-03","임시 운행","미사용","2026.09.02","강하늘"]];
+var rows=dev?devRows:design;
+var E=[];
+function el(id,cls,style,attrs){var d=document.createElement("div");d.id=id;d.className="el "+(cls||"");if(style)d.setAttribute("style",style);for(var k in attrs||{})d.setAttribute("data-"+k,attrs[k]);document.body.appendChild(d);E.push(d);return d;}
+function txt(id,text,style,attrs,parent){var d=el(id,"txt",style,attrs);d.textContent=text;d.setAttribute("data-kind","text");if(parent)d.setAttribute("data-parent",parent);return d;}
+el("hd","","",{name:"Header",type:"FRAME",fill:"#F7F9FC",stroke:"#E0E4EA"});
+txt("ttl","운행 코드 관리","",{name:"운행 코드 관리",fs:20,fw:700,color:"#222222"},"hd");
+/* 조회 조건 영역 */
+el("fbox","","",{name:"SearchBar",type:"INSTANCE",fill:"#FAFBFC",stroke:"#E5E8EC",radius:4});
+txt("flab1","사용여부","left:64px;top:112px",{name:"Label",fs:13,fw:700,color:"#555555",propRef:"label"},"fbox");
+el("sel1","sel","left:140px;top:104px;width:160px",{name:"Select",type:"INSTANCE",fill:"#FFFFFF",stroke:"#D9D9D9",radius:4}).setAttribute("data-parent","fbox");
+txt("sel1t",dev?"선택":"전체","left:156px;top:115px",{name:"Value",fs:13,fw:400,color:"#222222",propRef:"value"},"sel1");   // B
+txt("flab2","등록기간","left:340px;top:112px",{name:"Label",fs:13,fw:700,color:"#555555",propRef:"label"},"fbox");
+el("sel2","sel","left:416px;top:104px;width:220px",{name:"Select",type:"INSTANCE",fill:"#FFFFFF",stroke:"#D9D9D9",radius:4}).setAttribute("data-parent","fbox");
+txt("sel2t",dev?"2026.08.01 ~ 2026.09.04":"2026.01.01 ~ 2026.01.31","left:432px;top:115px",{name:"Value",fs:13,fw:400,color:"#222222",propRef:"value"},"sel2");
+el("srch","","",{name:"Button/Primary",type:"INSTANCE",fill:"#1D6CEB",radius:4});
+txt("srcht","조회","",{name:"Label",fs:13,fw:700,color:"#FFFFFF",propRef:"label"},"srch");
+/* 공지(샘플 문구) + 건수 + 등록 버튼 */
+txt("notice",dev?"9월 시스템 점검 안내 (9/14 02:00~04:00)":"샘플 공지 문구가 들어갑니다.",dev?"color:#D32F2F":"color:#888888",{name:"Notice",fs:12,fw:400,color:"#888888",propRef:"value"});  // H(가변) + D(색)
+txt("cnt",dev?"총 3건":"총 24건","",{name:dev?"총 3건":"총 24건",fs:13,fw:700,color:"#555555"});   // G
+el("addb","","",{name:"Button/Secondary",type:"INSTANCE",fill:"#FFFFFF",stroke:"#1D6CEB",radius:4});
+txt("addt",dev?"신규 등록":"등록",dev?"left:1078px":"",{name:"Label",fs:13,fw:700,color:"#1D6CEB",propRef:"label"},"addb");  // C
+/* 표 */
+el("tbl","","",{name:"Table",type:"FRAME",stroke:"#D9D9D9"});
+var hrow=el("h0","row","",{name:"Table/Header",type:"INSTANCE",fill:"#F3F4F6"});hrow.setAttribute("data-parent","tbl");
+var x=40;cols.forEach(function(c,i){var cell=el("h0c"+i,"cell","left:"+x+"px;top:236px;width:"+c[1]+"px;height:40px",{name:"Table/Header cell",type:"INSTANCE"});cell.setAttribute("data-parent","h0");
+  txt("h0t"+i,c[0],"left:"+(x+16)+"px;top:250px",{name:c[0],fs:13,fw:700,color:"#555555"},"h0c"+i);x+=c[1];});
+rows.forEach(function(r,ri){var top=276+ri*48,row=el("r"+ri,"row","top:"+top+"px",{name:"Table/Row",type:"INSTANCE"});row.setAttribute("data-parent","tbl");var cx=40;
+  cols.forEach(function(c,ci){var cell=el("r"+ri+"c"+ci,"cell","left:"+cx+"px;top:"+top+"px;width:"+c[1]+"px",{name:"Table/Cell",type:"INSTANCE"});cell.setAttribute("data-parent","r"+ri);
+    txt("r"+ri+"t"+ci,r[ci],"left:"+(cx+16)+"px;top:"+(top+17)+"px",{name:r[ci],fs:14,fw:400,color:"#222222"},"r"+ri+"c"+ci);cx+=c[1];});});
+txt("ft","© S-1 Corp. All Rights Reserved.","",{name:"© S-1 Corp. All Rights Reserved.",fs:11,fw:400,color:"#999999"});
+if(q.elements==="1"){
+  var colsOut=["id","type","kind","depth","parentId","x","y","w","h","fill","stroke","strokeWidth","radius","text","fontSize","fontWeight","color","name","chain","propRef"];
+  var byId={};E.forEach(function(d){byId[d.id]=d;});
+  function depthOf(d){var n=0,p=d.getAttribute("data-parent");while(p&&byId[p]){n++;p=byId[p].getAttribute("data-parent");}return n+1;}
+  function chainOf(d){var out=[],p=d.getAttribute("data-parent");while(p&&byId[p]&&out.length<4){var pd=byId[p];out.push({n:pd.getAttribute("data-name")||"",t:pd.getAttribute("data-type")||"FRAME"});p=pd.getAttribute("data-parent");}return out;}
+  var out=E.map(function(d){var b=d.getBoundingClientRect(),isText=d.getAttribute("data-kind")==="text";
+    return[d.id,isText?"TEXT":(d.getAttribute("data-type")||"FRAME"),isText?"text":"shape",depthOf(d),d.getAttribute("data-parent")||null,Math.round(b.left*10)/10,Math.round(b.top*10)/10,Math.round(b.width*10)/10,Math.round(b.height*10)/10,
+      isText?null:(d.getAttribute("data-fill")||null),isText?null:(d.getAttribute("data-stroke")||null),d.getAttribute("data-stroke")?1:null,d.getAttribute("data-radius")?Number(d.getAttribute("data-radius")):null,
+      isText?d.textContent:"",isText?Number(d.getAttribute("data-fs")):null,isText?Number(d.getAttribute("data-fw")):null,isText?d.getAttribute("data-color"):null,d.getAttribute("data-name")||d.id,isText?chainOf(d):null,d.getAttribute("data-propRef")||null];});
+  var pre=document.createElement("pre");pre.id="elements";pre.textContent=JSON.stringify({frame:{id:"codes-mock",name:"운행 코드 관리",width:1200,height:760},cols:colsOut,rows:out});document.body.appendChild(pre);
+  document.title="ELEMENTS DONE";
+}
+</script></body></html>

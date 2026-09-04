@@ -33,3 +33,23 @@ ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DE
 `DESIGN_MAX`는 code.js의 디자인 export 배율 규칙(최대 4096)을 흉내 냅니다. 결과 JSON에는 디버그용으로
 구역별 밀림(`sections`), 요소별 비교값(`units`), 기준 요소 표(`anchorVotes`)가 함께 들어 있습니다.
 생성물(`*.json`, `*.overlay.png`, `*.align.png`, `*.harness.html`)은 커밋하지 않습니다.
+
+## 로컬 AI(비전 모델) 걸러내기 실험 (2026-09-04)
+
+룰 엔진 대신·옆에 로컬 비전 모델(Qwen2.5-VL 7B, Ollama, 무료·오프라인)을 쓰면 어디까지 되는지 본 실험.
+결론: **AI에게 "같냐"를 묻지 않고 "보이는 글자를 읽어라"만 시키고, 같고 다름은 코드가 판정**하면 쓸 만하다.
+색은 코드가 픽셀로 재고, 룰 엔진의 '가변' 표시를 그대로 이어받는다. 아이콘 판독은 못 믿는다.
+
+준비: `brew install ollama && ollama serve && ollama pull qwen2.5vl:7b`
+
+| 스크립트 | 하는 일 |
+|---|---|
+| `vlm_triage.py` | v1 — 후보 조각을 좌우로 붙여 "같냐" 물음 (놓침 많음, 참고용) |
+| `vlm_triage2.py` | v2 — 디자인·개발 조각을 **따로** 읽힘 (`python3 vlm_triage2.py findid design_1920x1080.png dev_1920x934.png`) |
+| `vlm_judge2.py` | v2.1 — 위 결과에 코드 색 비교 + 룰의 가변 표시를 합쳐 최종 판정 (AI 재호출 없음) |
+| `vlm_scan.py` | 후보가 아니라 **모든 글자 요소**를 읽힘 — 룰이 후보를 못 낸 오류도 잡히는지 확인 |
+| `vlm_region.py` | **구역 단위**로 양쪽 글자를 전부 읽혀 목록을 맞춤 — 밀림이 구역마다 다른 실제 화면용 |
+| `codes_mock.html` / `make_codes_case.js` | 표처럼 생겼지만 값이 고정인 '코드 관리' 목업 (룰 엔진이 진짜 오류 2개를 후보로도 못 내는 사례) |
+
+결과 요약(화면 5개·진짜 오류 27건 전부 잡음, 헛경보는 정렬이 틀어진 로그인 화면에만): 자세한 수치·한계는 메모리 `local-vlm-triage` 참고.
+실제 회사 화면 PNG·보고서·조각 이미지는 커밋하지 않는다(.gitignore).

@@ -46,3 +46,13 @@ validation-image-qa/repro/scrollcase.js
 
 # AGENTS.md 자가복구 백업
 .agents-md-backup/
+
+# 로컬 AI(VLM) 걸러내기 실험 — 실제 회사 화면과 생성물은 커밋하지 않는다
+validation-image-qa/repro/design_stay_*.png
+validation-image-qa/repro/dev_stay_*.png
+validation-image-qa/repro/stay_regions.png
+validation-image-qa/repro/vlm_findid/
+validation-image-qa/repro/vlm2_*/
+validation-image-qa/repro/vlm_*_report.html
+validation-image-qa/repro/vlm_*_check.html
+validation-image-qa/repro/vlm_*report.html
