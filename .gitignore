@@ -56,3 +56,10 @@ validation-image-qa/repro/vlm2_*/
 validation-image-qa/repro/vlm_*_report.html
 validation-image-qa/repro/vlm_*_check.html
 validation-image-qa/repro/vlm_*report.html
+
+# 검수기 vs 로컬AI 비교 검토 — 회사 화면이 들어간 산출물·중간 자료는 커밋하지 않는다
+validation-image-qa/repro/evidence_*.png
+validation-image-qa/repro/report_rule_vs_ai.html
+validation-image-qa/repro/report_prompt.md
+validation-image-qa/repro/elements_stay*.json
+validation-image-qa/repro/stay_full*.txt

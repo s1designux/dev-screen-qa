@@ -32,6 +32,41 @@ patched = patched.replace('return boxes.map(function(b){var pad=3','window.__are
 patched = patched.replace('return{segments:segs.length,goodRatio:good/segs.length,','return{segNccs:segs.map(function(g){return [Math.round(g.seg.x),+g.free.toFixed(2),g.offset,+g.ncc.toFixed(2)];}),segments:segs.length,goodRatio:good/segs.length,');
 patched = patched.replace('  if(!votes.length)return null;\n  // 세로·가로 둘 다','  window.__anchorVotes=votes.slice();window.__anchorList=anchors.map(function(e){return{id:e.id,text:e.text,box:e.box};});\n  if(!votes.length)return null;\n  // 세로·가로 둘 다');
 patched = patched.replace('  var tol=Math.max(3,Math.round(4*lg)),best=null;','  (window.__secVotes=window.__secVotes||[]).push({name:section.el?section.el.name:"root",votes:votes.slice()});\n  var tol=Math.max(3,Math.round(4*lg)),best=null;');
+// ANCHOR_MODE=spread: 기준 요소를 화면 전체에서 고루·많이 찾는 실험판(현재 엔진은 맨 위에서 5개만 고른다).
+if (process.env.ANCHOR_MODE === 'spread') {
+  const cols = Number(process.env.ANCHOR_COLS || 6), rows = Number(process.env.ANCHOR_ROWS || 6);
+  const spread = `function pickAnchors(design,excludeBoxes){
+  var ex=excludeBoxes||[];
+  var cands=(design.elements||[]).filter(function(e){var b=e.box;
+    if(ex.some(function(x){return boxContains(x,b);}))return false;
+    return b.w>=24&&b.h>=10&&b.w<=design.width*.8&&b.h<=140;});
+  // ① 화면에 여러 번 나오는 모양·글자는 기준으로 쓰지 않는다(반복 메뉴·표 데이터에 엉뚱하게 붙는다)
+  function key(e){return e.kind==="text"?("t:"+String(e.text||"")):("s:"+Math.round(e.box.w)+"x"+Math.round(e.box.h)+":"+(e.values&&e.values.fill||""));}
+  var freq={};cands.forEach(function(e){var k=key(e);freq[k]=(freq[k]||0)+1;});
+  cands=cands.filter(function(e){return freq[key(e)]===1;});
+  // ② 짧은 글자는 어디에나 맞으므로 뺀다
+  cands=cands.filter(function(e){return e.kind!=="text"||String(e.text||"").replace(/\\s/g,"").length>=4;});
+  // ③ 화면을 격자로 나눠 칸마다 가장 큰 것을 하나씩 — 위쪽에 몰리지 않게
+  var C=${cols},R=${rows},cell={};
+  cands.forEach(function(e){
+    var cx=Math.min(C-1,Math.floor((e.box.x+e.box.w/2)/design.width*C));
+    var cy=Math.min(R-1,Math.floor((e.box.y+e.box.h/2)/design.height*R));
+    var k=cx+","+cy,cur=cell[k],a=e.box.w*e.box.h;
+    if(!cur||a>cur.box.w*cur.box.h)cell[k]=e;
+  });
+  return Object.keys(cell).map(function(k){return cell[k];});
+}`;
+  const start = patched.indexOf('function pickAnchors(design,excludeBoxes){');
+  const end = patched.indexOf('\nfunction matchAnchorPatch(', start);
+  if (start < 0 || end < 0) { console.error('pickAnchors not found'); process.exit(1); }
+  patched = patched.slice(0, start) + spread + patched.slice(end);
+}
+// FORCE_TX/FORCE_TY: 정렬을 고정한다(자동 판정의 '천장'을 재는 계측용. 실제 운영 방안 아님).
+if (process.env.FORCE_TY !== undefined) {
+  patched = patched.replace('function comparePair(p,d,cap,img){',
+    'function comparePair(p,d,cap,img){\n  var __origAlign=alignFor;alignFor=function(){return {mode:"forced",s:1,tx:' +
+    Number(process.env.FORCE_TX || 0) + ',ty:' + Number(process.env.FORCE_TY) + ',score:1,anchors:99};};');
+}
 const marker = 'if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});';
 if (!ui.includes(marker)) { console.error('marker not found'); process.exit(1); }
 const harness = `
@@ -46,6 +81,7 @@ async function __run(){
   var capture={img:cap,width:cap.width,height:cap.height};
   var t0=performance.now();
   if(${JSON.stringify(process.env.TOP_TRIM||'')}!=="")capture.topTrim=Number(${JSON.stringify(process.env.TOP_TRIM||'0')});
+  if(${JSON.stringify(process.env.BOTTOM_TRIM||'')}!=="")capture.bottomTrim=Number(${JSON.stringify(process.env.BOTTOM_TRIM||'0')}); // 검수 범위 › 아래쪽 제외(플러그인의 사람 설정과 같은 자리)
   var pairResult=comparePair({id:"p"},design,capture,dc); // 플러그인과 같은 흐름(틀 띠 판정 → 캡처 위쪽 자르기 → 2차 비교)
   var model=pairResult.alignment,t1=performance.now();
   var cands=pairResult.candidates,trimUsed=pairResult.range.captureTop||0;

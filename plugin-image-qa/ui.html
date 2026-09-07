@@ -407,22 +407,52 @@ function searchAlignment(designImg,captureImg,fast){
 
 // ── 기준 요소 정렬 ──────────────────────────────────────────────
 function grayEdges(img,w,h){var c=canvasFor(w,h),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);return edgeData(x.getImageData(0,0,w,h),w,h);}
+var ANCHOR_COLS=6,ANCHOR_ROWS=6;
 function pickAnchors(design,excludeBoxes){
-  var seen=[],out=[],ex=excludeBoxes||[];
+  // 두 그림을 겹칠 때 '여기가 같은 자리'라고 짚어주는 기준 요소를 고른다.
+  // 예전에는 맨 위에서 5개만 골랐는데, 하필 반복되는 메뉴 글자라 엉뚱한 자리에 붙어 화면 전체가 어긋났다.
+  // 그래서 ①여러 번 나오는 것 ②너무 짧은 글자를 빼고, ③화면 전체에 고루 퍼지게 고른다.
+  var ex=excludeBoxes||[];
   var cands=(design.elements||[]).filter(function(e){var b=e.box;
     if(ex.some(function(x){return boxContains(x,b);}))return false; // 브라우저 틀 같은 제외 띠 안의 요소는 기준으로 삼지 않는다
-    return b.y<design.height*.6&&b.w>=24&&b.h>=10&&b.w<=design.width*.8&&b.h<=140;});
-  cands.sort(function(a,b){
+    return b.w>=24&&b.h>=10&&b.w<=design.width*.8&&b.h<=140;});
+  // ① 같은 글자·같은 모양이 화면에 여러 번 나오면 기준으로 쓰지 않는다(어디에 붙여도 맞아 보인다)
+  function anchorKey(e){
+    if(e.kind==="text")return "t:"+String(e.text||"");
+    var v=e.values||{};
+    return "s:"+Math.round(e.box.w)+"x"+Math.round(e.box.h)+":"+(v.fill||"")+":"+(v.stroke||"");
+  }
+  var freq={};
+  cands.forEach(function(e){var k=anchorKey(e);freq[k]=(freq[k]||0)+1;});
+  cands=cands.filter(function(e){return freq[anchorKey(e)]===1;});
+  // ② 짧은 글자는 화면 어디에나 비슷한 자리가 있어 기준이 못 된다
+  cands=cands.filter(function(e){return e.kind!=="text"||String(e.text||"").replace(/\s/g,"").length>=4;});
+  // ③ 화면을 격자로 나눠 칸마다 가장 큰 것 하나씩 — 위쪽에 몰리지 않게
+  var cell={},keys=[];
+  cands.forEach(function(e){
+    var cx=Math.min(ANCHOR_COLS-1,Math.floor((e.box.x+e.box.w/2)/design.width*ANCHOR_COLS));
+    var cy=Math.min(ANCHOR_ROWS-1,Math.floor((e.box.y+e.box.h/2)/design.height*ANCHOR_ROWS));
+    var k=cx+","+cy,cur=cell[k];
+    if(!cur){keys.push(k);cell[k]=e;}
+    else if(e.box.w*e.box.h>cur.box.w*cur.box.h)cell[k]=e;
+  });
+  var out=keys.map(function(k){return cell[k];});
+  if(out.length>=2)return out;
+  // 고를 게 거의 없으면(요소가 적은 화면) 예전 방식으로 되돌린다
+  var seen=[],fb=[];
+  (design.elements||[]).filter(function(e){var b=e.box;
+    if(ex.some(function(x){return boxContains(x,b);}))return false;
+    return b.y<design.height*.6&&b.w>=24&&b.h>=10&&b.w<=design.width*.8&&b.h<=140;})
+  .sort(function(a,b){
     var at=a.kind==="text"?0:1,bt=b.kind==="text"?0:1;
     if(at!==bt)return at-bt;
     return a.box.y-b.box.y;
-  });
-  cands.forEach(function(e){
-    if(out.length>=5)return;
+  }).forEach(function(e){
+    if(fb.length>=5)return;
     for(var i=0;i<seen.length;i++){if(intersection(seen[i],e.box)>e.box.w*e.box.h*.3)return;}
-    seen.push(e.box);out.push(e);
+    seen.push(e.box);fb.push(e);
   });
-  return out;
+  return fb.length?fb:out;
 }
 function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b,win){
   var px=clamp(Math.round(b.x),0,dw-1),py=clamp(Math.round(b.y),0,dh-1);
