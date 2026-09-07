@@ -598,9 +598,13 @@ function edgeStats(edge,W,H,x0,y0,w,h){
   return{count:count,w:maxX>=minX?maxX-minX+1:0,h:maxY>=minY?maxY-minY+1:0,lines:lines};
 }
 var LABEL_MISSING="디자인에 있는 요소가 개발 화면에 없습니다.",LABEL_EXTRA="디자인에 없는 요소가 표시되어 있습니다.",LABEL_MOVED="요소의 위치 또는 정렬이 다릅니다.",LABEL_ICON="아이콘 또는 이미지가 다르게 보입니다.",LABEL_COLOR="색상이 다르게 보입니다.",LABEL_SHAPE="요소의 모양 또는 크기가 다릅니다.",LABEL_TEXT_CONTENT="글자 내용 또는 표기가 다르게 보입니다.",LABEL_TEXT_WRAP="줄바꿈 또는 말줄임 표시가 다릅니다.",LABEL_TEXT_SIZE="글자 영역의 폭과 높이가 다릅니다.",LABEL_TEXT_POS="글자 영역의 위치 또는 정렬이 다릅니다.",LABEL_TEXT_FONT="폰트 모양이 다르게 보입니다.",LABEL_TEXT_SHAPE="글자 모양이 다르게 보입니다.";
-// ── 글자 가변·불가변 판별 ─────────────────────────────
+// ══ 검수 정책표 ═══════════════════════════════════════════════════════════════
+// "무엇을 오류로 볼 것인가"를 정하는 규칙은 코드 여기저기 흩지 말고 전부 이 표에 모은다.
+// 3계층(시스템 기본값 → 화면별 예외 → 요소별 예외) 가운데 '시스템 기본값' 층이다.
+//  · 제외표(POLICY_EXCLUDE_RULES): 애초에 검수 대상이 아닌 것. 후보를 지우지 않고 '제외'로 내린다.
+//  · 가변표(POLICY_TEXT_RULES): 글자·요소가 데이터라 바뀔 수 있는 자리인지. 위에서부터 먼저 맞는 규칙이 이긴다.
+// 규칙을 더하거나 순서를 바꿀 때는 이 표만 고친다. 판정 함수는 표를 읽기만 한다.
 // 글자 자체가 아니라 "어디에 놓인 글자인지"로 정한다.
-// 순서: 사람이 정한 것 > 글자 꼴·문구(숫자·날짜·안내문) > 컴포넌트 역할(이름) > 반복되는 행 > 버튼 모양 > 화면 종류(공통/일반).
 var SCREEN_COMMON_RE=/로그인|log-?in|sign-?in|회원\s*가입|sign-?up|아이디\s*찾기|비밀번호\s*(찾기|재설정|변경)|비번\s*찾기|약관|개인정보|오류|에러|error|404|500|점검|빈\s*상태|empty/i;
 var COPY_FIXED_RE=/(주세요|하세요|십시오|바랍니다|됩니다|입니다|없습니다|있습니다|합니다|하시겠습니까|할까요)[.?!)]*$/;
 var FOOTER_FIXED_RE=/사업자\s*등록\s*번호|대표(이사)?\s*[:：]|©|copyright|all rights reserved|통신판매업|개인정보\s*(처리|보호)/i;
@@ -629,25 +633,69 @@ function roleKind(e){
   for(var i=0;i<names.length;i++){var n=names[i];if(ROLE_FIXED_RE.test(n))return{kind:"fixed",name:n};if(ROLE_VAR_RE.test(n))return{kind:"variable",name:n};}
   return null;
 }
-function repeatedRowIds(design){
-  // 같은 부모 아래 같은 모양의 묶음이 3개 이상, 두 줄 이상으로 쌓여 있고 각각 안에 요소가 2개 이상이면 데이터 행(표·목록·카드)으로 본다.
-  // 가로로 한 줄만 반복되는 것(탭·메뉴·푸터 링크)은 데이터가 아니다.
-  var children=childMap(design),out={};
+// ── 화면에서 찾아내는 자리들(이름이 없어도 모양·위치로 안다) ─────────────────
+function sameShapeSiblings(design,children){
+  // 같은 부모 아래 같은 크기·종류의 묶음이 3개 이상 모인 무리를 찾는다. 표의 행, 메뉴·탭 줄이 여기서 나온다.
+  var out=[];
   Object.keys(children).forEach(function(pid){
-    var kids=children[pid].filter(function(k){return isContainerType(k)&&(children[k.id]||[]).length>=2;});if(kids.length<3)return;
+    var kids=children[pid].filter(function(k){return isContainerType(k)&&(children[k.id]||[]).length>=1;});if(kids.length<3)return;
     var groups={};kids.forEach(function(k){var key=k.type+"|"+Math.round(k.box.w/12)+"|"+Math.round(k.box.h/6);(groups[key]||(groups[key]=[])).push(k);}); // 이름은 보지 않는다(Row 1·Row 2처럼 달라도 같은 행)
-    Object.keys(groups).forEach(function(key){
-      var g=groups[key];if(g.length<3)return;
-      var ys=[];g.forEach(function(k){var cy=k.box.y+k.box.h/2;if(!ys.some(function(y){return Math.abs(y-cy)<k.box.h*.5;}))ys.push(cy);});
-      if(ys.length<2)return;
-      g.forEach(function(k){out[k.id]=g.length;descendantsOf(k,children).forEach(function(d){out[d.id]=g.length;});});
-    });
+    Object.keys(groups).forEach(function(key){if(groups[key].length>=3)out.push(groups[key]);});
   });
   return out;
 }
-function buttonLikeIds(design){
+function stackedRows(g){
+  // 세로로 두 줄 이상 쌓여 있으면 표·목록의 행이다(가로로 한 줄만 늘어선 것은 메뉴·탭이지 데이터가 아니다).
+  var ys=[];g.forEach(function(k){var cy=k.box.y+k.box.h/2;if(!ys.some(function(y){return Math.abs(y-cy)<k.box.h*.5;}))ys.push(cy);});
+  return ys.length>=2;
+}
+function repeatedRowGroups(groups,children){
+  // 표·목록의 행 묶음: 같은 모양 3개 이상 + 세로로 쌓임 + 각 행 안에 요소 2개 이상.
+  return groups.filter(function(g){
+    return stackedRows(g)&&g.every(function(k){return (children[k.id]||[]).length>=2;});
+  });
+}
+function repeatedRowIds(design,children,groups){
+  // 행과 그 안의 모든 요소에 "몇 개짜리 반복인지"를 달아 둔다.
+  children=children||childMap(design);groups=groups||repeatedRowGroups(sameShapeSiblings(design,children),children);var out={};
+  groups.forEach(function(g){g.forEach(function(k){out[k.id]=g.length;descendantsOf(k,children).forEach(function(d){out[d.id]=g.length;});});});
+  return out;
+}
+function textsUnder(e,children){return descendantsOf(e,children).filter(function(d){return d.kind==="text"&&String(d.text||"").trim();});}
+function tableHeaderIds(design,children,groups){
+  // 표의 컬럼 제목 줄: 반복되는 행 묶음에서 **맨 윗줄**이, 아래 줄들과 달리 숫자·날짜 값을 하나도 안 가지고 있으면 컬럼 제목으로 본다.
+  // (컬럼 제목은 사양이라 고정이다. 지금까지는 행 묶음에 휩쓸려 '가변'으로 접혀 사람 눈에 안 보였다.)
+  var out={};
+  (groups||[]).forEach(function(g){
+    if(g.length<3)return;
+    var sorted=g.slice().sort(function(a,b){return a.box.y-b.box.y;}),head=sorted[0],body=sorted.slice(1);
+    var ht=textsUnder(head,children);if(ht.length<2)return;
+    if(ht.some(function(t){return VAR_PATTERN_RE.test(String(t.text));}))return; // 맨 윗줄에 값이 들어 있으면 그냥 데이터 행
+    var bodyHasValue=body.some(function(r){return textsUnder(r,children).some(function(t){return VAR_PATTERN_RE.test(String(t.text));});});
+    if(!bodyHasValue)return; // 아래가 전부 글자뿐이면 표인지 알 수 없다 — 건드리지 않는다
+    ht.forEach(function(t){out[t.id]=g.length;});
+  });
+  return out;
+}
+function menuLabelIds(design,children,groups,repeats){
+  // 메뉴·탭 이름: 가로로 한 줄에 나란히 놓인 같은 모양 3개 이상이고, 각 칸에 짧은 글자가 하나(아이콘+글자면 둘)뿐인 무리.
+  // 표 안(반복 행 안)은 제외한다 — 표 본문 값은 가변이어야 하기 때문.
+  var out={};
+  (groups||[]).forEach(function(g){
+    if(g.length<3||stackedRows(g))return;
+    if(g.some(function(k){return repeats&&repeats[k.id];}))return;
+    var labels=[];
+    var ok=g.every(function(k){
+      var ts=textsUnder(k,children);if(!ts.length||ts.length>2)return false;
+      return ts.every(function(t){var s=String(t.text).trim();if(s.length>20||VAR_PATTERN_RE.test(s))return false;labels.push(t);return true;});
+    });
+    if(ok)labels.forEach(function(t){out[t.id]=g.length;});
+  });
+  return out;
+}
+function buttonLikeIds(design,children){
   // 이름이 없어도 알 수 있는 버튼: 채움·테두리가 있는 작은 상자 안에 글자 하나가 가운데 놓인 것. 버튼 문구는 고정이다.
-  var children=childMap(design),out={};
+  children=children||childMap(design);var out={};
   (design.elements||[]).forEach(function(e){
     if(!isContainerType(e)||e.kind!=="shape"||!isVisibleShape(e))return;var b=e.box;if(b.w>260||b.h>64||b.h<20)return;
     var desc=descendantsOf(e,children),texts=desc.filter(function(d){return d.kind==="text";});if(texts.length!==1)return;
@@ -657,32 +705,88 @@ function buttonLikeIds(design){
   });
   return out;
 }
-function buildTextPolicy(design){
-  // 글자 요소마다 {variable, reason, source}. source: manual / pattern / role / repeat / button / screen
-  var st=screenTypeOf(design),manual=(design.policy&&design.policy.variable)||{},repeats=repeatedRowIds(design),buttons=buttonLikeIds(design),map={};
-  (design.elements||[]).forEach(function(e){
-    var r;
-    if(e.kind!=="text"){ // 글자가 아닌 요소는 반복 행 안에 있을 때만 가변(칩·아이콘이 데이터 따라 바뀜). 사람이 정한 것은 그대로.
-      if(manual[e.id]===true)r={variable:true,reason:"사람이 가변으로 정함",source:"manual"};
-      else if(manual[e.id]===false)r={variable:false,reason:"사람이 고정으로 정함",source:"manual"};
-      else if(repeats[e.id])r={variable:true,reason:"반복되는 행·카드 안의 요소 ("+repeats[e.id]+"개 반복, 데이터에 따라 자리·내용이 바뀜)",source:"repeat"};
-      if(r)map[e.id]=r;return;
-    }
-    if(manual[e.id]===true)r={variable:true,reason:"사람이 가변으로 정함",source:"manual"};
-    else if(manual[e.id]===false)r={variable:false,reason:"사람이 고정으로 정함",source:"manual"};
-    else{
-      var pk=textPatternKind(e.text),role=pk?null:roleKind(e);
-      if(pk==="variable")r={variable:true,reason:"숫자·날짜·자리표시 값",source:"pattern"};
-      else if(pk==="fixed")r={variable:false,reason:"안내 문구",source:"pattern"};
-      else if(role)r={variable:role.kind==="variable",reason:(role.kind==="variable"?"데이터 자리":"고정 문구 자리")+" ("+role.name+")",source:"role"};
-      else if(repeats[e.id])r={variable:true,reason:"반복되는 행·카드 안의 글자 ("+repeats[e.id]+"개 반복)",source:"repeat"};
-      else if(buttons[e.id])r={variable:false,reason:"버튼 문구",source:"button"};
-      else r=st.type==="common"?{variable:false,reason:"공통화면의 글자",source:"screen"}:{variable:true,reason:"일반화면의 글자(데이터일 수 있음)",source:"screen"};
-    }
-    map[e.id]=r;
-  });
-  map.screenType=st;return map;
+// ── 제외표: 애초에 검수 대상이 아닌 것 ────────────────────────────────────
+var POLICY_EXCLUDE_RULES=[{
+  id:"designChrome",title:"디자인에 그려 넣은 브라우저 틀·작업표시줄",
+  // 화면 맨 위나 맨 아래에 딱 붙어 폭을 거의 다 덮는 띠인데 안에 본문 글자가 없다시피 하면,
+  // 시안을 예뻐 보이게 하려고 그려 넣은 화면 밖 장식이다. 개발 화면에는 진짜 브라우저가 그 자리에 있어 늘 다르게 잡힌다.
+  find:function(design,children){
+    var out={},W=design.width||0,H=design.height||0;if(!W||!H)return out;
+    (children.root||[]).forEach(function(e){
+      var b=e.box;if(b.w<W*.95||b.h>H*.2)return;
+      var top=b.y<=2,bottom=Math.abs(b.y+b.h-H)<=2;if(!top&&!bottom)return;
+      var desc=descendantsOf(e,children);if(desc.filter(function(d){return d.kind==="text"&&String(d.text||"").trim();}).length>1)return;
+      var why="디자인에 그려 넣은 "+(top?"브라우저 틀":"작업표시줄");
+      out[e.id]=why;desc.forEach(function(d){out[d.id]=why;});
+    });
+    return out;
+  }
+}];
+function buildExcludeMap(design,children){
+  var out={};POLICY_EXCLUDE_RULES.forEach(function(rule){var got=rule.find(design,children)||{};Object.keys(got).forEach(function(id){if(!out[id])out[id]=got[id];});});
+  return out;
 }
+// ── 가변표: 위에서부터 먼저 맞는 규칙이 이긴다 ─────────────────────────────
+var POLICY_TEXT_RULES=[
+  {id:"manual",title:"사람이 정한 것",test:function(e,x){
+    if(x.manual[e.id]===true)return{variable:true,reason:"사람이 가변으로 정함"};
+    if(x.manual[e.id]===false)return{variable:false,reason:"사람이 고정으로 정함"};return null;}},
+  {id:"pattern",title:"글자 꼴(숫자·날짜·안내문)",textOnly:true,test:function(e){
+    var pk=textPatternKind(e.text);
+    if(pk==="variable")return{variable:true,reason:"숫자·날짜·자리표시 값"};
+    if(pk==="fixed")return{variable:false,reason:"안내 문구"};return null;}},
+  {id:"tableHeader",title:"표 컬럼 제목은 고정",textOnly:true,test:function(e,x){
+    return x.headers[e.id]?{variable:false,reason:"표 컬럼 제목("+x.headers[e.id]+"줄짜리 표)"}:null;}},
+  {id:"menu",title:"메뉴·탭 이름은 고정",textOnly:true,test:function(e,x){
+    return x.menus[e.id]?{variable:false,reason:"메뉴·탭 이름("+x.menus[e.id]+"칸 중 하나)"}:null;}},
+  {id:"role",title:"컴포넌트 역할 이름",textOnly:true,test:function(e){
+    var role=roleKind(e);if(!role)return null;
+    return{variable:role.kind==="variable",reason:(role.kind==="variable"?"데이터 자리":"고정 문구 자리")+" ("+role.name+")"};}},
+  {id:"repeat",title:"표 본문·반복되는 행 안은 가변",test:function(e,x){
+    if(!x.repeats[e.id])return null;
+    return{variable:true,reason:e.kind==="text"?"반복되는 행·카드 안의 글자 ("+x.repeats[e.id]+"개 반복)":"반복되는 행·카드 안의 요소 ("+x.repeats[e.id]+"개 반복, 데이터에 따라 자리·내용이 바뀜)"};}},
+  {id:"button",title:"버튼 모양 안의 글자는 고정",textOnly:true,test:function(e,x){
+    return x.buttons[e.id]?{variable:false,reason:"버튼 문구"}:null;}},
+  {id:"screen",title:"화면 종류(공통=고정 / 일반=가변)",textOnly:true,test:function(e,x){
+    return x.st.type==="common"?{variable:false,reason:"공통화면의 글자"}:{variable:true,reason:"일반화면의 글자(데이터일 수 있음)"};}}
+];
+function buildTextPolicy(design){
+  // 글자 요소마다 {variable, reason, source}. source는 위 표의 id(manual / pattern / tableHeader / menu / role / repeat / button / screen).
+  // 글자가 아닌 요소(칩·아이콘·도형)는 표에서 textOnly가 아닌 규칙만 본다.
+  var children=childMap(design),all=sameShapeSiblings(design,children),rows=repeatedRowGroups(all,children),repeats=repeatedRowIds(design,children,rows);
+  var x={st:screenTypeOf(design),manual:(design.policy&&design.policy.variable)||{},repeats:repeats,
+    headers:tableHeaderIds(design,children,rows),menus:menuLabelIds(design,children,all,repeats),buttons:buttonLikeIds(design,children)};
+  var map={};
+  (design.elements||[]).forEach(function(e){
+    for(var i=0;i<POLICY_TEXT_RULES.length;i++){
+      var rule=POLICY_TEXT_RULES[i];if(rule.textOnly&&e.kind!=="text")continue;
+      var r=rule.test(e,x);if(r){r.source=rule.id;map[e.id]=r;return;}
+    }
+  });
+  // 표·메뉴 같은 "자리" 정보도 함께 넘긴다(후보 목록 규칙이 쓴다).
+  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
+}
+// ── 목록 규칙: 후보 하나만 봐서는 알 수 없고, 여러 후보를 함께 봐야 아는 것 ─────────
+function inRepeatRow(map,c){
+  // 표·목록의 반복되는 행 안에 있고, 고정으로 판정되지 않은(=값 자리) 요소만.
+  var ids=c.designNodeIds||[],rep=map.repeats||{};if(!ids.length)return false;
+  return ids.every(function(id){var p=map[id];return !!rep[id]&&p&&p.variable;});
+}
+var POLICY_LIST_RULES=[{
+  id:"rowValueMissing",title:"표 본문 값이 안 보이는 것은 데이터 차이 — 칸(컬럼)이 빠졌는지는 컬럼 제목으로 본다",
+  // 개발 화면에는 진짜 데이터가 들어 있어 디자인의 예시 값이 통째로 '없어졌다'고 잡힌다(줄마다·칸마다).
+  // 표의 구조가 정말 달라졌는지는 **컬럼 제목 줄**에서 드러나므로(제목은 고정으로 검사한다), 본문 값의 누락은 데이터 차이로 본다.
+  // 값의 색·크기 차이는 데이터와 무관하므로 그대로 오류 후보로 남긴다.
+  apply:function(cands,map){
+    cands.forEach(function(c){
+      if(c.kind!=="missing"||!inRepeatRow(map,c))return;
+      if(c.listDetail==null)c.listDetail=c.detail||"";
+      c.detail="표 본문 값 · 개발 화면의 데이터가 달라서일 수 있어요(칸이 빠졌는지는 컬럼 제목으로 봅니다). "+c.listDetail;
+      if(!c.userSet)c.status="variable";
+    });
+  }
+}];
+function applyListPolicy(cands,map){POLICY_LIST_RULES.forEach(function(rule){rule.apply(cands,map);});return cands;}
 var CONTENT_LABELS=[LABEL_TEXT_CONTENT,LABEL_TEXT_WRAP,LABEL_TEXT_SIZE,LABEL_TEXT_FONT,LABEL_TEXT_SHAPE];
 function applyTextPolicy(c,pol){
   // 가변 글자면 내용에 따라 달라지는 후보(내용·줄바꿈·폭·글씨체·모양)는 '가변 글자' 묶음으로 내리고, 높이·색 차이만 오류 후보로 남긴다.
@@ -712,16 +816,31 @@ function policyFor(map,c){
   if(pols.some(function(p){return !p||!p.variable;}))return pols[0]&&!pols[0].variable?pols[0]:null;
   return pols[0];
 }
+function excludedFor(map,c){
+  // 후보가 가리키는 디자인 요소가 **전부** 제외 대상(가짜 브라우저 틀·작업표시줄)일 때만 제외로 본다.
+  var ex=(map&&map.excluded)||{},ids=c.designNodeIds||[];if(!ids.length)return null;
+  var why=null;for(var i=0;i<ids.length;i++){if(!ex[ids[i]])return null;why=why||ex[ids[i]];}
+  return why;
+}
 function applyCandidatePolicy(c,map){
+  var ex=excludedFor(map,c);c.policyExcluded=ex||null;
+  if(ex){ // 지우지 않고 '제외(오류 아님)' 묶음으로 내린다. 사람이 직접 누른 번호는 건드리지 않는다.
+    if(c.exDetail==null)c.exDetail=c.detail||"";
+    c.detail=ex+" — 검수 대상이 아닙니다. "+c.exDetail;
+    if(!c.userSet)c.status="excluded";
+    return c;
+  }
+  if(c.exDetail!=null){c.detail=c.exDetail;c.exDetail=null;if(c.status==="excluded"&&!c.userSet)c.status="confirmed";}
   if(c.kind==="text")return applyTextPolicy(c,policyFor(map,c));
   if(ROW_UNIT_KINDS[c.kind])return applyUnitPolicy(c,policyFor(map,c));
   return c;
 }
 function applyPolicyToResult(r){
   // 화면 종류나 사람의 판단이 바뀌면 다시 비교하지 않고 후보의 묶음만 다시 정한다. 상태가 바뀐 번호를 돌려준다(캔버스 색 갱신용).
-  var map=buildTextPolicy(r.design);r.design.policyMap=map;var changed=[];
-  r.candidates.forEach(function(c){if(!c.base)return;var before=c.status;applyCandidatePolicy(c,map);if(c.status!==before)changed.push(c);});
-  return changed;
+  var map=buildTextPolicy(r.design);r.design.policyMap=map;var before={};
+  r.candidates.forEach(function(c){before[c.id]=c.status;applyCandidatePolicy(c,map);});
+  applyListPolicy(r.candidates,map);
+  return r.candidates.filter(function(c){return c.status!==before[c.id];});
 }
 function classifyTextDifference(best,dx,dy,designStats,captureStats,ncc){
   // best = 글자 윤곽 불일치 비율(0 같음 ~ 1 전혀 다름). 줄 수 → 내용(폭만 변함) → 크기 → 위치 → 폰트 순으로 판단한다.
@@ -1181,6 +1300,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   // 가변·불가변 판정 — 가변 글자의 내용 차이, 반복 행 안 요소의 위치·모양·색 차이는 '가변' 묶음으로 내린다(숨기지 않는다).
   var policyMap=design.policyMap=buildTextPolicy(design);
   cands.forEach(function(c){applyCandidatePolicy(c,policyMap);});
+  applyListPolicy(cands,policyMap);
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
   ctx.bands=bands;cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
   cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
@@ -2002,6 +2122,51 @@ async function runSelfTest(){
   check("사람이 정한 것이 규칙보다 우선(가변·고정 양쪽)",tp.hda.variable===true&&tp.hda.source==="manual"&&tp.r1a.variable===false&&tp.r1a.source==="manual");
   var tabsDesign={name:"목록",width:400,height:100,elements:[{id:"tabs",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:400,h:40},values:{}}].concat([0,1,2,3].map(function(i){return{id:"t"+i,type:"FRAME",kind:"shape",parentId:"tabs",box:{x:i*100,y:0,w:100,h:40},values:{}};})).concat([0,1,2,3].map(function(i){return{id:"t"+i+"x",kind:"text",parentId:"t"+i,text:"탭"+i,box:{x:i*100+30,y:10,w:40,h:20},values:{}};})).concat([0,1,2,3].map(function(i){return{id:"t"+i+"i",kind:"icon",parentId:"t"+i,box:{x:i*100+5,y:10,w:20,h:20},values:{}};}))};
   check("가로로 한 줄만 반복되는 것(탭·메뉴)은 데이터 행이 아님",Object.keys(repeatedRowIds(tabsDesign)).length===0);
+  // ── 검수 정책표: 표 컬럼 제목 / 메뉴·탭 이름 / 표 본문 값 / 디자인에 그려 넣은 화면 밖 틀
+  function gridDesign(headTexts){
+    var els=[{id:"tbl",type:"FRAME",kind:"shape",parentId:null,box:{x:20,y:40,w:600,h:300},values:{stroke:"#DDDDDD"}}];
+    var rows=[["h",40,headTexts],["r1",80,["가나다","25.12.09","44"]],["r2",120,["라마바","25.12.10","52"]],["r3",160,["사아자","25.12.11","61"]]];
+    rows.forEach(function(r){
+      els.push({id:r[0],type:"FRAME",kind:"shape",parentId:"tbl",box:{x:20,y:r[1],w:600,h:40},values:{fill:"#FFFFFF"}});
+      r[2].forEach(function(t,i){
+        els.push({id:r[0]+"c"+i,type:"FRAME",kind:"shape",parentId:r[0],box:{x:20+i*200,y:r[1],w:200,h:40},values:{}});
+        els.push({id:r[0]+"t"+i,kind:"text",parentId:r[0]+"c"+i,text:t,box:{x:30+i*200,y:r[1]+10,w:100,h:20},values:{}});
+      });
+    });
+    return{name:"체류 목록",width:700,height:400,elements:els};
+  }
+  var gp=buildTextPolicy(gridDesign(["이름","입문날짜","체류시간"]));
+  check("표의 맨 윗줄은 컬럼 제목으로 보고 고정",[gp.ht0,gp.ht1,gp.ht2].every(function(x){return x.variable===false&&x.source==="tableHeader";}));
+  check("표 본문 값은 가변(같은 표 안)",gp.r1t0.variable&&gp.r2t0.variable&&gp.r3t0.variable);
+  check("표 안에 가로로 늘어선 칸은 메뉴로 보지 않음",[gp.r1t0,gp.r1t1,gp.r1t2].every(function(x){return x.source!=="menu";}));
+  var gp2=buildTextPolicy(gridDesign(["가나다","25.12.08","40"]));
+  check("맨 윗줄에도 값이 들어 있으면 컬럼 제목이 아님",gp2.ht0.source!=="tableHeader"&&gp2.ht1.source!=="tableHeader");
+  var mp=buildTextPolicy(tabsDesign);
+  check("가로로 나란한 메뉴·탭 이름은 고정",[mp.t0x,mp.t1x,mp.t2x,mp.t3x].every(function(x){return x.variable===false&&x.source==="menu";}));
+  function chromeDesign(barTexts){
+    var els=[{id:"bar",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:1000,h:80},values:{fill:"#EEEEEE"}},
+      {id:"task",type:"RECTANGLE",kind:"image",parentId:null,box:{x:0,y:920,w:1000,h:80},values:{}},
+      {id:"body",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:80,w:1000,h:840},values:{}},
+      {id:"bodyt",kind:"text",parentId:"body",text:"화면 제목",box:{x:20,y:100,w:100,h:20},values:{}}];
+    barTexts.forEach(function(t,i){els.push({id:"bart"+i,kind:"text",parentId:"bar",text:t,box:{x:20+i*200,y:20,w:120,h:20},values:{}});});
+    return{name:"운행 목록",width:1000,height:1000,elements:els};
+  }
+  var cp=buildTextPolicy(chromeDesign(["사이트 이름"]));
+  check("맨 위 브라우저 틀·맨 아래 작업표시줄은 검수 제외",!!cp.excluded.bar&&!!cp.excluded.bart0&&!!cp.excluded.task&&!cp.excluded.body&&!cp.excluded.bodyt);
+  var cp2=buildTextPolicy(chromeDesign(["메뉴 하나","메뉴 둘"]));
+  check("본문 글자가 여럿 들어 있는 띠는 화면 내용이라 제외하지 않음",!cp2.excluded.bar);
+  function mkCand(id,kind,nodes,status){return{id:id,kind:kind,designNodeIds:nodes,designBox:{x:20,y:50,w:60,h:20},status:status||"confirmed",detail:"원래 사유",base:{label:LABEL_TEXT_CONTENT,detail:"원래 사유",confidence:80}};}
+  var exC=mkCand("e1","text",["bart0"]),keepC=mkCand("e2","text",["bodyt"]),userC=mkCand("e3","text",["bart0"],"confirmed");userC.userSet=true;
+  [exC,keepC,userC].forEach(function(c){applyCandidatePolicy(c,cp);});
+  check("화면 밖 틀을 가리키는 후보는 '제외'로 내려가고 사유가 붙는다(지우지 않음)",exC.status==="excluded"&&exC.detail.indexOf("디자인에 그려 넣은 브라우저 틀")===0&&keepC.status!=="excluded");
+  check("사람이 직접 누른 번호는 제외 규칙이 상태를 바꾸지 않음",userC.status==="confirmed");
+  applyCandidatePolicy(exC,buildTextPolicy(chromeDesign(["메뉴 하나","메뉴 둘"])));
+  check("제외가 풀리면 제외 딱지가 사라지고 원래 판정으로 돌아온다",exC.status!=="excluded"&&exC.detail.indexOf("검수 대상이 아닙니다")<0);
+  var gpm=buildTextPolicy(gridDesign(["이름","입문날짜","체류시간"]));
+  function mkMiss(id,node,x){return{id:id,kind:"missing",designNodeIds:[node],designBox:{x:x,y:90,w:60,h:20},status:"confirmed",detail:"디자인 글자"};}
+  var missVal=mkMiss("m1","r1t0",30),missHead=mkMiss("m2","ht0",30);
+  applyListPolicy([missVal,missHead],gpm);
+  check("표 본문 값이 안 보이는 것은 데이터 차이(가변) · 컬럼 제목 누락은 오류 후보로 유지",missVal.status==="variable"&&missVal.detail.indexOf("표 본문 값")===0&&missHead.status==="confirmed");
   var loginDesign={name:"웹_로그인 화면",width:400,height:300,elements:[{id:"in",type:"INSTANCE",kind:"shape",parentId:null,box:{x:20,y:20,w:300,h:48},values:{stroke:"#CCCCCC"}},{id:"ph",kind:"text",parentId:"in",text:"아이디를 입력해 주세요.",chain:[{n:"Input/Default",t:"INSTANCE"}],box:{x:36,y:34,w:160,h:20},values:{}},{id:"lb",kind:"text",parentId:null,text:"아이디 저장",box:{x:20,y:90,w:80,h:20},values:{}},{id:"bt",kind:"text",parentId:null,text:"로그인",chain:[{n:"Button/Primary",t:"INSTANCE"}],box:{x:150,y:130,w:60,h:20},values:{}},{id:"ft",kind:"text",parentId:null,text:"(주)에스원   사업자등록번호 208-81-13342",box:{x:20,y:260,w:300,h:16},values:{}}]};
   var lp=buildTextPolicy(loginDesign);
   check("로그인 화면: 플레이스홀더·라벨·버튼·회사 정보 전부 고정",[lp.ph,lp.lb,lp.bt,lp.ft].every(function(x){return x.variable===false;})&&lp.ph.source==="pattern"&&lp.lb.source==="screen"&&lp.bt.source==="role");
