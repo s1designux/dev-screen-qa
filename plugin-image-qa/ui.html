@@ -1337,9 +1337,13 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
     else{
       var v=u.el.values||{},inset=3+(v.strokeWidth||0);
       if(v.fill){var dAvg=interiorAverage(ctx.dd.data,W,H,pb,0,0,inset),cAvg=interiorAverage(ctx.cd.data,W,H,pb,r.dx,r.dy,inset);if(dAvg&&cAvg&&colorDistance(dAvg,cAvg)>45){label=LABEL_COLOR;detail="디자인 배경 "+v.fill+" · 개발 캡처의 색이 다르게 보입니다.";confidence=clamp(Math.round(50+colorDistance(dAvg,cAvg)/3),55,90);}}
-      if(!label&&res.mismatch>.35){label=LABEL_SHAPE;confidence=clamp(Math.round(50+res.mismatch*40),55,88);}
+      // 같은 말 두 번 안 하기 — 바깥 상자가 이미 같은 이유로 걸렸으면 안쪽 껍데기는 올리지 않는다(없어짐·밀림과 같은 방식)
+      if(!label&&res.mismatch>.35){var ancS=ancestorResult(res,byId,resultByElId);if(!(ancS&&!ancS.missing&&ancS.mismatch>.35)){label=LABEL_SHAPE;confidence=clamp(Math.round(50+res.mismatch*40),55,88);}}
     }
-    if(!label)return;var boxes=(u.kind==="text"&&tc&&tc.boxes&&tc.boxes.length)?tc.boxes:[pb];
+    if(!label)return;
+    // 못 찾은 자리에서는 입 다물기 — 개발 캡처에서 그 요소를 못 찾았으면 크기·색·아이콘 판정은 내지 않는다(없어짐·글자 내용은 그대로 올린다)
+    if(res.best.score<.35&&(label===LABEL_SHAPE||label===LABEL_COLOR||label===LABEL_ICON))return;
+    var boxes=(u.kind==="text"&&tc&&tc.boxes&&tc.boxes.length)?tc.boxes:[pb];
     boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical),c={kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence};
       c.base={label:label,detail:detail,confidence:confidence}; // 가변 판정을 되돌릴 수 있게 원래 판정을 남긴다
       if(u.kind==="text")c.textAlt={heightRatio:res.heightRatio||null,colorDiff:res.inkColorDiff||0,designColor:u.el.values&&u.el.values.color||""};
