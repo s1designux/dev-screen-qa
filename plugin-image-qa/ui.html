@@ -1305,11 +1305,17 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   var results=[],resultByElId={};
   units.forEach(function(u){if(u.section.excluded||u.bandExcluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
   resolveClaims(results);
-  function toRaw(bx){var raw={x:(bx.x-model.tx)/model.s,y:(bx.y-model.ty)/model.s,w:bx.w/model.s,h:bx.h/model.s};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));return raw;}
+  function toRaw(bx){var x0=(bx.x-model.tx)/model.s,y0=(bx.y-model.ty)/model.s,w0=bx.w/model.s,h0=bx.h/model.s;
+    var raw={x:x0,y:y0,w:w0,h:h0};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));
+    // 개발 캡처 안에 실제로 담긴 비율 — 캡처가 짧아 잘려 나간 자리를 가려내는 데 쓴다(출력에는 넣지 않는다)
+    var vw=Math.max(0,Math.min(x0+w0,capture.width)-Math.max(x0,0)),vh=Math.max(0,Math.min(y0+h0,capture.height)-Math.max(y0,0));
+    try{Object.defineProperty(raw,"inCapture",{value:(w0>0&&h0>0)?(vw*vh)/(w0*h0):1,enumerable:false});}catch(e){}
+    return raw;}
   function logicalOf(bx){return{x:bx.x*scaleX,y:bx.y*scaleY,w:bx.w*scaleX,h:bx.h*scaleY};}
   function shifted(bx,dx,dy){return{x:bx.x+dx,y:bx.y+dy,w:bx.w,h:bx.h};}
   var cands=[];
-  function push(c){c.status="confirmed";cands.push(c);}
+  // 개발 캡처 밖으로 절반 넘게 벗어난 자리는 후보를 내지 않는다 — 캡처가 짧아 안 담긴 것이지 없어진 것이 아니다.
+  function push(c){if(c.rawBox&&c.rawBox.inCapture!=null&&c.rawBox.inCapture<.5)return;c.status="confirmed";cands.push(c);}
   // 1) 누락 — 부모가 이미 누락이면 자식은 말하지 않는다.
   results.forEach(function(res){
     if(!res.missing)return;var anc=ancestorResult(res,byId,resultByElId);if(anc&&anc.missing)return;
