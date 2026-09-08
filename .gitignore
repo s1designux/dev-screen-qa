@@ -63,3 +63,27 @@ validation-image-qa/repro/report_rule_vs_ai.html
 validation-image-qa/repro/report_prompt.md
 validation-image-qa/repro/elements_stay*.json
 validation-image-qa/repro/stay_full*.txt
+
+# 읽기 층(로컬 AI) 산출물 — 회사 화면 글자가 들어 있어 커밋하지 않는다
+validation-image-qa/repro/vlm_read_cache/
+validation-image-qa/repro/*.log
+
+# 실제 회사 화면 자료(2026-09-08 새로 넣은 5개 사례) — 커밋하지 않는다
+validation-image-qa/repro/elements_route.json
+validation-image-qa/repro/elements_board.json
+validation-image-qa/repro/elements_vehicle.json
+validation-image-qa/repro/elements_dash.json
+validation-image-qa/repro/elements_door.json
+validation-image-qa/repro/design_route_*.png
+validation-image-qa/repro/dev_route_*.png
+validation-image-qa/repro/design_board_*.png
+validation-image-qa/repro/dev_board_*.png
+validation-image-qa/repro/design_vehicle_*.png
+validation-image-qa/repro/dev_vehicle_*.png
+validation-image-qa/repro/design_dash_*.png
+validation-image-qa/repro/dev_dash_*.png
+validation-image-qa/repro/design_door_*.png
+validation-image-qa/repro/dev_door_*.png
+validation-image-qa/repro/extract/*.txt
+validation-image-qa/repro/dev_route2_*.png
+validation-image-qa/repro/elements_route_plugin.json

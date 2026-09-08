@@ -202,6 +202,9 @@
   .tip{font-size:11px;color:#888888;background:#FAFAFA;border-radius:4px;padding:10px 12px;line-height:1.5;margin-bottom:12px;border:1px solid #EEEEEE}
   .row{display:flex;gap:8px;align-items:center}
   .row>*{flex:1}
+.dev-tools{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#FFF7E6;border-bottom:1px solid #F0D9A8;font-size:11px;}
+.dev-tools button{font-size:11px;padding:4px 10px;border:1px solid #D9A93A;background:#fff;border-radius:4px;cursor:pointer;}
+.dev-tools-status{color:#7A5B12;}
 </style>
 </head>
 <body>
@@ -223,6 +226,11 @@
   </div>
   <span class="update-time">업데이트 2026-09-03 03:00</span>
 </header>
+<!-- 담당자용 숨은 도구: 제목을 세 번 클릭하면 나타난다. 검수하는 사람에게는 필요 없는 기능이라 평소엔 감춰둔다. -->
+<div id="devTools" class="dev-tools" hidden>
+  <button id="btnExportQa" type="button">검수 자료 내보내기</button>
+  <span id="devToolsStatus" class="dev-tools-status">디자인 프레임과 개발화면을 고르고 ‘자료 읽기’를 먼저 눌러 주세요.</span>
+</div>
 <main>
   <section id="prepareView">
     <div class="card">
@@ -609,7 +617,7 @@ var SCREEN_COMMON_RE=/로그인|log-?in|sign-?in|회원\s*가입|sign-?up|아이
 var COPY_FIXED_RE=/(주세요|하세요|십시오|바랍니다|됩니다|입니다|없습니다|있습니다|합니다|하시겠습니까|할까요)[.?!)]*$/;
 var FOOTER_FIXED_RE=/사업자\s*등록\s*번호|대표(이사)?\s*[:：]|©|copyright|all rights reserved|통신판매업|개인정보\s*(처리|보호)/i;
 var VAR_PATTERN_RE=/\d{1,3}(,\d{3})+|\d{4,}|\d{4}\s*[.\-\/년]\s*\d{1,2}\s*[.\-\/월]\s*\d{1,2}|\b\d{1,2}:\d{2}\b|\d{2,4}-\d{3,4}-\d{4}|\d+(\.\d+)?\s*%|\d+\s*(건|명|원)(?![가-힣])|홍길동|김철수|이영희|lorem|dummy|더미|샘플|sample|텍스트\s*(입력|텍스트)|^[\d,.\-+\s]*\d[\d,.\-+\s]*$/i;
-var ROLE_FIXED_RE=/button|btn|버튼|label|라벨|placeholder|플레이스홀더|hint|힌트|title|타이틀|제목|heading|header|head|\bth\b|\btabs?\b|탭|menu|메뉴|\bnav|gnb|lnb|snb|footer|푸터|caption|캡션|toast|토스트|link|링크|checkbox|체크박스|radio|라디오|toggle|토글|switch|스위치|dropdown|select|셀렉트|breadcrumb|pagination|페이지네이션|tooltip|툴팁|helper|guide|안내|empty|modal|dialog|팝업|popup|stepper|step/i;
+var ROLE_FIXED_RE=/항목|button|btn|버튼|label|라벨|placeholder|플레이스홀더|hint|힌트|title|타이틀|제목|heading|header|head|\bth\b|\btabs?\b|탭|menu|메뉴|\bnav|gnb|lnb|snb|footer|푸터|caption|캡션|toast|토스트|link|링크|checkbox|체크박스|radio|라디오|toggle|토글|switch|스위치|dropdown|select|셀렉트|breadcrumb|pagination|페이지네이션|tooltip|툴팁|helper|guide|안내|empty|modal|dialog|팝업|popup|stepper|step/i;
 var ROLE_VAR_RE=/\bvalue\b|content|data|데이터|\bcell\b|셀|\brow\b|\btr\b|\btd\b|list[\s-]?item|sample|샘플|dummy|더미|record|레코드/i;
 function isDefaultLayerName(name,text){name=String(name||"");return !name||name===String(text||"")||/^\d+:\d+$/.test(name)||/^(Frame|Group|Rectangle|Text|Instance|Component|Vector|Ellipse|Line)\s*\d*$/i.test(name);}
 function screenTypeOf(design){
@@ -1769,6 +1777,59 @@ toggleOverlay.onclick=function(){
   post({type:"toggle-overlay",pairId:r.pairId,designBytes:Array.from(bytes),box:place.box});
 };
 
+// ── 담당자용 자료 내보내기 ─────────────────────────────────────────
+// 검수 규칙을 발굴할 때 쓰는 도구. 플러그인이 이미 읽어둔 요소 목록·그림을 파일로 저장만 한다.
+// 밖으로 보내는 것은 없다(폐쇄망). 검수 판정 로직은 건드리지 않는다.
+function qaSafeName(s){return String(s||"화면").replace(/[^0-9A-Za-z가-힣_-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,60)||"화면";}
+var QA_COLS=["id","type","kind","depth","parentId","x","y","w","h","fill","stroke","strokeWidth","radius","text","fontSize","fontWeight","color","name","chain","propRef"];
+function qaElementRow(e){
+  var b=e.box||{},v=e.values||{},isText=e.kind==="text";
+  return [e.id,e.type,e.kind,e.depth,e.parentId||null,b.x,b.y,b.w,b.h,
+    isText?null:(v.fill||null), isText?null:(v.stroke||null),
+    isText?null:(typeof v.strokeWidth==="number"?v.strokeWidth:null),
+    isText?null:(typeof v.radius==="number"?v.radius:null),
+    e.text||"", isText?(v.fontSize==null?null:v.fontSize):null, isText?(v.fontWeight==null?null:v.fontWeight):null,
+    isText?(v.color||null):null, e.name||e.type, e.chain||[], e.propRef||null];
+}
+function qaElementsJson(d){
+  return {frame:{id:d.id,name:d.name,width:d.width,height:d.height},cols:QA_COLS,
+          rows:(d.elements||[]).map(qaElementRow)};
+}
+function qaSaveFile(name,blob){
+  var url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}
+function qaExport(){
+  var st=document.getElementById("devToolsStatus");
+  if(!(designs&&designs.length)&&!(captures&&captures.length)){
+    st.textContent="읽어둔 자료가 없어요. ‘자료 읽기’를 먼저 눌러 주세요.";return;
+  }
+  var saved=[];
+  (designs||[]).forEach(function(d){
+    var nm=qaSafeName(d.name);
+    qaSaveFile("elements_"+nm+".json",new Blob([JSON.stringify(qaElementsJson(d))],{type:"application/json"}));
+    if(d.bytes&&d.bytes.length)qaSaveFile("design_"+nm+".png",new Blob([new Uint8Array(d.bytes)],{type:"image/png"}));
+    saved.push(nm+"(요소 "+((d.elements||[]).length)+"개)");
+  });
+  (captures||[]).forEach(function(c){
+    if(!c.bytes||!c.bytes.length)return;
+    qaSaveFile("dev_"+qaSafeName(c.name)+".png",new Blob([c.bytes],{type:"image/png"}));
+    saved.push(qaSafeName(c.name)+"(개발화면)");
+  });
+  st.textContent=saved.length?("내보냈어요 — "+saved.join(" · ")):"저장할 게 없어요.";
+}
+(function(){
+  var t=document.querySelector(".header-title"),n=0,timer=null;
+  if(!t)return;
+  t.addEventListener("click",function(){
+    n++;if(timer)clearTimeout(timer);
+    timer=setTimeout(function(){n=0;},700);
+    if(n>=3){n=0;var box=document.getElementById("devTools");box.hidden=!box.hidden;}
+  });
+  var btn=document.getElementById("btnExportQa");
+  if(btn)btn.addEventListener("click",qaExport);
+})();
 window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="selection-status"){applySelectionStatus(m);}else if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){designs=m.designs||[];designImages={};captures=[];captureById={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length)await addFigmaCaptures(m.captures);else showCaptureStatus();if(pendingCompare)await beginCompareFromAssets();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;pendingCompare=false;updateReady();Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="candidate-selected"){focusCandidateFromCanvas(m.candidateId);}else if(m.type==="result-selected"){focusResultFromCanvas(m.pairId);}else if(m.type==="overlay-moved"){overlayMovedOnCanvas(m.pairId,m.x,m.y);}else if(m.type==="overlay-changed"){overlayVisibleByPair[m.pairId]=!!m.visible;if(results[currentResult]&&results[currentResult].pairId===m.pairId)setOverlayButton(m.visible);}};
 
 async function addFigmaCaptures(items){

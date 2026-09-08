@@ -54,3 +54,47 @@ ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DE
 결과 요약(화면 5개·진짜 오류 27건 전부 잡음, 헛경보는 정렬이 틀어진 로그인 화면에만): 자세한 수치·한계는 메모리 `local-vlm-triage` 참고.
 실제 회사 화면 PNG·보고서·조각 이미지는 커밋하지 않는다(.gitignore).
 | `vlm_region3.py` + `elements_stay_texts.json` | **환각 안전장치.** 디자인 쪽은 AI로 읽지 않고 피그마 글자를 진실값으로, 개발 쪽은 넓은 읽기∪좁은 조각 읽기, 디자인에 없는 글자는 좁은 조각에서도 나와야 인정. 실제 화면(체류시간 관리) 사용자 확정 8/8·환각 0. 안 됐던 시도: 틀 바꿔 두 번 읽기(`vlm_region.py` consensus — 같은 자리 환각은 두 번 다 나옴), 좌표 대게 하기(Ollama 경유 좌표가 못 믿을 수준) |
+
+## 읽기 층 — `vlm_read.py` (2026-09-07)
+
+로컬 AI 활용방안의 **"AI가 읽고, 검수기가 재고, 규칙이 거른다"** 중 **읽는 층**을 화면에 상관없이 도는 도구로 만든 것.
+`vlm_region3.py`가 체류시간 화면 전용이었던 이유(읽을 구역 좌표와 개발 쪽 밀림을 손으로 박아둠)를 없앴다.
+
+| 바뀐 것 | 어떻게 |
+|---|---|
+| 읽을 구역을 손으로 안 적는다 | 디자인 글자 목록에서 세로로 겹치는 글자끼리 묶어 **가로 띠를 자동 생성**. 같은 칸 수·같은 간격으로 되풀이되는 줄(표 본문)은 **첫 줄만** 읽고 나머지는 이유를 남긴다 |
+| 개발 쪽 밀림을 손으로 안 넣는다 | 검수기(`run.js`) 결과 JSON의 겹치기 값(`model.tx/ty/s`, `range.captureTop`)을 그대로 써서 디자인 좌표 → 개발 좌표로 옮긴다 |
+| 다시 읽지 않는다 | 조각 그림+물음을 해시로 `vlm_read_cache/`에 저장. 코드를 고쳐 다시 돌려도 이미 읽은 조각은 0초 |
+| 결과 모양이 같다 | 화면과 무관하게 `only_design / only_dev / spacing / need_check / dropped` + 좌표 |
+| 헛일을 안 한다 | `--skip-above 0.95` 로 겹치기가 잘 맞은 화면은 AI를 아예 부르지 않는다. 점수 0.85 미만이면 결과에 '정렬 확인 필요'를 남긴다 |
+
+읽는 방식 자체는 검증된 v3 그대로다 — 디자인 쪽은 AI로 읽지 않고 **피그마 글자를 진실값**으로,
+개발 쪽은 **넓은 읽기 ∪ 좁은 조각 읽기**, 디자인에 없는 개발 글자는 **좁은 조각에서도 나와야** 인정(환각 버림).
+후처리: 다른 글자의 토막은 버리고, 한 글자·디자인 글자와 한 글자 차이는 '확인 필요'로 뺀다.
+
+```bash
+# 무엇을 몇 분에 읽을지 먼저 보기(AI 안 부름)
+python3 vlm_read.py --elements elements_stay_full.json --dev dev_stay_1920x1081.png \
+                    --align stay-policy.json --out vlm_read_stay.json --dry-run
+# 실제 읽기
+python3 vlm_read.py --elements elements_stay_full.json --dev dev_stay_1920x1081.png \
+                    --align stay-policy.json --out vlm_read_stay.json
+# 채점 — 사람이 확정한 정답이 다 남았는지 (만든 사람이 스스로 정하지 않는다)
+python3 vlm_read_score.py vlm_read_stay.json answers_stay.json
+```
+
+`answers_stay.json`은 river님이 2026-09-04에 직접 확인한 **진짜 오류 8건 + 오류 아닌 것 2건**이다(채점 기준).
+산출물(`vlm_read_*.json`, `vlm_read_cache/`, `*.log`)은 커밋하지 않는다.
+
+## 새 화면 한 장을 통째로 돌리기 — `run_screen.sh` (2026-09-08)
+
+```bash
+# elements_<이름>.json + 디자인/개발 PNG 를 먼저 준비한 뒤
+./run_screen.sh route design_route_1920x1080.png dev_route_1920x1080.png 99
+```
+
+① 검수기(겹치기·자 재기) → ② 읽을 구역·예상 시간 확인 → ③ 로컬 AI 읽기(백그라운드) → ④ 어긋난 것 세기.
+네 번째 인자 `FORCE_TY`는 **자동 겹치기가 실패하는 화면의 계측용**이다(운영 방식 아님).
+
+피그마에서 요소 목록을 조각으로 받아왔다면 `extract/assemble.py <접두사> elements_<이름>.json` 으로 먼저 합친다.
+규칙 제안·승인 기록은 `RULE_PROPOSALS.md` 에 남긴다.
