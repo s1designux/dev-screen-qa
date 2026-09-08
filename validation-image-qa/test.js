@@ -36,6 +36,20 @@ if (!mainCode.includes('c.kind === "spacing"') || !mainCode.includes('간격 기
   process.exit(1);
 }
 console.log('✓ 컴포넌트 간격 기준 수집과 측정선 표시');
+// 살아 있는 디자인 원본값: 번호를 고르면 그 레이어를 지금 다시 읽어 패널로 보낸다. 없어진 레이어는 gone.
+if (typeof context.readLiveDesignValues !== 'function' || !mainCode.includes('type: "design-values-live"') || !mainCode.includes('msg.type === "read-design-values"') || !mainCode.includes('msg.designNote')) {
+  console.error('살아 있는 디자인 원본값 읽기(focus 시 다시 읽기·카드 안내) 규칙이 깨졌습니다.');
+  process.exit(1);
+}
+const liveNodes = { t1: { id: 't1', name: '제목', type: 'TEXT', characters: '가나다', fontSize: 18, fontWeight: 600, fontName: { family: 'Pretendard', style: 'SemiBold' }, lineHeight: { unit: 'PIXELS', value: 24 }, fills: [{ type: 'SOLID', color: { r: 0.067, g: 0.067, b: 0.067 } }], absoluteBoundingBox: { x: 20, y: 20, width: 80, height: 24 } } };
+figmaStub.getNodeByIdAsync = async (id) => liveNodes[id] || null;
+context.readLiveDesignValues(['t1', 'gone']).then((items) => {
+  if (items.length !== 2 || items[0].id !== 't1' || items[0].kind !== 'text' || items[0].text !== '가나다' || items[0].values.fontSize !== 18 || items[1].gone !== true) {
+    console.error('살아 있는 디자인 원본값 읽기 결과 모양이 깨졌습니다: ' + JSON.stringify(items));
+    process.exit(1);
+  }
+  console.log('✓ 살아 있는 디자인 원본값 읽기(지금 값·지워진 레이어)');
+});
 
 const uiSource = fs.readFileSync(path.resolve(__dirname, '../plugin-image-qa/ui.html'), 'utf8');
 const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../plugin-image-qa/manifest.json'), 'utf8'));

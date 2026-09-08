@@ -642,6 +642,7 @@ async function focusCandidate(candidateId) {
     if (live && live.type !== "DOCUMENT" && live.type !== "PAGE") selection.push(live);
   }
   lastProgrammaticSelectionAt = Date.now(); figma.currentPage.selection = selection;
+  figma.ui.postMessage({ type: "design-values-live", candidateId: candidateId, items: await readLiveDesignValues(ids) });
   // 번호 영역이 화면 중앙에 오도록 맞춘다. (멀리 있는 디자인 레이어까지 한 화면에 넣지 않는다.)
   var bb = node.absoluteBoundingBox;
   if (bb) {
@@ -650,6 +651,20 @@ async function focusCandidate(candidateId) {
   } else {
     focusNodes([node], 1.2);
   }
+}
+async function readLiveDesignValues(ids) {
+  // 번호가 가리키는 디자인 레이어를 '지금' Figma에서 다시 읽는다. 검수 시작 때 찍어 둔 값과 달라졌으면 패널이 그 사실을 보여 준다.
+  // 값을 읽기만 한다 — 오류를 확정하거나 개발 값을 추측하지 않는다.
+  var out = [];
+  for (var i = 0; i < (ids || []).length; i++) {
+    var id = ids[i], node = null;
+    try { node = await figma.getNodeByIdAsync(id); } catch (e) { node = null; }
+    if (!node || node.removed || node.type === "DOCUMENT" || node.type === "PAGE" || !node.absoluteBoundingBox) { out.push({ id: id, gone: true }); continue; }
+    var bb = node.absoluteBoundingBox, el = readDesignElement(node, { x: bb.x, y: bb.y }, 0, null, null, []);
+    if (!el) { out.push({ id: id, name: node.name || node.type, kind: "shape", text: "", values: {} }); continue; }
+    out.push({ id: id, name: el.name, kind: el.kind, text: el.text || "", values: el.values });
+  }
+  return out;
 }
 function clearCandidateFocus() {
   allCandidateGroups().forEach(function (g) { g.opacity = 1; });
@@ -727,6 +742,7 @@ async function buildCompareCard(msg) {
   var notes = [];
   if (msg.detail) notes.push({ text: msg.detail, size: 14, color: "353535" });
   if (msg.designValues) notes.push({ text: "디자인 원본값: " + msg.designValues, size: 12, color: "888888" });
+  if (msg.designNote) notes.push({ text: msg.designNote, size: 12, color: "B45309" }); // 검수 뒤 디자인이 바뀐 경우
   for (var n = 0; n < notes.length; n++) {
     var t = makeText(font, notes[n].text, notes[n].size, paint(notes[n].color));
     card.appendChild(t); t.x = pad; t.y = y;
@@ -942,6 +958,8 @@ figma.ui.onmessage = async function (msg) {
       figma.ui.postMessage({ type: "results-rendered", pairId: msg.pairId, result: result });
     } else if (msg.type === "focus-candidate") {
       await focusCandidate(msg.candidateId);
+    } else if (msg.type === "read-design-values") {
+      figma.ui.postMessage({ type: "design-values-live", candidateId: msg.candidateId, items: await readLiveDesignValues(msg.ids || []) });
     } else if (msg.type === "clear-focus") {
       clearCandidateFocus();
     } else if (msg.type === "clear-candidates") {
