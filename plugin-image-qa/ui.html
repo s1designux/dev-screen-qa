@@ -138,6 +138,13 @@
   .num-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .num-reason{font-size:11px;color:#888888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .num-detail{font-size:10px;color:#AAAAAA;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .num-live{grid-column:1/-1;margin:2px 0 2px 41px;padding:6px 8px;border:1px solid #E4EBF7;border-radius:4px;background:#FAFCFF;font-size:10px;color:#555555;line-height:1.5}
+  .num-live-title{font-weight:700;color:#353535;margin-bottom:2px}
+  .num-live-now{font-weight:500;color:#1D6CEB}.num-live-snap{font-weight:500;color:#999999}
+  .num-live-row{word-break:break-all}.num-live-row b{font-weight:700;color:#353535}
+  .num-live-row.changed{color:#B45309}.num-live-row.changed b{color:#B45309}
+  .num-live-was{color:#999999;text-decoration:line-through}
+  .num-live-note{margin-top:4px;color:#B45309;font-weight:700}
   .tip.notice{border-color:#F3E2B3;background:#FFF9EA;color:#7A5A00}
   .candidate-actions{display:flex;gap:4px}
   .candidate-actions button{height:30px;line-height:28px;padding:0 7px;font-size:10px}
@@ -203,6 +210,7 @@
   .row{display:flex;gap:8px;align-items:center}
   .row>*{flex:1}
 .dev-tools{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#FFF7E6;border-bottom:1px solid #F0D9A8;font-size:11px;}
+.dev-tools[hidden]{display:none} /* hidden 속성은 display:flex 클래스에 밀린다 — 평소엔 숨겨야 하는 담당자용 막대 */
 .dev-tools button{font-size:11px;padding:4px 10px;border:1px solid #D9A93A;background:#fff;border-radius:4px;cursor:pointer;}
 .dev-tools-status{color:#7A5B12;}
 </style>
@@ -594,8 +602,49 @@ function designValuesFor(design,box){
   var found=design.elements.filter(function(e){var ia=intersection(e.box,box),ea=e.box.w*e.box.h;return ia>0&&(ia/Math.max(1,ea)>.12||(e.box.x+e.box.w/2>=box.x&&e.box.x+e.box.w/2<=box.x+box.w&&e.box.y+e.box.h/2>=box.y&&e.box.y+e.box.h/2<=box.y+box.h));});
   found.sort(function(a,b){if(a.kind!==b.kind)return a.kind==="text"?-1:1;return a.box.w*a.box.h-b.box.w*b.box.h;});var chosen=[],seen={};
   found.forEach(function(e){if(chosen.length>=2||seen[e.kind])return;seen[e.kind]=1;chosen.push(e);});
-  var lines=[];chosen.forEach(function(e){var v=e.values;if(e.kind==="text"){var bits=[];if(v.fontSize!=null)bits.push("크기 "+v.fontSize);if(v.fontWeight!=null)bits.push("굵기 "+v.fontWeight);if(v.fontFamily)bits.push("글꼴 "+v.fontFamily);if(v.lineHeight!=null)bits.push("줄높이 "+v.lineHeight);if(v.color)bits.push("색 "+v.color);lines.push(bits.join(" · "));}else{var sb=[];if(v.width!=null&&v.height!=null)sb.push(v.width+"×"+v.height);if(v.fill)sb.push("배경 "+v.fill);if(v.stroke)sb.push("테두리 "+v.stroke);if(v.radius!=null)sb.push("둥글기 "+v.radius);lines.push(sb.join(" · "));}});
+  var lines=chosen.map(formatDesignValues);
   return{ids:chosen.map(function(e){return e.id;}),kinds:chosen.map(function(e){return e.kind;}),text:lines.filter(Boolean).join("\n")};
+}
+function formatDesignValues(e){
+  // 디자인 요소 하나의 원본값을 한 줄로. 검수 시작 때 찍은 값과 지금 Figma에서 읽은 값을 같은 모양으로 적어야 비교가 된다.
+  var v=(e&&e.values)||{};
+  if(e.kind==="text"){var bits=[];if(v.fontSize!=null)bits.push("크기 "+v.fontSize);if(v.fontWeight!=null)bits.push("굵기 "+v.fontWeight);if(v.fontFamily)bits.push("글꼴 "+v.fontFamily);if(v.lineHeight!=null)bits.push("줄높이 "+v.lineHeight);if(v.color)bits.push("색 "+v.color);return bits.join(" · ");}
+  var sb=[];if(v.width!=null&&v.height!=null)sb.push(v.width+"×"+v.height);if(v.fill)sb.push("배경 "+v.fill);if(v.stroke)sb.push("테두리 "+v.stroke);if(v.radius!=null)sb.push("둥글기 "+v.radius);return sb.join(" · ");
+}
+// ── 살아 있는 디자인 원본값: 번호를 고르면 Figma에서 그 레이어를 지금 다시 읽어 보여 준다 ──
+// 검수 시작 때 찍어 둔 값(스냅샷)과 다르면 "검수 뒤 디자인이 바뀜"으로 알린다. 판정은 바꾸지 않는다(사람이 재검수).
+var liveValuesByCandidate={};
+function applyLiveDesignValues(m){if(!m||!m.candidateId)return;liveValuesByCandidate[m.candidateId]=m.items||[];if(selectedCandidateId===m.candidateId)renderReview();}
+function liveValueRows(r,c){
+  // 번호가 가리키는 디자인 레이어마다 {name, 검수 때 값, 지금 값, 바뀜 여부}. 지금 값이 아직 안 왔으면 검수 때 값만.
+  var byId={};(r.design.elements||[]).forEach(function(e){byId[e.id]=e;});
+  var live=liveValuesByCandidate[c.id]||null,liveById={};(live||[]).forEach(function(it){liveById[it.id]=it;});
+  var ids=(c.designNodeIds||[]).filter(function(id){return byId[id]||liveById[id];});
+  return ids.map(function(id){var snap=byId[id]||null,now=liveById[id]||null,snapText=snap?formatDesignValues(snap):"",snapStr=snap&&snap.kind==="text"?String(snap.text||""):"";
+    var row={id:id,name:(now&&!now.gone&&now.name)||(snap&&snap.name)||id,kind:(snap&&snap.kind)||(now&&now.kind)||"",snapText:snapText,snapStr:snapStr,nowText:null,nowStr:null,gone:false,changed:false};
+    if(now){if(now.gone){row.gone=true;row.changed=true;}else{row.nowText=formatDesignValues(now);row.nowStr=now.kind==="text"?String(now.text||""):"";row.changed=!!snap&&(row.nowText!==snapText||row.nowStr!==snapStr);}}
+    return row;});
+}
+function liveValueSummary(r,c){
+  // 나란히 보기 카드·레포트에 넣을 한 덩어리 글: 지금 값이 있으면 지금 값, 없으면 검수 때 값. 바뀐 게 있으면 안내 한 줄.
+  var rows=liveValueRows(r,c),lines=[],note="";
+  rows.slice(0,3).forEach(function(w){var t=w.gone?"레이어가 지워짐":(w.nowText!=null?w.nowText:w.snapText);if(t)lines.push(t);});
+  if(rows.some(function(w){return w.changed;}))note="검수 뒤 디자인이 바뀌었어요 — 다시 검수해야 번호가 맞아요.";
+  return{text:lines.join("\n")||(c.designValues||""),note:note};
+}
+function renderLiveValues(r,c){
+  var rows=liveValueRows(r,c);if(!rows.length&&!c.designValues)return"";
+  var html='<div class="num-live"><div class="num-live-title">디자인 원본값'+(liveValuesByCandidate[c.id]?' <span class="num-live-now">지금 Figma에서 읽음</span>':' <span class="num-live-snap">검수 시작 때 값</span>')+'</div>';
+  if(!rows.length)html+='<div class="num-live-row">'+esc(c.designValues).replace(/\n/g,"<br>")+'</div>';
+  rows.slice(0,3).forEach(function(w){
+    var name=esc(w.name)+(w.snapStr?' “'+esc(w.snapStr.slice(0,24))+(w.snapStr.length>24?'…':'')+'”':'');
+    if(w.gone){html+='<div class="num-live-row changed"><b>'+name+'</b> · 레이어가 지워졌어요</div>';return;}
+    var now=w.nowText!=null?w.nowText:w.snapText;
+    html+='<div class="num-live-row'+(w.changed?' changed':'')+'"><b>'+name+'</b>'+(now?' · '+esc(now):'')+(w.changed?'<div class="num-live-was">검수 때: '+esc(w.snapText||"")+(w.nowStr!==w.snapStr?' · 글자 “'+esc(w.snapStr)+'”→“'+esc(w.nowStr||"")+'”':'')+'</div>':'')+'</div>';
+  });
+  if(rows.length>3)html+='<div class="num-live-row">외 '+(rows.length-3)+'개 레이어</div>';
+  if(rows.some(function(w){return w.changed;}))html+='<div class="num-live-note">검수 뒤 디자인이 바뀌었어요. 다시 검수해야 번호가 맞아요. (판정은 그대로 둡니다)</div>';
+  return html+'</div>';
 }
 function edgeStats(edge,W,H,x0,y0,w,h){
   // 글자 영역 통계. 폭·높이는 실제로 글자가 지나가는 줄(픽셀 3개 이상)만으로 재서 떠도는 점 하나에 흔들리지 않게 한다.
@@ -1615,7 +1664,7 @@ function renderReview(){
     list.forEach(function(c){
       var actions=g.k==="variable"?'<button class="row-action var" data-id="'+c.id+'" data-override="fixed" title="고정 문구로 보고 내용까지 검사">고정</button>':
         '<button class="row-action confirm'+(c.status==="confirmed"?' active':'')+'" data-id="'+c.id+'" data-status="confirmed">오류확정</button><button class="row-action'+(c.status==="excluded"?' active':'')+'" data-id="'+c.id+'" data-status="excluded">제외</button>'+(c.kind==="text"&&c.base&&g.k==="confirmed"?'<button class="row-action var" data-id="'+c.id+'" data-override="variable" title="바뀔 수 있는 글자로 보고 내용 차이는 오류로 세지 않기">가변</button>':'');
-      html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions">'+actions+'</span></div>';
+      html+='<div class="number-row'+(c.id===selectedCandidateId?' sel-row':'')+'" data-row="'+c.id+'"><button class="candidate-hit" data-id="'+c.id+'"><span class="num '+g.k+(c.id===selectedCandidateId?' sel':'')+'">'+c.no+'</span><span class="num-text"><span class="num-reason">'+esc(candidateReason(c))+'</span>'+(c.detail?'<span class="num-detail">'+esc(c.detail)+'</span>':'')+'</span></button><span class="candidate-actions">'+actions+'</span>'+(c.id===selectedCandidateId?renderLiveValues(r,c):'')+'</div>';
     });
     html+=g.fold?'</div></div>':'</div>';
   });
@@ -1757,7 +1806,7 @@ function compareWhere_btnText(){compareWhereBtn.textContent="나란히 보기: "
 function renderCompareOnCanvas(r){
   // 나란히 보기는 Figma 캔버스에 카드로 만든다(플러그인 패널 안에는 그리지 않는다).
   var c=selectedCandidateId&&compareOn?r.candidates.filter(function(k){return k.id===selectedCandidateId;})[0]:null,img=designImages[r.design.id];
-  var key=c&&img?r.pairId+"|"+c.id:null;
+  var key=c&&img?r.pairId+"|"+c.id+"|"+(liveValuesByCandidate[c.id]?"live":"snap"):null;
   if(!key){if(canvasCompareKey){canvasCompareKey=null;post({type:"clear-compare"});}return;}
   if(key===canvasCompareKey)return;
   canvasCompareKey=key;
@@ -1765,7 +1814,8 @@ function renderCompareOnCanvas(r){
   var dCan=canvasFor(8,8),cCan=canvasFor(8,8);
   drawCrop(dCan,img,crops.design,outW,outH);drawCrop(cCan,r.capture.img,crops.dev,outW,outH);
   var dBytes=canvasPngBytes(dCan),cBytes=canvasPngBytes(cCan);
-  post({type:"render-compare",pairId:r.pairId,candidateId:c.id,no:c.no,label:candidateReason(c),detail:c.detail||"",designValues:c.designValues||"",aspect:outH/outW,
+  var lv=liveValueSummary(r,c);
+  post({type:"render-compare",pairId:r.pairId,candidateId:c.id,no:c.no,label:candidateReason(c),detail:c.detail||"",designValues:lv.text||c.designValues||"",designNote:lv.note||"",aspect:outH/outW,
     designBytes:Array.from(dBytes),devBytes:Array.from(cBytes)});
 }
 function renderCompareView(r){renderCompareOnCanvas(r);}
@@ -1791,7 +1841,7 @@ function focusCandidateFromCanvas(id){
   for(var i=0;i<results.length;i++)for(var j=0;j<results[i].candidates.length;j++){
     if(results[i].candidates[j].id!==id)continue;
     if(currentResult!==i)currentResult=i;
-    selectedCandidateId=id;flashSelected=true;renderReview();return true;
+    selectedCandidateId=id;flashSelected=true;renderReview();post({type:"read-design-values",candidateId:id,ids:results[i].candidates[j].designNodeIds||[]});return true;
   }
   return false;
 }
@@ -1925,7 +1975,7 @@ function qaExport(){
   var btn=document.getElementById("btnExportQa");
   if(btn)btn.addEventListener("click",qaExport);
 })();
-window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="selection-status"){applySelectionStatus(m);}else if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){designs=m.designs||[];designImages={};captures=[];captureById={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length)await addFigmaCaptures(m.captures);else showCaptureStatus();if(pendingCompare)await beginCompareFromAssets();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;pendingCompare=false;updateReady();Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="candidate-selected"){focusCandidateFromCanvas(m.candidateId);}else if(m.type==="result-selected"){focusResultFromCanvas(m.pairId);}else if(m.type==="overlay-moved"){overlayMovedOnCanvas(m.pairId,m.x,m.y);}else if(m.type==="overlay-changed"){overlayVisibleByPair[m.pairId]=!!m.visible;if(results[currentResult]&&results[currentResult].pairId===m.pairId)setOverlayButton(m.visible);}};
+window.onmessage=async function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==="selection-status"){applySelectionStatus(m);}else if(m.type==="designs-read"){designs=m.designs||[];designImages={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";updateReady();}else if(m.type==="assets-read"){designs=m.designs||[];designImages={};captures=[];captureById={};designStatus.className="status "+(designs.length?"ok":"bad");designStatus.textContent=designs.length?("디자인 프레임 "+designs.length+"개 준비됨"):"선택된 디자인 프레임이 없어요.";if((m.captures||[]).length)await addFigmaCaptures(m.captures);else showCaptureStatus();if(pendingCompare)await beginCompareFromAssets();}else if(m.type==="captures-read"){await addFigmaCaptures(m.captures||[]);}else if(m.type==="results-rendered"){if(renderWaiters[m.pairId]){renderWaiters[m.pairId](m.result);delete renderWaiters[m.pairId];}}else if(m.type==="plugin-error"){var target=messageTarget==="capture"?captureStatus:messageTarget==="compare"?loadingStatus:designStatus;target.className="status bad";target.textContent=m.message;pendingCompare=false;updateReady();Object.keys(renderWaiters).forEach(function(k){renderWaiters[k]();delete renderWaiters[k];});}else if(m.type==="candidate-selected"){focusCandidateFromCanvas(m.candidateId);}else if(m.type==="design-values-live"){applyLiveDesignValues(m);}else if(m.type==="result-selected"){focusResultFromCanvas(m.pairId);}else if(m.type==="overlay-moved"){overlayMovedOnCanvas(m.pairId,m.x,m.y);}else if(m.type==="overlay-changed"){overlayVisibleByPair[m.pairId]=!!m.visible;if(results[currentResult]&&results[currentResult].pairId===m.pairId)setOverlayButton(m.visible);}};
 
 async function addFigmaCaptures(items){
   var incoming=[];for(var i=0;i<(items||[]).length;i++){try{incoming.push(await makeFigmaCapture(items[i]));}catch(e){}}
@@ -1954,6 +2004,27 @@ async function runSelfTest(){
   var merged=mergeBoxes([{x:0,y:0,w:2,h:2,cells:4},{x:3,y:0,w:2,h:2,cells:4}],1);check("가까운 영역 합치기",merged.length===1&&merged[0].w===5);
   var design={width:200,height:120,elements:[{id:"t1",kind:"text",box:{x:20,y:20,w:80,h:24},values:{fontSize:16,fontWeight:600,lineHeight:24,color:"#111111"}}]};
   var values=designValuesFor(design,{x:18,y:18,w:90,h:30});check("디자인 원본값 찾기",values.ids[0]==="t1"&&values.text.indexOf("크기 16")>=0);
+  check("원본값 표기는 글자·도형 같은 모양",formatDesignValues({kind:"text",values:{fontSize:16,fontWeight:600,color:"#111111"}})==="크기 16 · 굵기 600 · 색 #111111"&&formatDesignValues({kind:"shape",values:{width:100,height:40,fill:"#EEEEEE",radius:4}})==="100×40 · 배경 #EEEEEE · 둥글기 4");
+  // 살아 있는 디자인 원본값: 번호를 고르면 지금 Figma 값을 읽어 목록 밑에 보여 주고, 검수 때 값과 다르면 알린다(판정은 안 바꾼다)
+  var lvR={pairId:"lv",design:{id:"lvd",name:"화면",width:400,height:300,elements:[{id:"t1",name:"제목",kind:"text",text:"가나다",box:{x:20,y:20,w:80,h:24},values:{fontSize:16,fontWeight:600,color:"#111111"}},{id:"s1",name:"상자",kind:"shape",box:{x:0,y:0,w:100,h:40},values:{width:100,height:40,fill:"#EEEEEE"}}]},capture:{img:canvasFor(10,10),width:10,height:10,displayScale:1},alignment:{s:1,tx:0,ty:0},notices:[],sections:[],range:{bands:[],designTop:0,designBottom:0,captureTop:0},
+    candidates:[{id:"lv1",no:1,status:"confirmed",kind:"text",label:LABEL_TEXT_CONTENT,detail:"",designValues:"크기 16 · 굵기 600 · 색 #111111",designNodeIds:["t1"],designBox:{x:20,y:20,w:80,h:24},rawBox:{x:20,y:20,w:80,h:24}},{id:"lv2",no:2,status:"confirmed",kind:"shape",label:LABEL_SHAPE,detail:"",designValues:"100×40 · 배경 #EEEEEE",designNodeIds:["s1"],designBox:{x:0,y:0,w:100,h:40},rawBox:{x:0,y:0,w:100,h:40}}]};
+  results=[lvR];currentResult=0;selectedCandidateId="lv1";liveValuesByCandidate={};compareOn=false;renderReview();
+  var lvBox=numberLists.querySelector('[data-row="lv1"] .num-live');
+  check("고른 번호 밑에 디자인 원본값(검수 시작 때 값)이 보임",!!lvBox&&lvBox.textContent.indexOf("검수 시작 때 값")>=0&&lvBox.textContent.indexOf("크기 16")>=0&&!numberLists.querySelector('[data-row="lv2"] .num-live'));
+  applyLiveDesignValues({candidateId:"lv1",items:[{id:"t1",name:"제목",kind:"text",text:"가나다",values:{fontSize:16,fontWeight:600,color:"#111111"}}]});
+  lvBox=numberLists.querySelector('[data-row="lv1"] .num-live');
+  check("지금 Figma 값을 읽어 오면 그 값으로 바뀌고 같으면 조용함",!!lvBox&&lvBox.textContent.indexOf("지금 Figma에서 읽음")>=0&&!lvBox.querySelector(".changed")&&!lvBox.querySelector(".num-live-note"));
+  applyLiveDesignValues({candidateId:"lv1",items:[{id:"t1",name:"제목",kind:"text",text:"가나다라",values:{fontSize:18,fontWeight:600,color:"#111111"}}]});
+  lvBox=numberLists.querySelector('[data-row="lv1"] .num-live');
+  check("검수 뒤 디자인이 바뀌면 바뀐 줄과 안내가 붙고 판정은 그대로",!!lvBox&&!!lvBox.querySelector(".changed")&&lvBox.textContent.indexOf("크기 18")>=0&&lvBox.textContent.indexOf("검수 때: 크기 16")>=0&&lvBox.textContent.indexOf("“가나다”→“가나다라”")>=0&&lvBox.textContent.indexOf("다시 검수해야")>=0&&results[0].candidates[0].status==="confirmed");
+  applyLiveDesignValues({candidateId:"lv1",items:[{id:"t1",gone:true}]});
+  lvBox=numberLists.querySelector('[data-row="lv1"] .num-live');
+  check("디자인 레이어가 지워졌으면 그렇게 알림",!!lvBox&&lvBox.textContent.indexOf("레이어가 지워졌어요")>=0);
+  var lvSum=liveValueSummary(lvR,lvR.candidates[0]);check("나란히 보기 카드용 요약에 바뀜 안내가 실림",lvSum.text.indexOf("지워짐")>=0&&lvSum.note.indexOf("다시 검수")>=0);
+  applyLiveDesignValues({candidateId:"lv2",items:[{id:"s1",name:"상자",kind:"shape",text:"",values:{width:100,height:40,fill:"#EEEEEE"}}]});
+  selectedCandidateId="lv2";renderReview();lvBox=numberLists.querySelector('[data-row="lv2"] .num-live');
+  check("도형 번호도 같은 방식으로 원본값 표시",!!lvBox&&lvBox.textContent.indexOf("100×40")>=0&&!lvBox.querySelector(".changed"));
+  results=[];currentResult=0;selectedCandidateId=null;liveValuesByCandidate={};compareOn=true;
   var st={count:100,w:40,h:16};
   check("글자 위치·정렬 안내",classifyTextDifference(.45,3,0,st,st)==="글자 영역의 위치 또는 정렬이 다릅니다.");
   check("글자 영역 크기 안내",classifyTextDifference(.5,0,0,st,{count:100,w:48,h:22})==="글자 영역의 폭과 높이가 다릅니다.");
@@ -2131,6 +2202,7 @@ async function runSelfTest(){
   check("나란히 보기 조각은 같은 논리 배율",Math.abs(crops.design.w-crops.dev.w)<.01&&Math.abs(crops.dev.x+crops.dev.w/2-110)<.01&&Math.abs(crops.dev.y+crops.dev.h/2-161)<.01);
   delete designImages["pg"];
   check("아래쪽 검수 범위 조정 칸 존재",!!document.getElementById("rangeCanvasBottom")&&!!document.getElementById("rangeTrimBottom"));
+  check("담당자용 막대는 평소에 숨김(제목 세 번 클릭 전)",getComputedStyle(document.getElementById("devTools")).display==="none");
   check("검수 범위 카드와 나란히 보기 켜기·끄기 버튼 존재",!!document.getElementById("rangeCard")&&!!document.getElementById("rangeEditor")&&!!document.getElementById("compareWhereBtn")&&!document.getElementById("compareStrip"));
   // 검수 범위 접기 / 비교 영역 크기 / 번호 이동
   setRangeOpen(false);check("검수 범위 기본은 접힘",!rangeCard.classList.contains("open")&&getComputedStyle(rangeBody).display==="none");
