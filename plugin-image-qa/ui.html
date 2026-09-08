@@ -742,7 +742,7 @@ var POLICY_EXCLUDE_RULES=[{
   // 시안을 예뻐 보이게 하려고 그려 넣은 화면 밖 장식이다. 개발 화면에는 진짜 브라우저가 그 자리에 있어 늘 다르게 잡힌다.
   find:function(design,children){
     var out={},W=design.width||0,H=design.height||0;if(!W||!H)return out;
-    (children.root||[]).forEach(function(e){
+    topLevelElements(design).forEach(function(e){ // 최상위 요소: parentId가 없거나 목록에 없는 것(플러그인 내보내기는 프레임 id를 부모로 적는다)
       var b=e.box;if(b.w<W*.95||b.h>H*.2)return;
       var top=b.y<=2,bottom=Math.abs(b.y+b.h-H)<=2;if(!top&&!bottom)return;
       var desc=descendantsOf(e,children);if(desc.filter(function(d){return d.kind==="text"&&String(d.text||"").trim();}).length>1)return;
@@ -981,6 +981,7 @@ function boxContains(outer,inner){return inner.x>=outer.x-1&&inner.y>=outer.y-1&
 function boxUnion(a,b){var x=Math.min(a.x,b.x),y=Math.min(a.y,b.y);return{x:x,y:y,w:Math.max(a.x+a.w,b.x+b.w)-x,h:Math.max(a.y+a.h,b.y+b.h)-y};}
 function isVisibleShape(e){var v=e.values||{};return !!(v.fill||v.stroke)||e.kind==="image"||e.kind==="icon";}
 function isContainerType(e){return /^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION)$/.test(e.type);}
+function topLevelElements(design){var byId={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});return(design.elements||[]).filter(function(e){return !e.parentId||!byId[e.parentId];});}
 function childMap(design){var m={};(design.elements||[]).forEach(function(e){var p=e.parentId||"root";(m[p]||(m[p]=[])).push(e);});return m;}
 function descendantsOf(e,children){var out=[],st=(children[e.id]||[]).slice();while(st.length){var c=st.pop();out.push(c);(children[c.id]||[]).forEach(function(x){st.push(x);});}return out;}
 function collectUnits(design){
@@ -1060,10 +1061,11 @@ function sectionLooksLikeFrame(section,children){
   var e=section.el;if(!e)return false;if(FRAME_NAME_RE.test(e.name||""))return true;
   return descendantsOf(e,children).some(function(d){return FRAME_NAME_RE.test(d.name||"")||(d.kind==="text"&&FRAME_TEXT_RE.test(String(d.text||"").trim()));});
 }
-function decideFrameBands(sections,root,design,model,lg,children,captureHeight,preset){
+function decideFrameBands(sections,root,design,model,lg,children,captureHeight,preset,ctx){
   // 위/아래 끝의 얇은 구역 중 '틀'로 볼 것을 고른다. preset이 있으면(2차 비교) 그 결정을 그대로 쓴다.
+  // 구역이 못 되는 낱개 요소(이미지 한 장으로 그려 넣은 가짜 브라우저 틀처럼 안에 비교 단위가 없는 것)도 같은 기준으로 본다.
   var out=[];
-  if(preset){sections.forEach(function(s){preset.forEach(function(b){if(s.el&&b.id===s.el.id){s.excluded=true;out.push(b);}});});return out;}
+  if(preset){preset.forEach(function(b){var s=null;sections.forEach(function(x){if(x.el&&x.el.id===b.id)s=x;});if(s)s.excluded=true;out.push(b);});return out;}
   var content=sections.filter(function(s){return s.matched&&!frameBandEdge(s.box,design);}),main=null;
   content.forEach(function(s){if(!main||s.units.length>main.units.length)main=s;});
   if(root.units.length&&(!main||root.units.length>main.units.length))main=root;
@@ -1080,6 +1082,23 @@ function decideFrameBands(sections,root,design,model,lg,children,captureHeight,p
       else if(Math.abs(s.offset.dx-mainDx)>Math.max(16,design.width*.01)*lg)reason="shifted"; // 본문과 가로 밀림이 다르면 진짜 짝이 아니다(가짜 탭바 ↔ 진짜 크롬)
     }
     if(reason){s.excluded=true;out.push({id:s.el.id,name:s.el.name||"이름 없는 영역",box:s.box,edge:edge,reason:reason});}
+  });
+  // 구역 밖 낱개 단위: 위/아래 끝에 붙은 얇은 이미지·도형. 이름으로 분명하거나, 캡처 바깥이거나, 글자가 없는데 짝이 없거나 가로로 어긋나면 틀이다.
+  (root.units||[]).forEach(function(u){
+    var e=u.el;if(!e||!e.box)return;var edge=frameBandEdge(e.box,design);if(!edge)return;
+    var bx=Math.max(0,e.box.x),by=Math.max(0,e.box.y),clip={x:bx,y:by,w:Math.min(design.width,e.box.x+e.box.w)-bx,h:Math.min(design.height,e.box.y+e.box.h)-by};
+    if(clip.h<8||!frameBandEdge(clip,design))return; // 프레임 밖으로 넘쳐 안쪽엔 몇 px만 걸친 요소는 띠가 아니다
+    if(out.some(function(b){return boxContains(b.box,e.box);}))return;
+    var reason=null,hasText=e.kind==="text"||descendantsOf(e,children).some(function(d){return d.kind==="text"&&String(d.text||"").trim();});
+    if(sectionLooksLikeFrame({el:e},children))reason="name";
+    else{
+      var innerEdgeCap=edge==="top"?((e.box.y+e.box.h)*lg-model.ty)/model.s:(e.box.y*lg-model.ty)/model.s;
+      if(edge==="top"&&innerEdgeCap<=nearEdge)reason="offCapture";
+      else if(edge==="bottom"&&innerEdgeCap>=captureHeight-nearEdge)reason="offCapture";
+      else if(!hasText&&ctx){var probe={el:e,box:e.box,units:[u]};estimateSectionOffset(probe,ctx);
+        if(!probe.matched)reason="unmatched";else if(Math.abs(probe.offset.dx-mainDx)>Math.max(16,design.width*.01)*lg)reason="shifted";}
+    }
+    if(reason)out.push({id:e.id,name:e.name||"이름 없는 영역",box:clip,edge:edge,reason:reason,leaf:true}); // leaf: 비교 단위가 없는 낱개 띠. 제외만 하고 캡처를 자르는 결정(아래 comparePair)에는 쓰지 않는다
   });
   return out;
 }
@@ -1282,7 +1301,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   // 구역마다(구역 밖 요소 묶음도 포함) 전역 정렬 주변을 넓게 훑어 자기 밀림을 찾는다.
   sections.forEach(function(s){estimateSectionOffset(s,ctx);});
   if(sectionInfo.root.units.length){estimateSectionOffset(sectionInfo.root,ctx);sectionInfo.root.matched=true;}
-  var bands=decideFrameBands(sections,sectionInfo.root,design,model,lg,childMap(design),capture.height,opts.bands);
+  var bands=decideFrameBands(sections,sectionInfo.root,design,model,lg,childMap(design),capture.height,opts.bands,ctx);
   bands.forEach(function(b){notices.push(bandNotice(b));});
   units.forEach(function(u){u.bandExcluded=!u.section.excluded&&bands.some(function(b){return boxContains(b.box,u.el.box);});}); // 구역 밖 단위라도 띠 안이면 제외
   // 3안: 틀 띠를 뺀 뒤, 가장 확실히 맞은 구역에서 출발해 위아래로 번져가며 이웃 구역 밀림 ±8px(디자인 기준) 안에서만 다시 잰다.
@@ -1474,13 +1493,14 @@ function comparePair(p,d,cap,img){
     var m0=alignFor(d,img,cap.img,[],cap),c0=buildDiff(d,img,cap,m0,p.id),maxStrip=cap.height*.3;
     bandsFirst=c0.bands;
     if(manual==null){
-      var top=c0.contentTop,topBands=c0.bands.filter(function(b){return b.edge==="top";}),minStrip=Math.max(12,Math.round(cap.width*.008));
+      // 낱개 띠(leaf)는 안에 비교 단위가 없어 내용 경계를 잴 근거가 못 된다 → 제외만 하고, 캡처를 자르는 결정은 구역 띠만 근거로 삼는다
+      var top=c0.contentTop,topBands=c0.bands.filter(function(b){return b.edge==="top"&&!b.leaf;}),minStrip=Math.max(12,Math.round(cap.width*.008));
       if(top.capY>=minStrip&&top.capY<=maxStrip){strip=snapToSeparator(cap.img,top.capY,Math.max(6,Math.round(cap.width*.005)));if(topBands.length){trim=strip;auto=true;}}
     }
     if(manualBottom==null){
       // 아래쪽도 위쪽과 같은 방법: 디자인 내용이 끝나는 자리가 캡처의 어디인지 재고, 그 아래에 남는 띠를 찾는다.
       // 캡처가 디자인보다 길지 않으면(내비게이션이 겹쳐 있으면) 이미지만 보고 찾은 값을 쓴다.
-      var bot=c0.contentBottom,botBands=c0.bands.filter(function(b){return b.edge==="bottom";}),minBottom=Math.max(24,Math.round(cap.height*.02));
+      var bot=c0.contentBottom,botBands=c0.bands.filter(function(b){return b.edge==="bottom"&&!b.leaf;}),minBottom=Math.max(24,Math.round(cap.height*.02));
       var gap=cap.height-bot.capY;
       if(gap>=minBottom&&gap<=maxStrip){
         var sb=snapBottomToSeparator(cap.img,bot.capY);
@@ -2041,6 +2061,14 @@ async function runSelfTest(){
   check("캡처 바깥에 해당하는 위쪽 띠는 틀로 제외",decideFrameBands([secOff,secB],rootS,{width:1920,height:1080},{s:1,tx:0,ty:100},1,{},934)[0].reason==="offCapture");
   var preset=decideFrameBands([{el:{id:"tab"},box:secA.box,matched:true,offset:{dx:0,dy:0},units:[]}],rootS,{width:1920,height:1080},{s:1,tx:0,ty:0},1,{},934,[{id:"tab",edge:"top",reason:"shifted",box:secA.box,name:"탭바"}]);
   check("2차 비교는 1차 틀 결정을 그대로 사용",preset.length===1&&preset[0].reason==="shifted");
+  var leafTab={id:"lt",name:"browser_tab",type:"RECTANGLE",kind:"image",parentId:"frame0",box:{x:0,y:0,w:1920,h:88},values:{}},leafU={el:leafTab,kind:"icon",container:false};
+  var leafRoot={units:[leafU],offset:{dx:0,dy:0},matched:true},leafBands=decideFrameBands([secB],leafRoot,{width:1920,height:1898},{s:1,tx:0,ty:85},1,{},1816);
+  check("구역이 못 되는 낱개 이미지(가짜 브라우저 틀)도 이름으로 틀 판정",leafBands.length===1&&leafBands[0].id==="lt"&&leafBands[0].reason==="name"&&leafBands[0].leaf===true);
+  var leafNoName={id:"ln",name:"image 1",type:"RECTANGLE",kind:"image",parentId:"frame0",box:{x:0,y:0,w:1920,h:88},values:{}};
+  check("이름·글자 없는 낱개 띠도 캡처 바깥이면 틀 판정",decideFrameBands([secB],{units:[{el:leafNoName,kind:"icon"}],offset:{dx:0,dy:0}},{width:1920,height:1898},{s:1,tx:0,ty:85},1,{},1816)[0].reason==="offCapture");
+  check("본문과 같이 정렬된 낱개 이미지는 틀로 보지 않음",decideFrameBands([secB],{units:[{el:leafNoName,kind:"icon"}],offset:{dx:0,dy:0}},{width:1920,height:1898},{s:1,tx:0,ty:-120},1,{},1816).length===0);
+  var leafPreset=decideFrameBands([secB],{units:[],offset:{dx:0,dy:0}},{width:1920,height:1898},{s:1,tx:0,ty:0},1,{},1816,[{id:"lt",edge:"top",reason:"name",box:leafTab.box,name:"browser_tab",leaf:true}]);
+  check("2차 비교는 낱개 띠 결정도 그대로 잇는다",leafPreset.length===1&&leafPreset[0].id==="lt");
   var contentTop=estimateCaptureContentTop([{box:{x:0,y:101,w:1920,h:56},matched:true,excluded:false,offset:{dx:-50,dy:32}}],{offset:{dx:0,dy:0}},[{edge:"top",box:{x:0,y:0,w:1920,h:101}}],{s:1,tx:0,ty:14},1);
   check("띠 아래 첫 구역 밀림으로 캡처 내용 시작 추정",contentTop.bandBottom===101&&Math.round(contentTop.capY)===119&&contentTop.fromSection===true);
   var sepCap=canvasFor(300,200),sepX=sepCap.getContext("2d");sepX.fillStyle="#eef0f3";sepX.fillRect(0,0,300,60);sepX.fillStyle="#fff";sepX.fillRect(0,60,300,140);sepX.fillStyle="#222";sepX.fillRect(20,90,100,20);
@@ -2087,6 +2115,11 @@ async function runSelfTest(){
   var navAutoBottom=comparePair({id:"nav3"},navDesign,{img:navCap,width:400,height:440,displayScale:1},navDes);
   check("디자인에 하단 틀이 있으면 아래쪽도 자동 제외",navAutoBottom.range.autoBottom===true&&navAutoBottom.range.captureBottom>=60&&navAutoBottom.range.captureBottom<=80&&navAutoBottom.notices.some(function(n){return n.indexOf("개발 캡처 아래쪽")>=0&&n.indexOf("하단 내비게이션")>=0;}));
   delete designImages["navd"];
+  var taskDesign={id:"taskd",name:"모바일 화면",width:400,height:340,elements:pageDesign.elements.concat([{id:"taskimg",name:"image 1",type:"RECTANGLE",kind:"image",depth:1,parentId:null,box:{x:0,y:300,w:400,h:40},values:{}}])};
+  designImages["taskd"]=navDes;
+  var taskLeaf=comparePair({id:"nav4"},taskDesign,{img:navCap,width:400,height:440,displayScale:1},navDes);
+  check("낱개 이미지 하단 띠(작업표시줄)는 제외만 하고 캡처를 자동으로 자르지 않음",taskLeaf.range.bands.some(function(b){return b.id==="taskimg"&&b.leaf===true&&b.edge==="bottom";})&&taskLeaf.range.autoBottom===false&&taskLeaf.range.captureBottom===0);
+  delete designImages["taskd"];
   var navManual=comparePair({id:"nav2"},pageDesign,{img:navCap,width:400,height:440,displayScale:1,topTrim:70,bottomTrim:70},pageDes);
   check("직접 정한 아래쪽 검수 범위 적용",navManual.range.manualBottom===true&&navManual.range.captureBottom===70&&navManual.view.height===300&&navManual.candidates.length===0&&navManual.notices.some(function(n){return n.indexOf("개발 캡처 아래쪽 70px")>=0;}));
   var noBarDesign={id:"nb",name:"nb",width:400,height:260,elements:pageDesign.elements.slice(3).map(function(e){return Object.assign({},e,{box:{x:e.box.x,y:e.box.y-40,w:e.box.w,h:e.box.h}});})};
@@ -2289,6 +2322,9 @@ async function runSelfTest(){
   }
   var cp=buildTextPolicy(chromeDesign(["사이트 이름"]));
   check("맨 위 브라우저 틀·맨 아래 작업표시줄은 검수 제외",!!cp.excluded.bar&&!!cp.excluded.bart0&&!!cp.excluded.task&&!cp.excluded.body&&!cp.excluded.bodyt);
+  var cpReal=chromeDesign(["사이트 이름"]);cpReal.elements.forEach(function(e){if(!e.parentId)e.parentId="frame0";}); // 플러그인 내보내기 모양: 최상위 요소의 부모가 프레임 id
+  var cpR=buildTextPolicy(cpReal);
+  check("최상위 요소의 부모가 프레임 id여도(실제 내보내기) 브라우저 틀·작업표시줄 제외",!!cpR.excluded.bar&&!!cpR.excluded.task&&!cpR.excluded.body);
   var cp2=buildTextPolicy(chromeDesign(["메뉴 하나","메뉴 둘"]));
   check("본문 글자가 여럿 들어 있는 띠는 화면 내용이라 제외하지 않음",!cp2.excluded.bar);
   function mkCand(id,kind,nodes,status){return{id:id,kind:kind,designNodeIds:nodes,designBox:{x:20,y:50,w:60,h:20},status:status||"confirmed",detail:"원래 사유",base:{label:LABEL_TEXT_CONTENT,detail:"원래 사유",confidence:80}};}
