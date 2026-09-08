@@ -715,6 +715,28 @@ function buttonLikeIds(design,children){
 }
 // ── 제외표: 애초에 검수 대상이 아닌 것 ────────────────────────────────────
 var POLICY_EXCLUDE_RULES=[{
+  id:"tabStrip",title:"GNB 아래 탭 줄 — 열린 탭만 보이므로 탭 구성 차이는 오류가 아니다 (2026-09-08 river 확정)",
+  // 탭 줄: 같은 높이의 글자 3개 이상이 한 줄에 가로로 늘어서고, 바탕이 하나만 밝고(선택된 탭) 나머지는 어둡다.
+  // 선택 안 된 탭은 통째로 제외. 선택된 탭은 글자 내용만 보고 자리는 묻지 않는다(따로 표시).
+  find:function(design,children){
+    var out={},byId={},sel={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});
+    function lum(hex){if(!hex||!/^#[0-9a-f]{6}$/i.test(hex))return null;var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return(.299*r+.587*g+.114*b)/255;}
+    function bgOf(e){var p=byId[e.parentId],k=0;while(p&&k<3){var f=p.values&&p.values.fill;if(f)return{el:p,lum:lum(f)};p=byId[p.parentId];k++;}return null;}
+    var texts=(design.elements||[]).filter(function(e){return e.kind==="text"&&String(e.text||"").trim()&&e.box.h<=30;});
+    var rows={};texts.forEach(function(e){var k=Math.round(e.box.y/4);(rows[k]||(rows[k]=[])).push(e);});
+    Object.keys(rows).forEach(function(k){
+      var r=rows[k];if(r.length<3)return;
+      var xs=r.map(function(e){return e.box.x;}),span=Math.max.apply(null,xs)-Math.min.apply(null,xs);if(span<design.width*.35)return;
+      var bgs=r.map(bgOf);if(bgs.some(function(b){return !b||b.lum==null;}))return;
+      var light=bgs.filter(function(b){return b.lum>.85;}),dark=bgs.filter(function(b){return b.lum<.65;});
+      if(light.length!==1||dark.length<r.length-1)return;
+      r.forEach(function(e,i){var b=bgs[i];
+        if(b.lum>.85){sel[e.id]=true;sel[b.el.id]=true;descendantsOf(b.el,children).forEach(function(d){sel[d.id]=true;});return;}
+        var why="GNB 아래 탭 줄(열린 탭만 보임)";out[e.id]=why;out[b.el.id]=why;descendantsOf(b.el,children).forEach(function(d){out[d.id]=why;});});
+    });
+    design.__tabSelected=sel;return out;
+  }
+},{
   id:"designChrome",title:"디자인에 그려 넣은 브라우저 틀·작업표시줄",
   // 화면 맨 위나 맨 아래에 딱 붙어 폭을 거의 다 덮는 띠인데 안에 본문 글자가 없다시피 하면,
   // 시안을 예뻐 보이게 하려고 그려 넣은 화면 밖 장식이다. 개발 화면에는 진짜 브라우저가 그 자리에 있어 늘 다르게 잡힌다.
@@ -772,7 +794,7 @@ function buildTextPolicy(design){
     }
   });
   // 표·메뉴 같은 "자리" 정보도 함께 넘긴다(후보 목록 규칙이 쓴다).
-  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
+  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.tabSelected=design.__tabSelected||{};map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
 }
 // ── 목록 규칙: 후보 하나만 봐서는 알 수 없고, 여러 후보를 함께 봐야 아는 것 ─────────
 function inRepeatRow(map,c){
@@ -832,6 +854,7 @@ function excludedFor(map,c){
 }
 function applyCandidatePolicy(c,map){
   var ex=excludedFor(map,c);c.policyExcluded=ex||null;
+  if(!ex&&(c.kind==="position"||c.kind==="spacing")&&map&&map.tabSelected){var ids=c.designNodeIds||[];if(ids.length&&ids.every(function(id){return map.tabSelected[id];}))ex="선택된 탭 — 글자만 같으면 되고 자리는 달라도 됨";}
   if(ex){ // 지우지 않고 '제외(오류 아님)' 묶음으로 내린다. 사람이 직접 누른 번호는 건드리지 않는다.
     if(c.exDetail==null)c.exDetail=c.detail||"";
     c.detail=ex+" — 검수 대상이 아닙니다. "+c.exDetail;
@@ -989,7 +1012,7 @@ function estimateSectionOffset(section,ctx,base,opts){
   var lg=ctx.lg,candidates=section.units.slice().sort(function(a,b){
     var ar=(a.kind==="text"?0:a.kind==="shape"&&a.el.values&&a.el.values.stroke?1:2),br=(b.kind==="text"?0:b.kind==="shape"&&b.el.values&&b.el.values.stroke?1:2);
     if(ar!==br)return ar-br;return b.el.box.w*b.el.box.h-a.el.box.w*a.el.box.h;
-  }),votes=[],tried=0,rx=Math.max(24,Math.round(ctx.W*(opts.rxRatio||.06))),ry=Math.max(40,Math.round(ctx.H*(opts.ryRatio||.2))),step=Math.max(3,Math.round(4*lg)),maxTry=opts.maxTry||6;
+  }),votes=[],tried=0,rx=opts.rxAbs||Math.max(24,Math.round(ctx.W*(opts.rxRatio||.06))),ry=opts.ryAbs||Math.max(40,Math.round(ctx.H*(opts.ryRatio||.2))),step=opts.step||Math.max(3,Math.round(4*lg)),maxTry=opts.maxTry||6;
   for(var i=0;i<candidates.length&&tried<maxTry;i++){
     var u=candidates[i],p=unitPoints(u,ctx);if(p.pts.length<24)continue;tried++;
     var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,rx,ry,step,ctx.cEd);
@@ -1248,6 +1271,23 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   var bands=decideFrameBands(sections,sectionInfo.root,design,model,lg,childMap(design),capture.height,opts.bands);
   bands.forEach(function(b){notices.push(bandNotice(b));});
   units.forEach(function(u){u.bandExcluded=!u.section.excluded&&bands.some(function(b){return boxContains(b.box,u.el.box);});}); // 구역 밖 단위라도 띠 안이면 제외
+  // 3안: 틀 띠를 뺀 뒤, 가장 확실히 맞은 구역에서 출발해 위아래로 번져가며 이웃 구역 밀림 ±8px(디자인 기준) 안에서만 다시 잰다.
+  // 표 행 높이만큼 건너뛰어 붙는 사고를 막는다. 그 창 안에서 못 정하면 이웃 구역 밀림을 물려받는다.
+  (function(){
+    var ok=sections.filter(function(s){return s.matched&&!s.excluded;});if(!ok.length)return;
+    var anchor=ok.slice().sort(function(a,b){return (b.support||0)-(a.support||0)||b.units.length-a.units.length;})[0];
+    var w=Math.max(4,Math.round(8*lg)),i=sections.indexOf(anchor);
+    // 좁은 창에서 못 정하면: 처음(넓은 창)에 확실히 맞았던 값이 있으면 그것을 쓰고(맨 아래 붙은 푸터처럼 정당하게 크게 뛰는 구역), 없으면 이웃 밀림을 물려받는다
+    // 맨 아래에 붙은 구역(푸터·하단 내비)은 캡처 높이가 다르면 정당하게 크게 뛴다 → 이웃에 묶지 않고 처음(넓은 창) 값을 그대로 둔다
+    function step(k){var s=sections[k];if(s.excluded)return null;
+      if(s.box.y+s.box.h>=design.height-2&&s.matched&&(s.support||0)>=2){s.bottomPinned=true;return null;}
+      var wide=s.matched&&(s.support||0)>=2?{dx:s.offset.dx,dy:s.offset.dy,support:s.support}:null;
+      estimateSectionOffset(s,ctx,prev.offset,{rxAbs:w,ryAbs:w,step:1,maxTry:8});
+      if(!s.matched){if(wide){s.offset={dx:wide.dx,dy:wide.dy};s.matched=true;s.support=wide.support;s.wideFallback=true;}
+        else{s.offset={dx:prev.offset.dx,dy:prev.offset.dy};s.matched=true;s.inherited=true;}}return s;}
+    var prev=anchor;for(var k=i+1;k<sections.length;k++){var r=step(k);if(r)prev=r;}
+    prev=anchor;for(var k=i-1;k>=0;k--){var r=step(k);if(r)prev=r;}
+  })();
   var results=[],resultByElId={};
   units.forEach(function(u){if(u.section.excluded||u.bandExcluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
   resolveClaims(results);

@@ -3,36 +3,29 @@
 ## 0. 먼저 할 일
 - 저장소 루트 `/Users/designgroup_02/dev-screen-qa` 의 `CLAUDE.md` 를 읽고 전제로 삼는다.
 - 브랜치 `feat/image-qa-bottom-range` · 작업 폴더 `validation-image-qa/repro/`
-- `RULE_PROPOSALS.md` 를 읽는다(#1 승인·적용, #2 관찰만, #3·#4 확인 기록).
-- 마지막 커밋: `37f427d`
+- `RULE_PROPOSALS.md` 를 읽는다. **#9(3안 정렬)·#10(탭 줄) 승인·적용됨**, #5·#6·#8 보류, #7 거절, #1 보류.
 
 ## 1. 여기까지 끝난 것 (2026-09-08)
 
-기본 규칙 4줄이 **전부 실제 화면으로 검증됐다.** 규칙을 하나씩 꺼서 화면 10개를 다시 돌려 쟀다.
+**볼 것 647건의 정체를 갈랐고, 가장 큰 원인(밀림)을 고쳐 원본에 반영했다.**
 
-| 기본 규칙 | 상태 | 껐을 때 |
+| 단계 | 볼 것 | 정답 |
 |---|---|---|
-| 표 **컬럼 제목** 고정 | ✅ 검증됨 | 체류시간 정답 4건이 표 본문에 휩쓸려 사라짐 |
-| 표 **본문 값**은 가변 | ✅ 검증됨 | 정답은 그대로인데 볼 것이 화면당 20~37% 늘어남(노선관리 314→498) |
-| **메뉴 이름** 고정 | ✅ 유지 승인(river) | 정답 생존엔 영향 없음. 메뉴 글자 8개가 데이터 자리로 뒤집힘 |
-| 가짜 브라우저 틀·작업표시줄 제외 | ✅ 검증됨 | (#3) 3화면에서 사람 설정 없이 자동으로 걸림 |
-| (추가) 표 **항목 이름** 고정 | ✅ 승인·적용됨 | (#1) |
+| 처음 | 647 | 8/8 |
+| #9 3안 정렬(구역 밀림을 이웃 ±8px 안에서, 푸터 예외) | 572 | 8/8 |
+| #10 탭 줄(탭 구성 차이는 오류 아님) | **529** | **7/7** (#7 탭 10→4는 오류 아님으로 재확정) |
 
-숫자·재현법은 `RULE_PROPOSALS.md` #4에, 눈으로 보는 자료는 `rule_check_report.html`(커밋 안 함)에 있다.
+- river 원칙(확정): **밀림은 화면 공통으로 한 번, 밀림 뺀 뒤 다른 컴포넌트만 따로.** 판정 버튼으로 수백 건을 river에게 넘기지 않는다 — 걸러내는 건 검수기 제작자 일.
+- 탭 줄: GNB 아래 탭은 열린 만큼만 보인다 → 구성 차이 오류 아님. **선택된 탭(흰 바탕·파란 글씨)은 글자만 같으면 됨, 자리 무관.**
+- 정답은 이제 **7건** (`answers_stay.json`).
+- 원본 `plugin-image-qa/ui.html` 변경됨(42줄 추가·2줄 수정), **커밋 전 보고 대기.**
 
-## 2. 이 조각에서 할 일 (한 줄)
-**아직 남은 병목은 "사람이 볼 것 148건"이다.** 이게 무엇들인지 분류해 **다음 규칙 후보를 숫자와 함께** 올린다.
+## 2. 이 조각에서 할 일
 
-- 체류시간 화면 현재: 후보 239 / 숨김 91 / **볼 것 148**. 목표였던 93건보다 오히려 많다
-  (정답 2건을 살리려고 표 컬럼 제목을 올린 결과 — 의도된 것이지만 그만큼 사람 일이 남았다는 뜻).
-- 노선관리는 **볼 것 314건**. 실무에서 이 숫자로는 못 쓴다.
-- 그러니 다음 규칙은 "무엇을 더 고정으로 볼까"가 아니라 **"이 314·148건이 대체 무엇이냐"**에서 나온다.
-
-**하는 순서**
-1. `m_<화면>_base.json` 의 볼 것(status가 `variable`/`excluded`가 아닌 것)을 **종류(kind)·자리·이유별로 세어** 표로 만든다.
-2. 가장 큰 덩어리 2~3개를 골라, **그게 진짜 오류인지 사람이 볼 필요 없는 것인지** 캡처를 잘라 눈으로 확인한다.
-3. 규칙 후보가 보이면 `RULE_PROPOSALS.md` 양식대로 **효과를 재서**(끄고/켜고, 화면 10개 회귀, 정답 8건 생존) 올린다.
-4. **river님 승인 후에만** 원본 `plugin-image-qa/ui.html` 에 반영한다.
+1. **보류한 #5·#6·#8을 새 기준선(529) 위에서 다시 잰다.** 근거가 검수기 자신의 점수라 river가 못 믿었던 것 — 이제 정렬이 고쳐졌으니 다시 볼 만하다. 재면서 **새로 생긴 후보는 내가 먼저 걸러** river에겐 못 가른 것만 보인다.
+2. **같은 밀림이 컴포넌트마다 되풀이되는 「위치」 106건을 구역당 한 줄로 묶는다.** (river 원칙 그대로. 화면당 3~6줄이 된다.)
+3. 선택된 탭을 개발 탭 줄 안에서 찾아 **글자만 대조**하기 — 노선관리 「노선관리」↔「노선 관리」 띄어쓰기가 지금은 '없어짐'으로 올라온다.
+4. 검수기가 게시판의 가짜 크롬탭(browser_tab, 글자 0개)을 못 거르는 구멍 — #3 규칙 보강.
 
 ## 3. 쓸 수 있는 자료 (이미 폴더에 있음 · 커밋 안 됨)
 화면 10개가 바로 돌아간다. 요소 목록·PNG 이름은 `README.md` 참조.
@@ -48,20 +41,20 @@ ELEMENTS_JSON=elements_stay_full.json DESIGN_PNG=design_stay_1920x1080.png \
 DEV_PNG=dev_stay_1920x1081.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html m_stay_base
 ```
 
-## 4. 화면별 실행값 (2026-09-08 기준선)
+## 4. 화면별 실행값 (2026-09-08 기준선 — #9·#10 반영 뒤. 결과 파일 `m2_<화면>.json`)
 
 | 화면 | elements | 디자인 PNG | 개발 PNG | FORCE_TY | 후보/숨김/볼것 |
 |---|---|---|---|---|---|
-| board | elements_board.json | design_board_1920x1898.png | dev_board_1920x1816.png | – | 138 / 72 / 66 |
-| vehicle | elements_vehicle.json | design_vehicle_720x1560.png | dev_vehicle_360x780.png | – | 73 / 11 / 62 |
-| dash | elements_dash.json | design_dash_360x1071.png | dev_dash_360x1031.png | – | 39 / 20 / 19 |
+| board | elements_board.json | design_board_1920x1898.png | dev_board_1920x1816.png | – | 138 / 73 / 65 |
+| vehicle | elements_vehicle.json | design_vehicle_720x1560.png | dev_vehicle_360x780.png | – | 72 / 10 / 62 |
+| dash | elements_dash.json | design_dash_360x1071.png | dev_dash_360x1031.png | – | 38 / 19 / 19 |
 | door | elements_door.json | design_door_186x400.png | dev_door_196x436.png | – | 21 / 8 / 13 |
-| stay | elements_stay_full.json | design_stay_1920x1080.png | dev_stay_1920x1081.png | – | 239 / 91 / 148 |
+| stay | elements_stay_full.json | design_stay_1920x1080.png | dev_stay_1920x1081.png | – | 227 / 109 / 118 |
 | findid | elements.json | design_1920x1080.png | dev_1920x934.png | – | 13 / 0 / 13 |
 | login | elements_login.json | design_login_1920x1080.png | dev_login_1920x934.png | – | 6 / 0 / 6 |
 | table | elements_table.json | design_table_1200x700.png | dev_table_1200x700.png | – | 12 / 9 / 3 |
 | codes | elements_codes.json | design_codes_1200x760.png | dev_codes_1200x760.png | – | 3 / 0 / 3 |
-| route | elements_route_plugin.json | design_route_1920x1080.png | dev_route_1920x1080.png | 99 | 533 / 219 / 314 |
+| route | elements_route_plugin.json | design_route_1920x1080.png | dev_route_1920x1080.png | 99 | 451 / 224 / 227 |
 
 ## 5. 세는 기준 (이번에 통일함)
 - **볼 것** = 후보의 `status`가 `variable`·`excluded`가 **아닌** 것.
