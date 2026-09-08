@@ -840,6 +840,19 @@ function applyUnitPolicy(c,pol){
   c.label=c.base.label;c.detail="가변 요소("+pol.reason+") · 데이터가 달라서 생긴 차이일 수 있어요. "+(c.base.detail||"");c.confidence=Math.min(c.base.confidence||60,50);
   if(!judged)c.status="variable";return c;
 }
+function applyMissingPolicy(c,pol){
+  // 「없어짐」 후보: 그 자리가 데이터가 들어가는 자리(가변)면 '가변' 묶음으로 내린다.
+  // 샘플 텍스트·표 안 값은 개발 캡처에서 다른 값이거나 비어 있는 것이 정상이다.
+  if(!c||c.kind!=="missing")return c;
+  if(!c.base)c.base={label:c.label,detail:c.detail,confidence:c.confidence};
+  c.policy=pol||null;var judged=!!c.userSet;
+  // '일반화면의 글자'(screen)는 근거가 약해 쓰지 않는다 — 진짜 없어진 글자까지 접힌다.
+  var ok=pol&&pol.variable&&pol.source!=="screen";
+  if(!ok){c.label=c.base.label;c.detail=c.base.detail;c.confidence=c.base.confidence;if(c.status==="variable")c.status="confirmed";return c;}
+  c.label=c.base.label;c.detail="가변 자리("+pol.reason+") · 데이터가 달라서 비어 보일 수 있어요. "+(c.base.detail||"");
+  c.confidence=Math.min(c.base.confidence||60,50);
+  if(!judged)c.status="variable";return c;
+}
 function policyFor(map,c){
   // 후보가 가리키는 디자인 요소가 모두 가변이어야 가변. 하나라도 고정이면 고정으로 본다.
   var ids=c.designNodeIds||[];if(!ids.length)return null;var pols=ids.map(function(id){return map[id]||null;});
@@ -862,6 +875,7 @@ function applyCandidatePolicy(c,map){
     return c;
   }
   if(c.exDetail!=null){c.detail=c.exDetail;c.exDetail=null;if(c.status==="excluded"&&!c.userSet)c.status="confirmed";}
+  if(c.kind==="missing")return applyMissingPolicy(c,policyFor(map,c));
   if(c.kind==="text")return applyTextPolicy(c,policyFor(map,c));
   if(ROW_UNIT_KINDS[c.kind])return applyUnitPolicy(c,policyFor(map,c));
   return c;
