@@ -1344,9 +1344,20 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   var movedList=results.filter(function(res){if(res.missing||!res.moved||gapExplained[res.u.el.id])return false;var anc=ancestorResult(res,byId,resultByElId);return !(anc&&anc.moved&&Math.abs(anc.moveX-res.moveX)<=2&&Math.abs(anc.moveY-res.moveY)<=2);}).sort(function(a,b){return a.pb.y-b.pb.y||a.pb.x-b.pb.x;}),groups=[];
   movedList.forEach(function(res){var g=null;for(var i=0;i<groups.length;i++){var o=groups[i];if(Math.abs(o.moveX-res.moveX)<=4&&Math.abs(o.moveY-res.moveY)<=4&&res.pb.y-(o.box.y+o.box.h)<=60*lg&&res.pb.x<o.box.x+o.box.w+40*lg&&res.pb.x+res.pb.w>o.box.x-40*lg){g=o;break;}}
     if(g){g.items.push(res);g.box=boxUnion(g.box,res.pb);}else groups.push({moveX:res.moveX,moveY:res.moveY,items:[res],box:res.pb});});
+  // 밀림은 한 곳씩 지적하지 않는다 — 밀린 곳을 모아 한 줄로 알려 주고, 요소가 같은지(누락·글자·색·모양)는 따로 본다.
+  (function(){
+    var by={},order=[];
+    groups.forEach(function(g){var k="screen";if(!by[k]){by[k]={items:[],box:null,spots:0};order.push(k);}
+      var t=by[k];t.items=t.items.concat(g.items);t.box=t.box?boxUnion(t.box,g.box):g.box;t.spots++;});
+    groups=order.map(function(k){var t=by[k];t.rollup=true;return t;});
+  })();
   groups.forEach(function(g){
-    var first=g.items[0],target=shifted(g.box,first.best.dx,first.best.dy),origin=shifted(g.box,first.base.dx,first.base.dy),logicalOld=logicalOf(g.box),logicalNew=logicalOf(shifted(g.box,first.best.dx-first.base.dx,first.best.dy-first.base.dy)),dv=designValuesFor(design,logicalOld);
-    var pc={kind:"position",rawBox:toRaw(boxUnion(origin,target)),designBox:boxUnion(logicalOld,logicalNew),designNodeIds:g.items.map(function(r){return r.u.el.id;}),designValues:dv.text,label:LABEL_MOVED,detail:moveDetail(g.moveX,g.moveY)+(g.items.length>1?" (요소 "+g.items.length+"개가 함께)":""),confidence:clamp(Math.round(Math.min.apply(null,g.items.map(function(r){return r.best.score;}))*100),50,94)};
+    var n=g.items.length,avg=function(f){var s=0;g.items.forEach(function(r){s+=f(r);});return s/n;};
+    var bdx=avg(function(r){return r.base.dx;}),bdy=avg(function(r){return r.base.dy;}),mdx=avg(function(r){return r.best.dx;}),mdy=avg(function(r){return r.best.dy;});
+    var target=shifted(g.box,mdx,mdy),origin=shifted(g.box,bdx,bdy),logicalOld=logicalOf(g.box),logicalNew=logicalOf(shifted(g.box,mdx-bdx,mdy-bdy)),dv=designValuesFor(design,logicalOld);
+    var mx=avg(function(r){return r.moveX;}),my=avg(function(r){return r.moveY;});
+    var detail=(g.spots>1?("이 자리에서 "+g.spots+"곳(요소 "+n+"개)이 밀려 보입니다. 한 곳씩이 아니라 자리 전체를 함께 봅니다."):moveDetail(g.items[0].moveX,g.items[0].moveY)+(n>1?" (요소 "+n+"개가 함께)":""));
+    var pc={kind:"position",rawBox:toRaw(boxUnion(origin,target)),designBox:boxUnion(logicalOld,logicalNew),designNodeIds:g.items.map(function(r){return r.u.el.id;}),designValues:dv.text,label:LABEL_MOVED,detail:detail,confidence:clamp(Math.round(Math.min.apply(null,g.items.map(function(r){return r.best.score;}))*100),50,94)};
     pc.base={label:pc.label,detail:pc.detail,confidence:pc.confidence};push(pc);
   });
   // 4) 제자리 차이 — 글자·아이콘·도형별로 판단
