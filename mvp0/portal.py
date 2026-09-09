@@ -435,7 +435,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     if dev_img:
         right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}'
     else:
-        right_body = f'<span class="ph">{"TC에 맞는 개발 화면을 촬영해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
+        right_body = f'<span class="ph">{"디자인 시안과 같은 상태의 개발 화면을 등록해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
 
     person_options = "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons)
 
@@ -564,7 +564,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     if workflow:
         design_dialog=workflow['dialog']
         connection_controls=workflow['controls']
-        issues_html=workflow['sidebar']+issues_html.replace('시안을 연결하고 짝을 확인한 뒤','TC에 맞는 캡처를 등록하고 짝을 확인한 뒤')
+        issues_html=workflow['sidebar']+issues_html.replace('시안을 연결하고 짝을 확인한 뒤','개발 화면을 등록하고 짝을 확인한 뒤')
     native_app = app_layout.is_app(s['platform'])
     parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
     if workflow:parent_href=workflow["parent"]
@@ -582,7 +582,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     {workflow.get("navigation", "") if workflow else ""}
   </header>
   <div class="wrap">
-    <div class="roster"><span class="lbl">담당자 명단</span>{roster_html}</div>
+
     {('<p role="status">'+_esc(notice)+'</p>') if notice else ''}
 
     {connection_controls if not workflow else ""}
@@ -791,20 +791,27 @@ _PAGE_CSS = """
   .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
   .rchip.on { background:#111827; color:#fff; border-color:#111827; }
   .rnd { font-size:10px; font-weight:700; color:#3730a3; background:#eef2ff; border-radius:5px; padding:1px 5px; margin-right:2px; }
-  #capture-picker{width:94vw;max-width:1400px;max-height:94vh;overflow:auto;border:1px solid #ddd;border-radius:12px;padding:18px;background:#f6f7f9}.capture-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.capture-pair img{width:100%;height:50vh;object-fit:contain;background:white}.capture-options{max-height:140px;overflow:auto;display:flex;flex-wrap:wrap;gap:10px}.cap-option{padding:10px;border:1px solid #ddd;background:white;border-radius:8px}.cards textarea{display:block;box-sizing:border-box;width:100%;min-height:70px;border:1px solid #ddd;padding:8px}.cards details{margin:12px 0}.cards button{padding:7px 12px;border:1px solid #ddd;border-radius:7px;background:white;cursor:pointer}.cards label{display:block;margin:8px 0}
-  #capture-picker{box-sizing:border-box;padding:16px;width:calc(100vw - 32px);height:min(900px,94dvh);max-height:94dvh;overflow:hidden;}
-  #capture-picker[open]{display:flex;flex-direction:column;gap:10px;}
-  #capture-picker .dialog-head{position:static;flex:none;padding:0;gap:12px;}
-  #capture-picker h2,#capture-picker h3,#capture-picker p{margin:0;}
-  #capture-picker .capture-pair{flex:1;min-height:120px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
-  #capture-picker .capture-pair section{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;}
-  #capture-picker .capture-pair img{height:0;flex:1;min-height:0;width:100%;object-fit:contain;}
-  #capture-picker form{flex:none;margin:0;display:flex;flex-direction:column;gap:10px;min-height:0;}
-  #capture-picker .capture-options{display:flex;flex-wrap:nowrap;max-height:100px;overflow:auto;gap:8px;padding:4px 0;}
-  #capture-picker .cap-option{display:flex;align-items:center;gap:6px;flex:none;margin:0;padding:9px;max-width:220px;}
-  #capture-picker input[type=radio]{width:auto;flex:none;margin:0;padding:0;}
-  #capture-picker .rank{font-size:11px;color:#657085;white-space:nowrap;}
-  #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end;}
+  #capture-picker{box-sizing:border-box;padding:18px;width:calc(100vw - 32px);max-width:1500px;height:92dvh;max-height:92dvh;overflow:hidden;border:1px solid #ddd;border-radius:12px;background:#f6f7f9}
+  #capture-picker[open]{display:flex;flex-direction:column;gap:12px}
+  #capture-picker .dialog-head{position:static;flex:none;padding:0;gap:12px}
+  #capture-picker h2,#capture-picker h3,#capture-picker p{margin:0}
+  #capture-picker form{flex:1;min-height:0;margin:0;display:flex;flex-direction:column;gap:12px}
+  #capture-picker .capture-layout{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:16px;flex:1;min-height:0}
+  #capture-picker .capture-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;min-height:0;min-width:0}
+  #capture-picker .capture-pair section{min-width:0;min-height:0;display:flex;flex-direction:column;background:white;border:1px solid #e1e6ed;border-radius:10px;overflow:hidden}
+  #capture-picker .capture-pair h3{font-size:12px;padding:12px;flex:none}
+  #capture-picker .capture-image{flex:1;min-height:0;display:flex;justify-content:center}
+  #capture-picker .capture-pair img{width:100%;height:100%;min-width:0;object-fit:contain}
+  #capture-picker .capture-list{overflow:auto;min-height:0;font-size:12px}
+  #capture-picker .capture-options{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  #capture-picker .cap-option{display:flex;align-items:center;gap:6px;padding:10px;border:1px solid #ddd;background:white;border-radius:8px;cursor:pointer;overflow-wrap:anywhere}
+  #capture-picker .cap-option:has(input:checked){border-color:#2563eb;background:#eff6ff}
+  #capture-picker input[type=radio]{width:auto;flex:none;margin:0;padding:0}
+  #capture-picker .rank{font-size:11px;color:#657085;white-space:nowrap}
+  #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end}
+  .app-view #capture-picker{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
+  @media(max-width:700px){#capture-picker .capture-layout{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 130px}}
+  .cards textarea{display:block;box-sizing:border-box;width:100%;min-height:70px;border:1px solid #ddd;padding:8px}.cards details{margin:12px 0}.cards button{padding:7px 12px;border:1px solid #ddd;border-radius:7px;background:white;cursor:pointer}.cards label{display:block;margin:8px 0}
   .capture-suggestion{font-size:12px;color:#657085;margin:4px 12px;}
 
   .connection-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#657085;margin-bottom:10px;flex-shrink:0}.connection-controls form{margin:0}.connection-controls button{font:inherit;border:1px solid #d1d5db;border-radius:8px;padding:6px 12px;background:white;cursor:pointer}
@@ -815,7 +822,7 @@ _PAGE_CSS = """
   /* 비교 영역: 위에 고정, 스크롤에 안 밀림 */
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex-shrink:0; height:46vh; margin-bottom:12px; }
   .pane { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
-  .pane h3 { font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; display:flex; align-items:center; gap:8px; }
+  .pane h3 { box-sizing:border-box; height:44px; font-size:12px; margin:0; padding:9px 14px; border-bottom:1px solid #f0f1f3; color:#6b7280; flex-shrink:0; display:flex; align-items:center; gap:8px; }
   .upl { margin-left:auto; }
   .upl label { font-size:11px; font-weight:600; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:2px 9px; background:#fff; cursor:pointer; }
   .upl input { display:none; }

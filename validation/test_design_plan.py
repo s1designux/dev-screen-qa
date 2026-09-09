@@ -116,7 +116,14 @@ class DesignPlanTests(unittest.TestCase):
             self.assertEqual(q['cases'][0]['case_id'],self.case(1)['id'])
             self.assertEqual(sum(n.startswith('디자인/') for n in z.namelist()),1)
             self.assertIn('capture_tc.py',z.namelist())
-        for case in self.plans.get(self.plan)[1]:self.assertIn('TC',design_plan_ui.detail(self.store,self.plan,case['id']))
+        for case in self.plans.get(self.plan)[1]:
+            rendered=design_plan_ui.detail(self.store,self.plan,case['id'])
+            self.assertNotIn('TC · 촬영 절차',rendered)
+            self.assertNotIn('name="tc"',rendered)
+            self.assertNotIn(case['tc'],rendered)
+            self.assertNotIn('담당자 명단',rendered)
+            self.assertIn('class="capture-layout"',rendered)
+            self.assertIn('class="capture-list"',rendered)
         with self.store.connect() as c:self.assertEqual(''.join(c.iterdump()),before)
     def test_http_csrf_upload_and_confirm(self):
         from urllib.parse import urlencode
@@ -181,7 +188,10 @@ class DesignPlanTests(unittest.TestCase):
         with patch.object(portal,'REAL_DB',self.store.database),patch.object(portal,'UPLOADS',self.store.uploads):
             portal.Handler.do_GET(h)
         self.assertEqual(h.code,200)
-        self.assertIn('TC · 촬영 절차',h.body)
+        self.assertNotIn('TC · 촬영 절차',h.body)
+        self.assertNotIn('name="tc"',h.body)
+        self.assertNotIn(r['tc'],h.body)
+        self.assertNotIn('담당자 명단',h.body)
         self.assertIn('href="/design/'+self.plan+'"',h.body)
         self.assertIn('id="cards"',h.body)
         self.assertNotIn('action="/screen/',h.body) # no legacy upload forms on this empty case

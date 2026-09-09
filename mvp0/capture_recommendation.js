@@ -22,7 +22,7 @@
   }return total/weight;
  }
  (async()=>{
-  if(!choices.length){note.textContent='등록된 개발 캡처가 없습니다. TC에 맞춰 추가 촬영해 주세요.';return;}
+  if(!choices.length){note.textContent='등록된 개발 캡처가 없습니다. 디자인 시안과 같은 상태로 촬영해 주세요.';return;}
   try{
    const design=await sample(p.querySelector('.design-original').src);
    const scores=await Promise.all(choices.map(async input=>{try{return {input,score:distance(design,await sample(input.dataset.src))};}catch{return {input,score:Infinity};}}));

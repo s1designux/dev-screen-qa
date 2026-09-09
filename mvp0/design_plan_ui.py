@@ -24,19 +24,20 @@ def detail(store,plan,case,notice='',sel_round=None):
     selection_controls=controls+(hidden('keep_request','1') if r['status']=='required' else '')
     base=f'/design/{plan}/case/{case}'
     top=f'<div class="connection-controls"><span class="chip">{LABEL[r["status"]]}</span><span>{e(r["match_note"] if r["status"]!="required" else r["request_reason"])}</span>'
-    if r['status']=='pending':top+=form(base+'/confirm',controls+'<button>TC와 같은 상태 · 짝 확인</button>')
+    if r['status']=='pending':top+=form(base+'/confirm',controls+'<button>시안과 같은 상태 · 짝 확인</button>')
     top+=f'<a href="/design/{plan}/queue">추가 촬영 대기</a></div>'
-    tc=f'<section class="issue"><b>TC · 촬영 절차</b><p style="white-space:pre-wrap">{e(r["tc"])}</p><b>기대 모습</b><p>{e(r["expected"])}</p><p class="muted">{e(r["prerequisite"])}</p><details><summary>TC 수정</summary>'+form(base+'/tc',controls+f'<label>촬영 절차<textarea name="tc" required>{e(r["tc"])}</textarea></label><label>기대 모습<textarea name="expected" required>{e(r["expected"])}</textarea></label><label>준비 조건<textarea name="prerequisite">{e(r["prerequisite"])}</textarea></label><button>TC 저장</button>')+'</details>'
+    tc='<section class="issue">' if not r['page_id'] else ''
     if not r['page_id']:
-        tc+='<details><summary>TC에 맞지 않음 · 추가 촬영 요청</summary>'+form(base+'/request',controls+'<label>추가 촬영 사유<textarea name="reason" required>디자인과 같은 입력·포커스·언어·오류 상태로 다시 촬영해 주세요.</textarea></label><button>촬영 대기에 추가</button>')+'</details>'
-        tc+=f'<details {"open" if r["status"]=="required" else ""}><summary>추가 촬영본 등록</summary><form method="post" enctype="multipart/form-data" action="{base}/upload">{controls}<label>TC대로 촬영한 PNG<input type="file" name="capture" accept="image/png" required></label><button>촬영본 가져와 대조</button></form></details>'
+        tc+='<details><summary>시안과 다름 · 추가 촬영 요청</summary>'+form(base+'/request',controls+'<label>추가 촬영 사유<textarea name="reason" required>디자인과 같은 입력·포커스·언어·오류 상태로 다시 촬영해 주세요.</textarea></label><button>촬영 대기에 추가</button>')+'</details>'
+        tc+=f'<details {"open" if r["status"]=="required" else ""}><summary>추가 촬영본 등록</summary><form method="post" enctype="multipart/form-data" action="{base}/upload">{controls}<label>디자인 시안과 같은 상태의 PNG<input type="file" name="capture" accept="image/png" required></label><button>촬영본 가져와 대조</button></form></details>'
     if r['status']=='pending':tc+=form(base+'/confirm',controls+'<button>이 캡처로 검수 시작</button>')
-    tc+='</section>'
+    if not r['page_id']:tc+='</section>'
     caps=plans.captures(plan);options=''
     for cap in sorted(caps,key=lambda x:(x['id']!=r['capture_id'],x['case_id']!=case,x['name'])):
         options+=f'<label class="cap-option"><input type="radio" name="capture" value="{cap["id"]}" data-src="/uploads/{e(cap["filename"])}" data-name="{e(cap["name"])}" {"checked" if cap["id"]==r["capture_id"] else ""}><span class="rank">비교 중</span><span>{e(cap["name"])}</span></label>'
     pic=f'<img id="plan-capture-preview" src="/uploads/{e(r["capture_file"])}" alt="선택한 개발 캡처">' if r['capture_file'] else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
-    dialog=f'''<dialog id="capture-picker"><div class="dialog-head"><h2>디자인에 맞는 개발 캡처</h2><button type="button" onclick="document.getElementById('capture-picker').close()">닫기</button></div><p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p><div class="capture-pair"><section><h3>디자인 원본</h3><img class="design-original" src="/uploads/{e(r['design_file'])}" alt="디자인 원본"></section><section><h3>개발 캡처</h3>{pic}</section></div>{form(base+'/select',selection_controls+f'<div class="capture-options">{options}</div><div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')}</dialog><script>{Path(__file__).with_name('capture_recommendation.js').read_text()}</script>'''
+    comparison=f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image"><img class="design-original" src="/uploads/{e(r["design_file"])}" alt="디자인 원본"></div></section><section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div><aside class="capture-list"><b>다른 개발 화면 둘러보기</b><div class="capture-options">{options}</div></aside></div>'
+    dialog=f'''<dialog id="capture-picker"><div class="dialog-head"><h2>디자인·개발 대조</h2><button type="button" onclick="document.getElementById('capture-picker').close()">닫기</button></div><p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>{form(base+'/select',selection_controls+comparison+f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')}</dialog><script>{Path(__file__).with_name('capture_recommendation.js').read_text()}</script>'''
     _,active=plans.get(plan)
     position=next(i for i,item in enumerate(active) if item['id']==case)
     def step_link(offset,label):
