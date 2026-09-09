@@ -1,0 +1,17 @@
+# 공통 대본 — 메뉴 하나 눌러 들어간 화면 한 장 찍기
+# 앱마다 고치지 않는다. 누를 메뉴 이름은 이름표에서 들어온다.
+appId: ${APP_ID}
+---
+- stopApp
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      text: ${TAP_TEXT}
+    direction: DOWN
+    timeout: 15000
+- tapOn: ${TAP_TEXT}
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ${SHOT_PATH}
