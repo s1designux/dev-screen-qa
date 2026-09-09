@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-09",
+  "app": "삼성통근버스(BUS)",
+  "device_model": "SM-S911N",
+  "capture_size": [
+    1080,
+    2340
+  ],
+  "method": "스크린샷 기반 수동 좌표 조작 + ADB 캡처; 저장된 TC 자동 재생 엔진 아님",
+  "design_reference": "사용자 첨부 목록 썸네일; 원본 프레임 미확보",
+  "login_submitted": false,
+  "repeat_count": 1,
+  "independent_cases": false,
+  "limitations": [
+    "순차 탐색으로 각 TC 독립 초기화 및 3회 반복 미실시",
+    "영문 설정 경로 미확인, 영문 TC 미실행",
+    "원본 크기 및 촬영 영역 대응 미확인",
+    "기존 방식 대비 개선율 미측정"
+  ],
+  "observations": [
+    {
+      "tc": "L01",
+      "capture": "r2-basic.png",
+      "expected": "아이디·비밀번호 빈칸",
+      "action": "로그인 기본 상태 확인 후 촬영",
+      "observed": "두 칸 빈칸, 회색 버튼, 포커스·키보드 없음",
+      "assessment": "빈 입력값 반영",
+      "capture_phase": "2차 재촬영"
+    },
+    {
+      "tc": "L03",
+      "capture": "r2-filled.png",
+      "expected": "아이디 abcddjf / 숨김 점 8개 / 파란 버튼 / 포커스 없음",
+      "action": "abcddjf 입력 → 8자리 비밀이 아닌 문자열 입력 → 키보드 닫기 → 빈 영역 선택",
+      "observed": "abcddjf, 점 8개, 파란 버튼, 포커스 없음",
+      "assessment": "지정 입력값·상태 반영",
+      "capture_phase": "2차 재촬영"
+    },
+    {
+      "tc": "L04",
+      "capture": "r2-hidden.png",
+      "expected": "아이디 빈칸(시안 관찰) / 점 8개 / 비밀번호 칸 선택 / 파란 버튼",
+      "action": "아이디 제거 → 비밀번호 칸 선택 → 키보드 닫기",
+      "observed": "아이디 빈칸, 점 8개, 비밀번호 칸 선택, 회색 버튼",
+      "assessment": "점 개수 반영 · 버튼 차이",
+      "capture_phase": "2차 재촬영"
+    },
+    {
+      "tc": "extra",
+      "capture": "r2-visible.png",
+      "expected": "아이디 빈칸(시안 관찰) / sample287! / 비밀번호 칸 선택 / 파란 버튼",
+      "action": "비밀번호 초기화 → sample287! 입력 → 보기 선택 → 비밀번호 칸 재선택 → 키보드 닫기",
+      "observed": "sample287! 표시, 아이디 빈칸, 비밀번호 칸 선택, 회색 버튼",
+      "assessment": "지정 문자열 반영 · 버튼 차이",
+      "capture_phase": "2차 재촬영"
+    }
+  ],
+  "revision": "입력값 규정 반영 · 2차 재촬영",
+  "input_policy": "../capture-input-policy.md",
+  "recapture_status": "4개 촬영 완료; 영문 미실행",
+  "input_sources": {
+    "id": "사용자: abcddjf",
+    "mask": "사용자: •••••••• (8개)",
+    "visible": "사용자: sample287!"
+  },
+  "verification": "별도 검증자가 새 캡처 5개에서 입력값·점 8개·포커스·버튼과 입력값 제거 확인. HTML 렌더 재검증은 브라우저 연결 불가로 미실시. HTTP 200 확인."
+}
