@@ -1249,7 +1249,10 @@ function textSegmentCheck(ctx,pb,dx,dy){
 function compareUnit(u,ctx){
   var sec=u.section,lg=ctx.lg,p=unitPoints(u,ctx);if(p.pts.length<12)return null;
   var base={dx:Math.round(sec.offset.dx),dy:Math.round(sec.offset.dy)},range=Math.round((u.container||isGapComponent(u.el)?48:36)*lg),step=Math.max(1,Math.round(2*lg));
-  var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range,range,Math.max(step,Math.round(4*lg)),ctx.cEd);
+  // 선택된 탭은 열린 탭 수에 따라 탭 줄 안에서 가로로 얼마든지 움직인다(2026-09-08 river 확정).
+  // 제자리에서만 찾으면 '없어짐'이 되어 버리므로, 같은 줄을 가로로 넓게 훑어 글자를 찾은 뒤 내용만 대조한다.
+  var tabSel=!!(ctx.tabSelected&&ctx.tabSelected[u.el.id]);
+  var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,tabSel?Math.round(ctx.W*.45):range,tabSel?Math.round(8*lg):range,Math.max(step,Math.round(4*lg)),ctx.cEd);
   if(r.score<.35&&p.pts.length>=24){ // 가까운 데서 못 찾으면 '없음'이라 하기 전에 한 번 더 멀리(3배) 찾아본다. 확실히 보일 때만 인정.
     var wide=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range*3,range*3,Math.max(step,Math.round(4*lg)),ctx.cEd);if(wide.score>=.6&&wide.score>=r.zero+.3)r=wide;
   }
@@ -1260,7 +1263,7 @@ function compareUnit(u,ctx){
   var ncc=null,exact=null;
   function textMetrics(){ncc=grayPatchNCC(ctx.dd.data,ctx.cd.data,ctx.W,ctx.H,p.pb,r.dx,r.dy);exact=exactEdgeMismatchMin(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);}
   if(u.kind==="text")textMetrics();
-  var movedNow=Math.abs(mx)>=4||Math.abs(my)>=4,badMove=movedNow&&((u.kind==="text"&&(r.score<.85||mismatch>.28||ncc<.68||exact>.42))||(u.kind==="icon"&&(r.score<.8||mismatch>.3))||(u.kind==="shape"&&r.score<.7));
+  var movedNow=Math.abs(mx)>=4||Math.abs(my)>=4,badMove=!tabSel&&movedNow&&((u.kind==="text"&&(r.score<.85||mismatch>.28||ncc<.68||exact>.42))||(u.kind==="icon"&&(r.score<.8||mismatch>.3))||(u.kind==="shape"&&r.score<.7));
   if(badMove){
     // 글자는 옮긴 자리에서 거의 완전히 겹칠 때만 '이동'이다. 일부만 겹치면 내용이 달라진 것이므로 제자리에서 비교한다.
     r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};cCount=edgeCount(ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);capRatio=dCount?cCount/dCount:1;mismatch=textEdgeMismatch(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);mx=0;my=0;if(u.kind==="text")textMetrics();
@@ -1344,7 +1347,9 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   var ccF=canvasFor(W,H),cxF=ccF.getContext("2d");cxF.fillStyle="#fff";cxF.fillRect(0,0,W,H);cxF.setTransform(model.s,0,0,model.s,model.tx,model.ty);cxF.drawImage(capture.img,0,0);cxF.setTransform(1,0,0,1,0,0);
   var ddF=dxF.getImageData(0,0,W,H),cdF=cxF.getImageData(0,0,W,H);
   var byId={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});
-  var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId};
+  // 정책표는 디자인만 보고 정해지므로 비교 전에 만들어 둔다. 선택된 탭은 찾는 방식이 달라지기 때문(compareUnit).
+  var policyMap=design.policyMap=buildTextPolicy(design);
+  var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId,tabSelected:policyMap.tabSelected||{}};
   ctx.cEd=dilateEdges(ctx.cE,W,H,Math.max(1,Math.round(1*lg)));
   var units=collectUnits(design),sectionInfo=buildSections(design,units),sections=sectionInfo.sections,notices=[];
   // 구역마다(구역 밖 요소 묶음도 포함) 전역 정렬 주변을 넓게 훑어 자기 밀림을 찾는다.
@@ -1409,7 +1414,10 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
     push({kind:"spacing",axis:axis,rawBox:toRaw(rb),rawAnchorBoxes:anchors,designBox:logical,designNodeIds:[g.a.element.id,g.b.element.id],designValues:"디자인 간격 "+Math.round(designGap)+"px · 개발 이미지 약 "+Math.round(estimatedGap)+"px",label:axis==="vertical"?"컴포넌트 사이의 세로 간격이 다릅니다.":"컴포넌트 사이의 가로 간격이 다릅니다.",confidence:clamp(Math.round(g.confidence*100),50,94)});
   });
   // 3) 위치 이동 — 부모와 같이 움직인 자식은 빼고, 같은 방향·같은 양으로 붙어서 움직인 요소는 한 번호로 묶는다.
-  var movedList=results.filter(function(res){if(res.missing||!res.moved||gapExplained[res.u.el.id])return false;var anc=ancestorResult(res,byId,resultByElId);return !(anc&&anc.moved&&Math.abs(anc.moveX-res.moveX)<=2&&Math.abs(anc.moveY-res.moveY)<=2);}).sort(function(a,b){return a.pb.y-b.pb.y||a.pb.x-b.pb.x;}),groups=[];
+  // 선택된 탭은 자리가 달라도 오류가 아니다(2026-09-08 river 확정) — 밀림 통합에도 넣지 않는다.
+  var movedList=results.filter(function(res){if(res.missing||!res.moved||gapExplained[res.u.el.id])return false;
+    if(ctx.tabSelected&&ctx.tabSelected[res.u.el.id])return false;
+    var anc=ancestorResult(res,byId,resultByElId);return !(anc&&anc.moved&&Math.abs(anc.moveX-res.moveX)<=2&&Math.abs(anc.moveY-res.moveY)<=2);}).sort(function(a,b){return a.pb.y-b.pb.y||a.pb.x-b.pb.x;}),groups=[];
   movedList.forEach(function(res){var g=null;for(var i=0;i<groups.length;i++){var o=groups[i];if(Math.abs(o.moveX-res.moveX)<=4&&Math.abs(o.moveY-res.moveY)<=4&&res.pb.y-(o.box.y+o.box.h)<=60*lg&&res.pb.x<o.box.x+o.box.w+40*lg&&res.pb.x+res.pb.w>o.box.x-40*lg){g=o;break;}}
     if(g){g.items.push(res);g.box=boxUnion(g.box,res.pb);}else groups.push({moveX:res.moveX,moveY:res.moveY,items:[res],box:res.pb});});
   // 밀림은 한 곳씩 지적하지 않는다 — 밀린 곳을 모아 한 줄로 알려 주고, 요소가 같은지(누락·글자·색·모양)는 따로 본다.
@@ -1449,7 +1457,6 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
       push(c);});
   });
   // 가변·불가변 판정 — 가변 글자의 내용 차이, 반복 행 안 요소의 위치·모양·색 차이는 '가변' 묶음으로 내린다(숨기지 않는다).
-  var policyMap=design.policyMap=buildTextPolicy(design);
   cands.forEach(function(c){applyCandidatePolicy(c,policyMap);});
   applyListPolicy(cands,policyMap);
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
