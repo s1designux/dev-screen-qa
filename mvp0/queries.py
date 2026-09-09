@@ -71,7 +71,9 @@ def list_screens(conn, unresolved_only=False, round_filter=None):
             continue
 
         out.append({
+            "uuid": s["uuid"],
             "human_key": s["human_key"],
+            "route_key": s["human_key"] or s["uuid"],
             "name": s["name"],
             "platform": s["platform"],
             "project_name": s["project_name"],
@@ -89,8 +91,8 @@ def get_screen(conn, human_key):
     s = conn.execute(
         """SELECT s.*, p.name AS project_name
            FROM screen s JOIN project p ON p.uuid = s.project_id
-           WHERE s.human_key = ?""",
-        (human_key,),
+           WHERE s.human_key = ? OR s.uuid = ?""",
+        (human_key, human_key),
     ).fetchone()
     if s is None:
         return None
@@ -168,7 +170,9 @@ def screen_pass_fail(conn, screen_uuid):
     pages = pages_of_screen(conn, screen_uuid)
     if not pages:
         return None
-    return "fail" if any(p["pass_fail"] == "fail" for p in pages) else "pass"
+    if any(p["pass_fail"] == "fail" for p in pages):
+        return "fail"
+    return "pass" if all(p["pass_fail"] == "pass" for p in pages) else None
 
 
 def get_page(conn, page_uuid):

@@ -12,6 +12,12 @@
 실행: python portal.py  → http://127.0.0.1:8765
 """
 import html
+import os
+import intake_store
+import intake_http
+import issue_categories
+import app_layout
+import comparison_view
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -25,9 +31,13 @@ import queries
 from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES
 
 BASE = Path(__file__).resolve().parent
-REAL_DB = BASE / "mvp0-real.db"   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
-UPLOADS = BASE / "uploads"        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
-PORT = 8765
+REAL_DB = Path(os.environ.get("QA_PORTAL_DB", str(BASE / "mvp0-real.db")))   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
+UPLOADS = Path(os.environ.get("QA_PORTAL_UPLOADS", str(BASE / "uploads")))        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
+PORT = int(os.environ.get("QA_PORTAL_PORT", "8765"))
+
+
+def intake():
+    return intake_store.Store(REAL_DB, UPLOADS)
 
 
 def _multipart_file(body, content_type):
@@ -62,11 +72,16 @@ def _esc(v):
 
 def _pf_badge(v):
     v = (v or "")
-    return f'<span class="pf {v.lower()}">{_esc(v.upper() or "—")}</span>'
+    return f'<span class="pf {v.lower()}">{_esc(v.upper() if v else "미검수")}</span>'
 
 
 def _upl(human_key, page_uuid, side, rnd=None):
     """PNG 업로드 컨트롤 (선택 즉시 제출 → 로컬 저장 → 표시). dev는 그 차수(run)에 저장."""
+    linked = intake().page_link(page_uuid)
+    if linked:
+        if side == 'design':
+            return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">Figma 연결·변경</button>'
+        return '<span class="upl">촬영 원본 보관됨</span>'
     q = f"?side={side}" + (f"&round={rnd}" if rnd is not None else "")
     action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
     return (
@@ -98,6 +113,8 @@ def _status_at(history, rnd):
 def _save_upload(page_uuid, side, data, size, rnd=1):
     """PNG를 로컬 저장하고 경로만 DB에 기록. dev면 '그 차수(run)'에 저장 + 원본 크기 기록 +
     기준높이(coord_ref_h)를 이미지 비율로 산출(coord_ref_w=1920 고정) → 배율 무관 정렬."""
+    if intake().page_link(page_uuid):
+        raise ValueError('접수한 이미지는 연결 화면에서 변경해 주세요. 원본을 덮어쓰지 않습니다.')
     UPLOADS.mkdir(exist_ok=True)
     conn = dbmod.connect(REAL_DB)
     w, h = size
@@ -152,36 +169,9 @@ def _pass_issue(issue_uuid, actor, reason, rnd=1):
     conn.close()
 
 
-_TYPE_LABEL = {
-    "typography": "텍스트", "layout": "레이아웃", "spacing": "간격",
-    "color": "색상", "structure": "구조", "mixed": "복합", "missing": "누락",
-}
-
-
-def _type_label(category):
-    """오류 유형(category)을 한국어 라벨로. 'typography-font-size'처럼 접두어만 봐도 매핑."""
-    if not category:
-        return "기타"
-    key = category.split("-")[0]
-    return _TYPE_LABEL.get(key, category)
-
-
-# 유형별 색 — 핀 색 = 그 유형 섹션 색(같은 기준). 유형끼리 충분히 구분되게.
-_TYPE_COLOR = {
-    "typography": "#2563eb",  # 텍스트 · 파랑
-    "layout": "#7c3aed",      # 레이아웃 · 보라
-    "spacing": "#0d9488",     # 간격 · 청록
-    "color": "#db2777",       # 색상 · 분홍
-    "structure": "#d97706",   # 구조 · 주황
-    "mixed": "#334155",       # 복합 · 진회색
-    "missing": "#dc2626",     # 누락 · 빨강
-}
-
-
-def _type_color(category):
-    if not category:
-        return "#6b7280"
-    return _TYPE_COLOR.get(category.split("-")[0], "#6b7280")
+# 단일 표시 분류: 저장된 category와 이력을 바꾸지 않고 현재 분류로 묶는다.
+_type_label = issue_categories.label
+_type_color = issue_categories.color
 
 
 # ────────────────────────────────────────────────────────────── 화면 목록
@@ -189,6 +179,16 @@ def render_list(unresolved_only: bool, round_filter):
     conn = dbmod.connect(REAL_DB)
     rows = queries.list_screens(conn, unresolved_only, round_filter)
     conn.close()
+    if round_filter is None:
+        prepared = intake().screen_groups()
+        represented = {sid for group in prepared for sid in group['screen_ids']}
+        rows = [row for row in rows if row['uuid'] not in represented]
+        for group in prepared:
+            if unresolved_only and not group['unresolved']:
+                continue
+            rows.append(dict(group, human_key='', route_key='', route_href=group['href'],
+                             preparation=f"짝 확인 {group['confirmed']}/{group['page_count']}"))
+    rows.sort(key=lambda row: (row['project_name'],row['name'] or ''))
 
     def qs(un):
         return "/?unresolved=1" if un else "/"
@@ -210,11 +210,13 @@ def render_list(unresolved_only: bool, round_filter):
         for r in items:
             unres = r["unresolved"]
             unres_cls = "num zero" if unres == 0 else "num"
-            trs += f"""<tr onclick="location.href='/screen/{_esc(r['human_key'])}'">
-              <td class="name">{_esc(r['name'])}</td>
-              <td class="key">{_esc(r['human_key'])}</td>
+            href = r.get('route_href') or f"/screen/{r['route_key']}"
+            trs += f"""<tr data-href="{_esc(href)}" onclick="location.href=this.dataset.href">
+              <td class="name"><a style="color:inherit;text-decoration:none" href="{_esc(href)}">{_esc(r['name'])}</a></td>
+              <td class="key">{_esc(r['human_key'] or '미정')}</td>
               <td>{_esc(r['platform'])}</td>
               <td class="ctr">{r['page_count']}개</td>
+              <td class="ctr">{_esc(r.get('preparation') or '준비됨')}</td>
               <td class="ctr">{_pf_badge(r['pass_fail'])}</td>
               <td class="ctr"><span class="{unres_cls}">{unres}</span> / {r['total']}</td>
             </tr>"""
@@ -224,7 +226,7 @@ def render_list(unresolved_only: bool, round_filter):
           <table>
             <thead><tr>
               <th>화면명</th><th>스토리보드 ID</th><th>플랫폼</th>
-              <th class="ctr">검수 페이지</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
+              <th class="ctr">검수 페이지</th><th class="ctr">디자인 연결</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
             </tr></thead>
             <tbody>{trs}</tbody>
           </table>
@@ -238,7 +240,8 @@ def render_list(unresolved_only: bool, round_filter):
 <body>
   <header>
     <h1>검수 포털 <span class="muted" style="font-weight:400;font-size:13px;">· 화면 목록</span></h1>
-    <div class="sub">실제 검수 데이터(mvp0-real.db) · 행 클릭 → 화면 상세(검수 페이지 목록)</div>
+    <div class="sub">화면을 선택하면 검수 페이지를 볼 수 있습니다.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><a class="btn" href="/intake">가져온 기록</a><a class="btn" style="margin-left:0;background:#245be5;color:white;border-color:#245be5" href="/intake/new">촬영본 가져오기</a></div>
   </header>
   <div class="wrap">
     <div class="filters"><span class="lbl">보기</span> {un_filters}</div>
@@ -250,12 +253,16 @@ def render_list(unresolved_only: bool, round_filter):
 
 # ────────────────────────────────────────────────────── 화면 상세 = 페이지 목록
 def render_screen(human_key: str):
+    for group in intake().screen_groups():
+        if human_key in group['screen_ids']:
+            return intake_http.ui.page_list(intake(),group['batch_id'],group['item_id'])
     conn = dbmod.connect(REAL_DB)
     scr = queries.get_screen(conn, human_key)
     if scr is None:
         conn.close()
         return None
     s = scr["row"]
+    human_key = s["human_key"] or s["uuid"]
     pages = queries.pages_of_screen(conn, s["uuid"])
     agg = queries.screen_pass_fail(conn, s["uuid"])
     conn.close()
@@ -284,7 +291,7 @@ def render_screen(human_key: str):
   <header class="row">
     <a class="back" href="/">← 목록</a>
     <h1>{_esc(s['name'])}</h1>
-    <span class="sub2"><span class="key">{_esc(s['human_key'])}</span> · {_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
+    <span class="sub2"><span class="key">{_esc(s['human_key'] or '미정')}</span> · {_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
     <a class="btn" href="/report/{_esc(human_key)}" target="_blank">화면 전체 A4</a>
   </header>
   <div class="wrap">
@@ -298,19 +305,23 @@ def render_screen(human_key: str):
       </table>
     </section>
   </div>
-  <footer>화면 종합 Pass/Fail = 페이지 중 하나라도 FAIL이면 FAIL · 원본 = SQLite(DB)</footer>
+  <footer>화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
-def render_page(page_uuid: str, sel_round=None):
+def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
     conn = dbmod.connect(REAL_DB)
     pg = queries.get_page(conn, page_uuid)
     if pg is None:
         conn.close()
         return None
     page, s = pg["page"], pg["screen"]
-    human_key = s["human_key"]
+    linked = intake().page_link(page_uuid)
+    if linked and linked['status'] != 'confirmed':
+        conn.close()
+        return intake_http.ui.connect_page(intake(),linked['batch_id'],linked['id'], '변경한 디자인과 짝을 다시 확인해 주세요.')
+    human_key = s["human_key"] or s["uuid"]
     all_issues = queries.issues_of_page(conn, page_uuid)      # 전체(번호 고정용)
     persons = queries.list_persons(conn, active_only=True)
     roster = queries.roster_names(conn)
@@ -329,6 +340,7 @@ def render_page(page_uuid: str, sel_round=None):
     issues = [i for i in all_issues if st[i["uuid"]] is not None]
     unresolved = [i for i in issues if st[i["uuid"]] in UNRESOLVED_STATUSES]
     resolved = [i for i in issues if st[i["uuid"]] in CLOSED_STATUSES]
+    waiting = [i for i in issues if st[i['uuid']] not in UNRESOLVED_STATUSES and st[i['uuid']] not in CLOSED_STATUSES]
 
     # 우측(개발) 핀 오버레이 — 핀은 '전체' 이슈(미해결+처리됨) 다 표시. 좌측 디자인엔 핀 없음.
     # 핀을 박스 '위쪽 바깥'에 둔다(내용 위를 안 덮게). 겹치면 위아래로 길게 밀지 말고 옆으로만.
@@ -361,7 +373,7 @@ def render_page(page_uuid: str, sel_round=None):
         c = _type_color(i["category"])        # 핀·박스 색 = 오류 유형색
         fd = " faded" if st[i["uuid"]] in CLOSED_STATUSES else ""   # 그 차수에 처리된 건 흐리게
         boxes += (
-            f'<g class="box{fd}" onclick="focusCard(\'{uid}\')">'
+            f'<g class="box{fd}" id="box-{uid}" onclick="focusCard(\'{uid}\')">'
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" style="fill:{c};stroke:{c}"/></g>'
         )
         if draw_leader:
@@ -439,7 +451,7 @@ def render_page(page_uuid: str, sel_round=None):
                 f"</form>"
             )
         else:
-            foot = '<div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>'
+            foot = '<div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>' if s_eff in CLOSED_STATUSES else '<div class="loc">확인·판단 대기 중 · 이력 유지</div>'
         return f"""<div class="issue {cls}" id="issue-{i['uuid']}" data-issue="{i['uuid']}" onclick="focusPin('{i['uuid']}')">
           <div class="ihead">
             <span class="pinno" style="background:{type_color}">{n}</span>
@@ -462,6 +474,10 @@ def render_page(page_uuid: str, sel_round=None):
     ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
     # (라벨, 색, 아이템들) 순서: 유형 탭들 + 처리됨 탭
     tab_defs = [(lbl, _type_color(gcat[lbl]), items) for lbl, items in ordered]
+    if not tab_defs:
+        tab_defs.append(("검수 내용", "#334155", []))
+    if waiting:
+        tab_defs.append(("보류·확인 대기", "#64748b", waiting))
     tab_defs.append(("처리됨", "#9ca3af", resolved))
 
     tabbar = panels = ""
@@ -495,21 +511,33 @@ def render_page(page_uuid: str, sel_round=None):
         pf_r = _pf_badge(sel_run["pass_fail"]) if sel_run else ""
         round_sel = f'<span class="rounds"><span class="rlbl">차수</span>{chips} {pf_r}</span>'
 
+    design_dialog = ''
+    if linked:
+        _, imported_items, _ = intake().batch(linked['batch_id'])
+        imported_item = next(r for r in imported_items if r['id']==linked['id'])
+        design_dialog = intake_http.ui.design_dialog(intake(),linked['batch_id'],imported_item)
+        if open_design:
+            design_dialog += '<script>document.getElementById("design-picker").showModal()</script>'
+    native_app = app_layout.is_app(s['platform'])
+    parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(page['name'])} — 페이지 상세</title>
-<style>{_PAGE_CSS}</style></head>
-<body>
+<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
+<body class="{'app-view' if native_app else 'web-view'}">
   <header>
-    <a class="back" href="/screen/{_esc(human_key)}">← 검수 페이지 목록</a>
+    <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
     <h1>{_esc(page['name'])}</h1>
-    <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(human_key)}</span></span>
+    <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
     {round_sel}
   </header>
   <div class="wrap">
     <div class="roster"><span class="lbl">담당자 명단</span>{roster_html}</div>
+    {('<p role="status">'+_esc(notice)+'</p>') if notice else ''}
+    {('<p style="font-size:13px;color:#657085">디자인: ' + _esc(linked['design_name']) + ' · <a href="' + _esc(linked['source_url']) + '" target="_blank" rel="noreferrer">Figma 원본 열기 ↗</a> · 가져온 시점 ' + _esc(linked['fetched_at']) + '</p>') if linked else ''}
 
+    {'<div class="app-workspace">' if native_app else ''}
     <div class="cols">
       <div class="pane">
         <h3>좌 · 디자인 (정답 모습 — 핀 없음) {_upl(human_key, page_uuid, "design")}</h3>
@@ -521,11 +549,14 @@ def render_page(page_uuid: str, sel_round=None):
       </div>
     </div>
 
+    {'<aside class="app-sidebar">' if native_app else ''}
     <div class="filters"><span class="hint">미해결은 유형 탭 · 처리된 건 '처리됨' 탭 · 핀 클릭 → 그 탭으로 이동 + 카드 강조</span></div>
     <div class="tabbar">{tabbar}</div>
     <div class="cards" id="cards">{issues_html}</div>
+    {'</aside></div>' if native_app else ''}
   </div>
-  <script>{_PAGE_JS}</script>
+  {design_dialog}
+  <script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>
 </body></html>"""
 
 
@@ -536,13 +567,18 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         unresolved_only = q.get("unresolved", ["0"])[0] == "1"
 
-        if path == "/":
+        if not self._local_host():
+            self.send_error(403)
+            return
+        if path.startswith('/intake'):
+            intake_http.get(self, intake(), path, q)
+        elif path == "/":
             round_filter = int(q["round"][0]) if "round" in q else None
             self._html(render_list(unresolved_only, round_filter))
         elif "/page/" in path and path.startswith("/screen/"):
             page_uuid = path.rsplit("/page/", 1)[1]
             rnd = int(q["round"][0]) if "round" in q else None
-            page = render_page(page_uuid, rnd)
+            page = render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
@@ -571,6 +607,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if not self._local_host():
+            self.send_error(403)
+            return
+        if path.startswith('/intake'):
+            intake_http.post(self, intake(), path)
+            return
         length = int(self.headers.get("Content-Length", 0))
         if path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
@@ -592,7 +634,11 @@ class Handler(BaseHTTPRequestHandler):
             data = _multipart_file(body, self.headers.get("Content-Type", ""))
             size = _png_size(data)                     # PNG만 허용(아니면 무시)
             if data and size and side in ("design", "dev"):
-                _save_upload(page_uuid, side, data, size, rnd)
+                try:
+                    _save_upload(page_uuid, side, data, size, rnd)
+                except ValueError as ex:
+                    self._html(self._nf(str(ex)), 400)
+                    return
             self.send_response(303)
             self.send_header("Location", path[:-len("/upload")])
             self.end_headers()
@@ -600,14 +646,20 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def _local_host(self):
+        return self.headers.get('Host', '') in (f'127.0.0.1:{PORT}', f'localhost:{PORT}')
+
     @staticmethod
     def _nf(msg):
         return f"<p style='font-family:sans-serif;padding:40px'>{_esc(msg)} <a href='/'>← 목록</a></p>"
 
     def _html(self, body, code=200):
-        data = body.encode("utf-8")
+        data = intake_http.decorate(body).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "same-origin")
         self.end_headers()
         self.wfile.write(data)
 
@@ -649,6 +701,15 @@ _LIST_CSS = """
   .num.zero { color:#12864e; }
   .empty { color:#6b7280; padding:30px; text-align:center; }
   footer { max-width:1040px; margin:0 auto; padding:0 28px; font-size:11px; color:#9ca3af; }
+"""
+
+_DIALOG_CSS = """
+  dialog{border:1px solid #e1e6ed;border-radius:12px;max-width:1040px;width:90vw;max-height:85vh;padding:22px;color:#1d2738;background:#f6f7f9;font-size:14px}
+  dialog::backdrop{background:#1d273870}dialog .dialog-head{display:flex;justify-content:space-between;align-items:center;position:sticky;top:-22px;background:#f6f7f9;padding:10px 0;z-index:2}
+  dialog .designs{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px}dialog .designs form,dialog .card{border:1px solid #e1e6ed;border-radius:8px;background:white;padding:12px;margin:12px 0}
+  dialog .designs img{width:100%;height:170px;object-fit:contain}dialog .designs p{font-size:12px;min-height:34px}dialog .row{display:flex;gap:10px;align-items:center}dialog label{display:block;margin:12px 0 6px}
+  dialog input:not([type=hidden]){border:1px solid #ccd4df;border-radius:7px;font:inherit;padding:9px;width:100%;box-sizing:border-box}dialog button{border:1px solid #ced5df;border-radius:8px;background:white;padding:9px 12px;font:inherit;cursor:pointer}
+  dialog small,dialog .muted{color:#657085}dialog details{margin:12px 0}dialog h2{font-size:17px}dialog button:disabled{opacity:.45}button.upl{font:inherit;border:1px solid #ced5df;border-radius:6px;background:white;padding:3px 8px;cursor:pointer}
 """
 
 _PAGE_CSS = """
@@ -789,6 +850,7 @@ function focusCard(uuid){
   if(panel){ showTab(panel.id.replace('panel-', '')); }
   c.classList.add('hl');
   _selPin(uuid);
+  if(window.qaCompareIssue) window.qaCompareIssue(uuid);
   _scrollBox(box, c.offsetTop - (box.clientHeight - c.offsetHeight) / 2);
 }
 // 통과 처리 제출 전 확인(사유 필수)
@@ -807,6 +869,7 @@ function focusPin(uuid){
   void p.getBoundingClientRect();
   p.classList.add('flash');
   _selPin(uuid);
+  if(window.qaCompareIssue) window.qaCompareIssue(uuid);
 }
 """
 
@@ -816,6 +879,7 @@ def main():
         raise SystemExit(
             f"{REAL_DB} 없음. 먼저: python load_fixture.py fixtures/tb-web-001.json mvp0-real.db"
         )
+    intake().init()
     srv = HTTPServer(("127.0.0.1", PORT), Handler)
     print(f"포털 실행 → http://127.0.0.1:{PORT}  (Ctrl+C 종료)")
     srv.serve_forever()
