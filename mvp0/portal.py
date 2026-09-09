@@ -15,6 +15,7 @@ import html
 import os
 import intake_store
 import intake_http
+import design_plan_http
 import issue_categories
 import app_layout
 import comparison_view
@@ -80,7 +81,7 @@ def _upl(human_key, page_uuid, side, rnd=None):
     linked = intake().page_link(page_uuid)
     if linked:
         if side == 'design':
-            return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">Figma 연결·변경</button>'
+            return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">다른 시안으로 변경</button>'
         return '<span class="upl">촬영 원본 보관됨</span>'
     q = f"?side={side}" + (f"&round={rnd}" if rnd is not None else "")
     action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
@@ -113,7 +114,9 @@ def _status_at(history, rnd):
 def _save_upload(page_uuid, side, data, size, rnd=1):
     """PNG를 로컬 저장하고 경로만 DB에 기록. dev면 '그 차수(run)'에 저장 + 원본 크기 기록 +
     기준높이(coord_ref_h)를 이미지 비율로 산출(coord_ref_w=1920 고정) → 배율 무관 정렬."""
-    if intake().page_link(page_uuid):
+    with intake().connect() as check_conn:
+        planned = check_conn.execute("SELECT 1 FROM sqlite_master WHERE name='design_case'").fetchone() and check_conn.execute('SELECT 1 FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
+    if intake().page_link(page_uuid) or planned:
         raise ValueError('접수한 이미지는 연결 화면에서 변경해 주세요. 원본을 덮어쓰지 않습니다.')
     UPLOADS.mkdir(exist_ok=True)
     conn = dbmod.connect(REAL_DB)
@@ -226,7 +229,7 @@ def render_list(unresolved_only: bool, round_filter):
           <table>
             <thead><tr>
               <th>화면명</th><th>스토리보드 ID</th><th>플랫폼</th>
-              <th class="ctr">검수 페이지</th><th class="ctr">디자인 연결</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
+              <th class="ctr">검수 페이지</th><th class="ctr">촬영·짝 확인</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
             </tr></thead>
             <tbody>{trs}</tbody>
           </table>
@@ -241,7 +244,7 @@ def render_list(unresolved_only: bool, round_filter):
   <header>
     <h1>검수 포털 <span class="muted" style="font-weight:400;font-size:13px;">· 화면 목록</span></h1>
     <div class="sub">화면을 선택하면 검수 페이지를 볼 수 있습니다.</div>
-    <div style="display:flex;gap:10px;justify-content:flex-end"><a class="btn" href="/intake">가져온 기록</a><a class="btn" style="margin-left:0;background:#245be5;color:white;border-color:#245be5" href="/intake/new">촬영본 가져오기</a></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><a class="btn" href="/intake">가져온 기록</a><a class="btn" style="margin-left:0;background:#245be5;color:white;border-color:#245be5" href="/intake/new">촬영본 가져오기</a> <a class="btn" href="/design/new">디자인부터 검수 준비</a></div>
   </header>
   <div class="wrap">
     <div class="filters"><span class="lbl">보기</span> {un_filters}</div>
@@ -255,7 +258,7 @@ def render_list(unresolved_only: bool, round_filter):
 def render_screen(human_key: str):
     for group in intake().screen_groups():
         if human_key in group['screen_ids']:
-            return intake_http.ui.page_list(intake(),group['batch_id'],group['item_id'])
+            return design_plan_http.ui.listing(intake(),group['href'].split('/')[-1]) if group['href'].startswith('/design/') else intake_http.ui.page_list(intake(),group['batch_id'],group['item_id'])
     conn = dbmod.connect(REAL_DB)
     scr = queries.get_screen(conn, human_key)
     if scr is None:
@@ -310,24 +313,46 @@ def render_screen(human_key: str):
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
-def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
-    conn = dbmod.connect(REAL_DB)
-    pg = queries.get_page(conn, page_uuid)
-    if pg is None:
-        conn.close()
-        return None
-    page, s = pg["page"], pg["screen"]
-    linked = intake().page_link(page_uuid)
-    if linked and linked['status'] != 'confirmed':
-        conn.close()
-        return intake_http.ui.connect_page(intake(),linked['batch_id'],linked['id'], '변경한 디자인과 짝을 다시 확인해 주세요.')
-    human_key = s["human_key"] or s["uuid"]
-    all_issues = queries.issues_of_page(conn, page_uuid)      # 전체(번호 고정용)
+def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *, draft=None, store=None, workflow=None):
+    store = store or intake()
+    conn = dbmod.connect(store.database)
+    if draft:
+        batch, item = draft
+        page = {'uuid': item['id'], 'name': item['state_name'], 'design_img': item['design_file']}
+        s = {'uuid': batch['id'], 'human_key': '', 'name': item['screen_name'], 'platform': batch['platform']}
+        linked = item
+        all_issues, hist_by_issue, runs = [], {}, []
+    else:
+        pg = queries.get_page(conn, page_uuid)
+        if pg is None:
+            conn.close()
+            return None
+        page, s = dict(pg['page']), pg['screen']
+        linked = store.page_link(page_uuid)
+        all_issues = queries.issues_of_page(conn, page_uuid)
+        hist_by_issue = {i['uuid']: queries.history_of_issue(conn, i['uuid']) for i in all_issues}
+        runs = queries.runs_of_page(conn, page_uuid)
     persons = queries.list_persons(conn, active_only=True)
     roster = queries.roster_names(conn)
-    hist_by_issue = {i["uuid"]: queries.history_of_issue(conn, i["uuid"]) for i in all_issues}
-    runs = queries.runs_of_page(conn, page_uuid)
     conn.close()
+    if workflow:
+        linked = workflow['row']
+        page['design_img'] = linked['design_file']
+    imported_item = workflow['row'] if workflow else None
+    if linked and not workflow:
+        _, imported_items, _ = store.batch(linked['batch_id'])
+        imported_item = next(r for r in imported_items if r['id'] == linked['id'])
+        page['design_img'] = imported_item['design_file']
+    human_key = s['human_key'] or s['uuid']
+    def upload_control(side):
+        if workflow:
+            if side=='design':return '<span class="upl">디자인 원본 기준</span>'
+            return '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button>'
+        if linked:
+            if side == 'design':
+                return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">'+('다른 시안으로 변경' if imported_item['design_id'] else 'Figma 연결')+'</button>'
+            return '<span class="upl">촬영 원본 보관됨</span>'
+        return _upl(human_key, page_uuid, side, sel if side == 'dev' else None)
 
     # 차수 선택: ?round=N (없으면 최신). 그 차수 시점의 상태로 화면을 구성한다.
     rounds = [r["round"] for r in runs]
@@ -388,10 +413,10 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
             f"</g></g></g>"
         )
     # 개발 이미지·기준크기는 '선택한 차수(run)'에서 가져온다. 디자인은 page(차수 공통).
-    dev_img = sel_run["dev_img"] if sel_run else None
+    dev_img = sel_run["dev_img"] if sel_run else (imported_item["filename"] if imported_item else None)
     design_img = page["design_img"]
-    vb_w = (sel_run["coord_ref_w"] if sel_run else None) or 1920
-    vb_h = (sel_run["coord_ref_h"] if sel_run else None) or 1080
+    vb_w = (sel_run["coord_ref_w"] if sel_run else None) or (imported_item["width"] if imported_item else None) or 1920
+    vb_h = (sel_run["coord_ref_h"] if sel_run else None) or (imported_item["height"] if imported_item else None) or 1080
     # 고정 틀(canvas) 안에 이미지도 오버레이도 같은 'meet'로 비율 맞춤 → 틀이 안 흔들리고 핀 정렬 유지.
     # (coord_ref 비율 = 이미지 비율이라, object-fit:contain과 SVG meet가 같은 자리에 레터박스됨.)
     overlay = (
@@ -406,11 +431,11 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
     if design_img:
         left_body = f'<img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인">'
     else:
-        left_body = '<span class="ph">디자인 이미지 자리표시</span>'
+        left_body = '<span class="ph">Figma 디자인을 연결해 주세요.</span>'
     if dev_img:
         right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}'
     else:
-        right_body = f'<span class="ph">개발 이미지 자리표시</span>{overlay}'
+        right_body = f'<span class="ph">{"TC에 맞는 개발 화면을 촬영해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
 
     person_options = "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons)
 
@@ -493,6 +518,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
             f'<div class="grid">{cards}</div></div>'
         )
     issues_html = panels
+    if not all_issues and linked and linked['status'] != 'confirmed':
+        issues_html = '<p class="empty">아직 등록된 검수 내용이 없습니다. 시안을 연결하고 짝을 확인한 뒤 이곳에서 검수를 이어갑니다.</p>'
 
     roster_html = "".join(
         f'<span class="person">{_esc(p["name"])}'
@@ -512,14 +539,35 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
         round_sel = f'<span class="rounds"><span class="rlbl">차수</span>{chips} {pf_r}</span>'
 
     design_dialog = ''
-    if linked:
-        _, imported_items, _ = intake().batch(linked['batch_id'])
-        imported_item = next(r for r in imported_items if r['id']==linked['id'])
-        design_dialog = intake_http.ui.design_dialog(intake(),linked['batch_id'],imported_item)
+    connection_controls = ''
+    if linked and not workflow:
+        ui = intake_http.ui
+        design_dialog = ui.design_dialog(store,linked['batch_id'],imported_item)
+        recommendation = store.recommendation(linked['id']) if linked['status']=='pending' else ''
+        label = '추천 연결 · 확인 대기' if recommendation else ui.STATUS[linked['status']]
+        connection_controls = '<div class="connection-controls"><span class="chip">'+_esc(label)+'</span>'
+        controls = ui.hidden('item',linked['id']) + ui.hidden('revision',linked['revision'])
+        if linked['status'] == 'pending':
+            connection_controls += ui.form('/intake/'+linked['batch_id']+'/confirm', controls+'<button>이 짝으로 확인</button>')
+            connection_controls += '<span>두 이미지가 같은 상태인지 확인하세요. 확인 후에도 이 화면에서 이어집니다.</span>'
+        elif linked['status'] == 'unlinked':
+            connection_controls += '<span>왼쪽에서 Figma 시안을 연결해 주세요.</span>'
+        elif linked['status'] == 'confirmed' and not linked['page_id']:
+            connection_controls += ui.form('/intake/'+linked['batch_id']+'/start', controls+'<button>확인한 페이지 검수 열기</button>')
+        if linked['status'] in ('unlinked','pending','held','excluded'):
+            connection_controls += '<a href="/intake/'+linked['batch_id']+'">촬영본 관리·보류</a>'
+        if recommendation:
+            connection_controls += '<span class="recommendation-note">'+_esc(recommendation)+'</span>'
+        connection_controls += '</div>'
         if open_design:
             design_dialog += '<script>document.getElementById("design-picker").showModal()</script>'
+    if workflow:
+        design_dialog=workflow['dialog']
+        connection_controls=workflow['controls']
+        issues_html=workflow['sidebar']+issues_html.replace('시안을 연결하고 짝을 확인한 뒤','TC에 맞는 캡처를 등록하고 짝을 확인한 뒤')
     native_app = app_layout.is_app(s['platform'])
     parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
+    if workflow:parent_href=workflow["parent"]
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -530,21 +578,22 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice=""):
     <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
     <h1>{_esc(page['name'])}</h1>
     <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
-    {round_sel}
+    {round_sel or '<span class="rounds"><span class="pf">미검수</span></span>'}
+    {workflow.get("navigation", "") if workflow else ""}
   </header>
   <div class="wrap">
     <div class="roster"><span class="lbl">담당자 명단</span>{roster_html}</div>
     {('<p role="status">'+_esc(notice)+'</p>') if notice else ''}
-    {('<p style="font-size:13px;color:#657085">디자인: ' + _esc(linked['design_name']) + ' · <a href="' + _esc(linked['source_url']) + '" target="_blank" rel="noreferrer">Figma 원본 열기 ↗</a> · 가져온 시점 ' + _esc(linked['fetched_at']) + '</p>') if linked else ''}
 
+    {connection_controls if not workflow else ""}
     {'<div class="app-workspace">' if native_app else ''}
     <div class="cols">
       <div class="pane">
-        <h3>좌 · 디자인 (정답 모습 — 핀 없음) {_upl(human_key, page_uuid, "design")}</h3>
+        <h3>좌 · 디자인 (정답 모습 — 핀 없음) {upload_control('design')}</h3>
         <div class="canvas">{left_body}</div>
       </div>
       <div class="pane">
-        <h3>우 · 개발 ({sel}차 · 핀 = 발견 위치) {_upl(human_key, page_uuid, "dev", sel)}</h3>
+        <h3>우 · 개발 ({str(sel)+"차 · 핀 = 발견 위치" if runs else "촬영본 · 미검수"}) {upload_control('dev')}</h3>
         <div class="canvas">{right_body}</div>
       </div>
     </div>
@@ -570,7 +619,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._local_host():
             self.send_error(403)
             return
-        if path.startswith('/intake'):
+        if path.startswith('/design'):
+            design_plan_http.get(self, intake(), path)
+        elif path.startswith('/intake'):
             intake_http.get(self, intake(), path, q)
         elif path == "/":
             round_filter = int(q["round"][0]) if "round" in q else None
@@ -578,7 +629,11 @@ class Handler(BaseHTTPRequestHandler):
         elif "/page/" in path and path.startswith("/screen/"):
             page_uuid = path.rsplit("/page/", 1)[1]
             rnd = int(q["round"][0]) if "round" in q else None
-            page = render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
+            from design_plan import Plans
+            case_ref=None
+            with intake().connect() as c:
+                case_ref=c.execute('SELECT plan_id,id FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
+            page = design_plan_http.ui.detail(intake(),case_ref['plan_id'],case_ref['id'],q.get('notice',[''])[0],rnd) if case_ref else render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
@@ -609,6 +664,9 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if not self._local_host():
             self.send_error(403)
+            return
+        if path.startswith('/design'):
+            design_plan_http.post(self, intake(), path)
             return
         if path.startswith('/intake'):
             intake_http.post(self, intake(), path)
@@ -718,6 +776,10 @@ _PAGE_CSS = """
   /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
   header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
+  .page-navigation {width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#6b7280;}
+  .page-step {display:inline-block;padding:7px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;text-decoration:none;font-size:13px;}
+  .page-step:hover {background:#f3f4f6;}
+  .page-step.disabled {opacity:.4;}
   header .back { text-decoration:none; color:#6b7280; font-size:13px; }
   header h1 { font-size:16px; margin:0; }
   header .meta { font-size:12px; color:#6b7280; }
@@ -729,6 +791,23 @@ _PAGE_CSS = """
   .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
   .rchip.on { background:#111827; color:#fff; border-color:#111827; }
   .rnd { font-size:10px; font-weight:700; color:#3730a3; background:#eef2ff; border-radius:5px; padding:1px 5px; margin-right:2px; }
+  #capture-picker{width:94vw;max-width:1400px;max-height:94vh;overflow:auto;border:1px solid #ddd;border-radius:12px;padding:18px;background:#f6f7f9}.capture-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.capture-pair img{width:100%;height:50vh;object-fit:contain;background:white}.capture-options{max-height:140px;overflow:auto;display:flex;flex-wrap:wrap;gap:10px}.cap-option{padding:10px;border:1px solid #ddd;background:white;border-radius:8px}.cards textarea{display:block;box-sizing:border-box;width:100%;min-height:70px;border:1px solid #ddd;padding:8px}.cards details{margin:12px 0}.cards button{padding:7px 12px;border:1px solid #ddd;border-radius:7px;background:white;cursor:pointer}.cards label{display:block;margin:8px 0}
+  #capture-picker{box-sizing:border-box;padding:16px;width:calc(100vw - 32px);height:min(900px,94dvh);max-height:94dvh;overflow:hidden;}
+  #capture-picker[open]{display:flex;flex-direction:column;gap:10px;}
+  #capture-picker .dialog-head{position:static;flex:none;padding:0;gap:12px;}
+  #capture-picker h2,#capture-picker h3,#capture-picker p{margin:0;}
+  #capture-picker .capture-pair{flex:1;min-height:120px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  #capture-picker .capture-pair section{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;}
+  #capture-picker .capture-pair img{height:0;flex:1;min-height:0;width:100%;object-fit:contain;}
+  #capture-picker form{flex:none;margin:0;display:flex;flex-direction:column;gap:10px;min-height:0;}
+  #capture-picker .capture-options{display:flex;flex-wrap:nowrap;max-height:100px;overflow:auto;gap:8px;padding:4px 0;}
+  #capture-picker .cap-option{display:flex;align-items:center;gap:6px;flex:none;margin:0;padding:9px;max-width:220px;}
+  #capture-picker input[type=radio]{width:auto;flex:none;margin:0;padding:0;}
+  #capture-picker .rank{font-size:11px;color:#657085;white-space:nowrap;}
+  #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end;}
+  .capture-suggestion{font-size:12px;color:#657085;margin:4px 12px;}
+
+  .connection-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#657085;margin-bottom:10px;flex-shrink:0}.connection-controls form{margin:0}.connection-controls button{font:inherit;border:1px solid #d1d5db;border-radius:8px;padding:6px 12px;background:white;cursor:pointer}
   .wrap { flex:1; min-height:0; display:flex; flex-direction:column; width:100%; padding:14px 24px 0; }
   .roster { font-size:12px; color:#374151; margin-bottom:10px; flex-shrink:0; }
   .roster .lbl { color:#6b7280; margin-right:8px; }

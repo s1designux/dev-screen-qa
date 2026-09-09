@@ -120,6 +120,8 @@ class Store:
         with self.connect() as c:
             db.init_schema(c)
             c.executescript(SCHEMA)
+            from design_plan import SCHEMA as PLAN_SCHEMA
+            c.executescript(PLAN_SCHEMA)
 
     def event(self, c, batch, item, action, detail, actor='로컬 사용자'):
         c.execute('INSERT INTO intake_event VALUES (?,?,?,?,?,?,?)',
@@ -289,10 +291,12 @@ class Store:
                     seen.add(key)
             return out
 
-    def select_design(self,item,revision,design):
+    def select_design(self,item,revision,design, recommendation=None):
         with self.connect() as c:
             r=c.execute('SELECT * FROM intake_item WHERE id=?',(item,)).fetchone()
             self.check(r,revision)
+            if recommendation is not None and (r['status'] != 'unlinked' or r['design_id']):
+                raise ValueError('이미 선택한 시안은 추천으로 덮어쓰지 않습니다.')
             if r['status'] in ('held','excluded') or not r['asset_id']:
                 raise ValueError('연결 대상인 정상 촬영본만 디자인을 선택할 수 있습니다.')
             if r['page_id'] and c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():
@@ -300,7 +304,12 @@ class Store:
             if not c.execute('SELECT 1 FROM intake_design WHERE id=?',(design,)).fetchone():
                 raise ValueError('디자인을 다시 선택해 주세요.')
             c.execute("UPDATE intake_item SET design_id=?,status='pending',revision=revision+1 WHERE id=?",(design,item))
-            self.event(c,r['batch_id'],item,'디자인 선택',{'이전 디자인':r['design_id'],'새 디자인':design})
+            self.event(c,r['batch_id'],item,'추천 연결' if recommendation is not None else '디자인 선택',{'이전 디자인':r['design_id'],'새 디자인':design, '추천 사유': recommendation})
+
+    def recommendation(self,item):
+        with self.connect() as c:
+            event=c.execute("SELECT action,detail FROM intake_event WHERE item_id=? AND action IN ('추천 연결','디자인 선택') ORDER BY rowid DESC LIMIT 1",(item,)).fetchone()
+            return json.loads(event['detail']).get('추천 사유','') if event and event['action']=='추천 연결' else ''
 
     def confirm(self,item,revision):
         with self.connect() as c:
@@ -393,6 +402,24 @@ class Store:
                 group.update(page_count=page_count,confirmed=confirmed,unresolved=unresolved,total=total,pass_fail=pf,
                     href=f"/intake/{group['batch_id']}/screen/{group['item_id']}")
                 out.append(group)
+            from design_plan import Plans
+            plans=Plans(self)
+            planned=plans.plans()
+            covered={p['batch_id'] for p in planned}
+            out=[g for g in out if g['batch_id'] not in covered]
+            for p in planned:
+                _,cases=plans.get(p['id'])
+                prior_ids={x['screen_id'] for x in c.execute('SELECT DISTINCT ip.screen_id FROM inspection_page ip JOIN intake_item i ON i.page_id=ip.uuid WHERE i.batch_id=?',(p['batch_id'],))}
+                if p['screen_id']:prior_ids.add(p['screen_id'])
+                total=unresolved=0;results=[]
+                for t in cases:
+                    if t['page_id']:
+                        pg=c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?',(t['page_id'],)).fetchone()
+                        info=next(x for x in queries.pages_of_screen(c,pg['screen_id']) if x['uuid']==t['page_id'])
+                        total+=info['total'];unresolved+=info['unresolved'];results.append(info['pass_fail'])
+                count=len(cases);confirmed=sum(t['status']=='confirmed' for t in cases)
+                pf='fail' if 'fail' in results else ('pass' if len(results)==count and confirmed==count and all(x=='pass' for x in results) else None)
+                out.append(dict(batch_id=p['batch_id'],item_id='',name=p['name'],project_name=p['project_name'],project_id=p['project_id'],platform=p['platform'],created_at=p['created_at'],screen_ids=prior_ids,page_count=count,confirmed=confirmed,unresolved=unresolved,total=total,pass_fail=pf,href='/design/'+p['id']))
             return out
 
     def page_destination(self, item):

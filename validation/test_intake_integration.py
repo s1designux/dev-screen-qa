@@ -332,11 +332,11 @@ class Integration(unittest.TestCase):
         r=self.item(b); destination=self.s.page_destination(r['id'])
         h=Handler(b''); intake_http.get(h,self.s,f'/intake/{b}/connect',{'item':[r['id']]})
         self.assertEqual(h.code,303)
-        self.assertEqual(h.location,destination+'?designs=1')
+        self.assertEqual(h.location,destination)
         with patch.object(portal,'REAL_DB',self.s.database),patch.object(portal,'UPLOADS',self.s.uploads):
             body=portal.render_page(r['page_id'])
             self.assertIn('<dialog id="design-picker">',body)
-            self.assertIn('Figma 연결·변경</button>',body)
+            self.assertIn('다른 시안으로 변경</button>',body)
             self.assertIn('id="cards"',body)
             self.assertNotIn('아직 등록된 검수 내용이 없습니다.',body)
         with patch.object(figma_reader,'TOKEN',''),patch.object(figma_reader,'fetch',return_value=(['mock-id'],0)):
@@ -405,6 +405,107 @@ class Integration(unittest.TestCase):
         import subprocess
         result=subprocess.run(['node',str(Path(__file__).with_name('comparison_view_mock.js'))],input=comparison_view.JS,text=True,capture_output=True)
         self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_unified_renderer_draft_selection_registration_and_reselection(self):
+        import intake_ui
+        from urllib.parse import urlencode
+        b,_=self.batch(1); r=self.item(b)
+        with self.s.connect() as c: before=''.join(c.iterdump())
+        blank=intake_ui.connect_page(self.s,b,r['id'])
+        with self.s.connect() as c: self.assertEqual(''.join(c.iterdump()),before)
+        self.assertIn('Figma 디자인을 연결해 주세요.',blank)
+        styles=blank.split('<style>',1)[1].split('</style>',1)[0]
+        def check_shape(body):
+            self.assertEqual(body.split('<style>',1)[1].split('</style>',1)[0],styles)
+            for marker in ['class="cols"','id="cards"','class="tabbar"','<dialog id="design-picker">','window.qaCompareIssue']:
+                self.assertIn(marker,body)
+        check_shape(blank)
+        d=self.design(); self.s.select_design(r['id'],r['revision'],d)
+        chosen=intake_ui.connect_page(self.s,b,r['id']);check_shape(chosen)
+        self.assertIn('이 짝으로 확인',chosen)
+        self.assertIsNone(self.item(b)['page_id'])
+        r=self.item(b)
+        h=Handler(urlencode({'csrf':intake_http.CSRF,'item':r['id'],'revision':r['revision']}).encode())
+        intake_http.post(h,self.s,f'/intake/{b}/confirm');self.assertEqual(h.code,303)
+        r=self.item(b);page=r['page_id']
+        registered=portal.render_page(page,store=self.s);check_shape(registered)
+        self.assertNotIn('이 짝으로 확인',registered)
+        with self.s.connect() as c:
+            old=c.execute('SELECT design_img FROM inspection_page WHERE uuid=?',(page,)).fetchone()[0]
+        self.s.select_design(r['id'],r['revision'],self.design('9:9'))
+        with self.s.connect() as c: before=''.join(c.iterdump())
+        pending=portal.render_page(page,store=self.s);check_shape(pending)
+        self.assertIn('이 짝으로 확인',pending)
+        self.assertNotIn('src="/uploads/'+old,pending.split('<dialog')[0])
+        with self.s.connect() as c:
+            self.assertEqual(''.join(c.iterdump()),before)
+            self.assertEqual(c.execute('SELECT design_img FROM inspection_page WHERE uuid=?',(page,)).fetchone()[0],old)
+        r=self.item(b)
+        h=Handler(urlencode({'csrf':intake_http.CSRF,'item':r['id'],'revision':r['revision']}).encode())
+        intake_http.post(h,self.s,f'/intake/{b}/confirm');self.assertEqual(h.code,303)
+        self.assertEqual(self.item(b)['page_id'],page)
+        check_shape(portal.render_page(page,store=self.s))
+        with self.s.connect() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM inspection_page').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM inspection_issue').fetchone()[0],0)
+
+    def test_recommendation_pending_protected_and_user_override_history(self):
+        import intake_ui
+        b,_=self.batch(3); d=self.design(); r=self.item(b)
+        reason='<script>추천 사유</script>'
+        self.s.select_design(r['id'],r['revision'],d,recommendation=reason)
+        r=self.item(b)
+        self.assertEqual(r['status'],'pending');self.assertIsNone(r['page_id'])
+        self.assertEqual(self.s.recommendation(r['id']),reason)
+        with self.assertRaises(ValueError): self.s.start(b)
+        with self.assertRaises(ValueError): self.s.select_design(r['id'],r['revision'],d,recommendation='덮어쓰기')
+        body=intake_ui.connect_page(self.s,b,r['id'])
+        self.assertIn('추천 연결 · 확인 대기',body)
+        self.assertNotIn(reason,body)
+        self.assertIn('&lt;script&gt;추천 사유&lt;/script&gt;',body)
+        self.s.select_design(r['id'],r['revision'],self.design('7:7'))
+        self.assertEqual(self.s.recommendation(r['id']),'')
+        self.assertEqual(self.item(b)['status'],'pending')
+        self.assertIn('추천 연결',[e['action'] for e in self.s.batch(b)[2]])
+        for idx,status in [(1,'held'),(2,'excluded')]:
+            r=self.item(b,idx);self.s.edit_item(r['id'],r['revision'],'로그인',r['state_name'],status,'대기')
+            r=self.item(b,idx)
+            with self.assertRaises(ValueError): self.s.select_design(r['id'],r['revision'],d,recommendation='추천')
+        r=self.item(b);self.s.confirm(r['id'],r['revision']);r=self.item(b)
+        with self.assertRaises(ValueError): self.s.select_design(r['id'],r['revision'],d,recommendation='추천')
+
+    def test_picker_retains_current_snapshot_after_same_node_refresh(self):
+        import intake_ui,re
+        b,_=self.batch(1);old=self.design();self.select_confirm(b,0,old)
+        new=self.design()  # Same Figma node, newer snapshot must not replace current preview.
+        r=self.item(b);body=intake_ui.design_dialog(self.s,b,r)
+        radios=re.findall(r'<input type="radio"[^>]+>',body)
+        self.assertTrue(radios)
+        self.assertIn('value="'+old+'"',radios[0])
+        self.assertIn('checked',radios[0])
+        self.assertTrue(any('value="'+new+'"' in radio for radio in radios))
+        self.assertEqual(self.item(b)['design_id'],old)
+
+    def test_picker_radio_preview_has_no_submit_and_fixed_capture(self):
+        import intake_ui,re,subprocess
+        b,_=self.batch(1);self.design();r=self.item(b)
+        with self.s.connect() as c: before=''.join(c.iterdump())
+        body=intake_ui.design_dialog(self.s,b,r)
+        script=re.findall(r'<script>(.*?)</script>',body,re.S)[-1]
+        harness="""const vm=require('node:vm'),assert=require('node:assert/strict');let change,close,resetCount=0;
+const design={src:'old'},name={textContent:'old'},capture={src:'fixed'};
+const elements={'design-picker':{addEventListener(k,fn){if(k==='change')change=fn;else if(k==='close')close=fn},querySelector(q){if(q==='form')return {reset(){resetCount++}};return {dataset:{src:'old',name:'old'}}}},'pick-design-image':design,'pick-design-name':name};
+const context={document:{getElementById(id){return elements[id]}},fetch(){throw Error('network forbidden')}};
+vm.runInNewContext(SOURCE,context);
+change({target:{name:'design',dataset:{src:'new.png',name:'<img onerror=alert(1)>'}}});
+assert.equal(design.src,'new.png');assert.equal(name.textContent,'<img onerror=alert(1)>');assert.equal(capture.src,'fixed');
+close();assert.equal(resetCount,1);assert.equal(design.src,'old');assert.equal(name.textContent,'old');
+""".replace('SOURCE',json.dumps(script))
+        result=subprocess.run(['node','-e',harness],text=True,capture_output=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        with self.s.connect() as c:self.assertEqual(''.join(c.iterdump()),before)
+        self.assertIn('action="/intake/'+b+'/select"',body)
+        self.assertIn('/uploads/'+r['filename'],body)
 
     def test_html_escapes_user_names(self):
         import intake_ui

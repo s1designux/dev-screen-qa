@@ -3,8 +3,6 @@ import html
 import json
 from urllib.parse import quote
 import figma_reader
-import app_layout
-import comparison_view
 
 
 def e(v):
@@ -64,24 +62,7 @@ def batch_page(store,batch,notice='',error=False):
     return page('이름·상태 확인',f'''<p><a class="section-link" href="/">← 화면 목록</a></p><h1>{e(b['project_name'])}</h1><p class="sub">촬영본 {len(items)}장 · 짝 확인 {confirmed}장 · 제외 {excluded}장</p><p class="muted">{e(meta)}</p><section class="card"><div class="row spread"><h2>이름·상태 확인</h2><a class="button primary" href="/intake/{batch}/pages">검수 페이지 목록으로</a></div><p class="muted">이름과 대상을 수정했다면 해당 줄의 ‘변경 저장’을 눌러 주세요.</p>{rows}</section><details><summary>접수·연결 이력 ({len(events)}개, 최근 100개)</summary><ol class="history">{history}</ol></details>''',notice,error)
 
 
-# 색·글꼴·버튼·카드 스타일은 유지하고, 검수의 3단계 동선과 고정 비교 배치만 공통화.
-DETAIL_LAYOUT='''
-html,body{height:100%}body{display:flex;flex-direction:column;overflow:hidden}
-header{flex:none;padding:12px 24px;gap:14px;flex-wrap:wrap}header h1{font-size:16px;margin:0}
-header nav{margin-left:auto}.detail-meta{font-size:12px;color:#657085}
-main.detail{max-width:none;width:100%;flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 24px 0}
-.detail-toolbar{flex:none;min-height:26px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.detail .compare{height:46vh;min-height:180px;flex:none;gap:14px;margin:0 0 12px}
-.detail .pane{display:flex;flex-direction:column}.detail .pane h3{font-size:12px;padding:9px 14px;display:flex;align-items:center;gap:10px;flex:none}
-.detail .pane h3 button{margin-left:auto;padding:3px 9px;font-size:11px}.detail .canvas{height:auto;flex:1;min-height:0;padding:0}
-.detail .caption{flex:none;font-size:11px;padding:5px 12px}.review-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:none;margin:0 0 10px;font-size:12px}.review-actions p{margin:0;flex:1;color:#657085}
-.review-tabs{display:flex;gap:8px;flex:none;margin:2px 0 12px}.review-tabs .badge{border-radius:999px;padding:7px 15px}
-.review-scroll{flex:1;min-height:0;overflow-y:auto;padding-bottom:22px}.review-scroll .card{margin:0}
-.review-scroll h2{font-size:15px}.detail dialog{border:1px solid #e1e6ed;border-radius:12px;max-width:1040px;width:90vw;max-height:85vh;padding:22px;color:inherit;background:#f6f7f9}
-.detail dialog::backdrop{background:#1d273870}.dialog-head{position:sticky;top:-22px;background:#f6f7f9;z-index:1;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
-.detail dialog .card{margin:14px 0}.detail dialog .designs{grid-template-columns:repeat(auto-fill,minmax(155px,1fr))}
-@media(max-width:650px){main.detail{padding:10px 12px 0}.detail .compare{grid-template-columns:1fr 1fr;height:40vh;gap:8px}.review-actions{gap:6px}.detail-toolbar{font-size:11px}header nav{display:none}.detail .caption{font-size:10px}.detail .pane h3{padding:7px;font-size:11px}}
-'''
+
 
 
 def group_url(batch,item):
@@ -89,6 +70,11 @@ def group_url(batch,item):
 
 
 def page_list(store,batch,item_id='',notice='',error=False):
+    from design_plan import Plans
+    planned=next((p for p in Plans(store).plans() if p['batch_id']==batch),None)
+    if planned:
+        from design_plan_ui import listing
+        return listing(store,planned['id'],notice)
     b,items,_=store.batch(batch)
     if item_id and not any(r['id']==item_id for r in items):
         raise ValueError('이 화면의 검수 페이지를 선택해 주세요.')
@@ -115,35 +101,54 @@ def page_list(store,batch,item_id='',notice='',error=False):
 
 
 def connect_page(store,batch,item_id='',notice='',error=False):
-    b,items,_=store.batch(batch)
-    r=next((x for x in items if x['id']==item_id),None) or next((x for x in items if x['status']!='excluded'),None)
+    # One renderer for both unlinked captures and registered inspection pages.
+    import portal
+    b, items, _ = store.batch(batch)
+    r = next((x for x in items if x['id']==item_id),None) or next((x for x in items if x['status']!='excluded'),None)
     if r is None:
         return batch_page(store,batch,'연결 대상이 없습니다.',True)
-    if r['page_id'] and r['status']=='confirmed':
-        # Source management may open this view explicitly; the canonical destination is existing detail.
-        existing=f'<a class="button" href="{store.page_destination(r["id"])}">검수 내용으로 돌아가기</a>'
-    else:
-        existing=''
-    controls=hidden('item',r['id'])+hidden('revision',r['revision'])
-    dialog=design_dialog(store,batch,r)
-    design=f'<img src="/uploads/{r["design_file"]}" alt="선택한 디자인">' if r['design_file'] else '<div class="empty">이 페이지의 Figma 디자인을 연결해 주세요.</div>'
-    capture=f'<img src="/uploads/{r["filename"]}" alt="촬영본 {e(r["state_name"])}">' if r['filename'] else '<div class="empty">촬영 파일을 확인해 주세요.</div>'
-    origin=f'<a class="section-link" href="{e(r["source_url"])}" target="_blank" rel="noreferrer">Figma 원본 열기 ↗</a>' if r['source_url'] else ''
-    confirmation=form(f'/intake/{batch}/confirm',controls+f'<button class="primary" {"disabled" if r["status"]!="pending" else ""}>짝 확인하고 검수로</button>')
-    if r['status']=='confirmed' and not r['page_id']:
-        confirmation=form(f'/intake/{batch}/start',hidden('item',r['id'])+'<button class="primary">확인한 페이지 검수 열기</button>')
-    banner=f'<div class="notice {"error" if error else ""}" role="status">{e(notice)}</div>' if notice else ''
-    hold=form(f'/intake/{batch}/edit',controls+hidden('screen',r['screen_name'])+hidden('state',r['state_name'])+hidden('status','held')+'<label>보류 사유<input name="reason" placeholder="예: 대응하는 시안이 없음" required maxlength="1000"></label><button>보류</button>') if not r['page_id'] else ''
-    native_app=app_layout.is_app(b['platform'])
-    return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(r['state_name'])} — 검수 상세</title><style>{CSS}{DETAIL_LAYOUT}{comparison_view.CSS}{app_layout.CSS if native_app else ""}</style></head><body class="{'app-view' if native_app else 'web-view'}"><header><a class="section-link" href="{group_url(batch,r['id'])}">← 검수 페이지 목록</a><h1>{e(r['state_name'])}</h1><span class="detail-meta">{e(r['screen_name'])} · 공식 번호 미정</span><nav><span class="badge">미검수</span></nav></header><main class="detail"><div class="detail-toolbar"><span>디자인 연결</span><span class="badge {r['status']}">{e(STATUS[r['status']])}</span><span class="muted">짝 확인과 검수 판정은 별개입니다.</span>{existing}</div>{'<div class="app-workspace">' if native_app else ''}<div class="compare"><section class="pane"><h3>좌 · 디자인<button type="button" onclick="document.getElementById('design-picker').showModal()">Figma 연결·변경</button></h3><div class="canvas">{design}</div><div class="caption">{e(r['design_name'] or '디자인 미연결')} {origin}</div></section><section class="pane"><h3>우 · 개발 촬영본</h3><div class="canvas">{capture}</div><div class="caption">{e(r['source_name'])} · {r['width'] or '—'} × {r['height'] or '—'} · 원본 전체</div></section></div>{'<aside class="app-sidebar">' if native_app else ''}<div class="review-actions"><p>시안과 촬영본이 같은 상태인지 확인하세요.</p>{confirmation}<a class="button" href="/intake/{batch}">촬영본 관리</a></div><div class="review-tabs"><span class="badge">검수 내용 0</span></div><section class="review-scroll">{banner}{f'<div class="notice error">{e(r["error"])}</div>' if r['error'] else ''}<div class="card"><h2>아직 등록된 검수 내용이 없습니다.</h2><p class="muted">짝 확인 후에도 미검수로 시작합니다. 확인된 지적은 이 영역에서 번호·분류·이력으로 관리합니다.</p>{('<details><summary>대응하는 시안이 없나요? 보류하기</summary>'+hold+'</details>') if hold else ''}</div></section>{'</aside></div>' if native_app else ''}{dialog}</main><script>{comparison_view.JS}</script></body></html>'''
+    message = notice or r['error']
+    if r['page_id']:
+        return portal.render_page(r['page_id'],notice=message,store=store)
+    return portal.render_page(r['id'],notice=message,draft=(b,r),store=store)
 
 
 def design_dialog(store,batch,r):
+    available=list(store.designs())
+    if r['design_id'] and not any(d['id']==r['design_id'] for d in available):
+        with store.connect() as conn:
+            current=conn.execute('SELECT d.*,a.filename FROM intake_design d JOIN intake_asset a ON a.id=d.asset_id WHERE d.id=?',(r['design_id'],)).fetchone()
+        if current:
+            available.insert(0,current)
+    designs=sorted(available,key=lambda d:(d['id']!=r['design_id'], -sum(word in d['name'] for word in r['screen_name'].split()),d['name']))
+    chosen=next((d for d in designs if d['id']==r['design_id']),None) or (designs[0] if designs else None)
     controls=hidden('item',r['id'])+hidden('revision',r['revision'])
-    cards=''
-    for d in sorted(store.designs(),key=lambda d:d['name']):
-        cards+=form(f'/intake/{batch}/select',controls+hidden('design',d['id'])+f'<img src="/uploads/{d["filename"]}" alt="{e(d["name"])}"><p>{e(d["name"])}</p><small>{e(d["fetched_at"][:10])}에 가져온 시안</small><p><button {"disabled" if r["status"] in ("held","excluded") or not r["asset_id"] else ""}>이 디자인 선택</button></p>')
+    options=''
+    for d in designs:
+        checked=d['id']==(chosen['id'] if chosen else '')
+        options+=f'<label class="pick-option"><input type="radio" name="design" value="{e(d["id"])}" data-src="/uploads/{e(d["filename"])}" data-name="{e(d["name"])}" {"checked" if checked else ""}><span>{e(d["name"])}{ " · 현재 선택" if d["id"]==r["design_id"] else ""}</span></label>'
+    design_image=f'<img id="pick-design-image" src="/uploads/{e(chosen["filename"])}" alt="비교할 디자인">' if chosen else '<p>가져온 시안이 없습니다.</p>'
+    capture=f'<img src="/uploads/{e(r["filename"])}" alt="개발 촬영본 {e(r["state_name"])}">' if r['filename'] else '<p>촬영본 없음</p>'
+    reason=store.recommendation(r['id']) if r['status']=='pending' else ''
+    comparison=f'<div class="pick-layout"><div class="pick-pair"><section><h3>디자인</h3><div class="pick-image">{design_image}</div><p id="pick-design-name">{e(chosen["name"] if chosen else "")}</p></section><section><h3>개발 · {e(r["state_name"])}</h3><div class="pick-image">{capture}</div><p>촬영 원본</p></section></div><aside class="pick-list"><b>다른 시안 둘러보기</b><p>현재 선택을 먼저 표시합니다.</p>{options}</aside></div>'
+    body=controls+comparison+f'<div class="pick-footer"><span>시안을 눌러 대조한 뒤 적용하세요. 짝 확정은 상세에서 합니다.</span><button {"disabled" if not chosen or r["status"] in ("held","excluded") or not r["asset_id"] else ""}>이 디자인 선택</button></div>'
     linkform=form(f'/intake/{batch}/fetch',hidden('item',r['id'])+'<label for="figma-link">Figma 프레임 또는 페이지 링크</label><div class="row"><input style="flex:1" type="url" id="figma-link" name="link" placeholder="https://www.figma.com/design/…" required><button>디자인 불러오기</button></div>')
-    setting=form(f'/intake/{batch}/token',hidden('item',r['id'])+'<label>Figma 읽기 연결 키<input type="password" name="token" autocomplete="off" required></label><p class="muted">파일 읽기 권한으로 만든 개인 연결 키를 이 실행 중에만 보관합니다. 종료하면 지웁니다.</p><button>이 실행에 연결</button>')
-    dialog=f'''<dialog id="design-picker"><div class="dialog-head"><h2>Figma 디자인 연결</h2><button type="button" onclick="document.getElementById('design-picker').close()">닫기</button></div><p class="muted">이 검수 페이지에 대응하는 시안을 선택하세요. 선택 후 좌우 짝을 확인합니다.</p><section class="card">{linkform}<details><summary>Figma 읽기 연결 설정 · {'연결 키 있음' if figma_reader.TOKEN else '설정 필요'}</summary>{setting}</details></section><div class="designs">{cards or '<p>아직 가져온 시안이 없습니다.</p>'}</div></dialog>'''
-    return dialog
+    setting=form(f'/intake/{batch}/token',hidden('item',r['id'])+'<label>Figma 읽기 연결 키<input type="password" name="token" autocomplete="off" required></label><p class="muted">이 실행 중에만 보관합니다.</p><button>이 실행에 연결</button>')
+    return f'''<dialog id="design-picker"><style>
+#design-picker{{width:96vw;max-width:1500px;height:92vh;max-height:92vh;box-sizing:border-box;padding:18px;overflow:auto;background:#f6f7f9}}
+#design-picker .dialog-head{{display:flex;align-items:center;justify-content:space-between;gap:12px}}#design-picker h2{{margin:0;font-size:17px}}
+#design-picker .pick-layout{{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:16px;height:60vh;min-height:300px}}
+#design-picker .pick-pair{{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;min-width:0}}
+#design-picker .pick-pair section{{display:flex;flex-direction:column;min-height:0;min-width:0;background:white;border:1px solid #e1e6ed;border-radius:10px;overflow:hidden}}
+#design-picker .pick-pair h3,#design-picker .pick-pair p{{padding:8px 12px;margin:0;font-size:12px;flex:none}}
+#design-picker .pick-image{{flex:1;min-height:0;display:flex;justify-content:center;background:#f0f2f5}}
+#design-picker .pick-image img{{width:100%;height:100%;object-fit:contain}}
+#design-picker .pick-list{{overflow-y:auto;min-height:0;font-size:12px}}#design-picker .pick-list p{{color:#657085}}
+#design-picker label.pick-option{{display:flex;align-items:center;gap:8px;padding:10px;background:white;border:1px solid #e1e6ed;border-radius:8px;margin:7px 0;cursor:pointer}}
+#design-picker .pick-option:has(input:checked){{border-color:#2563eb;background:#eff6ff}}#design-picker input[type=radio]{{width:auto;flex:none}}
+#design-picker .pick-footer{{position:sticky;bottom:-18px;background:#f6f7f9;padding:10px 0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px}}
+#design-picker .pick-footer button{{background:#111827;color:white}}#design-picker .pick-note{{font-size:12px;color:#657085;margin:10px 0}}
+@media(max-width:900px){{#design-picker .pick-layout{{grid-template-columns:1fr;height:auto}}#design-picker .pick-pair{{height:50vh}}#design-picker .pick-list{{max-height:110px}}}}
+</style><div class="dialog-head"><h2>디자인·개발 대조</h2><button type="button" onclick="document.getElementById('design-picker').close()">닫기</button></div><p class="pick-note">{"초기 추천 이유: "+e(reason) if reason else "디자인을 바꿔도 개발 촬영본은 고정됩니다."}</p>{form(f'/intake/{batch}/select',body)}<details><summary>목록에 없는 Figma 시안 가져오기</summary>{linkform}<details><summary>Figma 읽기 연결 설정</summary>{setting}</details></details></dialog><script>
+(function(){{const picker=document.getElementById('design-picker');picker.addEventListener('close',function(){{const form=picker.querySelector('form');if(form)form.reset();const radio=picker.querySelector('input[name=design]:checked');if(radio){{const img=document.getElementById('pick-design-image');if(img)img.src=radio.dataset.src;document.getElementById('pick-design-name').textContent=radio.dataset.name;}}}});picker.addEventListener('change',function(event){{const radio=event.target;if(radio.name!=='design')return;const img=document.getElementById('pick-design-image');if(img)img.src=radio.dataset.src;document.getElementById('pick-design-name').textContent=radio.dataset.name;}});}})();
+</script>'''

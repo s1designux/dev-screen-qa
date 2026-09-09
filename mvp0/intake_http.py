@@ -59,6 +59,11 @@ def get(handler,store,path,q):
             elif path.endswith('/pages'):
                 body=ui.page_list(store,batch)
             elif path.endswith('/connect'):
+                from design_plan import Plans
+                planned=next((p for p in Plans(store).plans() if p['batch_id']==batch),None)
+                if planned:
+                    redirect(handler,'/design/'+planned['id'])
+                    return
                 item=q.get('item',[''])[0]
                 if item:
                     _, items, _=store.batch(batch)
@@ -66,7 +71,7 @@ def get(handler,store,path,q):
                         raise ValueError('이 화면의 검수 페이지를 선택해 주세요.')
                     destination=store.page_destination(item)
                     if destination.startswith('/screen/'):
-                        redirect(handler,destination+'?designs=1')
+                        redirect(handler,destination)
                         return
                 body=ui.connect_page(store,batch,item)
             else:
@@ -103,6 +108,9 @@ def post(handler,store,path):
         if not re.fullmatch(r'/intake/[a-f0-9]{32}/(edit|select|confirm|start|fetch|token)',path):
             raise ValueError('작업 주소를 확인해 주세요.')
         action=path.rsplit('/',1)[1]
+        from design_plan import Plans
+        if action in ('select','confirm','start') and any(p['batch_id']==batch for p in Plans(store).plans()):
+            raise ValueError('이 자료는 디자인 기준 목록으로 전환되었습니다. 화면 목록에서 TC 기준으로 연결하세요.')
         b,items,_=store.batch(batch)
         item=fields.get('item','')
         if (action!='start' or item) and item not in {r['id'] for r in items}:
