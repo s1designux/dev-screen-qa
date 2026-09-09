@@ -87,3 +87,12 @@ validation-image-qa/repro/dev_door_*.png
 validation-image-qa/repro/extract/*.txt
 validation-image-qa/repro/dev_route2_*.png
 validation-image-qa/repro/elements_route_plugin.json
+
+# 재현·확인용 임시 산출물 (그때그때 만든 것, 커밋하지 않는다)
+validation-image-qa/repro/*.err
+validation-image-qa/repro/_*
+validation-image-qa/repro/*.html
+!validation-image-qa/repro/codes_mock.html
+!validation-image-qa/repro/make_chrome_capture.html
+!validation-image-qa/repro/table_mock.html
+validation-image-qa/repro/plugin_panel_*.png
