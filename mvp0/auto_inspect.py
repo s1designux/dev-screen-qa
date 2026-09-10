@@ -137,11 +137,21 @@ def engine_html():
     return src.replace(ENGINE_MARKER, HARNESS_JS, 1)
 
 
+_ENGINE_REV = {}
+
+
 def engine_rev():
+    """지금 검수 규칙(엔진 파일)의 지문. 파일이 바뀌면 값이 달라진다."""
     try:
-        return hashlib.sha1(PLUGIN_UI.read_bytes()).hexdigest()[:12]
+        stamp = PLUGIN_UI.stat().st_mtime_ns
     except OSError:
         return ''
+    if _ENGINE_REV.get('stamp') != stamp:
+        try:
+            _ENGINE_REV.update(stamp=stamp, rev=hashlib.sha1(PLUGIN_UI.read_bytes()).hexdigest()[:12])
+        except OSError:
+            return ''
+    return _ENGINE_REV.get('rev', '')
 
 
 HARNESS_JS = r'''
@@ -247,16 +257,22 @@ class Auto:
             return new_id
 
     def ensure_run(self, page_id, run_id):
-        """그 차수·지금 시안의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None."""
+        """그 차수·지금 시안의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None.
+
+        검수 규칙(엔진)이 바뀌었으면 새 회차로 다시 돌린다 — 옛 회차·후보·이력은 그대로 남는다
+        (검수 범위를 바꿀 때와 같은 방식). 규칙을 고쳐 놓고 옛 결과를 계속 보여 주면
+        고친 것이 화면에 반영되지 않는다.
+        """
+        rev = engine_rev()
         with self.store.connect() as c:
             r = self.run_for(c, run_id, page_id)
-            if r:
+            if r and (r['status'] != 'done' or (r['engine'] or '') == rev or not rev):
                 return r
             design = self.design_of_page(c, page_id)
             if not design:
-                return None
+                return r
             c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
-                      (uid(), page_id, run_id, 'pending', engine_rev(), now(), design['id']))
+                      (uid(), page_id, run_id, 'pending', rev, now(), design['id']))
             return self.run_for(c, run_id, page_id)
 
     def retry(self, page_id, run_id):
@@ -398,7 +414,10 @@ class Auto:
                 rng = self.current_range(c, run['uuid'])
                 range_view = {'manual_top': rng['top'] if rng else None, 'manual_bottom': rng['bottom'] if rng else None,
                               'dev_img': run['dev_img'], 'w': run['dev_img_w'], 'h': run['dev_img_h']}
-                if not r:
+                rev = engine_rev()
+                stale = bool(r) and r['status'] == 'done' and bool(rev) and (r['engine'] or '') != rev
+                if not r or stale:
+                    # 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
                             'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view}
                 cands = [dict(k) for k in self.candidates(c, r['id'])] if r['status'] == 'done' else []
@@ -523,11 +542,11 @@ CSS = '''
 .auto-sum{font-weight:700}.auto-hint{color:#64748b}
 .auto-group{margin-bottom:10px}.auto-group summary{cursor:pointer;font-weight:700;margin-bottom:6px}
 .auto-card{position:relative}.auto-card .auto-no{border-radius:4px}
-.auto-ex{position:absolute;top:10px;right:10px;padding:3px 9px;font-size:12px;line-height:1.4;
-  color:#475569;background:#fff;border:1px solid #CBD5E1;border-radius:999px;cursor:pointer;user-select:none}
-.auto-ex:hover{background:#F1F5F9;border-color:#94A3B8;color:#1E293B}
-.auto-ex.on{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
-.auto-ex.on:hover{background:#1758BE;border-color:#1758BE;color:#fff}
+.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;padding:3px 10px;font:inherit;font-size:12px;
+  line-height:1.5;color:#475569;background:#fff;border:1px solid #CBD5E1;border-radius:999px;cursor:pointer;user-select:none}
+.auto-card .auto-ex:hover{background:#F1F5F9;border-color:#94A3B8;color:#1E293B}
+.auto-card .auto-ex.on{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
+.auto-card .auto-ex.on:hover{background:#1758BE;border-color:#1758BE;color:#fff}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
 .auto-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .auto-actions select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}

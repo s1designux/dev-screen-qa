@@ -166,6 +166,29 @@ class AutoFlow(unittest.TestCase):
         with self.s.connect() as c:
             self.assertEqual(len(self.auto.candidates(c, rid)), 3)
 
+    def test_engine_change_reruns_and_keeps_old_round(self):
+        """검수 규칙(엔진 파일)을 고치면 옛 결과를 그대로 보여 주지 않고 새 회차로 다시 돈다."""
+        rid = self.saved()
+        view = self.auto.view(self.page, self.run)
+        self.assertEqual(view['run']['status'], 'done')
+        self.assertEqual(len(view['candidates']), 3)
+        with patch('auto_inspect.engine_rev', return_value='새규칙지문'):
+            view = self.auto.view(self.page, self.run)
+            self.assertEqual(view['run']['status'], 'pending')   # 옛 후보를 보여 주지 않는다
+            self.assertEqual(view['candidates'], [])
+            with self.s.connect() as c:                          # 여는 것만으로는 DB에 쓰지 않는다
+                self.assertEqual(c.execute('SELECT COUNT(*) n FROM auto_run').fetchone()['n'], 1)
+            with patch('figma_reader.api', return_value={'nodes': {'1:1': {'document': REST_DOC}}, 'version': '7'}):
+                m = self.auto.materials(self.page, self.run['uuid'])
+            self.assertNotEqual(m['autoRunId'], rid)             # 새 회차로 돈다
+            with self.s.connect() as c:
+                rows = c.execute('SELECT id,status,engine FROM auto_run ORDER BY rowid').fetchall()
+                self.assertEqual([r['status'] for r in rows], ['done', 'pending'])   # 옛 회차는 남는다
+                self.assertEqual(rows[-1]['engine'], '새규칙지문')
+                self.assertEqual(c.execute('SELECT COUNT(*) n FROM auto_candidate WHERE auto_run_id=?', (rid,)).fetchone()['n'], 3)
+        view = self.auto.view(self.page, self.run)               # 규칙이 그대로면 다시 돌리지 않는다
+        self.assertEqual(view['run']['status'], 'pending')       # (마지막 회차가 아직 '대기')
+
     def test_manual_range_reruns_and_feeds_engine(self):
         with patch('figma_reader.api', return_value={'nodes': {'1:1': {'document': REST_DOC}}, 'version': '7'}):
             self.auto.materials(self.page, self.run['uuid'])
