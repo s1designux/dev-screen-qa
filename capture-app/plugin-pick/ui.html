@@ -29,7 +29,7 @@
 <h1>촬영 준비로 보내기</h1>
 <div class="sub">캔버스에서 찍을 화면을 드래그로 고르세요. 고른 것만 넘어갑니다.</div>
 <div class="list" id="목록"><div class="empty">아직 고른 화면이 없습니다.</div></div>
-<button id="보내기" disabled>보내기</button>
+<button id="보내기" disabled>원본 인식하기</button>
 <button id="사이트" class="line">촬영 준비 사이트 열기 ↗</button>
 <div class="말" id="말"></div>
 
@@ -42,7 +42,7 @@
     var el = document.getElementById('목록');
     if (!화면들.length) {
       el.innerHTML = '<div class="empty">아직 고른 화면이 없습니다.</div>';
-      단추.disabled = true; 단추.textContent = '보내기';
+      단추.disabled = true; 단추.textContent = '원본 인식하기';
       return;
     }
     el.innerHTML = 화면들.map(function (f, i) {
@@ -52,7 +52,7 @@
              f.폭 + '×' + f.높이 + (넓음 ? ' ⚠︎' : '') + '</span></div>';
     }).join('');
     단추.disabled = false;
-    단추.textContent = '이 ' + 화면들.length + '개 보내기';
+    단추.textContent = '원본 인식하기';
   }
 
   onmessage = function (e) {
