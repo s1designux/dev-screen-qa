@@ -105,7 +105,7 @@ def post(handler,store,path):
             else:
                 redirect(handler,'/')
             return
-        if not re.fullmatch(r'/intake/[a-f0-9]{32}/(edit|select|confirm|start|fetch|token)',path):
+        if not re.fullmatch(r'/intake/[a-f0-9]{32}/(edit|select|confirm|start|fetch|token|capture)',path):
             raise ValueError('작업 주소를 확인해 주세요.')
         action=path.rsplit('/',1)[1]
         from design_plan import Plans
@@ -128,6 +128,9 @@ def post(handler,store,path):
         elif action=='start':
             destination=store.start(batch)
             redirect(handler,store.page_destination(item) if item else destination)
+        elif action=='capture':
+            store.replace_capture(item,fields.get('revision','-1'),fields.get('capture',''))
+            redirect(handler,store.page_destination(item))
         elif action=='fetch':
             added,failed=figma_reader.fetch(store,fields.get('link',''))
             connection_result(handler,store,batch,item,f'디자인 {len(added)}개를 가져왔습니다.'+(f' {failed}개는 이미지 가져오기에 실패했습니다.' if failed else ''))

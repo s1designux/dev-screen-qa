@@ -450,6 +450,28 @@ def render_screen(human_key: str, notice=""):
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
+def _capture_picker(store, linked, page, sel_run):
+    """촬영기로 들어온 페이지의 '개발 화면 변경' 팝업 — 같은 접수함에서 찍은 사진 중 고른다(디자인 먼저 흐름의 팝업과 같은 모양·추천)."""
+    ui = intake_http.ui
+    caps = store.captures_of_batch(linked['batch_id'])
+    current = sel_run['dev_img'] if sel_run else None
+    options = ''
+    for cap in sorted(caps, key=lambda x: (x['filename'] != current, x['seq'])):
+        name = f"{cap['screen_name']} · {cap['state_name']}" + (' (보류)' if cap['status'] == 'held' else ' (제외)' if cap['status'] == 'excluded' else '')
+        options += (f'<label class="cap-option"><input type="radio" name="capture" value="{cap["id"]}" data-src="/uploads/{_esc(cap["filename"])}" '
+                    f'data-name="{_esc(name)}" {"checked" if cap["filename"] == current else ""}><span class="rank">비교 중</span><span>{_esc(name)}</span></label>')
+    pic = f'<img id="plan-capture-preview" src="/uploads/{_esc(current)}" alt="선택한 개발 캡처">' if current else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
+    design = f'<img class="design-original" src="/uploads/{_esc(page["design_img"])}" alt="디자인 원본">' if page.get('design_img') else '<span class="ph">디자인 없음</span>'
+    comparison = (f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image">{design}</div></section>'
+                  f'<section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div>'
+                  f'<aside class="capture-list"><b>같은 접수함에서 찍은 사진</b><div class="capture-options">{options}</div></aside></div>')
+    controls = ui.hidden('item', linked['id']) + ui.hidden('revision', linked['revision'])
+    return (f'<dialog id="capture-picker"><div class="dialog-head"><h2>개발 화면 바꾸기</h2><button type="button" onclick="document.getElementById(\'capture-picker\').close()">닫기</button></div>'
+            f'<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
+            + ui.form(f'/intake/{linked["batch_id"]}/capture', controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
+            + f'</dialog><script>{(BASE / "capture_recommendation.js").read_text()}</script>')
+
+
 def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *, draft=None, store=None, workflow=None):
     store = store or intake()
     conn = dbmod.connect(store.database)
@@ -494,7 +516,9 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         if linked:
             if side == 'design':
                 return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">'+('다른 시안으로 변경' if imported_item['design_id'] else 'Figma 연결')+'</button>'
-            return '<span class="upl">촬영 원본 보관됨</span>'
+            if linked['page_id'] and not all_issues:
+                return '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button>'
+            return '<span class="upl">촬영 원본 보관됨' + (' · 바꾸려면 새 차수' if all_issues else '') + '</span>'
         return _upl(human_key, page_uuid, side, sel if side == 'dev' else None)
 
     # 차수 선택: ?round=N (없으면 최신). 그 차수 시점의 상태로 화면을 구성한다.
@@ -723,6 +747,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         connection_controls += '</div>'
         if open_design:
             design_dialog += '<script>document.getElementById("design-picker").showModal()</script>'
+    if linked and not workflow and linked['page_id'] and not all_issues:
+        design_dialog += _capture_picker(store, linked, page, sel_run)
     if workflow:
         design_dialog=workflow['dialog']
         connection_controls=workflow['controls']
