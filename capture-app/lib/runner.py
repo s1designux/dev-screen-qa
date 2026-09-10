@@ -79,7 +79,7 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
               "- waitForAnimationToEnd:", "    timeout: 5000"]
 
     for s, 사진이름 in zip(한묶음, 사진이름들):
-        줄 += actions.옮기기(s.get("동작", ""), 계정)
+        줄 += actions.옮기기(s.get("동작", ""), 계정, account.실패화면(s.get("이름", "")))
         if s.get("동작", "").strip() not in ("", "-", "없음"):
             줄 += ["- waitForAnimationToEnd:", "    timeout: 3000"]
         줄 += [f"- takeScreenshot: {사진이름[:-4]}"]
