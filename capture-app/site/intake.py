@@ -68,6 +68,25 @@ def _표있음(conn, 이름):
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (이름,)).fetchone() is not None
 
 
+def _페이지이름(s):
+    """검수 페이지에 보일 이름 — 디자인 프레임 이름을 그대로 쓴다.
+
+    'long' · 'default' 같은 뒷토막만 쓰면 무슨 화면인지 알 수 없다.
+    프레임 이름(예: '로그인 화면_비밀번호 커서 활성화 상태')이 상태를 이미 담고 있으므로 그것을 쓴다.
+    """
+    return (s.get("화면이름") or "").strip() or s.get("상태", "default")
+
+
+def _덮어쓸페이지(conn, sid, 이름):
+    """같은 화면에서 같은 상태로 이미 만들어 둔 검수 페이지. 지적이 하나도 없을 때만 덮어쓴다.
+    (지적이 붙은 페이지는 차수 이력이 걸려 있으므로 건드리지 않고 새 페이지로 넣는다.)"""
+    return conn.execute(
+        "SELECT p.uuid, p.seq, p.design_img FROM inspection_page p"
+        " WHERE p.screen_id=? AND p.name=? AND p.removed_at IS NULL"
+        "   AND NOT EXISTS (SELECT 1 FROM inspection_issue i WHERE i.page_id=p.uuid)"
+        " ORDER BY p.seq DESC LIMIT 1", (sid, 이름)).fetchone()
+
+
 def _시안판등록(conn, page, 노드, 작업, 초안줄, 시안이름, 시안, 지금):
     """시안을 포털의 '시안 판'(intake_design)으로도 등록하고 페이지에 잇는다.
     플러그인이 함께 보낸 요소 목록이 있으면 같이 넣어, 포털을 열면 자동 검수 후보가 바로 뜬다.
@@ -183,12 +202,19 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
             continue
         w, h = 크기
 
-        page = uuidmod.uuid4().hex
-        conn.execute(
-            "INSERT INTO inspection_page (uuid, screen_id, seq, name, note, coord_ref_w, coord_ref_h)"
-            " VALUES (?,?,?,?,?,?,?)",
-            (page, sid, 다음순서 + i, s.get("상태", "default"),
-             f"{목록.get('찍은때','')} 촬영 · {목록.get('기기','')}", w, h))
+        메모 = f"{목록.get('찍은때','')} 촬영 · {목록.get('기기','')}"
+        기존 = _덮어쓸페이지(conn, sid, _페이지이름(s))
+        if 기존:                                   # 같은 상태를 다시 찍어 보낸 것 — 새로 쌓지 않고 그 자리를 갈아 끼운다
+            page = 기존["uuid"]
+            conn.execute("UPDATE inspection_page SET note=?, coord_ref_w=?, coord_ref_h=? WHERE uuid=?",
+                         (메모, w, h, page))
+        else:
+            page = uuidmod.uuid4().hex
+            다음순서 += 1
+            conn.execute(
+                "INSERT INTO inspection_page (uuid, screen_id, seq, name, note, coord_ref_w, coord_ref_h)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (page, sid, 다음순서, _페이지이름(s), 메모, w, h))
 
         # 시안의 '지금 값'(색·글꼴·크기 …)도 그림 옆에 함께 남긴다. 검수 때 원본값으로 쓴다.
         속 = 초안.get(s["화면번호"], {}).get("속") or []
@@ -209,12 +235,21 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
         run = uuidmod.uuid4().hex
         이름 = f"{run}_dev.png"
         (사진자리 / 이름).write_bytes(자료)
-        conn.execute(
-            "INSERT INTO inspection_run (uuid, screen_id, page_id, round, inspector, created_at,"
-            " pass_fail, dev_img, dev_img_w, dev_img_h, coord_ref_w, coord_ref_h)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (run, sid, page, 1, 검수자, 지금, None, 이름, w, h, w, h))
-        넣은것.append(s.get("상태", "default"))
+        옛차수 = conn.execute(
+            "SELECT uuid FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1",
+            (page,)).fetchone() if 기존 else None
+        if 옛차수:                                  # 옛 사진 파일은 지우지 않는다(되돌릴 수 있게)
+            conn.execute(
+                "UPDATE inspection_run SET inspector=?, created_at=?, dev_img=?, dev_img_w=?, dev_img_h=?,"
+                " coord_ref_w=?, coord_ref_h=? WHERE uuid=?",
+                (검수자, 지금, 이름, w, h, w, h, 옛차수["uuid"]))
+        else:
+            conn.execute(
+                "INSERT INTO inspection_run (uuid, screen_id, page_id, round, inspector, created_at,"
+                " pass_fail, dev_img, dev_img_w, dev_img_h, coord_ref_w, coord_ref_h)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (run, sid, page, 1, 검수자, 지금, None, 이름, w, h, w, h))
+        넣은것.append(_페이지이름(s))
 
     conn.commit()
     conn.close()
