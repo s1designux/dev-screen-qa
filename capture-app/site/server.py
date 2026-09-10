@@ -530,48 +530,67 @@ def 화면_초안(알림=""):
     본문 = f"""{경고}
     <form method="post" action="/초안">
     <div class="card"><h2>앱 정보</h2>
-      <label class="f">앱 이름 <span class="muted">— 폰 홈 화면에서 아이콘 아래 적힌 이름 그대로</span></label>
+      <label class="f">앱 이름</label>
       <div class="bar" style="margin:0">
         <input type="text" name="앱이름" id="앱이름" list="앱들" autocomplete="off"
                class="w-md" value="{_e(작업.get('앱이름',''))}"
-               placeholder="런처 아이콘 아래 이름 그대로 (예: 삼성통근버스)"
                onkeydown="if(event.key==='Enter'){{event.preventDefault();읽기();}}">
         <button type="button" class="go" onclick="읽기()" style="white-space:nowrap">읽기</button>
       </div>
       <datalist id="앱들">{고름목록}</datalist>
-      <div class="hint" id="읽은말">앱 이름을 적고 <b>읽기</b>를 누르면 아래 칸이 채워집니다.</div>
+      <div class="hint" id="읽은말"></div>
 
-      <label class="f">서비스 코드 <span class="muted">— 사진 이름 앞자리 (예: BUS → BUS-AND-002@default.png)</span></label>
+      <div id="계정칸">
+        <label class="f">시험 아이디</label>
+        <input type="text" name="시험아이디" id="시험아이디" class="w-md" autocomplete="off"
+               value="{_e(작업.get('시험아이디',''))}">
+        <label class="f">시험 비밀번호</label>
+        <div class="bar" style="margin:0">
+          <input type="password" name="시험비밀번호" id="시험비밀번호" class="w-md" autocomplete="new-password"
+                 value="{_e(작업.get('시험비밀번호',''))}">
+          <button type="button" class="btn" onclick="비번보기()" id="비번보기버튼"
+                  style="white-space:nowrap">보기</button>
+        </div>
+      </div>
+
+      <label class="f">서비스 코드</label>
       <input type="text" name="서비스코드" id="서비스코드" class="w-md"
              value="{_e(작업.get('서비스코드',''))}" disabled>
-      <label class="f">앱 주소 <span class="muted">— 폰 안에서 그 앱을 부르는 속이름</span></label>
+      <label class="f">앱 주소</label>
       <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
              class="w-md" value="{_e(작업.get('앱주소',''))}" disabled>
       <datalist id="깔린앱들">{깔린앱}</datalist>
       <label class="f">로그인</label>
       <input type="text" name="로그인" id="로그인" class="w-md"
              value="{_e(작업.get('로그인','없음'))}" disabled>
+
       <div class="bar" style="margin-top:10px">
         <button type="button" id="고치기버튼" onclick="직접고치기()" style="display:none">직접 고치기</button>
-        <span class="hint" style="margin:0">비밀번호는 여기에 적지 않습니다.</span>
       </div>
 
       <script>
         var 사전 = {json.dumps(사전, ensure_ascii=False)};
-        var 칸들 = ['서비스코드', '앱주소', '로그인'];
+        var 칸들 = ['서비스코드', '앱주소', '로그인', '시험아이디', '시험비밀번호'];
+        var 잠글칸 = ['서비스코드', '앱주소', '로그인'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
         function 칸(k) {{ return document.getElementById(k); }}
+        function 비번보기() {{
+          var e = 칸('시험비밀번호');
+          var 숨김 = e.type === 'password';
+          e.type = 숨김 ? 'text' : 'password';
+          document.getElementById('비번보기버튼').textContent = 숨김 ? '가리기' : '보기';
+        }}
         function 말(글, 색) {{
           var e = document.getElementById('읽은말');
           e.innerHTML = 글; e.style.color = 색 || '#6b7280';
         }}
         function 잠그기() {{
-          칸들.forEach(function(k) {{
+          잠글칸.forEach(function(k) {{
             칸(k).disabled = false; 칸(k).readOnly = true;
           }});
           document.getElementById('고치기버튼').style.display = '';
         }}
         function 직접고치기() {{
-          칸들.forEach(function(k) {{
+          잠글칸.forEach(function(k) {{
             칸(k).disabled = false; 칸(k).readOnly = false;
           }});
           document.getElementById('고치기버튼').style.display = 'none';
@@ -586,11 +605,14 @@ def 화면_초안(알림=""):
             말('<b>' + 이름 + '</b> 은(는) 아직 모르는 앱입니다. 아래 칸을 직접 적어 주세요.', '#b42318');
             return;
           }}
-          칸들.forEach(function(k) {{ 칸(k).disabled = false; 칸(k).value = 것[k] || ''; }});
+          칸들.forEach(function(k) {{
+            칸(k).disabled = false;
+            if (잠글칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
+          }});
           잠그기();
           말('<b>' + 이름 + '</b> 을(를) 찾았습니다. 다르면 <b>직접 고치기</b>를 누르세요.', '#12864e');
         }}
-        if ({1 if 작업.get("앱주소") else 0}) {{ 잠그기(); 말('전에 적어 둔 값입니다. 바꾸려면 <b>직접 고치기</b>를 누르세요.'); }}
+        if ({1 if 작업.get("앱주소") else 0}) {{ 잠그기(); }}
         document.querySelector('form[action="/초안"]').addEventListener('submit', function() {{
           칸들.forEach(function(k) {{ 칸(k).disabled = false; }});   // 잠긴 칸도 함께 보내진다
         }});
@@ -602,12 +624,6 @@ def 화면_초안(알림=""):
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
         <th>화면 묶음</th></tr></thead>
         <tbody>{행}</tbody></table>
-      <div class="hint" style="margin:10px 0 0">동작에 쓸 수 있는 말:
-        <code>탭 로그인</code> · <code>입력 아이디=test01</code> · <code>기다림 2</code> ·
-        <code>스크롤</code> · <code>뒤로</code> · <code>지우기</code> · <code>탭좌표 86,41</code>(아이콘) ·
-        <code>되풀이 5</code>(뒤에 오는 것을 5번) ·
-        <code>있으면탭 취소</code>(끼어드는 팝업 닫기).
-        여러 개면 <b>→</b> 로 잇습니다. <b>↳ 같은 화면</b> 은 앱을 껐다 켜지 않고 앞 장에 이어서 찍습니다.</div>
       <div class="bar"><a class="btn" href="/">← 다시 고르기</a>
         <span class="right"></span>
         <button type="submit" name="그래도" value="1">그대로 진행</button>
@@ -668,6 +684,9 @@ def 화면_조건(알림=""):
           + 줄("앱이 폰에 깔려 있다", 깔림,
                _e(앱주소) if 앱주소 else "② 에서 앱 주소를 적어 주세요."))
 
+    계정말 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
+           + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
+           if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
     준비됨 = bool(폰) and not 잠김 and 깔림
     본문 = f"""
     <div class="card"><h2>폰 상태</h2><table><tbody>{검사}</tbody></table>
@@ -679,6 +698,7 @@ def 화면_조건(알림=""):
         <tr><td class="muted">찍을 화면</td><td>{len(작업.get('초안',[]))}개</td></tr>
         <tr><td class="muted">사진 이름</td><td>{_e(작업.get('서비스코드'))}-AND-번호@상태.png</td></tr>
         <tr><td class="muted">로그인</td><td>{_e(작업.get('로그인','없음'))}</td></tr>
+        <tr><td class="muted">시험 계정</td><td>{계정말}</td></tr>
       </tbody></table>
       <div class="hint">화면 한 장마다 앱을 껐다 켭니다. 화면 수 × 약 10초쯤 걸립니다.
         찍는 동안 폰을 만지지 마세요.</div>
@@ -966,6 +986,10 @@ class 손님(BaseHTTPRequestHandler):
             작업["서비스코드"] = (한개("서비스코드") or "APP").upper()
             작업["앱주소"] = 한개("앱주소")
             작업["로그인"] = 한개("로그인", "없음") or "없음"
+            작업["시험아이디"] = 한개("시험아이디")
+            작업["시험비밀번호"] = 한개("시험비밀번호")
+            if 작업["시험아이디"] and 작업["로그인"] in ("", "없음"):
+                작업["로그인"] = "필요"      # 시험 계정을 적었으면 로그인이 있는 앱이다
             작업쓰기(작업)
             if 빈줄 and 한개("그래도") != "1":
                 return self._html(화면_초안(
@@ -980,7 +1004,18 @@ class 손님(BaseHTTPRequestHandler):
             if not 작업["앱주소"]:
                 return self._html(화면_초안('<div class="err">앱 주소가 비었습니다. '
                                         '안드로이드 앱의 속이름(예: kr.co.s1.samsungbus)을 적어 주세요.</div>'))
-            앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업["앱주소"], 작업["로그인"])
+            빠진계정 = [n for n, r in enumerate(작업["초안"], 1)
+                    if ("<아이디>" in (r.get("동작") or "") and not 작업["시험아이디"])
+                    or ("<비번>" in (r.get("동작") or "") and not 작업["시험비밀번호"])]
+            if 빠진계정 and 한개("그래도") != "1":
+                return self._html(화면_초안(
+                    '<div class="err">아래 줄은 <b>로그인이 필요한 동작</b>인데 '
+                    '<b>시험 아이디·비밀번호</b>가 비어 있습니다 — '
+                    + ", ".join(f"{n}번째 줄" for n in 빠진계정)
+                    + '<div style="margin-top:8px">위 <b>앱 정보</b>에 검수용 시험 계정을 적어 주세요. '
+                      '로그인 없이 그냥 찍을 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
+            앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업["앱주소"], 작업["로그인"],
+                       작업["시험아이디"], 작업["시험비밀번호"])
             작업["이름표경로"] = 이름표쓰기(작업)
             작업쓰기(작업)
             return self._이동("/조건")

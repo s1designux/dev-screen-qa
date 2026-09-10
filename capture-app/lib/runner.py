@@ -16,6 +16,7 @@ from datetime import datetime
 뿌리 = os.path.dirname(여기)
 sys.path.insert(0, 여기)
 
+import account  # noqa: E402
 import actions  # noqa: E402
 import nametag  # noqa: E402
 
@@ -62,8 +63,11 @@ def 묶기(화면들):
     return 묶음
 
 
-def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번):
-    """한 묶음(같은 화면의 상태들)을 한 대본으로 적는다."""
+def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=None):
+    """한 묶음(같은 화면의 상태들)을 한 대본으로 적는다.
+
+    동작에 적힌 <아이디>·<비번> 표식은 여기서 진짜 시험 계정으로 바뀐다.
+    """
     줄 = [f"appId: {tag.get('앱주소','')}", "---", "- stopApp", "- launchApp",
          "- waitForAnimationToEnd:", "    timeout: 5000"]
     첫장 = 한묶음[0]
@@ -75,7 +79,7 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번):
               "- waitForAnimationToEnd:", "    timeout: 5000"]
 
     for s, 사진이름 in zip(한묶음, 사진이름들):
-        줄 += actions.옮기기(s.get("동작", ""))
+        줄 += actions.옮기기(s.get("동작", ""), 계정)
         if s.get("동작", "").strip() not in ("", "-", "없음"):
             줄 += ["- waitForAnimationToEnd:", "    timeout: 3000"]
         줄 += [f"- takeScreenshot: {사진이름[:-4]}"]
@@ -104,11 +108,19 @@ def 한번에찍기(tag, 결과폴더):
     shutil.rmtree(임시, ignore_errors=True)
     os.makedirs(대본폴더, exist_ok=True)
 
+    계정 = account.읽기(tag.get("앱이름", ""))
+    빠짐 = [s["이름"] for s in tag["화면"] if account.표식있나(s.get("동작", ""))
+          and not (계정["아이디"] and 계정["비밀번호"])]
+    if 빠짐:
+        print("시험 계정(아이디·비밀번호)이 비어 있습니다 — 촬영 준비 사이트 ②의 "
+              "'앱 정보'에 적어 주세요. 그 전까지 아래 화면은 로그인이 되지 않습니다:\n    "
+              + "\n    ".join(빠짐) + "\n", flush=True)
+
     묶음들 = 묶기(tag["화면"])
     이름들 = []
     for i, 한묶음 in enumerate(묶음들, 1):
         사진이름들 = [nametag.사진이름(tag, s) for s in 한묶음]
-        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, i)
+        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, i, 계정)
         이름들 += list(zip(한묶음, 사진이름들))
 
     print(f"촬영 도구를 한 번만 띄워 {len(이름들)}장을 찍습니다"
