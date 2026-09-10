@@ -97,7 +97,8 @@ CREATE TABLE IF NOT EXISTS intake_item (
 CREATE TABLE IF NOT EXISTS intake_design (
  id TEXT PRIMARY KEY, file_key TEXT NOT NULL, node_id TEXT NOT NULL, name TEXT NOT NULL,
  source_url TEXT NOT NULL, scope_node TEXT NOT NULL, asset_id TEXT NOT NULL REFERENCES intake_asset(id),
- fetched_at TEXT NOT NULL, source_version TEXT, provider TEXT NOT NULL
+ fetched_at TEXT NOT NULL, source_version TEXT, provider TEXT NOT NULL,
+ qa_settings TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS intake_event (
  id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES intake_batch(id), item_id TEXT,
@@ -120,6 +121,8 @@ class Store:
         with self.connect() as c:
             db.init_schema(c)
             c.executescript(SCHEMA)
+            if 'qa_settings' not in [r[1] for r in c.execute('PRAGMA table_info(intake_design)')]:
+                c.execute("ALTER TABLE intake_design ADD COLUMN qa_settings TEXT NOT NULL DEFAULT ''")  # 검수기에서 사람이 정한 설정(JSON). 예전 DB 보강.
             from design_plan import SCHEMA as PLAN_SCHEMA
             c.executescript(PLAN_SCHEMA)
 
@@ -270,12 +273,13 @@ class Store:
         if r['revision'] != int(revision):
             raise ValueError('다른 창에서 변경되었습니다. 새로고침 후 다시 확인해 주세요.')
 
-    def add_design(self,file_key,node_id,name,source_url,scope_node,data,version=None,provider='Figma REST'):
+    def add_design(self,file_key,node_id,name,source_url,scope_node,data,version=None,provider='Figma REST',qa_settings=None):
         with self.connect() as c:
             asset = self.asset(c,data)
             key = uid()
-            c.execute('INSERT INTO intake_design VALUES (?,?,?,?,?,?,?,?,?,?)',
-                      (key,file_key,node_id,name,source_url,scope_node,asset,now(),version,provider))
+            c.execute('INSERT INTO intake_design VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                      (key,file_key,node_id,name,source_url,scope_node,asset,now(),version,provider,
+                       json.dumps(qa_settings,ensure_ascii=False) if qa_settings else ''))
             return key
 
     def designs(self, file_key=None, node_id=None):

@@ -16,6 +16,24 @@ var TRIM_KEY = "imageQaTopTrim";
 var BOTTOM_TRIM_KEY = "imageQaBottomTrim"; // 사람이 정한 검수 범위(캡처 아래쪽 제외 px). 모바일 하단 내비게이션·홈 바를 빼는 데 쓴다.
 var OVERLAY_FIX_KEY = "imageQaOverlayFix";
 var POLICY_KEY = "imageQaPolicy"; // 디자인 프레임에 두는 작은 설정값: 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부. 검수 결과가 아니라 설정이다. // 사람이 직접 끌어 맞춘 겹쳐보기 위치(캡처 노드 좌표계) // 사람이 정한 검수 범위(캡처 위쪽 제외 px). 캡처 노드에 남겨 다음 검수에도 쓴다.
+var SHARED_NS = "devScreenQa"; // 사람이 정한 설정을 포털(REST plugin_data=shared)에서도 읽을 수 있게 공유 칸에 같이 쓴다. 검수 결과·판정은 여기 쓰지 않는다.
+function readSetting(node, key) {
+  // 공유 칸을 먼저, 없으면 예전 개인 칸(이전 버전이 저장한 값)을 읽는다.
+  try { if (node && node.getSharedPluginData) { var v = node.getSharedPluginData(SHARED_NS, key); if (v) return v; } } catch (e) {}
+  try {
+    if (node && node.getPluginData) {
+      var old = node.getPluginData(key) || "";
+      if (old) { try { if (node.setSharedPluginData) node.setSharedPluginData(SHARED_NS, key, old); } catch (e3) {} } // 예전 값은 읽는 김에 공유 칸으로 옮겨 포털도 보게 한다
+      return old;
+    }
+  } catch (e2) {}
+  return "";
+}
+function writeSetting(node, key, value) {
+  var v = value == null ? "" : String(value);
+  try { if (node && node.setSharedPluginData) node.setSharedPluginData(SHARED_NS, key, v); } catch (e) {}
+  try { if (node && node.setPluginData) node.setPluginData(key, v); } catch (e2) {}
+}
 var resultNodeByPair = {};
 var candidateNodeById = {};
 var overlayNodeByPair = {};
@@ -138,7 +156,7 @@ function collectDesign(root) {
 function readDesignPolicy(node) {
   // 디자인 프레임에 저장된 설정값(화면 종류·글자 가변 여부). 없거나 깨졌으면 null.
   try {
-    var raw = node.getPluginData ? node.getPluginData(POLICY_KEY) : "";
+    var raw = readSetting(node, POLICY_KEY);
     if (!raw) return null;
     var p = JSON.parse(raw);
     return p && typeof p === "object" ? p : null;
@@ -229,10 +247,10 @@ async function exportCaptureNode(node, index) {
   var scale = Math.min(1, 4096 / Math.max(1, maxSide));
   var bytes = await node.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
   var topTrim = null, bottomTrim = null, overlayFix = null;
-  try { var saved = node.getPluginData ? node.getPluginData(TRIM_KEY) : ""; if (saved !== "") { var n = Number(saved); if (isFinite(n)) topTrim = Math.max(0, Math.round(n * scale)); } } catch (e) {}
-  try { var savedB = node.getPluginData ? node.getPluginData(BOTTOM_TRIM_KEY) : ""; if (savedB !== "") { var nb = Number(savedB); if (isFinite(nb)) bottomTrim = Math.max(0, Math.round(nb * scale)); } } catch (eb) {}
+  try { var saved = readSetting(node, TRIM_KEY); if (saved !== "") { var n = Number(saved); if (isFinite(n)) topTrim = Math.max(0, Math.round(n * scale)); } } catch (e) {}
+  try { var savedB = readSetting(node, BOTTOM_TRIM_KEY); if (savedB !== "") { var nb = Number(savedB); if (isFinite(nb)) bottomTrim = Math.max(0, Math.round(nb * scale)); } } catch (eb) {}
   try {
-    var savedFix = node.getPluginData ? node.getPluginData(OVERLAY_FIX_KEY) : "";
+    var savedFix = readSetting(node, OVERLAY_FIX_KEY);
     if (savedFix !== "") { var f = JSON.parse(savedFix); if (f && isFinite(f.dx) && isFinite(f.dy)) overlayFix = { dx: Math.round(f.dx * scale), dy: Math.round(f.dy * scale) }; }
   } catch (e2) {}
   return {
@@ -975,8 +993,8 @@ figma.ui.onmessage = async function (msg) {
       var fixNode = msg.nodeId ? await figma.getNodeByIdAsync(msg.nodeId) : null;
       if (fixNode && fixNode.setPluginData) {
         var fbb = fixNode.absoluteBoundingBox, fsc = fbb ? Math.min(1, 4096 / Math.max(1, Math.max(fbb.width, fbb.height))) : 1;
-        if (!msg.fix) fixNode.setPluginData(OVERLAY_FIX_KEY, "");
-        else fixNode.setPluginData(OVERLAY_FIX_KEY, JSON.stringify({ dx: Math.round(msg.fix.dx / fsc), dy: Math.round(msg.fix.dy / fsc) })); // 노드 좌표계로 저장
+        if (!msg.fix) writeSetting(fixNode, OVERLAY_FIX_KEY, "");
+        else writeSetting(fixNode, OVERLAY_FIX_KEY, JSON.stringify({ dx: Math.round(msg.fix.dx / fsc), dy: Math.round(msg.fix.dy / fsc) })); // 노드 좌표계로 저장
       }
     } else if (msg.type === "render-compare") {
       await buildCompareCard(msg);
@@ -986,13 +1004,13 @@ figma.ui.onmessage = async function (msg) {
       var capNode = msg.nodeId ? await figma.getNodeByIdAsync(msg.nodeId) : null;
       if (capNode && capNode.setPluginData) {
         var bbT = capNode.absoluteBoundingBox, sc = bbT ? Math.min(1, 4096 / Math.max(1, Math.max(bbT.width, bbT.height))) : 1;
-        capNode.setPluginData(TRIM_KEY, String(Math.max(0, Math.round((Number(msg.topTrim) || 0) / sc)))); // 노드 좌표계(export 배율 되돌림)로 저장
-        capNode.setPluginData(BOTTOM_TRIM_KEY, String(Math.max(0, Math.round((Number(msg.bottomTrim) || 0) / sc))));
+        writeSetting(capNode, TRIM_KEY, String(Math.max(0, Math.round((Number(msg.topTrim) || 0) / sc)))); // 노드 좌표계(export 배율 되돌림)로 저장
+        writeSetting(capNode, BOTTOM_TRIM_KEY, String(Math.max(0, Math.round((Number(msg.bottomTrim) || 0) / sc))));
       }
     } else if (msg.type === "set-design-policy") {
       // 화면 종류(공통/일반)와 사람이 정한 글자 가변 여부를 디자인 프레임에 작은 설정값으로 저장한다.
       var policyNode = msg.designId ? await figma.getNodeByIdAsync(msg.designId) : null;
-      if (policyNode && policyNode.setPluginData) policyNode.setPluginData(POLICY_KEY, msg.policy ? JSON.stringify(msg.policy) : "");
+      if (policyNode && policyNode.setPluginData) writeSetting(policyNode, POLICY_KEY, msg.policy ? JSON.stringify(msg.policy) : "");
     } else if (msg.type === "notify") {
       figma.notify(msg.message);
     }
