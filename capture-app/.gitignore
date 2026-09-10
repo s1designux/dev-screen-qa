@@ -1,3 +1,7 @@
 # 찍힌 사진은 커밋하지 않는다(결과물이지 코드가 아니다).
 shots/*
 !shots/.gitkeep
+site/작업.json
+site/__pycache__/
+apps/앱사전.json
+site/디자인/

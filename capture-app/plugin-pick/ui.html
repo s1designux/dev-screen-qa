@@ -1,0 +1,98 @@
+<style>
+  :root { --gray-50:#F5F5F5; --gray-100:#E9E9E9; --gray-200:#D9D9D9; --gray-500:#757575;
+          --gray-800:#353535; --blue-400:#1D6CEB; --red-400:#E50533; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; margin:0; padding:14px;
+         color:var(--gray-800); font-size:12px; }
+  h1 { font-size:13px; margin:0 0 4px; }
+  .sub { color:var(--gray-500); margin-bottom:10px; line-height:1.6; }
+  .list { border:1px solid var(--gray-200); border-radius:4px; max-height:250px; overflow:auto; }
+  .row { display:flex; gap:8px; padding:7px 10px; border-bottom:1px solid var(--gray-100); }
+  .row:last-child { border-bottom:none; }
+  .row .n { color:var(--gray-500); width:18px; }
+  .row .t { flex:1; word-break:break-all; }
+  .row .d { color:var(--gray-500); white-space:nowrap; }
+  .row.warn .d { color:var(--red-400); }
+  .empty { padding:22px 10px; text-align:center; color:var(--gray-500); }
+  button { width:100%; margin-top:12px; padding:10px; font-size:13px; font-weight:600;
+           border:none; border-radius:4px; background:var(--blue-400); color:#fff; cursor:pointer;
+           font-family:inherit; }
+  button:disabled { background:var(--gray-100); color:#C4C4C4; cursor:not-allowed; }
+  button.line { background:#fff; color:var(--gray-800); border:1px solid var(--gray-200);
+                font-weight:500; margin-top:8px; }
+  button.line:hover { background:var(--gray-50); }
+  .말 { margin-top:8px; text-align:center; color:var(--gray-500); min-height:16px; }
+  .말.bad { color:var(--red-400); }
+  .말.ok { color:#12864e; }
+</style>
+
+<h1>촬영 준비로 보내기</h1>
+<div class="sub">캔버스에서 찍을 화면을 드래그로 고르세요. 고른 것만 넘어갑니다.</div>
+<div class="list" id="목록"><div class="empty">아직 고른 화면이 없습니다.</div></div>
+<button id="보내기" disabled>보내기</button>
+<button id="사이트" class="line">촬영 준비 사이트 열기 ↗</button>
+<div class="말" id="말"></div>
+
+<script>
+  var 화면들 = [];
+  var 말 = document.getElementById('말');
+  var 단추 = document.getElementById('보내기');
+
+  function 그리기() {
+    var el = document.getElementById('목록');
+    if (!화면들.length) {
+      el.innerHTML = '<div class="empty">아직 고른 화면이 없습니다.</div>';
+      단추.disabled = true; 단추.textContent = '보내기';
+      return;
+    }
+    el.innerHTML = 화면들.map(function (f, i) {
+      var 넓음 = f.폭 >= 1400;               // 폰으로 찍을 화면치고 너무 넓다
+      return '<div class="row' + (넓음 ? ' warn' : '') + '"><span class="n">' + (i + 1) +
+             '</span><span class="t">' + f.이름 + '</span><span class="d">' +
+             f.폭 + '×' + f.높이 + (넓음 ? ' ⚠︎' : '') + '</span></div>';
+    }).join('');
+    단추.disabled = false;
+    단추.textContent = '이 ' + 화면들.length + '개 보내기';
+  }
+
+  onmessage = function (e) {
+    var m = e.data.pluginMessage;
+    if (!m) return;
+
+    if (m.갈래 === '고른것') { 화면들 = m.화면들; 그리기(); 말.textContent = ''; 말.className = '말'; }
+
+    if (m.갈래 === '진행') {
+      말.className = '말';
+      말.textContent = '그림 뜨는 중… ' + m.지금 + '/' + m.전부;
+    }
+
+    if (m.갈래 === '알림') { 말.className = '말 bad'; 말.textContent = m.글; }
+
+    if (m.갈래 === '부치기') {
+      fetch('http://localhost:8767/pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(m.꾸러미)
+      }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        말.className = '말 ok';
+        말.textContent = m.꾸러미.화면들.length + '개 보냈습니다. 촬영 준비 사이트에서 이어 하세요.';
+        단추.disabled = false;
+      }).catch(function () {
+        말.className = '말 bad';
+        말.textContent = '촬영 준비 사이트가 꺼져 있습니다. ./site.sh 로 켜고 다시 눌러 주세요.';
+        단추.disabled = false;
+      });
+    }
+  };
+
+  document.getElementById('사이트').onclick = function () {
+    parent.postMessage({ pluginMessage: { 갈래: '사이트열기' } }, '*');
+  };
+
+  단추.onclick = function () {
+    단추.disabled = true;
+    말.className = '말'; 말.textContent = '그림 뜨는 중…';
+    parent.postMessage({ pluginMessage: { 갈래: '보내기' } }, '*');
+  };
+</script>

@@ -79,6 +79,8 @@ def 확인(tag, path):
             raise 이름표오류(f"{path}: {i}번째 화면에 {', '.join(빠진것)} 칸이 비었습니다")
         s.setdefault("상태", "default")
         s.setdefault("누를것", "-")
+        s.setdefault("동작", "-")
+        s.setdefault("이어서", "아니오")
 
 
 PLATFORM_CODE = {"android": "AND", "ios": "IOS", "web": "WEB"}

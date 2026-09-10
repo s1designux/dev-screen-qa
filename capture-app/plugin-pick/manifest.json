@@ -1,0 +1,17 @@
+{
+  "name": "촬영 준비로 보내기",
+  "id": "s1-capture-pick",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": [
+    "figma"
+  ],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "http://localhost:8767"
+    ],
+    "reasoning": "내 PC에서 도는 촬영 준비 사이트로 고른 화면만 보낸다. 바깥으로 나가지 않는다."
+  }
+}
