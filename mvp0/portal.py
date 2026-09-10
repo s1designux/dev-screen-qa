@@ -20,6 +20,7 @@ import design_plan_http
 import issue_categories
 import app_layout
 import comparison_view
+import auto_inspect
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -88,10 +89,14 @@ def _upl(human_key, page_uuid, side, rnd=None):
         return '<span class="upl">촬영 원본 보관됨</span>'
     q = f"?side={side}" + (f"&round={rnd}" if rnd is not None else "")
     action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
+    label = '디자인' if side == 'design' else '개발화면'
     return (
+        f'<span class="upl-group">'
+        f'<button type="button" class="upl paste" data-action="{action}" data-label="{label}" '
+        f'onclick="qaPasteArm(this)">붙여넣기</button>'
         f'<form class="upl" method="post" enctype="multipart/form-data" action="{action}">'
         f'<label>PNG 업로드<input type="file" name="file" accept="image/png" '
-        f'onchange="this.form.submit()"></label></form>'
+        f'onchange="this.form.submit()"></label></form></span>'
     )
 
 
@@ -476,6 +481,10 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         _, imported_items, _ = store.batch(linked['batch_id'])
         imported_item = next(r for r in imported_items if r['id'] == linked['id'])
         page['design_img'] = imported_item['design_file']
+    # 같은 Figma 프레임이면 늘 최신 판을 본다 (옛 판은 지우지 않는다)
+    design_now = None if draft else store.page_design(page_uuid)
+    if design_now and design_now['design_file']:
+        page['design_img'] = design_now['design_file']
     human_key = s['human_key'] or s['uuid']
     def upload_control(side):
         if workflow:
@@ -491,6 +500,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     rounds = [r["round"] for r in runs]
     sel = sel_round if sel_round in rounds else (max(rounds) if rounds else 1)
     sel_run = next((r for r in runs if r["round"] == sel), None)
+    # 자동 검수 후보(그 차수). 결과가 없으면 '대기'로 만들어 두고, 페이지 JS가 엔진을 돌려 저장한다.
+    auto_view = auto_inspect.Auto(store).view(page_uuid, sel_run) if (sel_run and not draft) else None
 
     number = {i["rid"]: n + 1 for n, i in enumerate(all_issues)}  # 페이지 안 순번 1..N (전체 고정)
     # 각 이슈의 '그 차수 시점 상태'(history.round로 재구성). 그 차수에 아직 없던 이슈는 제외.
@@ -565,8 +576,10 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         left_body = f'<img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인">'
     else:
         left_body = '<span class="ph">Figma 디자인을 연결해 주세요.</span>'
+    auto_overlay = (f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay auto-overlay"></svg>'
+                    if auto_view and auto_view['candidates'] else '')
     if dev_img:
-        right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}'
+        right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}{auto_overlay}'  # 후보 층은 핀 층 위(번호를 누를 수 있게)
     else:
         right_body = f'<span class="ph">{"디자인 시안과 같은 상태의 개발 화면을 등록해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
 
@@ -637,19 +650,34 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     if waiting:
         tab_defs.append(("보류·확인 대기", "#64748b", waiting))
     tab_defs.append(("처리됨", "#9ca3af", resolved))
+    # 자동 검수 후보 탭은 맨 앞. 사람이 등록하기 전까지는 지적(핀)이 아니라 후보다.
+    auto_tab = None
+    if auto_view:
+        open_n = sum(1 for k in auto_view['candidates'] if k['status'] == 'open' and not k['issue_id'])
+        auto_tab = ("자동 검수 후보", "#ea580c", open_n, auto_inspect.panel_html(auto_view, page_uuid, person_options))
+        tab_defs.insert(0, auto_tab)
 
     tabbar = panels = ""
-    for gi, (lbl, col, items) in enumerate(tab_defs):
+    for gi, tdef in enumerate(tab_defs):
+        lbl, col = tdef[0], tdef[1]
+        if len(tdef) == 4:
+            count, body = tdef[2], tdef[3]
+        else:
+            items = tdef[2]
+            count = len(items)
+            cards = "".join(issue_card(i) for i in items) or '<p class="empty">항목 없음</p>'
+            body = f'<div class="grid">{cards}</div>'
         tabbar += (
             f'<button class="tab{" on" if gi == 0 else ""}" data-idx="{gi}" onclick="showTab(\'{gi}\')">'
             f'<span class="sw" style="background:{col}"></span>{_esc(lbl)} '
-            f'<span class="cnt">{len(items)}</span></button>'
+            f'<span class="cnt">{count}</span></button>'
         )
-        cards = "".join(issue_card(i) for i in items) or '<p class="empty">항목 없음</p>'
         panels += (
             f'<div class="panel" id="panel-{gi}"{"" if gi == 0 else " hidden"}>'
-            f'<div class="grid">{cards}</div></div>'
+            f'{body}</div>'
         )
+    auto_extra = (f'<script id="auto-data" type="application/json">{auto_inspect.overlay_json(auto_view)}</script>'
+                  f'<script>{auto_inspect.JS}</script>') if auto_view else ''
     issues_html = panels
     if not all_issues and linked and linked['status'] != 'confirmed':
         issues_html = '<p class="empty">아직 등록된 검수 내용이 없습니다. 시안을 연결하고 짝을 확인한 뒤 이곳에서 검수를 이어갑니다.</p>'
@@ -698,6 +726,11 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         design_dialog=workflow['dialog']
         connection_controls=workflow['controls']
         issues_html=workflow['sidebar']+issues_html.replace('시안을 연결하고 짝을 확인한 뒤','개발 화면을 등록하고 짝을 확인한 뒤')
+    design_mark = ''
+    if design_now and design_now['changed']:
+        design_mark = ('<span class="fresh" title="처음 받은 판: '
+                       + _esc((design_now['orig_at'] or '')[:10]) + '">시안 새 판 · '
+                       + _esc((design_now['fetched_at'] or '')[:10]) + '</span>')
     native_app = app_layout.is_app(s['platform'])
     parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
     if workflow:parent_href=workflow["parent"]
@@ -720,7 +753,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(page['name'])} — 페이지 상세</title>
-<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
+<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{app_layout.CSS if native_app else ""}</style></head>
 <body class="{'app-view' if native_app else 'web-view'}">
   <header>
     <div class="head-left">
@@ -739,7 +772,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     {'<div class="app-workspace">' if native_app else ''}
     <div class="cols">
       <div class="pane">
-        <h3>좌 · 디자인 (정답 모습 — 핀 없음) {upload_control('design')}</h3>
+        <h3>좌 · 디자인 (정답 모습 — 핀 없음) {design_mark}{upload_control('design')}</h3>
         <div class="canvas">{left_body}</div>
       </div>
       <div class="pane">
@@ -755,7 +788,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     {'</aside></div>' if native_app else ''}
   </div>
   {design_dialog}
-  <script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>
+  <script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>{auto_extra}
 </body></html>"""
 
 
@@ -777,6 +810,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+            return
+        if auto_inspect.get(self, intake(), path, q):
             return
         if path.startswith('/design'):
             design_plan_http.get(self, intake(), path)
@@ -829,6 +864,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith('/intake'):
             intake_http.post(self, intake(), path)
+            return
+        if auto_inspect.post(self, intake(), path):
             return
         length = int(self.headers.get("Content-Length", 0))
         if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/restore", "/rename")):
@@ -970,6 +1007,8 @@ _DIALOG_CSS = """
   dialog .designs img{width:100%;height:170px;object-fit:contain}dialog .designs p{font-size:12px;min-height:34px}dialog .row{display:flex;gap:10px;align-items:center}dialog label{display:block;margin:12px 0 6px}
   dialog input:not([type=hidden]){border:1px solid #ccd4df;border-radius:7px;font:inherit;padding:9px;width:100%;box-sizing:border-box}dialog button{border:1px solid #ced5df;border-radius:8px;background:white;padding:9px 12px;font:inherit;cursor:pointer}
   dialog small,dialog .muted{color:#657085}dialog details{margin:12px 0}dialog h2{font-size:17px}dialog button:disabled{opacity:.45}button.upl{font:inherit;border:1px solid #ced5df;border-radius:6px;background:white;padding:3px 8px;cursor:pointer}
+.fresh{display:inline-block;margin-right:8px;padding:2px 8px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:11px;font-weight:700}
+button.upl.paste{margin-right:6px}button.upl.armed{border-color:#2563eb;color:#1d4ed8;background:#eff6ff}.upl-group{display:inline-flex;align-items:center}
 """
 
 _PAGE_CSS = """
@@ -1104,6 +1143,49 @@ _PAGE_CSS = """
 
 
 _PAGE_JS = """
+// ── 복사한 그림 붙여넣기 (Figma에서 프레임을 Copy as PNG 로 복사 → 여기서 ⌘V)
+var _pasteTarget = null;
+function qaPasteArm(btn){
+  if(_pasteTarget && _pasteTarget.btn === btn){ qaPasteCancel(); return; }
+  qaPasteCancel();
+  _pasteTarget = { btn: btn, action: btn.dataset.action };
+  btn.classList.add('armed');
+  btn.textContent = '붙여넣기 기다리는 중 · ⌘V';
+  window.focus();
+}
+function qaPasteCancel(){
+  if(!_pasteTarget){ return; }
+  _pasteTarget.btn.classList.remove('armed');
+  _pasteTarget.btn.textContent = '붙여넣기';
+  _pasteTarget = null;
+}
+document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape'){ qaPasteCancel(); } });
+document.addEventListener('paste', function(ev){
+  if(!_pasteTarget){ return; }
+  var items = (ev.clipboardData && ev.clipboardData.items) || [];
+  var file = null;
+  for(var i = 0; i < items.length; i++){
+    if(items[i].type === 'image/png'){ file = items[i].getAsFile(); break; }
+  }
+  if(!file){
+    alert('복사한 그림이 없습니다. Figma에서 프레임을 고른 뒤 ⇧⌘C(Copy as PNG)로 복사하고 다시 붙여넣어 주세요.');
+    return;
+  }
+  ev.preventDefault();
+  var target = _pasteTarget;
+  target.btn.textContent = '올리는 중…';
+  var fd = new FormData();
+  fd.append('file', file, 'pasted.png');
+  fetch(target.action, { method: 'POST', body: fd })
+    .then(function(r){
+      if(!r.ok){ throw new Error('업로드 실패'); }
+      location.reload();
+    })
+    .catch(function(){
+      alert('붙여넣은 그림을 올리지 못했습니다. 다시 시도해 주세요.');
+      qaPasteCancel();
+    });
+});
 function _clearHL(){
   document.querySelectorAll('.issue.hl').forEach(function(e){ e.classList.remove('hl'); });
   document.querySelectorAll('.pin.flash').forEach(function(e){ e.classList.remove('flash'); });

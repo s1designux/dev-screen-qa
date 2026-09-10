@@ -65,9 +65,41 @@ def image_bytes(url):
         raise ValueError('디자인 이미지를 가져오지 못했습니다. 다시 시도해 주세요.') from None
 
 
+SHARED_NS='devScreenQa'  # 검수기 플러그인이 사람이 정한 설정을 두는 공유 칸(plugin-image-qa/code.js SHARED_NS와 같아야 함)
+
+
+def qa_settings(node):
+    """디자인 프레임·캡처 노드에 검수기가 남긴 사람의 설정(화면 종류·글자 가변 여부·검수 범위·겹쳐보기 위치).
+    검수 결과가 아니라 설정만 읽는다. 없으면 {}."""
+    raw=(node.get('sharedPluginData') or {}).get(SHARED_NS) or {}
+    out={}
+    if raw.get('imageQaPolicy'):
+        try:
+            p=json.loads(raw['imageQaPolicy'])
+            if isinstance(p,dict):
+                out['policy']=p
+        except json.JSONDecodeError:
+            pass
+    for src,dst in (('imageQaTopTrim','top_trim'),('imageQaBottomTrim','bottom_trim')):
+        v=raw.get(src)
+        if v not in (None,''):
+            try:
+                out[dst]=max(0,int(float(v)))
+            except ValueError:
+                pass
+    if raw.get('imageQaOverlayFix'):
+        try:
+            f=json.loads(raw['imageQaOverlayFix'])
+            if isinstance(f,dict) and all(isinstance(f.get(k),(int,float)) for k in ('dx','dy')):
+                out['overlay_fix']={'dx':int(f['dx']),'dy':int(f['dy'])}
+        except json.JSONDecodeError:
+            pass
+    return out
+
+
 def fetch(store,link):
     key,node=parse_link(link)
-    data=api('files/'+key+'/nodes?'+urlencode({'ids':node,'depth':2}))
+    data=api('files/'+key+'/nodes?'+urlencode({'ids':node,'depth':2,'plugin_data':'shared'}))
     item=data.get('nodes',{}).get(node)
     if not item or not item.get('document'):
         raise ValueError('링크 대상을 찾지 못했습니다. 프레임 링크를 확인해 주세요.')
@@ -101,7 +133,7 @@ def fetch(store,link):
             continue
         try:
             raw=image_bytes(url)
-            added.append(store.add_design(key,n['id'],n.get('name','디자인'),link_for(key,n['id']),node,raw,version))
+            added.append(store.add_design(key,n['id'],n.get('name','디자인'),link_for(key,n['id']),node,raw,version,qa_settings=qa_settings(n)))
         except ValueError:
             failed+=1
     if not added:

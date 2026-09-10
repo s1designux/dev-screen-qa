@@ -42,8 +42,12 @@ class Plans:
         p=next((dict(p) for p in self.plans() if p['id']==plan),None)
         if not p:raise ValueError('디자인 검수 목록을 찾을 수 없습니다.')
         with self.store.connect() as c:
-            cases=c.execute('''SELECT t.*,EXISTS(SELECT 1 FROM design_case_exclusion x WHERE x.case_id=t.id) excluded,d.name,d.source_url,d.fetched_at,a.filename design_file,ca.filename capture_file,
-            ca.width,ca.height,pc.name capture_name FROM design_case t JOIN intake_design d ON d.id=t.design_id
+            # 같은 Figma 프레임(file_key+node_id)이면 늘 최신 판을 본다. 옛 판은 지우지 않는다.
+            cases=c.execute('''SELECT t.*,EXISTS(SELECT 1 FROM design_case_exclusion x WHERE x.case_id=t.id) excluded,d.name,d.source_url,d.fetched_at,a.filename design_file,
+            (d.id<>d0.id) design_changed,d0.fetched_at design_first_at,ca.filename capture_file,
+            ca.width,ca.height,pc.name capture_name FROM design_case t JOIN intake_design d0 ON d0.id=t.design_id
+            JOIN intake_design d ON d.rowid=(SELECT x.rowid FROM intake_design x
+              WHERE x.file_key=d0.file_key AND x.node_id=d0.node_id ORDER BY x.rowid DESC LIMIT 1)
             JOIN intake_asset a ON a.id=d.asset_id LEFT JOIN plan_capture pc ON pc.id=t.capture_id
             LEFT JOIN intake_asset ca ON ca.id=pc.asset_id WHERE t.plan_id=? ORDER BY t.seq,t.id''',(plan,)).fetchall()
         return p,[dict(t) for t in cases if include_excluded or not t["excluded"]]

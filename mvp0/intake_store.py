@@ -97,7 +97,8 @@ CREATE TABLE IF NOT EXISTS intake_item (
 CREATE TABLE IF NOT EXISTS intake_design (
  id TEXT PRIMARY KEY, file_key TEXT NOT NULL, node_id TEXT NOT NULL, name TEXT NOT NULL,
  source_url TEXT NOT NULL, scope_node TEXT NOT NULL, asset_id TEXT NOT NULL REFERENCES intake_asset(id),
- fetched_at TEXT NOT NULL, source_version TEXT, provider TEXT NOT NULL
+ fetched_at TEXT NOT NULL, source_version TEXT, provider TEXT NOT NULL,
+ qa_settings TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS intake_event (
  id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES intake_batch(id), item_id TEXT,
@@ -120,8 +121,12 @@ class Store:
         with self.connect() as c:
             db.init_schema(c)
             c.executescript(SCHEMA)
+            if 'qa_settings' not in [r[1] for r in c.execute('PRAGMA table_info(intake_design)')]:
+                c.execute("ALTER TABLE intake_design ADD COLUMN qa_settings TEXT NOT NULL DEFAULT ''")  # 검수기에서 사람이 정한 설정(JSON). 예전 DB 보강.
             from design_plan import SCHEMA as PLAN_SCHEMA
             c.executescript(PLAN_SCHEMA)
+            from auto_inspect import SCHEMA as AUTO_SCHEMA  # 자동 검수 후보(사람이 확정하기 전 단계)
+            c.executescript(AUTO_SCHEMA)
 
     def event(self, c, batch, item, action, detail, actor='로컬 사용자'):
         c.execute('INSERT INTO intake_event VALUES (?,?,?,?,?,?,?)',
@@ -270,12 +275,13 @@ class Store:
         if r['revision'] != int(revision):
             raise ValueError('다른 창에서 변경되었습니다. 새로고침 후 다시 확인해 주세요.')
 
-    def add_design(self,file_key,node_id,name,source_url,scope_node,data,version=None,provider='Figma REST'):
+    def add_design(self,file_key,node_id,name,source_url,scope_node,data,version=None,provider='Figma REST',qa_settings=None):
         with self.connect() as c:
             asset = self.asset(c,data)
             key = uid()
-            c.execute('INSERT INTO intake_design VALUES (?,?,?,?,?,?,?,?,?,?)',
-                      (key,file_key,node_id,name,source_url,scope_node,asset,now(),version,provider))
+            c.execute('INSERT INTO intake_design VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                      (key,file_key,node_id,name,source_url,scope_node,asset,now(),version,provider,
+                       json.dumps(qa_settings,ensure_ascii=False) if qa_settings else ''))
             return key
 
     def designs(self, file_key=None, node_id=None):
@@ -359,6 +365,37 @@ class Store:
             first=c.execute('SELECT page_id FROM intake_item WHERE id=?',(rows[0]['id'],)).fetchone()['page_id']
             screen=c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?',(first,)).fetchone()['screen_id']
             return f'/screen/{screen}/page/{first}'
+
+    LATEST_SQL = """SELECT d.id orig_id,d.fetched_at orig_at,n.id new_id,n.name,n.fetched_at,n.source_url,
+        a.filename design_file FROM intake_design d
+        JOIN intake_design n ON n.rowid=(SELECT x.rowid FROM intake_design x
+          WHERE x.file_key=d.file_key AND x.node_id=d.node_id ORDER BY x.rowid DESC LIMIT 1)
+        JOIN intake_asset a ON a.id=n.asset_id WHERE d.id=?"""
+
+    def latest_design(self,design):
+        """같은 Figma 프레임(file_key+node_id)의 가장 최근 판. 옛 판은 지우지 않고 그대로 둔다."""
+        if not design:
+            return None
+        with self.connect() as c:
+            return c.execute(self.LATEST_SQL,(design,)).fetchone()
+
+    def page_design(self,page):
+        """검수 페이지가 지금 보아야 할 시안. 처음 붙인 판이 아니라 같은 프레임의 최신 판을 따라간다.
+        받아온 뒤 새 판이 생겼으면 changed=True (화면에 '시안 새 판'으로 표시)."""
+        with self.connect() as c:
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='intake_design'").fetchone():
+                return None
+            design=c.execute('SELECT design_id FROM intake_item WHERE page_id=?',(page,)).fetchone()
+            if not design and c.execute("SELECT 1 FROM sqlite_master WHERE name='design_case'").fetchone():
+                design=c.execute('SELECT design_id FROM design_case WHERE page_id=?',(page,)).fetchone()
+            if not design or not design['design_id']:
+                return None
+            row=c.execute(self.LATEST_SQL,(design['design_id'],)).fetchone()
+        if not row:
+            return None
+        out=dict(row)
+        out['changed']=row['new_id']!=row['orig_id']
+        return out
 
     def page_link(self,page):
         with self.connect() as c:

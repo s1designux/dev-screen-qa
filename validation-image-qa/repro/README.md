@@ -98,3 +98,14 @@ python3 vlm_read_score.py vlm_read_stay.json answers_stay.json
 
 피그마에서 요소 목록을 조각으로 받아왔다면 `extract/assemble.py <접두사> elements_<이름>.json` 으로 먼저 합친다.
 규칙 제안·승인 기록은 `RULE_PROPOSALS.md` 에 남긴다.
+
+## 포털 엔진 동일성 재기 (portal_parity.js)
+
+포털이 내보내는 엔진(`/engine/ui.html` = 플러그인 ui.html + 포털 손잡이)이 플러그인 재현과 같은 후보를 내는지 잰다.
+
+```
+ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html base_x
+ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… node portal_parity.js base_x.json portal_x
+node answers_check.js portal_x.json   # 체류시간 정답 생존
+```
+후보 번호·종류·상태·사유·상자·디자인 노드가 모두 같아야 `PARITY OK`.
