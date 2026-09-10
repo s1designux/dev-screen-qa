@@ -91,7 +91,10 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
 
     for s, 사진이름 in zip(한묶음, 사진이름들):
         줄 += actions.옮기기(s.get("동작", ""), 계정, account.실패화면(s.get("이름", "")))
-        if s.get("동작", "").strip() not in ("", "-", "없음"):
+        # 동작 뒤에는 화면이 가라앉기를 기다린다. 스플래시만은 기다리지 않는다 —
+        # 기다리는 사이에 이미 다음 화면으로 넘어가 버리기 때문이다.
+        if (s.get("동작", "").strip() not in ("", "-", "없음")
+                and not 스플래시인가(s)):
             줄 += ["- waitForAnimationToEnd:", "    timeout: 3000"]
         줄 += [f"- takeScreenshot: {사진이름[:-4]}"]
 
