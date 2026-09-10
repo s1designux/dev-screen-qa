@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.s1.capture-site</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>site/server.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/designgroup_02/dev-screen-qa-capture/capture-app</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/designgroup_02/dev-screen-qa-capture/capture-app/site/자동실행기록.txt</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/designgroup_02/dev-screen-qa-capture/capture-app/site/자동실행기록.txt</string>
+</dict>
+</plist>
