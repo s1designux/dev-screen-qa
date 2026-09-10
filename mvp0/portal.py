@@ -678,26 +678,26 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
           {foot}
         </div>"""
 
-    # 미해결을 오류 유형별 그룹 → '탭'. 맨 끝에 '처리됨' 탭 추가.
-    groups, gcat = {}, {}
-    for i in unresolved:
-        lbl = _type_label(i["category"])
-        groups.setdefault(lbl, []).append(i)
-        gcat[lbl] = i["category"]
-    ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-    # (라벨, 색, 아이템들) 순서: 유형 탭들 + 처리됨 탭
-    tab_defs = [(lbl, _type_color(gcat[lbl]), items) for lbl, items in ordered]
-    if not tab_defs:
-        tab_defs.append(("검수 내용", "#334155", []))
-    if waiting:
-        tab_defs.append(("보류·확인 대기", "#64748b", waiting))
-    tab_defs.append(("처리됨", "#9ca3af", resolved))
-    # 자동 검수 후보 탭은 맨 앞. 사람이 등록하기 전까지는 지적(핀)이 아니라 후보다.
-    auto_tab = None
+    # 탭은 세 칸: 수정필요(기본) · 처리됨 · 제외.
+    # '수정필요' = 자동으로 찾은 것(제외 안 한 것) + 사람이 넣은 미해결·대기 지적.
+    fix_items = unresolved + waiting
+    fix_cards = "".join(issue_card(i) for i in fix_items)
+    fix_n = len(fix_items)
+    excluded_body, excluded_n = '<p class="empty">항목 없음</p>', 0
     if auto_view:
-        open_n = sum(1 for k in auto_view['candidates'] if k['status'] == 'open' and not k['issue_id'])
-        auto_tab = ("자동 검수 후보", "#ea580c", open_n, auto_inspect.panel_html(auto_view, page_uuid, person_options))
-        tab_defs.insert(0, auto_tab)
+        fix_n += sum(1 for k in auto_view['candidates'] if k['status'] == 'open' and not k['issue_id'])
+        excluded_n = sum(1 for k in auto_view['candidates'] if k['status'] != 'open')
+        excluded_body = auto_inspect.panel_html(auto_view, page_uuid, person_options, 'excluded')
+        fix_body = (auto_inspect.panel_html(auto_view, page_uuid, person_options, 'open')
+                    + (f'<div class="grid">{fix_cards}</div>' if fix_cards else ''))
+    else:
+        fix_body = f'<div class="grid">{fix_cards}</div>' if fix_cards else '<p class="empty">항목 없음</p>'
+    done_cards = "".join(issue_card(i) for i in resolved) or '<p class="empty">항목 없음</p>'
+    tab_defs = [
+        ("수정필요", "#1D6CEB", fix_n, fix_body),
+        ("처리됨", "#9ca3af", len(resolved), f'<div class="grid">{done_cards}</div>'),
+        ("제외", "#64748b", excluded_n, excluded_body),
+    ]
 
     tabbar = panels = ""
     for gi, tdef in enumerate(tab_defs):

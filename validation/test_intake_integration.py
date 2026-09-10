@@ -319,8 +319,8 @@ class Integration(unittest.TestCase):
             histories=[tuple(r) for r in c.execute('SELECT * FROM issue_history ORDER BY uuid')]
         with patch.object(portal,'REAL_DB',legacy),patch.object(portal,'UPLOADS',Path(self.tmp.name)/'uploads'):
             body=portal.render_page(page,1)
-            self.assertIn('보류·확인 대기',body)
-            self.assertIn('색상·모양',body)
+            self.assertIn('수정필요',body)        # 보류·대기 지적도 '수정필요' 칸에 남는다
+            self.assertIn('처리됨',body)
             for row in issues: self.assertIn('issue-'+row[0],body)
         with storemod.db.connect(legacy) as c:
             self.assertEqual([tuple(r) for r in c.execute('SELECT * FROM inspection_issue ORDER BY uuid')],before)

@@ -112,7 +112,7 @@ class AutoFlow(unittest.TestCase):
         body = portal.render_page(self.page, 1, store=self.s)
         self.assertEqual(self.dump(), before)                     # 페이지를 여는 것만으로는 아무것도 쓰지 않는다
         self.assertIn('data-status="pending"', body)
-        self.assertIn('자동 검수 후보', body)
+        self.assertIn('수정필요', body)
         self.assertIn('검수중입니다', body)
 
     def test_materials_reads_figma_once_and_uses_saved_policy(self):
@@ -155,9 +155,10 @@ class AutoFlow(unittest.TestCase):
             self.assertEqual([k['status'] for k in ks], ['open', 'variable', 'open'])
             self.assertEqual(c.execute('SELECT COUNT(*) n FROM inspection_issue WHERE page_id=?', (self.page,)).fetchone()['n'], 0)  # 자동 확정 없음
         body = portal.render_page(self.page, 1, store=self.s)
-        self.assertIn('확인할 후보 2건 · 지적 등록 0 · 제외 0 · 가변 글자·요소 1', body)
+        self.assertIn('수정필요 <span class="cnt">2</span>', body)   # 제외 안 한 후보 2건
+        self.assertIn('제외 <span class="cnt">1</span>', body)        # 가변으로 자동 분류된 1건
         self.assertIn('auto-overlay', body)
-        self.assertIn('지적 등록', body)
+        self.assertIn('class="auto-ex"', body)                       # 카드 오른쪽 위 '제외' 체크
         self.assertIn('"no": 1', body)
         # 같은 결과가 두 번 와도 후보가 늘지 않는다
         res = self.result(); res['autoRunId'] = rid
@@ -223,7 +224,7 @@ class AutoFlow(unittest.TestCase):
             self.auto.set_status(k1['id'], 'excluded')                # 등록된 뒤에는 지적 쪽에서 처리
         body = portal.render_page(self.page, 1, store=self.s)
         self.assertIn('지적 #1로 등록됨', body)
-        self.assertIn('확인할 후보 1건 · 지적 등록 1', body)
+        self.assertIn('수정필요 <span class="cnt">2</span>', body)   # 등록된 지적 1 + 남은 후보 1
         self.assertIn('id="pin-' + issue, body)                     # 사람이 등록한 것만 핀이 된다
         self.assertNotIn('id="pin-' + k3['id'], body)
 

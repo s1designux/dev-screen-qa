@@ -56,7 +56,7 @@ CREATE TRIGGER IF NOT EXISTS auto_candidate_event_no_update BEFORE UPDATE ON aut
 CREATE TRIGGER IF NOT EXISTS auto_candidate_event_no_delete BEFORE DELETE ON auto_candidate_event BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
 '''
 
-STATUS_LABEL = {'open': '후보', 'excluded': '제외(오류 아님)', 'variable': '가변 글자·요소'}
+STATUS_LABEL = {'open': '수정필요', 'excluded': '제외', 'variable': '가변 글자·요소'}
 ENGINE_STATUS = {'confirmed': 'open', 'excluded': 'excluded', 'variable': 'variable'}
 # 후보 종류 → 포털 이슈 분류(issue_categories.ALIASES 키)
 KIND_CATEGORY = {'text': 'text', 'fixed': 'text', 'variable': 'text', 'missing': 'missing', 'area': 'mixed',
@@ -416,8 +416,12 @@ def _e(v):
     return str(v if v is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
 
-def panel_html(view, page_id, person_options=''):
-    """자동 검수 탭 안 내용. 후보 목록 + 판정 버튼. 상태(pending/failed)면 안내."""
+def panel_html(view, page_id, person_options='', which='open'):
+    """자동 검수 내용. which='open'이면 '수정필요' 칸(대기·실패 안내와 검수 범위도 여기), 'excluded'면 '제외' 칸."""
+    if which != 'open':
+        items = [k for k in view['candidates'] if k['status'] != 'open']
+        cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
+        return f'<div class="grid">{cards}</div>' if cards else '<p class="empty">항목 없음</p>'
     r = view['run']
     head = f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" data-round="{view["round"]}" data-scale="{view["scale"]}"></div>'
     if r['status'] == 'pending':
@@ -427,22 +431,10 @@ def panel_html(view, page_id, person_options=''):
         return head + (f'<p class="empty auto-msg">자동 검수를 못 했어요 — {_e(r["error"])}</p>'
                        f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>'
                        + range_html(view, person_options))
-    cands = view['candidates']
-    counts = {s: sum(1 for k in cands if k['status'] == s) for s in STATUS_LABEL}
-    registered = sum(1 for k in cands if k['issue_id'])
-    summary = f'확인할 후보 {counts["open"] - registered}건 · 지적 등록 {registered} · 제외 {counts["excluded"]} · 가변 글자·요소 {counts["variable"]}'
-    out = head + f'<div class="auto-head"><span class="auto-sum">{summary}</span><span class="auto-hint">번호는 자동으로 찾은 후보예요. 오류가 맞으면 <b>지적 등록</b>, 아니면 <b>제외</b>를 누르세요. 손대지 않은 후보는 후보로 남습니다.</span></div>'
-    out += range_html(view, person_options)
-    groups = [('open', '후보'), ('excluded', '제외(오류 아님)'), ('variable', '가변 글자·요소')]
-    for key, title in groups:
-        items = [k for k in cands if k['status'] == key]
-        if not items and key != 'open':
-            continue
-        fold = ' open' if key == 'open' else ''
-        out += f'<details class="auto-group"{fold}><summary>{title} <span class="cnt">{len(items)}</span></summary><div class="grid">'
-        out += ''.join(card_html(k, view['issue_numbers'], page_id, view['round'], person_options) for k in items) or '<p class="empty">항목 없음</p>'
-        out += '</div></details>'
-    return out
+    out = head + range_html(view, person_options)
+    items = [k for k in view['candidates'] if k['status'] == 'open']
+    cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
+    return out + (f'<div class="grid">{cards}</div>' if cards else '')
 
 
 def range_html(view, person_options=''):
@@ -487,7 +479,7 @@ def range_html(view, person_options=''):
             f'<button type="button" onclick="autoRangeClose()">닫기</button></form></div>')
 
 
-def card_html(k, numbers, page_id, rnd, person_options=''):
+def card_html(k, numbers, page_id, rnd):
     kind_lbl = issue_categories.label(KIND_CATEGORY.get(k['kind'], 'other'))
     color = issue_categories.color(KIND_CATEGORY.get(k['kind'], 'other'))
     pol = json.loads(k['policy'] or '{}')
@@ -496,19 +488,18 @@ def card_html(k, numbers, page_id, rnd, person_options=''):
     if k['issue_id']:
         n = numbers.get(k['issue_id'])
         foot = f'<div class="passed">✓ 지적 #{n}로 등록됨</div>' if n else '<div class="passed">✓ 지적으로 등록됨</div>'
+        ex = ''
     else:
-        btn = lambda st, txt, cls='': f'<button type="button" class="{cls}" onclick="autoStatus(\'{k["id"]}\',\'{st}\')">{txt}</button>'
-        if k['status'] == 'open':
-            foot = (f'<form class="auto-actions passform" onsubmit="return autoRegister(this,\'{k["id"]}\')" onclick="event.stopPropagation()">'
-                    f'<select name="actor" required><option value="">담당자</option>{person_options}</select>'
-                    f'<button type="submit" class="primary">지적 등록</button>'
-                    f'{btn("excluded", "제외")}{btn("variable", "가변") if k["kind"] in ("text", "fixed", "variable") else ""}</form>')
-        else:
-            foot = f'<div class="auto-actions">{btn("open", "후보로 되돌리기")}</div>'
+        foot = ''
+        # 오른쪽 위 '제외' 단추 — 누르면 '제외' 칸으로, 다시 누르면 '수정필요'로 돌아온다
+        off = k['status'] != 'open'
+        ex = (f'<button type="button" class="auto-ex{" on" if off else ""}" '
+              f'onclick="event.stopPropagation();autoStatus(\'{k["id"]}\', '
+              f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
     box = f'({int(k["box_x"] or 0)},{int(k["box_y"] or 0)}) {int(k["box_w"] or 0)}×{int(k["box_h"] or 0)}'
     dv = f'<div class="loc">디자인 원본값: {_e(k["design_values"])}</div>' if k['design_values'] else ''
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" onclick="autoFocus(\'{k["id"]}\')">'
-            f'<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(k["label"])}</b></div>'
+            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(k["label"])}</b></div>'
             f'<div class="props"><span class="tag">{_e(kind_lbl)}</span></div>'
             f'<div class="loc">{_e(k["detail"])}</div>{dv}{pol_html}<div class="loc">위치 {box}</div>{foot}</div>')
 
@@ -531,7 +522,12 @@ CSS = '''
 .auto-head{display:flex;flex-direction:column;gap:4px;margin:4px 0 10px;font-size:13px}
 .auto-sum{font-weight:700}.auto-hint{color:#64748b}
 .auto-group{margin-bottom:10px}.auto-group summary{cursor:pointer;font-weight:700;margin-bottom:6px}
-.auto-card .auto-no{border-radius:4px}
+.auto-card{position:relative}.auto-card .auto-no{border-radius:4px}
+.auto-ex{position:absolute;top:10px;right:10px;padding:3px 9px;font-size:12px;line-height:1.4;
+  color:#475569;background:#fff;border:1px solid #CBD5E1;border-radius:999px;cursor:pointer;user-select:none}
+.auto-ex:hover{background:#F1F5F9;border-color:#94A3B8;color:#1E293B}
+.auto-ex.on{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
+.auto-ex.on:hover{background:#1758BE;border-color:#1758BE;color:#fff}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
 .auto-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .auto-actions select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
