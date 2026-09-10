@@ -21,6 +21,7 @@ import issue_categories
 import app_layout
 import comparison_view
 import auto_inspect
+import design_receive
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -852,11 +853,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def do_OPTIONS(self):
+        # Figma 플러그인 창(origin null)이 /api/… 로 보내기 전에 미리 묻는다. 내 PC 안에서만.
+        if not self._local_host() or not design_receive.options(self, urlparse(self.path).path):
+            self.send_error(403)
+
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
         if not self._local_host():
             self.send_error(403)
+            return
+        if design_receive.post(self, intake(), path):
             return
         if path.startswith('/design'):
             design_plan_http.post(self, intake(), path)

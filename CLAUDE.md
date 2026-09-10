@@ -286,6 +286,12 @@ MVP0 핵심 엔티티. (Capture / DevelopmentBuild 등은 필드만 남기고 �
 같은 입력으로 플러그인 재현과 후보 목록 동일(`validation-image-qa/repro/portal_parity.js`, 체류시간 정답 7/7).
 페이지를 여는 것만으로는 DB에 쓰지 않는다(첫 실행·저장은 페이지 JS의 POST).
 
+**검수 시안 바로 받기 (2026-09-10 완료):** 촬영 준비 단계를 거치지 않고, 검수 화면이 이미 있는 프레임의 시안만 갈아끼운다.
+촬영 준비 플러그인(`dev-screen-qa-capture/capture-app/plugin-pick`)이 고른 프레임을 두고 포털에 묻고(`POST /api/frames`),
+검수 화면이 있으면 단추가 **'검수 시안 바꾸기'** 로 바뀌어 그림·요소(collectDesign 모양)·설정을 `POST /api/design`으로 보낸다. **Figma 토큰 불필요.**
+포털: `mvp0/design_receive.py` — 새 판은 `intake_design`에 쌓고(옛 판 유지) `page_design_link`가 페이지→최신 판, `page_design_event`(append-only)에 이력.
+`auto_run`은 (차수, 시안)별이라 시안이 바뀌면 후보를 다시 찾고 옛 결과는 남는다. 사용자 이름은 나누지 않는다(통합/개별 구분은 받는 쪽이 한다).
+
 **다음 작업 대기열 (우선순위 순):**
 0. **현재 진행 — 검수 정책(무엇을 오류로 볼 것인가) 규칙화 + 검수 제외 영역.**
    정렬을 고친 뒤 드러난 **다음 병목**. 8번 3계층 정책의 첫 실물 조각이다. 범위:

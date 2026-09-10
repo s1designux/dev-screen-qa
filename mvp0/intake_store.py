@@ -127,6 +127,10 @@ class Store:
             c.executescript(PLAN_SCHEMA)
             from auto_inspect import SCHEMA as AUTO_SCHEMA  # 자동 검수 후보(사람이 확정하기 전 단계)
             c.executescript(AUTO_SCHEMA)
+            from design_receive import SCHEMA as RECEIVE_SCHEMA  # 플러그인에서 바로 받은 시안 ↔ 페이지 연결
+            c.executescript(RECEIVE_SCHEMA)
+            import auto_inspect
+            auto_inspect.migrate(c)
 
     def event(self, c, batch, item, action, detail, actor='로컬 사용자'):
         c.execute('INSERT INTO intake_event VALUES (?,?,?,?,?,?,?)',
@@ -385,7 +389,11 @@ class Store:
         with self.connect() as c:
             if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='intake_design'").fetchone():
                 return None
-            design=c.execute('SELECT design_id FROM intake_item WHERE page_id=?',(page,)).fetchone()
+            design=None
+            if c.execute("SELECT 1 FROM sqlite_master WHERE name='page_design_link'").fetchone():
+                design=c.execute('SELECT design_id FROM page_design_link WHERE page_id=?',(page,)).fetchone()  # 플러그인에서 바로 받은 시안이 우선
+            if not design:
+                design=c.execute('SELECT design_id FROM intake_item WHERE page_id=?',(page,)).fetchone()
             if not design and c.execute("SELECT 1 FROM sqlite_master WHERE name='design_case'").fetchone():
                 design=c.execute('SELECT design_id FROM design_case WHERE page_id=?',(page,)).fetchone()
             if not design or not design['design_id']:

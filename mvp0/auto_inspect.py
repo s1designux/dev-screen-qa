@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS auto_run (
  status TEXT NOT NULL CHECK(status IN ('pending','done','failed')), engine TEXT NOT NULL DEFAULT '',
  created_at TEXT NOT NULL, finished_at TEXT, error TEXT NOT NULL DEFAULT '',
  alignment TEXT NOT NULL DEFAULT '', range TEXT NOT NULL DEFAULT '', notices TEXT NOT NULL DEFAULT '[]',
- capture_w INTEGER, capture_h INTEGER, UNIQUE(run_id)
+ capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT '', UNIQUE(run_id, design_id)
 );
 CREATE TABLE IF NOT EXISTS auto_candidate (
  id TEXT PRIMARY KEY, auto_run_id TEXT NOT NULL REFERENCES auto_run(id), no INTEGER NOT NULL,
@@ -58,6 +58,27 @@ KIND_CATEGORY = {'text': 'text', 'fixed': 'text', 'variable': 'text', 'missing':
 
 def uid():
     return uuid.uuid4().hex
+
+
+def migrate(c):
+    """auto_run이 시안별(run_id+design_id)이 되기 전 표를 만난 경우 — 행은 남기고 모양만 바꾼다.
+    이름을 바꿀 때 다른 표의 참조가 따라 바뀌지 않게(legacy_alter_table) 한다. 참조가 이미 틀어진 표는 다시 세운다."""
+    cols = [r[1] for r in c.execute('PRAGMA table_info(auto_run)')]
+    if cols and 'design_id' not in cols:
+        c.execute('PRAGMA legacy_alter_table=ON')
+        c.execute('ALTER TABLE auto_run RENAME TO auto_run_v0')
+        c.executescript(SCHEMA)
+        c.execute("""INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,finished_at,error,alignment,range,notices,capture_w,capture_h,design_id)
+                     SELECT id,page_id,run_id,status,engine,created_at,finished_at,error,alignment,range,notices,capture_w,capture_h,'' FROM auto_run_v0""")
+        c.execute('PRAGMA legacy_alter_table=OFF')
+    sql = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_candidate'").fetchone()
+    if sql and 'auto_run_v0' in sql[0]:
+        c.execute('PRAGMA legacy_alter_table=ON')
+        c.execute('ALTER TABLE auto_candidate RENAME TO auto_candidate_v0')
+        c.executescript(SCHEMA)
+        c.execute('INSERT INTO auto_candidate SELECT * FROM auto_candidate_v0')
+        c.execute('DROP TABLE auto_candidate_v0')
+        c.execute('PRAGMA legacy_alter_table=OFF')
 
 
 def now():
@@ -110,7 +131,9 @@ class Auto:
 
     # ── 페이지 ↔ 디자인 ─────────────────────────────────────────────
     def design_of_page(self, c, page_id):
-        r = c.execute('SELECT design_id FROM design_case WHERE page_id=? AND design_id IS NOT NULL', (page_id,)).fetchone()
+        r = c.execute('SELECT design_id FROM page_design_link WHERE page_id=?', (page_id,)).fetchone()  # 플러그인에서 바로 받은 시안이 우선
+        if not r:
+            r = c.execute('SELECT design_id FROM design_case WHERE page_id=? AND design_id IS NOT NULL', (page_id,)).fetchone()
         if not r:
             r = c.execute('SELECT design_id FROM intake_item WHERE page_id=? AND design_id IS NOT NULL', (page_id,)).fetchone()
         if not r:
@@ -134,24 +157,27 @@ class Auto:
         return got
 
     # ── 자동 검수 회차 ─────────────────────────────────────────────
-    def run_for(self, c, run_id):
-        return c.execute('SELECT * FROM auto_run WHERE run_id=?', (run_id,)).fetchone()
+    def run_for(self, c, run_id, page_id=None):
+        """그 차수 + 지금 시안의 자동 검수. 시안이 바뀌면 새로 돈다(옛 결과는 남는다)."""
+        design = self.design_of_page(c, page_id) if page_id else None
+        return c.execute('SELECT * FROM auto_run WHERE run_id=? AND design_id=?', (run_id, design['id'] if design else '')).fetchone()
 
     def ensure_run(self, page_id, run_id):
-        """페이지 상세를 열 때: 그 차수의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None."""
+        """그 차수·지금 시안의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None."""
         with self.store.connect() as c:
-            r = self.run_for(c, run_id)
+            r = self.run_for(c, run_id, page_id)
             if r:
                 return r
-            if not self.design_of_page(c, page_id):
+            design = self.design_of_page(c, page_id)
+            if not design:
                 return None
-            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at) VALUES(?,?,?,?,?,?)',
-                      (uid(), page_id, run_id, 'pending', engine_rev(), now()))
-            return self.run_for(c, run_id)
+            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
+                      (uid(), page_id, run_id, 'pending', engine_rev(), now(), design['id']))
+            return self.run_for(c, run_id, page_id)
 
     def retry(self, page_id, run_id):
         with self.store.connect() as c:
-            r = self.run_for(c, run_id)
+            r = self.run_for(c, run_id, page_id)
             if r and r['status'] == 'failed':
                 c.execute("UPDATE auto_run SET status='pending',error='',engine=? WHERE id=?", (engine_rev(), r['id']))
 
@@ -277,7 +303,7 @@ class Auto:
             with self.store.connect() as c:
                 if not self.design_of_page(c, page_id):
                     return None
-                r = self.run_for(c, run['uuid'])
+                r = self.run_for(c, run['uuid'], page_id)
                 if not r:
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
                             'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1}
