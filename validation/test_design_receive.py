@@ -154,3 +154,62 @@ class Receive(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReplaceCapture(unittest.TestCase):
+    """촬영기로 들어온 페이지의 '개발 화면 변경' 팝업 — 같은 접수함 사진 중 고르기."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='replace-verifier-', dir='/private/tmp')
+        root = Path(self.tmp.name)
+        self.s = storemod.Store(root / 'test.db', root / 'uploads')
+        self.s.init()
+        rows = [{'파일': '0.png', '화면이름': '로그인', '상태': '기본'}, {'파일': '1.png', '화면이름': '로그인', '상태': '버튼 활성화'}]
+        files = [('찍은목록.json', json.dumps({'촬영본': rows}).encode()), ('0.png', png()), ('1.png', png(b'\x00\x00\xff\x00'))]
+        self.b = self.s.import_files(files, project_name='교체검증')[0]
+        d = self.s.add_design('fkey', '1:1', '로그인', 'https://www.figma.com/design/fkey/?node-id=1-1', '1:0', png())
+        r = self.s.batch(self.b)[1][0]
+        self.s.select_design(r['id'], r['revision'], d)
+        r = self.s.batch(self.b)[1][0]
+        self.s.confirm(r['id'], r['revision'])
+        self.s.start(self.b)
+        self.items = self.s.batch(self.b)[1]
+        self.page = self.items[0]['page_id']
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_row(self):
+        with self.s.connect() as c:
+            return c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1', (self.page,)).fetchone()
+
+    def test_popup_lists_batch_photos_and_replaces_current_round(self):
+        body = portal.render_page(self.page, 1, store=self.s)
+        self.assertIn('개발 화면 변경', body)
+        self.assertIn('id="capture-picker"', body)
+        self.assertEqual(body.count('name="capture"'), 2)
+        self.assertIn(f'/intake/{self.b}/capture', body)
+        before = self.run_row()
+        item0, item1 = self.items
+        self.s.replace_capture(item0['id'], item0['revision'], item1['id'])
+        after = self.run_row()
+        self.assertEqual(after['dev_img'], item1['filename'])
+        self.assertNotEqual(after['dev_img'], before['dev_img'])
+        self.assertEqual(after['round'], before['round'])                 # 같은 차수 안에서 교체
+        with self.s.connect() as c:
+            ev = c.execute("SELECT detail FROM intake_event WHERE action='개발 화면 변경'").fetchone()
+        self.assertEqual(json.loads(ev['detail'])['새 사진'], item1['filename'])
+        with self.assertRaises(ValueError):
+            self.s.replace_capture(item0['id'], item0['revision'], item1['id'])   # 판이 바뀌었으니 새로고침 필요
+        with self.assertRaises(ValueError):
+            self.s.replace_capture(item0['id'], item0['revision'] + 1, 'nope')
+
+    def test_after_issue_registered_replacement_needs_new_round(self):
+        with self.s.connect() as c:
+            sc = c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?', (self.page,)).fetchone()['screen_id']
+            c.execute("INSERT INTO inspection_issue(uuid,screen_id,page_id,status,dedup_key) VALUES('i1',?,?,'발견','k1')", (sc, self.page))
+        body = portal.render_page(self.page, 1, store=self.s)
+        self.assertNotIn('개발 화면 변경', body)
+        self.assertIn('바꾸려면 새 차수', body)
+        item0, item1 = self.items
+        with self.assertRaises(ValueError):
+            self.s.replace_capture(item0['id'], item0['revision'], item1['id'])

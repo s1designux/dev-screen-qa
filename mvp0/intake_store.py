@@ -316,6 +316,35 @@ class Store:
             c.execute("UPDATE intake_item SET design_id=?,status='pending',revision=revision+1 WHERE id=?",(design,item))
             self.event(c,r['batch_id'],item,'추천 연결' if recommendation is not None else '디자인 선택',{'이전 디자인':r['design_id'],'새 디자인':design, '추천 사유': recommendation})
 
+    def captures_of_batch(self,batch):
+        """같은 접수함에서 찍은 사진들(개발 화면 바꾸기 팝업용). 보류·제외된 것도 보여 주되 표시만 한다."""
+        with self.connect() as c:
+            return c.execute('''SELECT i.id,i.seq,i.screen_name,i.state_name,i.status,a.filename,a.width,a.height FROM intake_item i
+                JOIN intake_asset a ON a.id=i.asset_id WHERE i.batch_id=? ORDER BY i.seq''',(batch,)).fetchall()
+
+    def replace_capture(self,item,revision,capture):
+        """검수 중인 페이지의 개발 화면을 같은 접수함의 다른 사진으로 바꾼다(지적이 없을 때만 — 있으면 새 차수).
+        사진 파일은 지우지 않고 그 차수(run)의 개발 이미지만 바꾸며 이력을 남긴다."""
+        with self.connect() as c:
+            r=c.execute('SELECT * FROM intake_item WHERE id=?',(item,)).fetchone()
+            self.check(r,revision)
+            if not r['page_id']:
+                raise ValueError('검수가 시작된 페이지에서만 개발 화면을 바꿀 수 있어요.')
+            if c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():
+                raise ValueError('지적이 등록된 화면의 개발 화면 교체는 새 차수에서 진행합니다.')
+            cap=c.execute('SELECT i.id,a.* FROM intake_item i JOIN intake_asset a ON a.id=i.asset_id WHERE i.id=? AND i.batch_id=?',(capture,r['batch_id'])).fetchone()
+            if not cap:
+                raise ValueError('이 접수함에서 찍은 사진을 골라 주세요.')
+            run=c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1',(r['page_id'],)).fetchone()
+            if not run:
+                raise ValueError('검수 차수가 없어요.')
+            if run['dev_img']==cap['filename']:
+                return
+            c.execute('UPDATE inspection_run SET dev_img=?,dev_img_w=?,dev_img_h=?,coord_ref_w=?,coord_ref_h=? WHERE uuid=?',
+                      (cap['filename'],cap['width'],cap['height'],cap['width'],cap['height'],run['uuid']))
+            c.execute('UPDATE intake_item SET revision=revision+1 WHERE id=?',(item,))
+            self.event(c,r['batch_id'],item,'개발 화면 변경',{'차수':run['round'],'이전':run['dev_img'],'새 사진':cap['filename'],'촬영본':capture})
+
     def recommendation(self,item):
         with self.connect() as c:
             event=c.execute("SELECT action,detail FROM intake_event WHERE item_id=? AND action IN ('추천 연결','디자인 선택') ORDER BY rowid DESC LIMIT 1",(item,)).fetchone()
