@@ -213,3 +213,46 @@ class ReplaceCapture(unittest.TestCase):
         item0, item1 = self.items
         with self.assertRaises(ValueError):
             self.s.replace_capture(item0['id'], item0['revision'], item1['id'])
+
+
+class ReplaceCaptureLegacy(unittest.TestCase):
+    """촬영기가 바로 넣은 페이지(접수함 연결 없음) — 같은 화면 묶음의 사진 중 고르기."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='replace-legacy-', dir='/private/tmp')
+        root = Path(self.tmp.name)
+        self.s = storemod.Store(root / 'test.db', root / 'uploads')
+        self.s.init()
+        with self.s.connect() as c:
+            c.execute("INSERT INTO project(uuid,name) VALUES('pj','버스')")
+            c.execute("INSERT INTO screen(uuid,project_id,human_key,name,platform) VALUES('sc','pj','BUS-AND-001','로그인','android')")
+            for i, (pg, name) in enumerate((('p1', '기본'), ('p2', '버튼 활성화'), ('p3', '오류'))):
+                c.execute("INSERT INTO inspection_page(uuid,screen_id,seq,name,design_img) VALUES(?,?,?,?,?)", (pg, 'sc', i + 1, name, f'{pg}_design.png'))
+                c.execute("INSERT INTO inspection_run(uuid,screen_id,page_id,round,created_at,dev_img,dev_img_w,dev_img_h,coord_ref_w,coord_ref_h) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                          (f'r{i}', 'sc', pg, 1, '2026-09-10', f'r{i}_dev.png', 360, 780 + i, 360, 780 + i))
+        self.r = design_receive.Receiver(self.s)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_popup_lists_sibling_photos_and_replaces(self):
+        body = portal.render_page('p1', 1, store=self.s)
+        self.assertIn('개발 화면 변경', body)
+        self.assertIn('/screen/BUS-AND-001/page/p1/capture', body)
+        self.assertEqual(body.count('name="capture"'), 3)
+        self.assertIn('PNG 업로드', body)                                   # 직접 올리기도 그대로
+        self.r.replace_capture('p1', 'r2_dev.png')
+        with self.s.connect() as c:
+            run = c.execute("SELECT dev_img,dev_img_h,coord_ref_h FROM inspection_run WHERE page_id='p1'").fetchone()
+            ev = c.execute("SELECT from_img,to_img FROM page_capture_event WHERE page_id='p1'").fetchone()
+        self.assertEqual((run['dev_img'], run['dev_img_h'], run['coord_ref_h']), ('r2_dev.png', 782, 782))
+        self.assertEqual((ev['from_img'], ev['to_img']), ('r0_dev.png', 'r2_dev.png'))
+        with self.assertRaises(ValueError):
+            self.r.replace_capture('p1', 'nope.png')
+
+    def test_blocked_after_issue(self):
+        with self.s.connect() as c:
+            c.execute("INSERT INTO inspection_issue(uuid,screen_id,page_id,status,dedup_key) VALUES('i1','sc','p1','발견','k')")
+        body = portal.render_page('p1', 1, store=self.s)
+        self.assertNotIn('개발 화면 변경', body)
+        with self.assertRaises(ValueError):
+            self.r.replace_capture('p1', 'r1_dev.png')

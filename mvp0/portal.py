@@ -163,42 +163,61 @@ def _migrate(conn):
     conn.commit()
 
 
-def _remove_pages(page_uuids, actor="", note=""):
-    """검수 페이지를 '목록에서 빼기'. 행을 지우지 않고 뺀 시각·사람·사유만 남긴다
-    (CLAUDE.md 2번-3: 이력은 삭제하지 않는다). 되돌리면 그대로 다시 보인다."""
+def _table_exists(conn, name):
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone() is not None
+
+
+def _delete_pages(page_uuids):
+    """검수 페이지를 진짜로 지운다. 그 페이지에 딸린 검수 데이터(차수·지적·이력·자동 후보)도 함께 사라진다.
+    되돌릴 수 없다.
+
+    append-only 이벤트 기록(auto_candidate_event / page_design_event / intake_event)은 건드리지 않는다
+    (CLAUDE.md 2번-3 · 12번: 이력 자체는 지우지 않는다). 그래서 지우는 동안만 외래키 검사를 끈다."""
     if not page_uuids:
         return 0
     conn = dbmod.connect(REAL_DB)
-    _migrate(conn)
-    now = datetime.now().isoformat(timespec="seconds")
+    conn.execute("PRAGMA foreign_keys = OFF")
     n = 0
     for u in page_uuids:
-        cur = conn.execute(
-            "UPDATE inspection_page SET removed_at=?, removed_by=?, removed_note=? "
-            "WHERE uuid=? AND removed_at IS NULL",
-            (now, actor, note, u),
-        )
-        n += cur.rowcount
+        if conn.execute("SELECT 1 FROM inspection_page WHERE uuid=?", (u,)).fetchone() is None:
+            continue
+        issues = [r["uuid"] for r in
+                  conn.execute("SELECT uuid FROM inspection_issue WHERE page_id=?", (u,))]
+        if issues:
+            marks = ",".join("?" for _ in issues)
+            conn.execute(f"DELETE FROM issue_history WHERE issue_id IN ({marks})", issues)
+        if _table_exists(conn, "auto_candidate"):
+            conn.execute(
+                "DELETE FROM auto_candidate WHERE auto_run_id IN "
+                "(SELECT id FROM auto_run WHERE page_id=?)", (u,))
+        if _table_exists(conn, "auto_run"):
+            conn.execute("DELETE FROM auto_run WHERE page_id=?", (u,))
+        if _table_exists(conn, "page_design_link"):
+            conn.execute("DELETE FROM page_design_link WHERE page_id=?", (u,))
+        if _table_exists(conn, "intake_item"):
+            conn.execute("UPDATE intake_item SET page_id=NULL, status='unlinked', "
+                         "revision=revision+1 WHERE page_id=?", (u,))
+        if _table_exists(conn, "design_case"):
+            conn.execute("UPDATE design_case SET page_id=NULL WHERE page_id=?", (u,))
+        conn.execute("DELETE FROM inspection_issue WHERE page_id=?", (u,))
+        conn.execute("DELETE FROM inspection_run WHERE page_id=?", (u,))
+        n += conn.execute("DELETE FROM inspection_page WHERE uuid=?", (u,)).rowcount
     conn.commit()
     conn.close()
     return n
 
 
-def _restore_pages(page_uuids):
-    """뺀 검수 페이지를 목록으로 되돌린다."""
-    if not page_uuids:
-        return 0
+def _purge_removed_pages(screen_uuid):
+    """예전에 '목록에서 빼기'로 숨겨둔 페이지를 한꺼번에 지운다."""
     conn = dbmod.connect(REAL_DB)
     _migrate(conn)
-    n = 0
-    for u in page_uuids:
-        n += conn.execute(
-            "UPDATE inspection_page SET removed_at=NULL, removed_by=NULL, removed_note=NULL "
-            "WHERE uuid=?", (u,)
-        ).rowcount
-    conn.commit()
+    ids = [r["uuid"] for r in conn.execute(
+        "SELECT uuid FROM inspection_page WHERE screen_id=? AND removed_at IS NOT NULL",
+        (screen_uuid,))]
     conn.close()
-    return n
+    return _delete_pages(ids)
 
 
 def _rename_screen(screen_uuid, name):
@@ -368,42 +387,26 @@ def render_screen(human_key: str, notice=""):
     else:
         rows = '<tr><td colspan="7" class="ctr">검수 페이지 없음</td></tr>'
 
-    who = "".join(f'<option value="{_esc(x["name"])}">' for x in persons)
     remove_bar = f"""
       <form id="page-remove" class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/remove"
-            onsubmit="return document.querySelector('input[name=page]:checked') ? true :
-                      (alert('뺄 검수 페이지를 먼저 고르세요.'), false)">
+            onsubmit="return document.querySelector('input[name=page]:checked') ?
+                      confirm('고른 검수 페이지를 지웁니다. 그 페이지의 지적·차수 기록도 함께 사라지고 되돌릴 수 없습니다. 지울까요?') :
+                      (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
         <span class="lbl">고른 페이지를</span>
-        <input name="actor" list="who-remove" placeholder="누가 (선택)" size="10">
-        <datalist id="who-remove">{who}</datalist>
-        <input name="note" placeholder="왜 빼는지 (선택)" size="26">
-        <button type="submit">목록에서 빼기</button>
-        <span class="hint">지우지 않습니다. 아래 '뺀 페이지'에서 되돌릴 수 있어요.</span>
+        <button type="submit">삭제</button>
+        <span class="hint">되돌릴 수 없습니다. 그 페이지의 지적·차수 기록도 함께 사라집니다.</span>
       </form>""" if pages else ""
 
     removed_html = ""
     if removed:
-        items = ""
-        for n, p in enumerate(removed, 1):
-            why = " · ".join(x for x in [p["removed_by"], p["removed_note"]] if x)
-            items += f"""<tr>
-              <td class="ctr">{n}</td>
-              <td class="name">{_esc(p['name'])}</td>
-              <td class="ctr">{_esc(queries.day(p['removed_at']))}</td>
-              <td>{_esc(why)}</td>
-              <td class="ctr"><form method="post" action="/screen/{_esc(human_key)}/pages/restore">
-                <input type="hidden" name="page" value="{p['uuid']}">
-                <button type="submit">되돌리기</button></form></td>
-            </tr>"""
+        # 예전 '목록에서 빼기'로 숨겨둔 페이지. 이제는 숨기지 않고 지우므로, 남은 것만 한 번에 정리한다.
         removed_html = f"""
     <section class="group">
-      <details>
-        <summary>뺀 검수 페이지 {len(removed)}개 (데이터는 그대로 남아 있습니다)</summary>
-        <table>
-          <thead><tr><th class="ctr">순번</th><th>검수 페이지</th><th class="ctr">뺀 날</th><th>누가 · 왜</th><th></th></tr></thead>
-          <tbody>{items}</tbody>
-        </table>
-      </details>
+      <form class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/purge"
+            onsubmit="return confirm('예전에 목록에서 빼둔 검수 페이지 {len(removed)}개를 완전히 지웁니다. 되돌릴 수 없습니다. 지울까요?')">
+        <span class="lbl">예전에 목록에서 빼둔 검수 페이지 {len(removed)}개</span>
+        <button type="submit">완전히 지우기</button>
+      </form>
     </section>"""
 
     notice_html = f'<div class="notice">{_esc(notice)}</div>' if notice else ""
@@ -449,25 +452,36 @@ def render_screen(human_key: str, notice=""):
 
 
 # ──────────────────────────────────────────────────────────── 페이지 상세
-def _capture_picker(store, linked, page, sel_run):
-    """촬영기로 들어온 페이지의 '개발 화면 변경' 팝업 — 같은 접수함에서 찍은 사진 중 고른다(디자인 먼저 흐름의 팝업과 같은 모양·추천)."""
+def _capture_picker(store, linked, page, sel_run, human_key=''):
+    """'개발 화면 변경' 팝업 — 같은 접수함(또는 같은 화면 묶음)에서 찍은 사진 중 고른다(디자인 먼저 흐름의 팝업과 같은 모양·추천).
+    접수함에 연결된 페이지는 /intake/<batch>/capture 로, 촬영기가 바로 넣은 페이지는 /screen/…/page/…/capture 로 보낸다."""
     ui = intake_http.ui
-    caps = store.captures_of_batch(linked['batch_id'])
     current = sel_run['dev_img'] if sel_run else None
+    rows = []
+    if linked:
+        for cap in store.captures_of_batch(linked['batch_id']):
+            name = f"{cap['screen_name']} · {cap['state_name']}" + (' (보류)' if cap['status'] == 'held' else ' (제외)' if cap['status'] == 'excluded' else '')
+            rows.append((cap['seq'], cap['id'], cap['filename'], name))
+        action = f'/intake/{linked["batch_id"]}/capture'
+        controls = ui.hidden('item', linked['id']) + ui.hidden('revision', linked['revision'])
+    else:
+        for i, cap in enumerate(design_receive.Receiver(store).sibling_captures(page['uuid'])):
+            rows.append((i, cap['filename'], cap['filename'], f"{cap['page_name']} · {cap['round']}차"))
+        action = f"/screen/{_esc(human_key)}/page/{_esc(page['uuid'])}/capture"
+        controls = ''
+    caps = rows
     options = ''
-    for cap in sorted(caps, key=lambda x: (x['filename'] != current, x['seq'])):
-        name = f"{cap['screen_name']} · {cap['state_name']}" + (' (보류)' if cap['status'] == 'held' else ' (제외)' if cap['status'] == 'excluded' else '')
-        options += (f'<label class="cap-option"><input type="radio" name="capture" value="{cap["id"]}" data-src="/uploads/{_esc(cap["filename"])}" '
-                    f'data-name="{_esc(name)}" {"checked" if cap["filename"] == current else ""}><span class="rank">비교 중</span><span>{_esc(name)}</span></label>')
+    for seq, value, filename, name in sorted(rows, key=lambda x: (x[2] != current, x[0])):
+        options += (f'<label class="cap-option"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
+                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">비교 중</span><span>{_esc(name)}</span></label>')
     pic = f'<img id="plan-capture-preview" src="/uploads/{_esc(current)}" alt="선택한 개발 캡처">' if current else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
     design = f'<img class="design-original" src="/uploads/{_esc(page["design_img"])}" alt="디자인 원본">' if page.get('design_img') else '<span class="ph">디자인 없음</span>'
     comparison = (f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image">{design}</div></section>'
                   f'<section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div>'
-                  f'<aside class="capture-list"><b>같은 접수함에서 찍은 사진</b><div class="capture-options">{options}</div></aside></div>')
-    controls = ui.hidden('item', linked['id']) + ui.hidden('revision', linked['revision'])
+                  f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options">{options}</div></aside></div>')
     return (f'<dialog id="capture-picker"><div class="dialog-head"><h2>개발 화면 바꾸기</h2><button type="button" onclick="document.getElementById(\'capture-picker\').close()">닫기</button></div>'
             f'<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
-            + ui.form(f'/intake/{linked["batch_id"]}/capture', controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
+            + ui.form(action, controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
             + f'</dialog><script>{(BASE / "capture_recommendation.js").read_text()}</script>')
 
 
@@ -518,12 +532,16 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             if linked['page_id'] and not all_issues:
                 return '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button>'
             return '<span class="upl">촬영 원본 보관됨' + (' · 바꾸려면 새 차수' if all_issues else '') + '</span>'
-        return _upl(human_key, page_uuid, side, sel if side == 'dev' else None)
+        extra = ''
+        if side == 'dev' and sel_run and not all_issues and len(sibling_caps) > 1:
+            extra = '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button> '
+        return extra + _upl(human_key, page_uuid, side, sel if side == 'dev' else None)
 
     # 차수 선택: ?round=N (없으면 최신). 그 차수 시점의 상태로 화면을 구성한다.
     rounds = [r["round"] for r in runs]
     sel = sel_round if sel_round in rounds else (max(rounds) if rounds else 1)
     sel_run = next((r for r in runs if r["round"] == sel), None)
+    sibling_caps = design_receive.Receiver(store).sibling_captures(page_uuid) if (sel_run and not linked and not draft) else []
     # 자동 검수 후보(그 차수). 결과가 없으면 '대기'로 만들어 두고, 페이지 JS가 엔진을 돌려 저장한다.
     auto_view = auto_inspect.Auto(store).view(page_uuid, sel_run) if (sel_run and not draft) else None
 
@@ -748,6 +766,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             design_dialog += '<script>document.getElementById("design-picker").showModal()</script>'
     if linked and not workflow and linked['page_id'] and not all_issues:
         design_dialog += _capture_picker(store, linked, page, sel_run)
+    elif not linked and not workflow and not draft and sel_run and not all_issues and len(sibling_caps) > 1:
+        design_dialog += _capture_picker(store, None, page, sel_run, human_key)
     if workflow:
         design_dialog=workflow['dialog']
         connection_controls=workflow['controls']
@@ -901,7 +921,7 @@ class Handler(BaseHTTPRequestHandler):
         if auto_inspect.post(self, intake(), path):
             return
         length = int(self.headers.get("Content-Length", 0))
-        if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/restore", "/rename")):
+        if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/purge", "/rename")):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             action = path.rsplit("/", 1)[1]
             suffix = "/rename" if action == "rename" else "/pages/" + action
@@ -916,18 +936,27 @@ class Handler(BaseHTTPRequestHandler):
                 _rename_screen(scr["row"]["uuid"], form.get("name", [""])[0])
                 notice = "화면명을 바꿨습니다."
             elif action == "remove":
-                n = _remove_pages(form.get("page", []),
-                                  form.get("actor", [""])[0].strip(),
-                                  form.get("note", [""])[0].strip())
-                notice = f"검수 페이지 {n}개를 목록에서 뺐습니다. 데이터는 남아 있고 되돌릴 수 있습니다."
+                n = _delete_pages(form.get("page", []))
+                notice = f"검수 페이지 {n}개를 지웠습니다."
             else:
-                n = _restore_pages(form.get("page", []))
-                notice = f"검수 페이지 {n}개를 목록으로 되돌렸습니다."
+                n = _purge_removed_pages(scr["row"]["uuid"])
+                notice = f"예전에 빼둔 검수 페이지 {n}개를 지웠습니다."
             self.send_response(303)
             self.send_header("Location", f"/screen/{key}?notice={quote(notice)}")
             self.end_headers()
             return
-        if path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
+        if path.startswith("/screen/") and "/page/" in path and path.endswith("/capture"):
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            page_uuid = path[:-len("/capture")].rsplit("/page/", 1)[1]
+            try:
+                design_receive.Receiver(intake()).replace_capture(page_uuid, form.get("capture", [""])[0])
+                notice = "개발 화면을 바꿨습니다."
+            except ValueError as ex:
+                notice = str(ex)
+            self.send_response(303)
+            self.send_header("Location", path[:-len("/capture")] + "?notice=" + quote(notice))
+            self.end_headers()
+        elif path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             issue = form.get("issue", [""])[0]
             actor = form.get("actor", [""])[0].strip()

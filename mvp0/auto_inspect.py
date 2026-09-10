@@ -145,6 +145,8 @@ class Auto:
         row = c.execute('SELECT * FROM design_elements WHERE design_id=?', (design['id'],)).fetchone()
         if row:
             return {'frame': json.loads(row['frame']), 'elements': json.loads(row['elements'])}
+        if design['provider'] == 'Figma 플러그인':
+            raise ValueError('이 시안은 플러그인에서 요소 목록 없이 왔어요. 피그마에서 플러그인을 다시 불러온 뒤 그 프레임을 골라 「검수 시안 바꾸기」를 눌러 주세요.')
         if design['provider'] != 'Figma REST' or design['file_key'] == 'local-design':
             raise ValueError('Figma 시안이 아니라 디자인 요소를 읽을 수 없어요. 시안을 Figma 링크로 연결하면 자동 검수가 됩니다.')
         data = figma_reader.api('files/' + design['file_key'] + '/nodes?ids=' + design['node_id'] + '&plugin_data=shared')

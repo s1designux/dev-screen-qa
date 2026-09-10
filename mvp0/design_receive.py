@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS page_design_event (
  id TEXT PRIMARY KEY, page_id TEXT NOT NULL, design_id TEXT NOT NULL, from_img TEXT, to_img TEXT NOT NULL,
  at TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS page_capture_event (
+ id TEXT PRIMARY KEY, page_id TEXT NOT NULL, run_id TEXT NOT NULL, from_img TEXT, to_img TEXT NOT NULL, at TEXT NOT NULL, note TEXT NOT NULL DEFAULT ''
+);
+CREATE TRIGGER IF NOT EXISTS page_capture_event_no_update BEFORE UPDATE ON page_capture_event BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS page_capture_event_no_delete BEFORE DELETE ON page_capture_event BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS page_design_event_no_update BEFORE UPDATE ON page_design_event BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS page_design_event_no_delete BEFORE DELETE ON page_design_event BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
 '''
@@ -132,6 +137,36 @@ class Receiver:
             c.execute('INSERT INTO page_design_event VALUES (?,?,?,?,?,?,?,?)', (uid(), page_id, design, page['design_img'], fname, now(), PROVIDER, f"플러그인에서 시안 새 판 받음: {frame.get('name') or ''}"))
             c.execute('UPDATE inspection_page SET design_img=? WHERE uuid=?', (fname, page_id))
         return {'ok': True, 'page': page_id, 'design': design, 'url': f"/screen/{page['human_key'] or page['screen_id']}/page/{page_id}"}
+
+
+    # ── 촬영기가 바로 넣은 페이지(접수함 연결 없음)의 개발 화면 바꾸기 ─────────
+    def sibling_captures(self, page_id):
+        """같은 화면 묶음(같은 촬영 때 찍은 상태들)의 개발 사진. 팝업에서 고를 후보."""
+        with self.store.connect() as c:
+            sid = c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?', (page_id,)).fetchone()
+            if not sid:
+                return []
+            return c.execute('''SELECT r.uuid run_id, r.page_id, p.name page_name, r.round, r.dev_img filename, r.dev_img_w width, r.dev_img_h height
+                                FROM inspection_run r JOIN inspection_page p ON p.uuid=r.page_id
+                                WHERE p.screen_id=? AND r.dev_img IS NOT NULL ORDER BY p.seq, r.round''', (sid['screen_id'],)).fetchall()
+
+    def replace_capture(self, page_id, filename):
+        """이 페이지의 최신 차수 개발 이미지를 같은 화면 묶음의 다른 사진으로 바꾼다(지적이 없을 때만). 파일은 지우지 않고 이력을 남긴다."""
+        caps = {r['filename']: r for r in self.sibling_captures(page_id)}
+        cap = caps.get(filename)
+        if not cap:
+            raise ValueError('같은 화면에서 찍은 사진 중에서 골라 주세요.')
+        with self.store.connect() as c:
+            if c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1', (page_id,)).fetchone():
+                raise ValueError('지적이 등록된 화면의 개발 화면 교체는 새 차수에서 진행합니다.')
+            run = c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1', (page_id,)).fetchone()
+            if not run:
+                raise ValueError('검수 차수가 없어요.')
+            if run['dev_img'] == filename:
+                return
+            c.execute('UPDATE inspection_run SET dev_img=?,dev_img_w=?,dev_img_h=?,coord_ref_w=?,coord_ref_h=? WHERE uuid=?',
+                      (filename, cap['width'], cap['height'], cap['width'], cap['height'], run['uuid']))
+            c.execute('INSERT INTO page_capture_event VALUES (?,?,?,?,?,?,?)', (uid(), page_id, run['uuid'], run['dev_img'], filename, now(), f"같은 화면의 사진으로 바꿈: {cap['page_name']}"))
 
 
 # ── HTTP (플러그인 창에서 오므로 CORS 허용 · 내 PC 안에서만) ─────────────
