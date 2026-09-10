@@ -311,7 +311,6 @@ def render_list(unresolved_only: bool, round_filter):
   <header>
     <h1>검수 포털 <span class="muted" style="font-weight:400;font-size:13px;">· 화면 목록</span></h1>
     <div class="sub">화면을 선택하면 검수 페이지를 볼 수 있습니다.</div>
-    <div style="display:flex;gap:10px;justify-content:flex-end"><a class="btn" href="/intake">가져온 기록</a><a class="btn" style="margin-left:0;background:#245be5;color:white;border-color:#245be5" href="/intake/new">촬영본 가져오기</a> <a class="btn" href="/design/new">디자인부터 검수 준비</a></div>
   </header>
   <div class="wrap">
     <div class="filters"><span class="lbl">보기</span> {un_filters}</div>
