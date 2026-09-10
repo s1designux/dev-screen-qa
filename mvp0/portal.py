@@ -26,11 +26,11 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from itertools import groupby
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 
 import db as dbmod
 import queries
-from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES
+from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES, MAX_ROUNDS
 
 BASE = Path(__file__).resolve().parent
 REAL_DB = Path(os.environ.get("QA_PORTAL_DB", str(BASE / "mvp0-real.db")))   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
@@ -148,6 +148,65 @@ def _save_upload(page_uuid, side, data, size, rnd=1):
     conn.close()
 
 
+def _migrate(conn):
+    """빠진 칼럼만 조용히 채운다. 기존 데이터는 건드리지 않는다."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(inspection_page)")}
+    for col in ("removed_at", "removed_by", "removed_note"):
+        if col not in have:
+            conn.execute(f"ALTER TABLE inspection_page ADD COLUMN {col} TEXT")
+    conn.commit()
+
+
+def _remove_pages(page_uuids, actor="", note=""):
+    """검수 페이지를 '목록에서 빼기'. 행을 지우지 않고 뺀 시각·사람·사유만 남긴다
+    (CLAUDE.md 2번-3: 이력은 삭제하지 않는다). 되돌리면 그대로 다시 보인다."""
+    if not page_uuids:
+        return 0
+    conn = dbmod.connect(REAL_DB)
+    _migrate(conn)
+    now = datetime.now().isoformat(timespec="seconds")
+    n = 0
+    for u in page_uuids:
+        cur = conn.execute(
+            "UPDATE inspection_page SET removed_at=?, removed_by=?, removed_note=? "
+            "WHERE uuid=? AND removed_at IS NULL",
+            (now, actor, note, u),
+        )
+        n += cur.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def _restore_pages(page_uuids):
+    """뺀 검수 페이지를 목록으로 되돌린다."""
+    if not page_uuids:
+        return 0
+    conn = dbmod.connect(REAL_DB)
+    _migrate(conn)
+    n = 0
+    for u in page_uuids:
+        n += conn.execute(
+            "UPDATE inspection_page SET removed_at=NULL, removed_by=NULL, removed_note=NULL "
+            "WHERE uuid=?", (u,)
+        ).rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def _rename_screen(screen_uuid, name):
+    """화면명만 고친다. 사람키(스토리보드 ID)·UUID는 그대로 → 참조 무결성 영향 없음."""
+    name = (name or "").strip()
+    if not name:
+        return False
+    conn = dbmod.connect(REAL_DB)
+    conn.execute("UPDATE screen SET name=? WHERE uuid=?", (name, screen_uuid))
+    conn.commit()
+    conn.close()
+    return True
+
+
 def _pass_issue(issue_uuid, actor, reason, rnd=1):
     """'협의통과' 처리: status만 갱신(행 삭제 없음) + issue_history에 한 줄 append(누가·언제·왜·차수)."""
     conn = dbmod.connect(REAL_DB)
@@ -258,11 +317,12 @@ def render_list(unresolved_only: bool, round_filter):
 
 
 # ────────────────────────────────────────────────────── 화면 상세 = 페이지 목록
-def render_screen(human_key: str):
+def render_screen(human_key: str, notice=""):
     for group in intake().screen_groups():
         if human_key in group['screen_ids']:
             return design_plan_http.ui.listing(intake(),group['href'].split('/')[-1]) if group['href'].startswith('/design/') else intake_http.ui.page_list(intake(),group['batch_id'],group['item_id'])
     conn = dbmod.connect(REAL_DB)
+    _migrate(conn)
     scr = queries.get_screen(conn, human_key)
     if scr is None:
         conn.close()
@@ -270,8 +330,17 @@ def render_screen(human_key: str):
     s = scr["row"]
     human_key = s["human_key"] or s["uuid"]
     pages = queries.pages_of_screen(conn, s["uuid"])
+    removed = [p for p in queries.pages_of_screen(conn, s["uuid"], include_removed=True)
+               if p["removed_at"]]
     agg = queries.screen_pass_fail(conn, s["uuid"])
+    persons = queries.list_persons(conn, active_only=True)
     conn.close()
+
+    def dates_cell(p):
+        """차수별 검수일. 아직 검수하지 않은 차수는 '—'."""
+        cells = [f'<span class="rdate"><b>{d["round"]}차</b> {_esc(d["inspected_at"] or "—")}</span>'
+                 for d in p["dates"] if d["round"] <= MAX_ROUNDS]
+        return "".join(cells) or '<span class="rdate">—</span>'
 
     if pages:
         rows = ""
@@ -279,14 +348,60 @@ def render_screen(human_key: str):
             dummy = '<span class="dummy">더미</span>' if p["note"] else ""
             un = p["unresolved"]
             uncls = "num zero" if un == 0 else "num"
-            rows += f"""<tr onclick="location.href='/screen/{_esc(human_key)}/page/{p['uuid']}'">
+            href = f"/screen/{_esc(human_key)}/page/{p['uuid']}"
+            up = _esc(p["uploaded_at"] or "—")
+            rows += f"""<tr onclick="location.href='{href}'">
+              <td class="ctr pick"><input type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
+                   onclick="event.stopPropagation()" aria-label="{_esc(p['name'])} 선택"></td>
               <td class="ctr">{p['seq']}</td>
               <td class="name">{_esc(p['name'])} {dummy}</td>
+              <td class="ctr">{up}</td>
+              <td class="ctr dates">{dates_cell(p)}</td>
               <td class="ctr">{_pf_badge(p['pass_fail'])}</td>
               <td class="ctr"><span class="{uncls}">{un}</span> / {p['total']}</td>
             </tr>"""
     else:
-        rows = '<tr><td colspan="4" class="ctr">검수 페이지 없음</td></tr>'
+        rows = '<tr><td colspan="7" class="ctr">검수 페이지 없음</td></tr>'
+
+    who = "".join(f'<option value="{_esc(x["name"])}">' for x in persons)
+    remove_bar = f"""
+      <form id="page-remove" class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/remove"
+            onsubmit="return document.querySelector('input[name=page]:checked') ? true :
+                      (alert('뺄 검수 페이지를 먼저 고르세요.'), false)">
+        <span class="lbl">고른 페이지를</span>
+        <input name="actor" list="who-remove" placeholder="누가 (선택)" size="10">
+        <datalist id="who-remove">{who}</datalist>
+        <input name="note" placeholder="왜 빼는지 (선택)" size="26">
+        <button type="submit">목록에서 빼기</button>
+        <span class="hint">지우지 않습니다. 아래 '뺀 페이지'에서 되돌릴 수 있어요.</span>
+      </form>""" if pages else ""
+
+    removed_html = ""
+    if removed:
+        items = ""
+        for p in removed:
+            why = " · ".join(x for x in [p["removed_by"], p["removed_note"]] if x)
+            items += f"""<tr>
+              <td class="ctr">{p['seq']}</td>
+              <td class="name">{_esc(p['name'])}</td>
+              <td class="ctr">{_esc(queries.day(p['removed_at']))}</td>
+              <td>{_esc(why)}</td>
+              <td class="ctr"><form method="post" action="/screen/{_esc(human_key)}/pages/restore">
+                <input type="hidden" name="page" value="{p['uuid']}">
+                <button type="submit">되돌리기</button></form></td>
+            </tr>"""
+        removed_html = f"""
+    <section class="group">
+      <details>
+        <summary>뺀 검수 페이지 {len(removed)}개 (데이터는 그대로 남아 있습니다)</summary>
+        <table>
+          <thead><tr><th class="ctr">순번</th><th>검수 페이지</th><th class="ctr">뺀 날</th><th>누가 · 왜</th><th></th></tr></thead>
+          <tbody>{items}</tbody>
+        </table>
+      </details>
+    </section>"""
+
+    notice_html = f'<div class="notice">{_esc(notice)}</div>' if notice else ""
 
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
@@ -297,21 +412,34 @@ def render_screen(human_key: str):
   <header class="row">
     <a class="back" href="/">← 목록</a>
     <h1>{_esc(s['name'])}</h1>
+    <details class="rename">
+      <summary>화면명 고치기</summary>
+      <form method="post" action="/screen/{_esc(human_key)}/rename">
+        <input name="name" value="{_esc(s['name'])}" size="24" required>
+        <button type="submit">저장</button>
+      </form>
+    </details>
     <span class="sub2"><span class="key">{_esc(s['human_key'] or '미정')}</span> · {_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
     <a class="btn" href="/report/{_esc(human_key)}" target="_blank">화면 전체 A4</a>
   </header>
   <div class="wrap">
+    {notice_html}
     <section class="group">
       <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
+      {remove_bar}
       <table>
         <thead><tr>
-          <th class="ctr">순번</th><th>검수 페이지</th><th class="ctr">Pass/Fail</th><th class="ctr">미해결 / 전체</th>
+          <th class="ctr"></th><th class="ctr">순번</th><th>검수 페이지</th>
+          <th class="ctr">업로드일</th><th class="ctr">검수일 (차수)</th>
+          <th class="ctr">Pass/Fail</th><th class="ctr">미해결 / 전체</th>
         </tr></thead>
         <tbody>{rows}</tbody>
       </table>
     </section>
+    {removed_html}
   </div>
-  <footer>화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
+  <footer>업로드일 = 개발화면이 올라온 날 · 검수일 = 그 차수에 검수 기록이 남은 날 (최대 {MAX_ROUNDS}차) ·
+  화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
 
 
@@ -668,7 +796,7 @@ class Handler(BaseHTTPRequestHandler):
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
-            page = render_screen(human_key)
+            page = render_screen(human_key, q.get("notice", [""])[0])
             self._html(page if page else self._nf(f"화면 없음: {human_key}"), 200 if page else 404)
         elif path.startswith("/uploads/"):
             fp = UPLOADS / Path(path[len("/uploads/"):]).name   # basename만 → 경로 탈출 방지
@@ -703,6 +831,32 @@ class Handler(BaseHTTPRequestHandler):
             intake_http.post(self, intake(), path)
             return
         length = int(self.headers.get("Content-Length", 0))
+        if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/restore", "/rename")):
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            action = path.rsplit("/", 1)[1]
+            suffix = "/rename" if action == "rename" else "/pages/" + action
+            key = path[len("/screen/"):-len(suffix)]
+            conn = dbmod.connect(REAL_DB)
+            scr = queries.get_screen(conn, key)
+            conn.close()
+            if scr is None:
+                self._html(self._nf(f"화면 없음: {key}"), 404)
+                return
+            if action == "rename":
+                _rename_screen(scr["row"]["uuid"], form.get("name", [""])[0])
+                notice = "화면명을 바꿨습니다."
+            elif action == "remove":
+                n = _remove_pages(form.get("page", []),
+                                  form.get("actor", [""])[0].strip(),
+                                  form.get("note", [""])[0].strip())
+                notice = f"검수 페이지 {n}개를 목록에서 뺐습니다. 데이터는 남아 있고 되돌릴 수 있습니다."
+            else:
+                n = _restore_pages(form.get("page", []))
+                notice = f"검수 페이지 {n}개를 목록으로 되돌렸습니다."
+            self.send_response(303)
+            self.send_header("Location", f"/screen/{key}?notice={quote(notice)}")
+            self.end_headers()
+            return
         if path.startswith("/screen/") and "/page/" in path and path.endswith("/pass"):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             issue = form.get("issue", [""])[0]
@@ -792,6 +946,20 @@ _LIST_CSS = """
   .num { font-weight:700; color:#b42318; }
   .num.zero { color:#12864e; }
   .empty { color:#6b7280; padding:30px; text-align:center; }
+  .notice { background:#eaf0ff; color:#1e40af; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; }
+  .rename { font-size:12px; color:#6b7280; }
+  .rename summary { cursor:pointer; }
+  .rename form { display:inline-flex; gap:6px; margin-top:8px; }
+  .rename input, .bulk input { border:1px solid #d1d5db; border-radius:7px; font:inherit; font-size:13px; padding:6px 9px; }
+  .rename button, .bulk button, td button { border:1px solid #d1d5db; border-radius:7px; background:#fff; font:inherit; font-size:13px; padding:6px 12px; cursor:pointer; }
+  .bulk { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:4px 4px 12px; }
+  .bulk .lbl { font-size:12px; color:#6b7280; }
+  .bulk .hint { font-size:11px; color:#9ca3af; }
+  td.pick, th.pick { width:32px; }
+  .dates { line-height:1.7; }
+  .rdate { display:inline-block; font-size:11px; color:#4b5563; background:#f3f4f6; border-radius:5px; padding:1px 6px; margin:0 2px; }
+  .rdate b { color:#111827; font-weight:700; margin-right:3px; }
+  details summary { cursor:pointer; font-size:13px; color:#4b5563; padding:10px 4px; }
   footer { max-width:1040px; margin:0 auto; padding:0 28px; font-size:11px; color:#9ca3af; }
 """
 

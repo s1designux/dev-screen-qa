@@ -142,11 +142,55 @@ def _page_pass_fail(conn, page_uuid):
     return r["pass_fail"] if r else None
 
 
-def pages_of_screen(conn, screen_uuid):
-    """검수 페이지 목록 + 각 페이지 Pass/Fail·이슈 수·미해결 수."""
+def has_column(conn, table, column):
+    """오래된 DB(칼럼 추가 전)에서도 조회가 깨지지 않게 확인한다."""
+    return any(r["name"] == column for r in conn.execute(f"PRAGMA table_info({table})"))
+
+
+def day(value):
+    """'2026-09-10 12:30:20' / '2026-09-10T12:30:20' → '2026-09-10'. 없으면 None."""
+    if not value:
+        return None
+    return str(value).replace("T", " ").split(" ")[0]
+
+
+def page_dates(conn, page_uuid):
+    """차수별 (개발화면) 업로드일·검수일.
+
+    업로드일 = 그 차수 run이 만들어진 날 (개발화면이 올라온 날).
+    검수일   = 그 차수에 이슈 이력이 남은 마지막 날. 이력이 없으면 None(= 아직 검수 안 함).
+    """
+    runs = conn.execute(
+        "SELECT round, created_at FROM inspection_run WHERE page_id=? ORDER BY round",
+        (page_uuid,),
+    ).fetchall()
+    inspected = {
+        (r["r"] or 1): day(r["at"])
+        for r in conn.execute(
+            """SELECT COALESCE(h.round, 1) AS r, MAX(h.at) AS at
+               FROM issue_history h JOIN inspection_issue i ON i.uuid = h.issue_id
+               WHERE i.page_id=? GROUP BY r""",
+            (page_uuid,),
+        )
+    }
+    return [
+        {"round": r["round"],
+         "uploaded_at": day(r["created_at"]),
+         "inspected_at": inspected.get(r["round"])}
+        for r in runs
+    ]
+
+
+def pages_of_screen(conn, screen_uuid, include_removed=False):
+    """검수 페이지 목록 + 각 페이지 Pass/Fail·이슈 수·미해결 수 + 차수별 날짜.
+
+    include_removed=False(기본)면 '목록에서 뺀' 페이지는 빼고 준다. 데이터는 지우지 않는다.
+    """
     ph = ",".join("?" for _ in UNRESOLVED_STATUSES)
+    removable = has_column(conn, "inspection_page", "removed_at")
+    where = "" if (include_removed or not removable) else " AND removed_at IS NULL"
     pages = conn.execute(
-        "SELECT * FROM inspection_page WHERE screen_id=? ORDER BY seq", (screen_uuid,)
+        f"SELECT * FROM inspection_page WHERE screen_id=?{where} ORDER BY seq", (screen_uuid,)
     ).fetchall()
     out = []
     for p in pages:
@@ -157,10 +201,16 @@ def pages_of_screen(conn, screen_uuid):
             f"SELECT COUNT(*) c FROM inspection_issue WHERE page_id=? AND status IN ({ph})",
             (p["uuid"], *UNRESOLVED_STATUSES),
         ).fetchone()["c"]
+        dates = page_dates(conn, p["uuid"])
         out.append({
             "uuid": p["uuid"], "seq": p["seq"], "name": p["name"], "note": p["note"],
             "pass_fail": _page_pass_fail(conn, p["uuid"]),
             "total": total, "unresolved": unresolved,
+            "dates": dates,
+            "uploaded_at": next((d["uploaded_at"] for d in reversed(dates) if d["uploaded_at"]), None),
+            "removed_at": p["removed_at"] if removable else None,
+            "removed_by": p["removed_by"] if removable else None,
+            "removed_note": p["removed_note"] if removable else None,
         })
     return out
 

@@ -36,7 +36,12 @@ CREATE TABLE IF NOT EXISTS inspection_page (
     dev_img_h   INTEGER,               -- 〃 높이
     -- 핀 비율(%) 환산의 '기준 크기'(분모). box 좌표가 나온 캡처 기준.
     coord_ref_w INTEGER,               -- 기준 폭 = 1920 (전체폭 바로 확정, 박아둠)
-    coord_ref_h INTEGER                -- 기준 높이 = 업로드 개발 이미지 비율로 산출
+    coord_ref_h INTEGER,               -- 기준 높이 = 업로드 개발 이미지 비율로 산출
+    -- '목록에서 빼기'는 지우는 것이 아니다 (CLAUDE.md 2번-3 이력 삭제 금지).
+    -- 값이 있으면 목록에서 숨기고, 되돌리면 다시 보인다.
+    removed_at   TEXT,
+    removed_by   TEXT,
+    removed_note TEXT
 );
 
 CREATE TABLE IF NOT EXISTS element_mapping (

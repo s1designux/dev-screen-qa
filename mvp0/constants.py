@@ -46,3 +46,8 @@ CLOSED_STATUSES = ("검수완료", "오류아님", "협의통과")
 def is_unresolved(status: str) -> bool:
     """주어진 상태가 미해결 집합에 속하는지."""
     return status in UNRESOLVED_STATUSES
+
+
+# --- 재검수 차수 (CLAUDE.md 19번) ---
+# 보통 1~3차로 끝나고, 길어져도 5차까지만 진행한다. 목록의 '검수일' 칸이 이 수만큼 늘어난다.
+MAX_ROUNDS = 5
