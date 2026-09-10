@@ -9,6 +9,7 @@
 """
 import hashlib
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime
@@ -31,8 +32,14 @@ CREATE TABLE IF NOT EXISTS auto_run (
  status TEXT NOT NULL CHECK(status IN ('pending','done','failed')), engine TEXT NOT NULL DEFAULT '',
  created_at TEXT NOT NULL, finished_at TEXT, error TEXT NOT NULL DEFAULT '',
  alignment TEXT NOT NULL DEFAULT '', range TEXT NOT NULL DEFAULT '', notices TEXT NOT NULL DEFAULT '[]',
- capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT '', UNIQUE(run_id, design_id)
+ capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS auto_range (
+ id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES inspection_run(uuid),
+ top INTEGER, bottom INTEGER, actor TEXT NOT NULL DEFAULT '', at TEXT NOT NULL, note TEXT NOT NULL DEFAULT ''
+);
+CREATE TRIGGER IF NOT EXISTS auto_range_no_update BEFORE UPDATE ON auto_range BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS auto_range_no_delete BEFORE DELETE ON auto_range BEGIN SELECT RAISE(ABORT,'history is append-only'); END;
 CREATE TABLE IF NOT EXISTS auto_candidate (
  id TEXT PRIMARY KEY, auto_run_id TEXT NOT NULL REFERENCES auto_run(id), no INTEGER NOT NULL,
  kind TEXT NOT NULL, label TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', confidence INTEGER,
@@ -61,24 +68,61 @@ def uid():
 
 
 def migrate(c):
-    """auto_run이 시안별(run_id+design_id)이 되기 전 표를 만난 경우 — 행은 남기고 모양만 바꾼다.
-    이름을 바꿀 때 다른 표의 참조가 따라 바뀌지 않게(legacy_alter_table) 한다. 참조가 이미 틀어진 표는 다시 세운다."""
-    cols = [r[1] for r in c.execute('PRAGMA table_info(auto_run)')]
-    if cols and 'design_id' not in cols:
-        c.execute('PRAGMA legacy_alter_table=ON')
-        c.execute('ALTER TABLE auto_run RENAME TO auto_run_v0')
-        c.executescript(SCHEMA)
-        c.execute("""INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,finished_at,error,alignment,range,notices,capture_w,capture_h,design_id)
-                     SELECT id,page_id,run_id,status,engine,created_at,finished_at,error,alignment,range,notices,capture_w,capture_h,'' FROM auto_run_v0""")
-        c.execute('PRAGMA legacy_alter_table=OFF')
-    sql = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_candidate'").fetchone()
-    if sql and 'auto_run_v0' in sql[0]:
-        c.execute('PRAGMA legacy_alter_table=ON')
-        c.execute('ALTER TABLE auto_candidate RENAME TO auto_candidate_v0')
-        c.executescript(SCHEMA)
-        c.execute('INSERT INTO auto_candidate SELECT * FROM auto_candidate_v0')
-        c.execute('DROP TABLE auto_candidate_v0')
-        c.execute('PRAGMA legacy_alter_table=OFF')
+    """(호환용) 같은 연결 안에서는 외래키 검사를 끌 수 없어 표를 고칠 수 없다. Store.init()이 repair(경로)를 부른다."""
+    return
+
+
+def _table_sql(name):
+    m = re.search(r'CREATE TABLE IF NOT EXISTS ' + name + r' \((.*?)\n\);', SCHEMA, re.S)
+    return m.group(1)
+
+
+def repair(database):
+    """옛 모양의 자동 검수 표를 지금 모양으로 다시 세운다. 행은 하나도 버리지 않는다.
+    - auto_run: design_id가 없거나 (run_id, design_id) 유일 제약이 남아 있으면(검수 범위를 바꿔 다시 돌리면 회차가 여러 개) 다시 세운다.
+    - auto_candidate / auto_candidate_event: 참조가 이름 바뀐 옛 표(auto_run_v1 등)를 가리키면 다시 세운다.
+    - 이름 바꾸다 남은 auto_run_v0/v1, auto_candidate_v0의 행은 합치고 표는 지운다.
+    외래키 검사를 끈 별도 연결에서 한다(같은 연결·트랜잭션 안에서는 끌 수 없어 참조가 꼬였다)."""
+    conn = sqlite3.connect(str(database))
+    conn.execute('PRAGMA foreign_keys=OFF')
+    conn.execute('PRAGMA legacy_alter_table=ON')  # 이름을 바꿀 때 다른 표의 참조를 건드리지 않는다
+    try:
+        def names():
+            return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        def sql_of(n):
+            r = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (n,)).fetchone()
+            return r[0] if r else ''
+        def cols(n):
+            return [r[1] for r in conn.execute(f'PRAGMA table_info("{n}")')]
+        def rebuild(table):
+            conn.execute(f'CREATE TABLE "{table}__new" ({_table_sql(table)})')
+            shared = [c for c in cols(table) if c in cols(table + '__new')]
+            conn.execute(f'INSERT INTO "{table}__new"({",".join(shared)}) SELECT {",".join(shared)} FROM "{table}"')
+            conn.execute(f'DROP TABLE "{table}"')
+            conn.execute(f'ALTER TABLE "{table}__new" RENAME TO "{table}"')
+        def merge(into, leftover):
+            if leftover not in names():
+                return
+            shared = [c for c in cols(leftover) if c in cols(into)]
+            conn.execute(f'INSERT INTO "{into}"({",".join(shared)}) SELECT {",".join(shared)} FROM "{leftover}" WHERE id NOT IN (SELECT id FROM "{into}")')
+            conn.execute(f'DROP TABLE "{leftover}"')
+        with conn:
+            conn.executescript(SCHEMA)  # 없는 표·트리거를 만든다(있는 것은 그대로)
+            for t in ('auto_run__new', 'auto_candidate__new', 'auto_candidate_event__new'):
+                if t in names():
+                    conn.execute(f'DROP TABLE "{t}"')  # 전에 고치다 만 자취
+            if 'design_id' not in cols('auto_run') or 'UNIQUE(' in sql_of('auto_run'):
+                rebuild('auto_run')
+            merge('auto_run', 'auto_run_v1')
+            merge('auto_run', 'auto_run_v0')
+            if not re.search(r'REFERENCES\s+"?auto_run"?\s*\(id\)', sql_of('auto_candidate')):
+                rebuild('auto_candidate')
+            merge('auto_candidate', 'auto_candidate_v0')
+            if not re.search(r'REFERENCES\s+"?auto_candidate"?\s*\(id\)', sql_of('auto_candidate_event')):
+                rebuild('auto_candidate_event')
+            conn.executescript(SCHEMA)  # 다시 세운 표의 트리거
+    finally:
+        conn.close()
 
 
 def now():
@@ -145,6 +189,8 @@ class Auto:
         row = c.execute('SELECT * FROM design_elements WHERE design_id=?', (design['id'],)).fetchone()
         if row:
             return {'frame': json.loads(row['frame']), 'elements': json.loads(row['elements'])}
+        if design['provider'] == 'Figma 플러그인':
+            raise ValueError('이 시안은 플러그인에서 요소 목록 없이 왔어요. 피그마에서 플러그인을 다시 불러온 뒤 그 프레임을 골라 「검수 시안 바꾸기」를 눌러 주세요.')
         if design['provider'] != 'Figma REST' or design['file_key'] == 'local-design':
             raise ValueError('Figma 시안이 아니라 디자인 요소를 읽을 수 없어요. 시안을 Figma 링크로 연결하면 자동 검수가 됩니다.')
         data = figma_reader.api('files/' + design['file_key'] + '/nodes?ids=' + design['node_id'] + '&plugin_data=shared')
@@ -160,7 +206,45 @@ class Auto:
     def run_for(self, c, run_id, page_id=None):
         """그 차수 + 지금 시안의 자동 검수. 시안이 바뀌면 새로 돈다(옛 결과는 남는다)."""
         design = self.design_of_page(c, page_id) if page_id else None
-        return c.execute('SELECT * FROM auto_run WHERE run_id=? AND design_id=?', (run_id, design['id'] if design else '')).fetchone()
+        return c.execute('SELECT * FROM auto_run WHERE run_id=? AND design_id=? ORDER BY rowid DESC LIMIT 1', (run_id, design['id'] if design else '')).fetchone()
+
+    # ── 검수 범위(사람이 정한 위·아래 제외 px) ────────────────────────
+    def current_range(self, c, run_id):
+        """그 차수 개발 화면에 사람이 마지막으로 정한 검수 범위. 없으면 None(자동)."""
+        try:
+            return c.execute('SELECT * FROM auto_range WHERE run_id=? ORDER BY rowid DESC LIMIT 1', (run_id,)).fetchone()
+        except sqlite3.OperationalError:
+            return None
+
+    def set_range(self, page_id, run_id, top, bottom, actor='', note=''):
+        """검수 범위를 기록하고(append-only) 그 차수·지금 시안의 자동 검수를 새 회차로 다시 돌게 한다. 옛 회차·후보는 남는다.
+        top/bottom이 둘 다 None이면 '자동으로 되돌림'."""
+        def px(v, name):
+            if v is None or v == '':
+                return None
+            try:
+                v = int(round(float(v)))
+            except (TypeError, ValueError):
+                raise ValueError(f'{name} 값이 숫자가 아니에요.')
+            if v < 0:
+                raise ValueError(f'{name} 값은 0 이상이어야 해요.')
+            return v
+        top, bottom = px(top, '위쪽'), px(bottom, '아래쪽')
+        with self.store.connect() as c:
+            run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (run_id,)).fetchone()
+            if not run or not run['dev_img']:
+                raise ValueError('이 차수에 개발 화면이 없어요.')
+            h = run['dev_img_h'] or 0
+            if h and (top or 0) + (bottom or 0) >= h - 8:
+                raise ValueError('위·아래를 합치면 화면이 남지 않아요.')
+            design = self.design_of_page(c, page_id)
+            if not design:
+                raise ValueError('이 페이지에 연결된 Figma 시안이 없어요.')
+            c.execute('INSERT INTO auto_range VALUES (?,?,?,?,?,?,?)', (uid(), run_id, top, bottom, actor, now(), note))
+            new_id = uid()
+            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
+                      (new_id, page_id, run_id, 'pending', engine_rev(), now(), design['id']))
+            return new_id
 
     def ensure_run(self, page_id, run_id):
         """그 차수·지금 시안의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None."""
@@ -201,13 +285,20 @@ class Auto:
         with self.store.connect() as c:
             settings = json.loads(design['qa_settings']) if design['qa_settings'] else {}
             frame = got['frame']
-            return {
+            out = {
                 'autoRunId': r['id'],
                 'design': {'id': design['node_id'], 'name': design['name'], 'pngUrl': '/uploads/' + design['filename'],
                            'width': frame.get('width') or design['width'], 'height': frame.get('height') or design['height'],
                            'elements': got['elements'], 'policy': settings.get('policy')},
                 'capture': {'pngUrl': '/uploads/' + run['dev_img'], 'width': run['dev_img_w'], 'height': run['dev_img_h']},
             }
+            rng = self.current_range(c, run_id)
+            if rng:  # 사람이 정한 검수 범위가 있으면 엔진에 그대로 넘긴다(자동 규칙보다 우선)
+                if rng['top'] is not None:
+                    out['capture']['topTrim'] = rng['top']
+                if rng['bottom'] is not None:
+                    out['capture']['bottomTrim'] = rng['bottom']
+            return out
 
     def save_result(self, auto_run_id, result):
         with self.store.connect() as c:
@@ -304,9 +395,12 @@ class Auto:
                 if not self.design_of_page(c, page_id):
                     return None
                 r = self.run_for(c, run['uuid'], page_id)
+                rng = self.current_range(c, run['uuid'])
+                range_view = {'manual_top': rng['top'] if rng else None, 'manual_bottom': rng['bottom'] if rng else None,
+                              'dev_img': run['dev_img'], 'w': run['dev_img_w'], 'h': run['dev_img_h']}
                 if not r:
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
-                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1}
+                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view}
                 cands = [dict(k) for k in self.candidates(c, r['id'])] if r['status'] == 'done' else []
                 numbers = {}
                 if any(k['issue_id'] for k in cands):
@@ -314,7 +408,7 @@ class Auto:
                     numbers = {row['uuid']: n + 1 for n, row in enumerate(rows)}
         except sqlite3.OperationalError:
             return None  # 옛 DB(접수·자동검수 표 없음)는 자동 검수 없이 그대로 보여준다
-        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'],
+        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view,
                 'scale': ((run['coord_ref_w'] or r['capture_w'] or 1) / (r['capture_w'] or run['coord_ref_w'] or 1)) if r['status'] == 'done' else 1}
 
 
@@ -327,19 +421,18 @@ def panel_html(view, page_id, person_options=''):
     r = view['run']
     head = f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" data-round="{view["round"]}" data-scale="{view["scale"]}"></div>'
     if r['status'] == 'pending':
-        return head + '<p class="empty auto-msg" id="auto-msg">검수 중… 디자인과 개발 화면을 맞춰 보고 있어요. 잠시 뒤 결과가 뜹니다.</p>'
+        return head + ('<p class="empty auto-wait"><span class="auto-spin" aria-hidden="true"></span>'
+                       '<span id="auto-msg">검수중입니다.</span></p>')
     if r['status'] == 'failed':
         return head + (f'<p class="empty auto-msg">자동 검수를 못 했어요 — {_e(r["error"])}</p>'
-                       f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>')
+                       f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>'
+                       + range_html(view, person_options))
     cands = view['candidates']
-    notices = json.loads(r['notices'] or '[]')
     counts = {s: sum(1 for k in cands if k['status'] == s) for s in STATUS_LABEL}
     registered = sum(1 for k in cands if k['issue_id'])
     summary = f'확인할 후보 {counts["open"] - registered}건 · 지적 등록 {registered} · 제외 {counts["excluded"]} · 가변 글자·요소 {counts["variable"]}'
-    notice_html = ''.join(f'<li>{_e(n)}</li>' for n in notices)
     out = head + f'<div class="auto-head"><span class="auto-sum">{summary}</span><span class="auto-hint">번호는 자동으로 찾은 후보예요. 오류가 맞으면 <b>지적 등록</b>, 아니면 <b>제외</b>를 누르세요. 손대지 않은 후보는 후보로 남습니다.</span></div>'
-    if notice_html:
-        out += f'<ul class="auto-notice">{notice_html}</ul>'
+    out += range_html(view, person_options)
     groups = [('open', '후보'), ('excluded', '제외(오류 아님)'), ('variable', '가변 글자·요소')]
     for key, title in groups:
         items = [k for k in cands if k['status'] == key]
@@ -350,6 +443,48 @@ def panel_html(view, page_id, person_options=''):
         out += ''.join(card_html(k, view['issue_numbers'], page_id, view['round'], person_options) for k in items) or '<p class="empty">항목 없음</p>'
         out += '</div></details>'
     return out
+
+
+def range_html(view, person_options=''):
+    """검수 범위 카드: 지금 개발 화면에서 위·아래 몇 px를 비교에서 뺐는지 + '조정'(선 두 개 끌기 → 그 범위로 다시 검수)."""
+    rv = view.get('range') or {}
+    if not rv.get('dev_img'):
+        return ''
+    r = view['run']
+    try:
+        eng = json.loads(r.get('range') or '{}') if isinstance(r, dict) else {}
+    except (TypeError, ValueError):
+        eng = {}
+    top, bottom = eng.get('captureTop') or 0, eng.get('captureBottom') or 0
+    rules = {}
+    for x in eng.get('rules') or []:
+        rules.setdefault(x.get('edge'), []).append(x.get('title') or '')
+    def how(edge, manual, px):
+        if manual is not None:
+            return '직접 정함'
+        if not px:
+            return '자동 · 뺀 것 없음'
+        return '자동 · ' + ('·'.join(rules[edge]) if rules.get(edge) else ('브라우저 틀' if edge == 'top' else '하단 띠'))
+    mt, mb = rv.get('manual_top'), rv.get('manual_bottom')
+    if r.get('status') == 'done':
+        summary = f'위쪽 {top}px ({how("top", mt, top)}) · 아래쪽 {bottom}px ({how("bottom", mb, bottom)})'
+    else:
+        summary = '직접 정한 범위로 검수함' if (mt is not None or mb is not None) else '자동'
+    return (f'<div class="auto-range" id="auto-range" data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
+            f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}">'
+            f'<b>검수 범위</b> <span class="auto-range-sum">{_e(summary)}</span>'
+            f'<button type="button" onclick="autoRangeOpen()">조정</button></div>'
+            f'<div class="auto-range-editor" id="auto-range-editor" hidden>'
+            f'<p class="auto-hint">붉은 선 바깥(위쪽 선 위, 아래쪽 선 아래)은 비교하지 않아요. 상태바·주소창·키보드·하단 단추 줄이 끝나는 곳에 선을 끌어 맞춰 주세요.</p>'
+            f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
+            f'<div class="auto-range-shade" id="auto-range-shade-top"></div><div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
+            f'<form class="auto-range-form" onsubmit="return autoRangeSave(this,false)">'
+            f'<label>위쪽 제외 <input type="number" name="top" min="0" step="1"> px</label>'
+            f'<label>아래쪽 제외 <input type="number" name="bottom" min="0" step="1"> px</label>'
+            f'<select name="actor"><option value="">담당자</option>{person_options}</select>'
+            f'<button type="submit" class="primary">이 범위로 다시 검수</button>'
+            f'<button type="button" onclick="autoRangeSave(this.form,true)">자동으로 되돌리기</button>'
+            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></div>')
 
 
 def card_html(k, numbers, page_id, rnd, person_options=''):
@@ -395,7 +530,6 @@ CSS = '''
 .auto-overlay .abox.sel{stroke-width:6;stroke-dasharray:none}
 .auto-head{display:flex;flex-direction:column;gap:4px;margin:4px 0 10px;font-size:13px}
 .auto-sum{font-weight:700}.auto-hint{color:#64748b}
-.auto-notice{margin:0 0 10px;padding-left:18px;color:#b45309;font-size:12px}
 .auto-group{margin-bottom:10px}.auto-group summary{cursor:pointer;font-weight:700;margin-bottom:6px}
 .auto-card .auto-no{border-radius:4px}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
@@ -404,6 +538,24 @@ CSS = '''
 .auto-actions button{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#1f2937;border-radius:6px;cursor:pointer}
 .auto-actions button.primary{background:#ea580c;border-color:#ea580c;color:#fff}
 .auto-msg{color:#475569}
+.auto-range{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:12px}
+.auto-range .auto-range-sum{flex:1;color:#475569}
+.auto-range button,.auto-range-form button{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#1f2937;border-radius:6px;cursor:pointer}
+.auto-range-form button.primary{background:#ea580c;border-color:#ea580c;color:#fff}
+.auto-range-editor{margin:0 0 10px;padding:10px;border:1px solid #fdba74;border-radius:8px;background:#fff7ed}
+.auto-range-editor .auto-hint{margin:0 0 8px;font-size:12px;color:#64748b}
+.auto-range-stage{position:relative;display:inline-block;max-width:100%;line-height:0;user-select:none;touch-action:none}
+.auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid #cbd5e1}
+.auto-range-line{position:absolute;left:0;right:0;height:0;border-top:2px solid #dc2626;cursor:ns-resize;z-index:2}
+.auto-range-line::after{content:"";position:absolute;left:0;right:0;top:-8px;height:18px}
+.auto-range-shade{position:absolute;left:0;right:0;background:rgba(220,38,38,.18);pointer-events:none;z-index:1}
+.auto-range-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:12px}
+.auto-range-form input{width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px}
+.auto-range-form select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
+.auto-wait{color:#475569;position:absolute;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.auto-spin{width:44px;height:44px;flex:none;border:4px solid #dfe6f0;border-top-color:#1D6CEB;border-radius:50%;animation:auto-spin .8s linear infinite}
+@keyframes auto-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.auto-spin{animation-duration:2.4s}}
 '''
 
 JS = r'''
@@ -455,6 +607,37 @@ function autoStatus(id,status){
   fetch('/auto/'+st.dataset.page+'/candidate/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})})
     .then(function(r){return r.json();}).then(function(j){if(j.error){alert(j.error);return;}location.reload();});
 }
+// ── 검수 범위 조정: 개발 화면 위에 선 두 개를 끌어 위·아래 제외 px를 정하고, 그 범위로 새 회차를 돌린다 ──
+var __rangeEd=null;
+function autoRangeOpen(){
+  var box=document.getElementById('auto-range'),ed=document.getElementById('auto-range-editor');if(!box||!ed)return;
+  ed.hidden=false;var img=document.getElementById('auto-range-img'),H=Number(box.dataset.h)||0,form=ed.querySelector('form');
+  var top=box.dataset.mtop!==''?Number(box.dataset.mtop):Number(box.dataset.top)||0,bottom=box.dataset.mbottom!==''?Number(box.dataset.mbottom):Number(box.dataset.bottom)||0;
+  __rangeEd={box:box,ed:ed,img:img,H:H,form:form,top:top,bottom:bottom};
+  function draw(){var e=__rangeEd,k=e.img.clientHeight/(e.H||1);
+    document.getElementById('auto-range-top').style.top=(e.top*k)+'px';document.getElementById('auto-range-bottom').style.top=(e.img.clientHeight-e.bottom*k)+'px';
+    var st=document.getElementById('auto-range-shade-top'),sb=document.getElementById('auto-range-shade-bottom');st.style.top='0';st.style.height=(e.top*k)+'px';sb.style.bottom='0';sb.style.height=(e.bottom*k)+'px';
+    e.form.top.value=e.top;e.form.bottom.value=e.bottom;}
+  __rangeEd.draw=draw;
+  img.onload=draw;img.src=box.dataset.img;if(img.complete)draw();
+  function drag(lineId,which){var line=document.getElementById(lineId);
+    line.onpointerdown=function(ev){ev.preventDefault();line.setPointerCapture(ev.pointerId);
+      line.onpointermove=function(mv){var e=__rangeEd,rect=e.img.getBoundingClientRect(),k=e.img.clientHeight/(e.H||1),y=Math.max(0,Math.min(rect.height,mv.clientY-rect.top));
+        var px=Math.round(y/k);if(which==='top')e.top=Math.max(0,Math.min(px,e.H-e.bottom-8));else e.bottom=Math.max(0,Math.min(e.H-px,e.H-e.top-8));draw();};
+      line.onpointerup=line.onpointercancel=function(){line.onpointermove=null;};};}
+  drag('auto-range-top','top');drag('auto-range-bottom','bottom');
+  form.top.oninput=function(){__rangeEd.top=Math.max(0,Number(this.value)||0);draw();};
+  form.bottom.oninput=function(){__rangeEd.bottom=Math.max(0,Number(this.value)||0);draw();};
+  window.addEventListener('resize',draw);
+}
+function autoRangeClose(){var ed=document.getElementById('auto-range-editor');if(ed)ed.hidden=true;}
+function autoRangeSave(form,reset){
+  var st=document.getElementById('auto-state'),e=__rangeEd;if(!st||!e)return false;
+  var body=reset?{run:st.dataset.run,top:null,bottom:null,actor:form.actor.value||''}:{run:st.dataset.run,top:e.top,bottom:e.bottom,actor:form.actor.value||''};
+  fetch('/auto/'+st.dataset.page+'/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(j){if(j.error){alert(j.error);return;}location.reload();});
+  return false;
+}
 function autoRegister(form,id){
   var st=document.getElementById('auto-state'),actor=(form.actor.value||'').trim();
   if(!actor){alert('담당자를 골라 주세요.');return false;}
@@ -500,7 +683,7 @@ def get(handler, store, path, q):
 
 
 def post(handler, store, path):
-    """POST /auto/<page>/materials · /result · /fail · /retry · /candidate/<id>/status · /candidate/<id>/register"""
+    """POST /auto/<page>/materials · /result · /fail · /retry · /range · /candidate/<id>/status · /candidate/<id>/register"""
     parts = path.strip('/').split('/')
     if len(parts) < 3 or parts[0] != 'auto':
         return False
@@ -525,6 +708,9 @@ def post(handler, store, path):
             handler.send_response(303)
             handler.send_header('Location', handler.headers.get('Referer') or '/')
             handler.end_headers()
+        elif action == 'range' and len(parts) == 3:
+            body = _body_json(handler)
+            _json(handler, {'ok': True, 'autoRunId': auto.set_range(page_id, str(body.get('run') or ''), body.get('top'), body.get('bottom'), str(body.get('actor') or ''))})
         elif action == 'candidate' and len(parts) == 5 and parts[4] == 'status':
             body = _body_json(handler)
             auto.set_status(parts[3], str(body.get('status') or ''), str(body.get('actor') or ''), str(body.get('note') or ''))

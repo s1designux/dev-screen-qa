@@ -113,7 +113,7 @@ class AutoFlow(unittest.TestCase):
         self.assertEqual(self.dump(), before)                     # 페이지를 여는 것만으로는 아무것도 쓰지 않는다
         self.assertIn('data-status="pending"', body)
         self.assertIn('자동 검수 후보', body)
-        self.assertIn('검수 중', body)
+        self.assertIn('검수중입니다', body)
 
     def test_materials_reads_figma_once_and_uses_saved_policy(self):
         with patch('figma_reader.api', return_value={'nodes': {'1:1': {'document': REST_DOC}}, 'version': 'v7'}) as api:
@@ -164,6 +164,36 @@ class AutoFlow(unittest.TestCase):
         self.auto.save_result(rid, res)
         with self.s.connect() as c:
             self.assertEqual(len(self.auto.candidates(c, rid)), 3)
+
+    def test_manual_range_reruns_and_feeds_engine(self):
+        with patch('figma_reader.api', return_value={'nodes': {'1:1': {'document': REST_DOC}}, 'version': '7'}):
+            self.auto.materials(self.page, self.run['uuid'])
+            with self.s.connect() as c:
+                first = c.execute('SELECT id FROM auto_run').fetchone()['id']
+            self.auto.save_result(first, self.result())
+            with self.s.connect() as c:
+                c.execute('UPDATE inspection_run SET dev_img_w=1080,dev_img_h=2340 WHERE uuid=?', (self.run['uuid'],))  # 픽스처 PNG는 1×1이라 실제 크기를 흉내 낸다
+            with self.assertRaises(ValueError):
+                self.auto.set_range(self.page, self.run['uuid'], 2000, 400)                # 위·아래를 합치면 화면이 남지 않는다
+            new_id = self.auto.set_range(self.page, self.run['uuid'], 120, '40', actor='river')
+            with self.s.connect() as c:
+                rows = c.execute('SELECT id,status FROM auto_run ORDER BY rowid').fetchall()
+                self.assertEqual([r['status'] for r in rows], ['done', 'pending'])        # 옛 회차는 남고 새 회차가 '대기'
+                self.assertEqual(rows[-1]['id'], new_id)
+                self.assertEqual(c.execute('SELECT COUNT(*) n FROM auto_candidate WHERE auto_run_id=?', (first,)).fetchone()['n'], 3)
+                rng = c.execute('SELECT top,bottom,actor FROM auto_range').fetchone()
+                self.assertEqual((rng['top'], rng['bottom'], rng['actor']), (120, 40, 'river'))
+            m = self.auto.materials(self.page, self.run['uuid'])
+            self.assertEqual(m['autoRunId'], new_id)
+            self.assertEqual((m['capture']['topTrim'], m['capture']['bottomTrim']), (120, 40))  # 사람이 정한 범위가 엔진으로 간다
+            view = self.auto.view(self.page, self.run)
+            self.assertEqual(view['run']['status'], 'pending')
+            self.assertEqual((view['range']['manual_top'], view['range']['manual_bottom']), (120, 40))
+            self.auto.set_range(self.page, self.run['uuid'], None, None)               # 자동으로 되돌리기
+            m = self.auto.materials(self.page, self.run['uuid'])
+            self.assertNotIn('topTrim', m['capture'])
+            with self.assertRaises(ValueError):
+                self.auto.set_range(self.page, self.run['uuid'], -1, 0)
 
     def test_status_change_keeps_history_and_register_makes_issue(self):
         rid = self.saved()

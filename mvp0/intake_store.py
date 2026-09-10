@@ -129,8 +129,8 @@ class Store:
             c.executescript(AUTO_SCHEMA)
             from design_receive import SCHEMA as RECEIVE_SCHEMA  # 플러그인에서 바로 받은 시안 ↔ 페이지 연결
             c.executescript(RECEIVE_SCHEMA)
-            import auto_inspect
-            auto_inspect.migrate(c)
+        import auto_inspect
+        auto_inspect.repair(self.database)  # 옛 모양의 자동 검수 표를 고친다(외래키를 끈 별도 연결에서)
 
     def event(self, c, batch, item, action, detail, actor='로컬 사용자'):
         c.execute('INSERT INTO intake_event VALUES (?,?,?,?,?,?,?)',
