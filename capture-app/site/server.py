@@ -97,6 +97,18 @@ input[disabled] { background:var(--gray-50); color:var(--gray-300); border-color
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
 input.s { padding:6px 8px; font-size:13px; }
+/* 비밀번호 칸 — 눈 아이콘을 칸 안 오른쪽에 둔다(S-1 Input · Password 정본).
+   숨김 중에는 eye_hide, 보이는 중에는 eye_show. 아이콘 색은 어느 상태에서나 하나다. */
+.pw { position:relative; display:inline-block; width:100%; max-width:300px; }
+.pw input[type=text], .pw input[type=password] { max-width:none; padding-right:38px; }
+.pw .eye { position:absolute; top:50%; right:6px; transform:translateY(-50%);
+  width:28px; height:28px; padding:2px; border:0; background:none; border-radius:var(--radius-control);
+  color:var(--gray-500); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.pw .eye:hover { background:var(--gray-50); }
+.pw .eye svg { display:block; width:24px; height:24px; fill:currentColor; }
+.pw .eye .show { display:none; }
+.pw .eye[aria-pressed="true"] .show { display:block; }
+.pw .eye[aria-pressed="true"] .hide { display:none; }
 button, .btn { font-size:13px; padding:9px 18px; border-radius:8px; border:1px solid #d1d5db;
   background:#fff; color:#374151; cursor:pointer; text-decoration:none; display:inline-block; font-family:inherit; }
 button.go { background:#111827; color:#fff; border-color:#111827; font-weight:600; }
@@ -236,6 +248,19 @@ def _그림(번호, 기본):
         return f'<img src="/안내그림/{번호}.png" alt="">'
     return 기본
 
+
+# 눈 아이콘 — S-1 UX 디자인시스템 Input·Password 정본(eye_hide / eye_show)을 그대로 옮겼다.
+# 폐쇄망이라 파일을 불러오지 않고 글자로 박아 둔다.
+눈아이콘 = """<svg class="hide" viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(3 4.651)">
+<path d="M8.99516 1.98854C8.006 1.98854 7.03683 2.11843 6.1276 2.35823L6.97688 3.20751C7.63632 3.07762 8.30575 2.98769 9.00515 2.98769C12.4622 2.98769 15.5396 4.69624 16.9384 7.35398C16.2989 8.56295 15.2998 9.57209 14.0808 10.3115L14.8002 11.0309C16.1591 10.1516 17.2581 8.98259 17.9475 7.5638C18.0175 7.42392 18.0175 7.26405 17.9475 7.13417C16.4488 4.00683 12.9318 1.98854 9.00515 1.98854H8.99516Z"/>
+<path d="M8.99485 11.71C5.53779 11.71 2.46041 10.0014 1.0616 7.34367C1.70105 6.1347 2.7002 5.12556 3.91917 4.38619L3.19978 3.6668C1.84093 4.54605 0.731877 5.71506 0.0524554 7.13385C-0.0174851 7.27373 -0.0174851 7.4336 0.0524554 7.56349C1.56117 10.6908 5.06819 12.7091 8.99485 12.7091C9.98401 12.7091 10.9532 12.5792 11.8624 12.3394L11.0131 11.4901C10.3537 11.62 9.68426 11.71 8.98486 11.71H8.99485Z"/>
+<path d="M9.92453 10.4011L5.93792 6.41447C5.84799 6.71421 5.78804 7.02395 5.78804 7.34367C5.78804 9.11217 7.22682 10.5509 8.99532 10.5509C9.32504 10.5509 9.63477 10.491 9.92453 10.4011Z"/>
+<path d="M12.2019 7.3434C12.2019 5.57491 10.7631 4.13613 8.99461 4.13613C8.6649 4.13613 8.35516 4.19608 8.0654 4.286L12.052 8.27261C12.1419 7.97287 12.2019 7.66313 12.2019 7.3434Z"/>
+<path d="M13.1512 10.8008L11.5825 9.22215L7.11629 4.76595L5.84737 3.49703L5.06803 2.7077L2.35034 0L1.65094 0.709397L4.08887 3.14732L4.83823 3.89669L6.40689 5.46535L10.8731 9.93155L12.142 11.2005L12.9214 11.9798L15.639 14.6975L16.3384 13.9881L13.9005 11.5402L13.1512 10.8008Z"/>
+</g></svg><svg class="show" viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(3 6.636)">
+<path d="M9 0C5.07109 0 1.55207 2.01944 0.0524854 5.14857C-0.0174951 5.28853 -0.0174951 5.44849 0.0524854 5.57845C1.55207 8.70758 5.07109 10.727 9 10.727C12.9289 10.727 16.4379 8.70758 17.9475 5.57845C18.0175 5.43849 18.0175 5.27853 17.9475 5.14857C16.4379 2.01944 12.9289 0 9 0ZM9 9.7273C5.54096 9.7273 2.46182 8.01777 1.0622 5.35851C2.46182 2.70925 5.54096 0.999722 9 0.999722C12.459 0.999722 15.5382 2.70925 16.9378 5.36851C15.5382 8.02777 12.459 9.73729 9 9.73729V9.7273Z"/>
+<path d="M9.00047 8.57777C10.7728 8.57777 12.2096 7.14101 12.2096 5.36866C12.2096 3.59632 10.7728 2.15956 9.00047 2.15956C7.22813 2.15956 5.79136 3.59632 5.79136 5.36866C5.79136 7.14101 7.22813 8.57777 9.00047 8.57777Z"/>
+</g></svg>"""
 
 걸음 = [("/", "① 디자인 고르기"), ("/초안", "② 찍을 목록"),
       ("/조건", "③ 조건 확인"), ("/촬영", "④ 전체 촬영")]
@@ -545,11 +570,11 @@ def 화면_초안(알림=""):
         <input type="text" name="시험아이디" id="시험아이디" class="w-md" autocomplete="off"
                value="{_e(작업.get('시험아이디',''))}">
         <label class="f">시험 비밀번호</label>
-        <div class="bar" style="margin:0">
-          <input type="password" name="시험비밀번호" id="시험비밀번호" class="w-md" autocomplete="new-password"
+        <div class="pw">
+          <input type="password" name="시험비밀번호" id="시험비밀번호" autocomplete="new-password"
                  value="{_e(작업.get('시험비밀번호',''))}">
-          <button type="button" class="btn" onclick="비번보기()" id="비번보기버튼"
-                  style="white-space:nowrap">보기</button>
+          <button type="button" class="eye" id="비번보기버튼" onclick="비번보기()"
+                  aria-pressed="false" aria-label="비밀번호 보기" aria-controls="시험비밀번호">{눈아이콘}</button>
         </div>
       </div>
 
@@ -560,9 +585,6 @@ def 화면_초안(알림=""):
       <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
              class="w-md" value="{_e(작업.get('앱주소',''))}" disabled>
       <datalist id="깔린앱들">{깔린앱}</datalist>
-      <label class="f">로그인</label>
-      <input type="text" name="로그인" id="로그인" class="w-md"
-             value="{_e(작업.get('로그인','없음'))}" disabled>
 
       <div class="bar" style="margin-top:10px">
         <button type="button" id="고치기버튼" onclick="직접고치기()" style="display:none">직접 고치기</button>
@@ -570,14 +592,16 @@ def 화면_초안(알림=""):
 
       <script>
         var 사전 = {json.dumps(사전, ensure_ascii=False)};
-        var 칸들 = ['서비스코드', '앱주소', '로그인', '시험아이디', '시험비밀번호'];
-        var 잠글칸 = ['서비스코드', '앱주소', '로그인'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
+        var 칸들 = ['서비스코드', '앱주소', '시험아이디', '시험비밀번호'];
+        var 잠글칸 = ['서비스코드', '앱주소'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
         function 칸(k) {{ return document.getElementById(k); }}
         function 비번보기() {{
-          var e = 칸('시험비밀번호');
-          var 숨김 = e.type === 'password';
-          e.type = 숨김 ? 'text' : 'password';
-          document.getElementById('비번보기버튼').textContent = 숨김 ? '가리기' : '보기';
+          var e = 칸('시험비밀번호'), 단추 = document.getElementById('비번보기버튼');
+          var 보임 = e.type !== 'password';
+          e.type = 보임 ? 'password' : 'text';
+          단추.setAttribute('aria-pressed', String(!보임));
+          단추.setAttribute('aria-label', 보임 ? '비밀번호 보기' : '비밀번호 숨기기');
+          e.focus();
         }}
         function 말(글, 색) {{
           var e = document.getElementById('읽은말');
@@ -697,7 +721,6 @@ def 화면_조건(알림=""):
         <tr><td class="muted">폰</td><td>{_e(폰이름) or '<span class="muted">없음</span>'}</td></tr>
         <tr><td class="muted">찍을 화면</td><td>{len(작업.get('초안',[]))}개</td></tr>
         <tr><td class="muted">사진 이름</td><td>{_e(작업.get('서비스코드'))}-AND-번호@상태.png</td></tr>
-        <tr><td class="muted">로그인</td><td>{_e(작업.get('로그인','없음'))}</td></tr>
         <tr><td class="muted">시험 계정</td><td>{계정말}</td></tr>
       </tbody></table>
       <div class="hint">화면 한 장마다 앱을 껐다 켭니다. 화면 수 × 약 10초쯤 걸립니다.
@@ -985,11 +1008,10 @@ class 손님(BaseHTTPRequestHandler):
             작업["앱이름"] = 한개("앱이름") or "이름없는 앱"
             작업["서비스코드"] = (한개("서비스코드") or "APP").upper()
             작업["앱주소"] = 한개("앱주소")
-            작업["로그인"] = 한개("로그인", "없음") or "없음"
             작업["시험아이디"] = 한개("시험아이디")
             작업["시험비밀번호"] = 한개("시험비밀번호")
-            if 작업["시험아이디"] and 작업["로그인"] in ("", "없음"):
-                작업["로그인"] = "필요"      # 시험 계정을 적었으면 로그인이 있는 앱이다
+            # 로그인 여부는 따로 묻지 않는다 — 시험 계정을 적었으면 로그인이 있는 앱이다
+            작업["로그인"] = "필요" if 작업["시험아이디"] else "없음"
             작업쓰기(작업)
             if 빈줄 and 한개("그래도") != "1":
                 return self._html(화면_초안(
