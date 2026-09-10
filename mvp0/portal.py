@@ -356,8 +356,9 @@ def render_screen(human_key: str, notice=""):
             href = f"/screen/{_esc(human_key)}/page/{p['uuid']}"
             up = _esc(p["uploaded_at"] or "—")
             rows += f"""<tr onclick="location.href='{href}'">
-              <td class="ctr pick"><input type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
-                   onclick="event.stopPropagation()" aria-label="{_esc(p['name'])} 선택"></td>
+              <td class="ctr pick" onclick="event.stopPropagation()"><label class="pickbox"><input
+                   type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
+                   aria-label="{_esc(p['name'])} 선택"></label></td>
               <td class="ctr">{p['seq']}</td>
               <td class="name">{_esc(p['name'])} {dummy}</td>
               <td class="ctr">{up}</td>
@@ -999,7 +1000,9 @@ _LIST_CSS = """
   .bulk { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:4px 4px 12px; }
   .bulk .lbl { font-size:12px; color:#6b7280; }
   .bulk .hint { font-size:11px; color:#9ca3af; }
-  td.pick, th.pick { width:32px; }
+  td.pick, th.pick { width:32px; padding:0; }
+  td.pick .pickbox { display:flex; align-items:center; justify-content:center;
+    min-height:38px; padding:0 6px; cursor:default; }
   .dates { line-height:1.7; }
   .rdate { display:inline-block; font-size:11px; color:#4b5563; background:#f3f4f6; border-radius:5px; padding:1px 6px; margin:0 2px; }
   .rdate b { color:#111827; font-weight:700; margin-right:3px; }
