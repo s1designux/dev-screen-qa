@@ -905,6 +905,24 @@ function captureFrameRules(cap){
   });
   return got;
 }
+var KEYBOARD_NAME_RE=/키보드|keyboard|keypad|자판|소프트 ?키|\bime\b/i;
+function deviceKeyboardBands(design){
+  // 시안에 그려 넣은 '화면 키보드'. 기기가 그리는 것이지 개발 결과물이 아니다.
+  // 개발 캡처에서는 이미 키보드를 빼고 있는데(촬영본 제외표) 시안에서 안 빼면
+  // 짝이 사라진 자판 글자 하나하나가 '디자인에 있는데 개발에 없다'로 줄줄이 올라온다.
+  // 이름과 자리(가로로 꽉 차고 화면 아래쪽을 덮음)가 **함께** 맞아야 한다 —
+  // 이름만 보면 '키보드 설정' 같은 메뉴 글자까지 빠진다.
+  var W=design.width||0,H=design.height||0;if(!W||!H)return[];
+  var best=null;
+  (design.elements||[]).forEach(function(e){
+    var b=e.box;if(!b||!KEYBOARD_NAME_RE.test(String(e.name||"")))return;
+    if(b.w<W*.8||b.y<H*.4||b.y+b.h<H*.85||b.h<H*.15)return;
+    if(!best||b.y<best.y)best=b;
+  });
+  if(!best)return[];
+  return[{id:"designRule_keyboard",name:"화면 키보드(시안에 그려 넣음)",edge:"bottom",reason:"appRule",
+    box:{x:0,y:best.y,w:W,h:H-best.y}}];
+}
 function buildExcludeMap(design,children){
   var out={};POLICY_EXCLUDE_RULES.forEach(function(rule){var got=rule.find(design,children)||{};Object.keys(got).forEach(function(id){if(!out[id])out[id]=got[id];});});
   return out;
@@ -1316,7 +1334,7 @@ function decideFrameBands(sections,root,design,model,lg,children,captureHeight,p
   return out;
 }
 function bandNotice(b){
-  var where=b.edge==="top"?"위쪽":"아래쪽",why=b.reason==="name"?"이름·글자로 보아 브라우저 틀·상태바라서":b.reason==="unmatched"?"개발 캡처에서 짝을 찾지 못해 디자인 전용 장식으로 보고":b.reason==="offCapture"?"개발 캡처 바깥에 해당해 디자인 전용 장식으로 보고":"개발 캡처의 같은 자리와 맞지 않아 브라우저 틀 같은 디자인 전용 장식으로 보고";
+  var where=b.edge==="top"?"위쪽":"아래쪽",why=b.reason==="name"?"이름·글자로 보아 브라우저 틀·상태바라서":b.reason==="unmatched"?"개발 캡처에서 짝을 찾지 못해 디자인 전용 장식으로 보고":b.reason==="appRule"?"앱 화면 기본 규칙에 따라 기기가 그린 것으로 보고":b.reason==="offCapture"?"개발 캡처 바깥에 해당해 디자인 전용 장식으로 보고":"개발 캡처의 같은 자리와 맞지 않아 브라우저 틀 같은 디자인 전용 장식으로 보고";
   return "디자인 "+where+" ‘"+b.name+"’ 영역("+Math.round(b.box.h)+"px)은 "+why+" 비교에서 제외했어요.";
 }
 function estimateCaptureContentTop(sections,root,bands,model,lg){
@@ -1378,7 +1396,7 @@ function addTopGapCandidate(cands,pairId,anchored,trim){
   var g=cands.topGap;if(!anchored||!g||Math.abs(g.delta)<6)return cands;
   var dg=Math.round(g.designGap),cg=Math.round(g.capGap),wider=g.delta>0;
   cands.push({kind:"spacing",axis:"vertical",status:"confirmed",
-    rawBox:{x:g.rawBox.x,y:g.rawBox.y+(trim||0),w:g.rawBox.w,h:g.rawBox.h},designBox:g.designBox,designNodeIds:[g.elId],
+    rawBox:{x:g.rawBox.x,y:g.rawBox.y+(trim||0),w:g.rawBox.w,h:g.rawBox.h},designBox:g.designBox,designNodeIds:[],
     designValues:"디자인 위 여백 "+dg+"px · 개발 이미지 약 "+cg+"px",label:LABEL_TOP_GAP,
     detail:"검수 시작선에서 첫 요소까지가 디자인은 "+dg+"px, 개발 이미지는 약 "+cg+"px로 보입니다(약 "+Math.round(Math.abs(g.delta))+"px "+(wider?"더 벌어짐":"더 붙음")+"). 화면이 통째로 밀려 겹쳐 맞추기에 묻히는 밀림도 여기서 잡습니다.",
     confidence:g.confidence});
@@ -1521,29 +1539,24 @@ function textCandidateFor(res,ctx){
   return{label:label,boxes:localBoxes,detail:detail,confidence:small?clamp(Math.round(50+Math.max(0,.68-res.ncc)*40),50,66):clamp(Math.round((.55+Math.min(.35,Math.max(res.mismatch,res.exact-.2))*.7)*100),52,92)};
 }
 
-function measureTopGap(results,bands,model,lg,toRaw){
-  // 겹쳐 맞추기는 '화면이 통째로 내려온 밀림'을 맞출 양(ty)으로 흡수해 버려 아무 후보도 남기지 않는다.
-  // 그래서 맨 위 여백만은 ty를 빼고, 잘라낸 뒤 남은 그림의 위 끝(=검수 시작선)에서 첫 요소까지를 따로 잰다.
-  //   디자인 여백 = 첫 요소 위 - 위쪽 틀 띠 아래
-  //   개발 여백  = (첫 요소를 실제로 찾은 자리 - ty) / 배율
-  // 한 요소만 보면 실 같은 선 하나가 잘못 맞아도 여백이 틀린 것처럼 보이므로,
-  // 위쪽 요소 여럿이 **같은 값**을 말할 때만 인정한다(그래야 '화면이 통째로 밀렸다'가 된다).
+function measureTopGap(design,designImg,capture,bands,lg){
+  // 맨 위 여백 = 검수 시작선에서 **처음 무언가가 그려진 줄**까지. 두 그림에서 각각 그대로 재고 견준다.
+  // 겹쳐 맞추기(정렬)를 거치지 않는 것이 핵심이다 — 정렬은 화면이 통째로 내려온 밀림을
+  // '맞출 양'으로 흡수해 버려서, 정렬을 쓰면 이 차이가 영영 안 보인다.
+  // 디자인 시작선 = 위쪽 틀 띠 아래 / 개발 시작선 = 위쪽을 잘라내고 남은 그림의 맨 위.
+  if(!designImg||!capture||!capture.img||!design.width||!capture.width)return null;
   var bandTop=0;(bands||[]).forEach(function(b){if(b.edge==="top")bandTop=Math.max(bandTop,b.box.y+b.box.h);});
-  var pool=results.filter(function(res){
-    var b=res.u.el.box;
-    return !res.missing&&res.best&&res.best.score>=.6&&b.y>=bandTop-1&&b.h>=6&&b.w>=8;
-  }).sort(function(a,b){return a.u.el.box.y-b.u.el.box.y;}).slice(0,5);
-  if(pool.length<3)return null;
-  var deltas=pool.map(function(res){return((res.pb.y+res.best.dy)-model.ty)/lg-(res.u.el.box.y-bandTop);});
-  var lo=Math.min.apply(null,deltas),hi=Math.max.apply(null,deltas);
-  if(hi-lo>6)return null; // 위쪽 요소끼리 말이 다르면 여백이 아니라 개별 밀림이다 — 위치 후보가 맡는다
-  var delta=median(deltas),top=pool[0],designGap=top.u.el.box.y-bandTop,capGap=designGap+delta;
-  if(designGap<0||capGap<-8)return null;
-  var raw=toRaw({x:top.pb.x,y:model.ty,w:top.pb.w,h:Math.max(2,(top.pb.y+top.best.dy)-model.ty)});
-  return{elId:top.u.el.id,designGap:designGap,capGap:capGap,delta:delta,support:pool.length,
-    designBox:{x:top.u.el.box.x,y:bandTop,w:top.u.el.box.w,h:Math.max(2,designGap)},
-    rawBox:{x:raw.x,y:raw.y,w:raw.w,h:raw.h},
-    confidence:clamp(Math.round((median(pool.map(function(r){return r.best.score;}))||.6)*100),50,88)};
+  var dProf=captureRowProfile(designImg),cProf=captureRowProfile(capture.img);
+  var dRun=firstInkRun(dProf.ink,Math.min(dProf.H-1,Math.round(bandTop*lg)+1),dProf.H,2);
+  var cRun=firstInkRun(cProf.ink,1,cProf.H,2);
+  if(!dRun||!cRun)return null;
+  var capScale=design.width/capture.width; // 두 그림 모두 화면 가로 전체를 담고 있으므로 가로 비율로 단위를 맞춘다
+  var designGap=dRun.start/lg-bandTop,capGap=cRun.start*capScale;
+  if(designGap<0||capGap<0||designGap>design.height*.5||capGap>design.height*.5)return null;
+  return{designGap:designGap,capGap:capGap,delta:capGap-designGap,
+    designBox:{x:0,y:bandTop,w:design.width,h:Math.max(2,designGap)},
+    rawBox:{x:0,y:0,w:capture.width,h:Math.max(2,cRun.start)},
+    confidence:75};
 }
 function buildDiff(design,designImg,capture,model,pairId,opts){
   opts=opts||{};var W=designImg.width,H=designImg.height,lg=W/design.width,scaleX=design.width/W,scaleY=design.height/H;
@@ -1562,6 +1575,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   sections.forEach(function(s){estimateSectionOffset(s,ctx);});
   if(sectionInfo.root.units.length){estimateSectionOffset(sectionInfo.root,ctx);sectionInfo.root.matched=true;}
   var bands=decideFrameBands(sections,sectionInfo.root,design,model,lg,childMap(design),capture.height,opts.bands,ctx);
+  (opts.extraBands||[]).forEach(function(b){if(!bands.some(function(x){return x.id===b.id;}))bands.push(b);});
   bands.forEach(function(b){notices.push(bandNotice(b));});
   units.forEach(function(u){u.bandExcluded=!u.section.excluded&&bands.some(function(b){return boxContains(b.box,u.el.box);});}); // 구역 밖 단위라도 띠 안이면 제외
   // 3안: 틀 띠를 뺀 뒤, 가장 확실히 맞은 구역에서 출발해 위아래로 번져가며 이웃 구역 밀림 ±8px(디자인 기준) 안에서만 다시 잰다.
@@ -1668,7 +1682,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
   ctx.bands=bands;cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
   numberCandidates(cands,pairId);
-  cands.topGap=measureTopGap(results,bands,model,lg,toRaw);
+  cands.topGap=measureTopGap(design,designImg,capture,bands,lg);
   cands.notices=notices;cands.bands=bands;cands.contentTop=estimateCaptureContentTop(sections,sectionInfo.root,bands,model,lg);
   cands.contentBottom=estimateCaptureContentBottom(sections,sectionInfo.root,bands,model,lg,design);
   cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
@@ -1753,13 +1767,14 @@ function comparePair(p,d,cap,img){
   var manual=cap.topTrim!=null?cap.topTrim:null,manualBottom=cap.bottomTrim!=null?cap.bottomTrim:null;
   var trim=manual!=null?Math.max(0,Math.round(manual)):0,bottom=manualBottom!=null?Math.max(0,Math.round(manualBottom)):0;
   var auto=false,autoBottom=false,strip=0,model,cands,bandsFirst=null,view=cap;
+  var designBands=deviceKeyboardBands(d); // 시안에 그려 넣은 화면 키보드도 개발 캡처와 똑같이 뺀다
   var stripBottom=detectBottomBar(cap.img); // 아래 띠는 정렬 없이 캡처 이미지만 봐도 대략 찾을 수 있다(사람이 이미 정한 화면에서도 참고값으로 보여준다).
   // 앱 촬영본 기본 규칙(촬영본 제외표): 상태바·키보드·하단 내비게이션은 정렬과 무관하게 이미지만 보고 먼저 뺀다. 사람이 정한 값이 있으면 그쪽이 이긴다.
   var appRules=(manual==null||manualBottom==null)?captureFrameRules(cap):{top:0,bottom:0,rules:[]},ruleTop=null,ruleBottom=null;
   if(manual==null&&appRules.top){trim=appRules.top;auto=true;ruleTop=appRules.rules.filter(function(r){return r.edge==="top";});}
   if(manualBottom==null&&appRules.bottom){bottom=appRules.bottom;autoBottom=true;ruleBottom=appRules.rules.filter(function(r){return r.edge==="bottom";});}
   if(manual==null||(manualBottom==null&&!ruleBottom)){
-    var m0=alignFor(d,img,cap.img,ruleTop?namedFrameBoxes(d):[],cap),c0=buildDiff(d,img,cap,m0,p.id),maxStrip=cap.height*.3;
+    var m0=alignFor(d,img,cap.img,ruleTop?namedFrameBoxes(d):[],cap),c0=buildDiff(d,img,cap,m0,p.id,{extraBands:designBands}),maxStrip=cap.height*.3;
     bandsFirst=c0.bands;
     if(manual==null&&ruleTop&&m0.score>=.85){
       // 상태바 아래에 브라우저 주소창까지 있는 모바일 웹 촬영본: 정렬이 믿을 만하면 디자인 내용이 시작하는 자리까지 더 자른다
@@ -1786,8 +1801,9 @@ function comparePair(p,d,cap,img){
   }
   if(!cands){
     view=trimmedCapture(cap,trim,bottom);
-    model=alignFor(d,img,view.img,bandsFirst?bandsFirst.map(function(b){return b.box;}):namedFrameBoxes(d),cap);
-    cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,bandsFirst?{bands:bandsFirst}:{}),trim);
+    model=alignFor(d,img,view.img,(bandsFirst?bandsFirst.map(function(b){return b.box;}):namedFrameBoxes(d)).concat(designBands.map(function(b){return b.box;})),cap);
+    var opts2=bandsFirst?{bands:bandsFirst}:{};opts2.extraBands=designBands;
+    cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,opts2),trim);
   }
   // 맨 위 여백: 위쪽 검수 시작선이 확실할 때만(사람이 정했거나 · 잘라냈거나 · 남은 띠가 없을 때) 잰다.
   addTopGapCandidate(cands,p.id,manual!=null||trim>0||!strip||topStripIsBlank(cap.img,strip),trim);
@@ -2676,24 +2692,36 @@ async function runSelfTest(){
   var busy=fakeImage(100,100,function(x,y){return(x+y)%2?[250,250,250]:[160,160,160];}); // 키보드처럼 어수선한 덮개
   check("덮개가 어수선해도 제 글자색이 없으면 가려진 것(키보드에 가린 글자)",
     !!occludedIds(occDesign(),childMap(occDesign()),busy,100,100,1).hidden);
-  // ── 맨 위 여백: 겹쳐 맞추기(ty)에 흡수되는 통짜 밀림을 따로 잰다
-  function tgUnit(y,dy,score){return{missing:false,u:{el:{id:"e"+y,box:{x:0,y:y,w:40,h:20}}},pb:{x:0,y:y,w:40,h:20},best:{dx:0,dy:dy,score:score==null?.9:score}};}
-  var tgSame=measureTopGap([tgUnit(20,0),tgUnit(60,0),tgUnit(100,0)],[],{ty:-18},1,function(b){return{x:b.x,y:b.y,w:b.w,h:b.h};});
-  check("위쪽 요소들이 같은 값을 말하면 맨 위 여백 차이를 잰다",tgSame&&Math.round(tgSame.delta)===18&&tgSame.designGap===20&&Math.round(tgSame.capGap)===38);
-  check("위쪽 띠를 뺀 자리부터 잰다",
-    Math.round(measureTopGap([tgUnit(40,0),tgUnit(60,0),tgUnit(100,0)],[{edge:"top",box:{x:0,y:0,w:100,h:30}}],{ty:30},1,function(b){return b;}).delta)===0);
-  check("위쪽 요소끼리 말이 다르면 여백이 아니라 개별 밀림(후보 안 냄)",
-    measureTopGap([tgUnit(20,0),tgUnit(60,20),tgUnit(100,0)],[],{ty:-18},1,function(b){return b;})===null);
-  check("기준 삼을 요소가 셋도 안 되면 재지 않는다",
-    measureTopGap([tgUnit(20,0),tgUnit(60,0)],[],{ty:-18},1,function(b){return b;})===null);
+  // ── 맨 위 여백: 겹쳐 맞추기(ty)에 흡수되는 통짜 밀림을 두 그림에서 따로 잰다
+  function tgImg(W,H,inkY){var c=canvasFor(W,H),x=c.getContext("2d");x.fillStyle="#ffffff";x.fillRect(0,0,W,H);
+    x.fillStyle="#222222";x.fillRect(10,inkY,W-20,10);return c;}
+  var tgDesign={width:100,height:200},tgD=tgImg(100,200,30);
+  var tgSame=measureTopGap(tgDesign,tgD,{width:100,height:200,img:tgImg(100,200,50)},[],1);
+  check("맨 위 여백은 두 그림에서 각각 재서 견준다(정렬을 거치지 않는다)",
+    tgSame&&Math.round(tgSame.designGap)===30&&Math.round(tgSame.capGap)===50&&Math.round(tgSame.delta)===20);
+  check("위쪽 틀 띠를 뺀 자리부터 잰다",
+    Math.round(measureTopGap(tgDesign,tgD,{width:100,height:200,img:tgImg(100,200,30)},[{edge:"top",box:{x:0,y:0,w:100,h:20}}],1).designGap)===10);
+  check("개발 캡처가 2배로 커도 가로 비율로 단위를 맞춘다",
+    Math.round(measureTopGap(tgDesign,tgD,{width:200,height:400,img:tgImg(200,400,60)},[],1).capGap)===30);
+  check("아무것도 안 그려진 그림이면 재지 않는다",
+    measureTopGap(tgDesign,tgImg(100,200,-20),{width:100,height:200,img:tgImg(100,200,-20)},[],1)===null);
   function tgCands(g){var c=[];c.topGap=g;return c;}
   check("검수 시작선이 확실하지 않으면(위쪽에 안 걷어낸 띠) 맨 위 여백 후보를 내지 않는다",
     addTopGapCandidate(tgCands(tgSame),"p",false,0).length===0);
   check("몇 px 차이(정렬 오차 수준)는 후보로 올리지 않는다",
-    addTopGapCandidate(tgCands({delta:4,designGap:20,capGap:24,rawBox:{x:0,y:0,w:10,h:10},designBox:{x:0,y:0,w:10,h:10},elId:"e",confidence:80}),"p",true,0).length===0);
+    addTopGapCandidate(tgCands({delta:4,designGap:20,capGap:24,rawBox:{x:0,y:0,w:10,h:10},designBox:{x:0,y:0,w:10,h:10},confidence:80}),"p",true,0).length===0);
   var tgOut=addTopGapCandidate(tgCands(tgSame),"p",true,7);
   check("확실할 때는 '화면 맨 위 여백' 후보 하나로 올리고, 잘라낸 만큼 자리를 되돌린다",
     tgOut.length===1&&tgOut[0].label===LABEL_TOP_GAP&&tgOut[0].kind==="spacing"&&tgOut[0].rawBox.y===tgSame.rawBox.y+7&&tgOut[0].no===1);
+  // ── 시안에 그려 넣은 화면 키보드도 개발 캡처와 똑같이 뺀다
+  function kbDesign(name,y,h){return{name:"로그인",width:360,height:812,elements:[
+    {id:"kb",type:"FRAME",kind:"shape",parentId:null,name:name,box:{x:0,y:y,w:360,h:h},values:{fill:"#FAFAFA"}}]};}
+  check("가로로 꽉 차고 아래쪽을 덮는 '키보드'는 화면 밖(기기) 것으로 보고 뺀다",
+    deviceKeyboardBands(kbDesign("keyboard",470,296)).length===1&&Math.round(deviceKeyboardBands(kbDesign("keyboard",470,296))[0].box.y)===470);
+  check("이름만 키보드인 작은 요소(‘키보드 설정’ 메뉴)는 빼지 않는다",
+    deviceKeyboardBands(kbDesign("키보드 설정",100,40)).length===0);
+  check("화면 위쪽에 있는 것은 키보드로 보지 않는다",
+    deviceKeyboardBands(kbDesign("keyboard",40,300)).length===0);
   function mkCand(id,kind,nodes,status){return{id:id,kind:kind,designNodeIds:nodes,designBox:{x:20,y:50,w:60,h:20},status:status||"confirmed",detail:"원래 사유",base:{label:LABEL_TEXT_CONTENT,detail:"원래 사유",confidence:80}};}
   var exC=mkCand("e1","text",["bart0"]),keepC=mkCand("e2","text",["bodyt"]),userC=mkCand("e3","text",["bart0"],"confirmed");userC.userSet=true;
   [exC,keepC,userC].forEach(function(c){applyCandidatePolicy(c,cp);});
