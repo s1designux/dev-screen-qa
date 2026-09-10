@@ -5,6 +5,7 @@
 """
 import json
 import os
+import re
 import glob
 import shutil
 import subprocess
@@ -63,13 +64,23 @@ def 묶기(화면들):
     return 묶음
 
 
+# 스플래시는 몇 백 밀리초 만에 지나간다 — 뜨자마자 찍어야 한다.
+_스플래시 = re.compile(r"splash|스플래시|스플레시", re.I)
+
+
+def 스플래시인가(화면):
+    return bool(_스플래시.search(화면.get("이름", "") or ""))
+
+
 def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=None):
     """한 묶음(같은 화면의 상태들)을 한 대본으로 적는다.
 
     동작에 적힌 <아이디>·<비번> 표식은 여기서 진짜 시험 계정으로 바뀐다.
+    스플래시 화면은 앱이 뜨기를 기다리지 않고 곧바로 찍는다.
     """
-    줄 = [f"appId: {tag.get('앱주소','')}", "---", "- stopApp", "- launchApp",
-         "- waitForAnimationToEnd:", "    timeout: 5000"]
+    줄 = [f"appId: {tag.get('앱주소','')}", "---", "- stopApp", "- launchApp"]
+    if not 스플래시인가(한묶음[0]):
+        줄 += ["- waitForAnimationToEnd:", "    timeout: 5000"]
     첫장 = 한묶음[0]
     누를것 = 첫장.get("누를것", "-")
     if 누를것 not in ("-", "", "없음"):
