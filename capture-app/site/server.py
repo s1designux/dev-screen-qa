@@ -155,6 +155,15 @@ tr.tie td { background:#FAFAFA; }
 .sect { font-size:12px; font-weight:700; color:#374151; margin:14px 0 6px; }
 .cnt { float:right; font-size:12px; font-weight:600; color:#12864e; }
 .dim { font-size:11px; color:#9ca3af; margin-left:auto; white-space:nowrap; }
+/* 보낼 사진 고르기 — 이름이 길어 칸에 갇히면 세로로 쪼개져 읽히지 않는다.
+   한 줄에 하나씩, 이름은 왼쪽부터 가로로 풀어 쓴다. */
+.rows { display:flex; flex-direction:column; border:1px solid var(--gray-100);
+  border-radius:var(--radius-control); overflow:hidden; }
+.rows label { display:flex; gap:10px; align-items:center; font-size:13px; padding:9px 12px;
+  background:#fff; cursor:pointer; }
+.rows label + label { border-top:1px solid var(--gray-100); }
+.rows label:hover { background:#f9fafb; }
+.rows .nm { flex:1; min-width:0; word-break:keep-all; }
 .bar { display:flex; gap:10px; align-items:center; margin-top:16px; }
 .bar .right { margin-left:auto; }
 pre.log { background:#0f172a; color:#e2e8f0; font-size:12px; padding:14px; border-radius:10px;
@@ -788,8 +797,9 @@ def 화면_촬영():
     if 목록파일.exists():
         for s2 in json.loads(목록파일.read_text(encoding="utf-8")).get("찍힌것", []):
             고를칸 += (f'<label><input type="checkbox" name="사진" value="{_e(s2["파일"])}" checked>'
-                    f'<span>{_e(s2.get("화면이름") or s2.get("상태",""))}</span>'
-                    f'<span class="dim">{_e(s2["화면번호"])} · {_e(s2.get("상태",""))}</span></label>')
+                    f'<span class="dim" style="margin:0">{_e(s2["화면번호"])}</span>'
+                    f'<span class="nm">{_e(s2.get("화면이름") or s2.get("상태",""))}</span>'
+                    f'<span class="dim">{_e(s2.get("상태",""))}</span></label>')
     보내기 = ""
     if 끝남 and not 보냄:
         보내기 = f"""
@@ -797,7 +807,7 @@ def 화면_촬영():
           <div class="hint" style="margin-top:0">보낼 사진만 골라 주세요.
             상태마다 검수 페이지 한 장으로 들어갑니다.</div>
           <form method="post" action="/접수">
-            <div class="frames" style="margin:10px 0 0">{고를칸}</div>
+            <div class="rows" style="margin:10px 0 0">{고를칸}</div>
             <div class="bar"><button class="go" type="submit">검수로 보내기 →</button></div>
           </form></div>"""
     elif 보냄:
