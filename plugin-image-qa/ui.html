@@ -856,6 +856,13 @@ var CAPTURE_EXCLUDE_RULES=[{
     return Math.min(Math.round(H*.08),H-run.start+pad+1);
   }
 }];
+function topStripIsBlank(img,px){
+  // 개발 캡처 맨 위 px줄 안에 잉크(글자·아이콘)가 있는지 본다.
+  // 있으면 브라우저 탭·주소창 같은 '틀'이고, 없으면 그냥 빈 여백 — 여백이면 맨 위 여백을 재도 된다.
+  px=Math.round(px||0);if(!img||px<2)return true;
+  var prof=captureRowProfile(img);
+  return !firstInkRun(prof.ink,0,Math.min(prof.H,px),2);
+}
 function isAppCapture(cap){return !!cap&&cap.height>=cap.width*1.4;}
 function captureRowProfile(img){
   // 줄마다 바탕색(가장 흔한 색)과 잉크 유무. 2px 간격으로만 본다.
@@ -1135,11 +1142,24 @@ function flatInDesign(dd,W,H,box,lg){
     if(!base)base=px;else if(colorDistance(px,base)>18)off++;n++;}
   return n>=8&&off/n<=.02;
 }
+function inkShareInDesign(dd,W,H,box,lg,hex){
+  // 디자인 그림에서 이 상자 안에 '그 요소의 글자색'이 얼마나 있는지. 글자가 그려졌다면 반드시 조금은 있다.
+  if(!/^#[0-9a-f]{6}$/i.test(String(hex||"")))return null;
+  var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  var x0=Math.max(0,Math.round(box.x*lg)),y0=Math.max(0,Math.round(box.y*lg)),
+      x1=Math.min(W,Math.round((box.x+box.w)*lg)),y1=Math.min(H,Math.round((box.y+box.h)*lg));
+  if(x1-x0<2||y1-y0<2)return null;
+  var d=dd.data,near=0,n=0;
+  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var i=(y*W+x)*4;
+    if(Math.max(Math.abs(d[i]-r),Math.abs(d[i+1]-g),Math.abs(d[i+2]-b))<=40)near++;n++;}
+  return n?near/n:null;
+}
 function occludedIds(design,children,dd,W,H,lg){
   // 이미지 검수는 **그림에 보이는 것만** 본다(피그마 목록에 남아 있어도).
-  // 판정 두 걸음: ① 네모난 불투명 요소가 상자를 통째로 덮고 있다 ② 그 자리가 디자인 그림에서 한 색뿐이다.
+  // 판정 두 걸음 — ① 네모난 불투명 요소가 상자를 통째로 덮고 있다(자리만 좁힌다)
+  //              ② 디자인 그림이 "안 그려졌다"고 말한다: 그 자리가 한 색뿐이거나, 글자면 제 글자색이 거의 없다.
   // 둘 다 맞아야 '가려서 안 보인다'로 본다. ①만 보면 그리는 순서를 잘못 짚어 멀쩡한 글자를 지우고,
-  // ②만 보면 원래 여백이 넓은 글자칸까지 지운다.
+  // ②만 보면 배경과 같은 색으로 칠한 자리까지 지운다.
   var out={},els=design.elements||[],byId={};els.forEach(function(e){byId[e.id]=e;});
   function opaque(e){var v=e.values||{};
     if(!/^(FRAME|COMPONENT|INSTANCE|SECTION|RECTANGLE)$/.test(String(e.type||"")))return false; // 동그라미·벡터는 상자만 클 뿐 가운데가 비어 있다
@@ -1157,7 +1177,9 @@ function occludedIds(design,children,dd,W,H,lg){
     if(!inky)return;
     for(var k=0;k<covers.length;k++){
       var c=covers[k];if(c===e||!boxContains(c.box,b)||kin(e,c))continue;
-      if(!flatInDesign(dd,W,H,b,lg))return;
+      var ink=e.kind==="text"?inkShareInDesign(dd,W,H,b,lg,e.values&&e.values.color):null;
+      var gone=(ink!=null&&ink<.01)||flatInDesign(dd,W,H,b,lg);
+      if(!gone)return;
       var why="다른 요소("+(c.name||"이름 없는 요소")+")에 가려 디자인 그림에 보이지 않아서";
       out[e.id]=why;descendantsOf(e,children).forEach(function(d){out[d.id]=why;});
       return;
@@ -1768,7 +1790,7 @@ function comparePair(p,d,cap,img){
     cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,bandsFirst?{bands:bandsFirst}:{}),trim);
   }
   // 맨 위 여백: 위쪽 검수 시작선이 확실할 때만(사람이 정했거나 · 잘라냈거나 · 남은 띠가 없을 때) 잰다.
-  addTopGapCandidate(cands,p.id,manual!=null||trim>0||!strip,trim);
+  addTopGapCandidate(cands,p.id,manual!=null||trim>0||!strip||topStripIsBlank(cap.img,strip),trim);
   // 검수 범위 안내(제외했으면 왜 제외했는지, 제외 안 했으면 무엇이 보이는지)
   function ruleWhy(rs){return "앱 화면 기본 규칙에 따라 "+rs.map(function(r){return r.title;}).join("·")+"로 보고";}
   var logicalScale=img.width/d.width;
@@ -2632,6 +2654,46 @@ async function runSelfTest(){
   check("최상위 요소의 부모가 프레임 id여도(실제 내보내기) 브라우저 틀·작업표시줄 제외",!!cpR.excluded.bar&&!!cpR.excluded.task&&!cpR.excluded.body);
   var cp2=buildTextPolicy(chromeDesign(["메뉴 하나","메뉴 둘"]));
   check("본문 글자가 여럿 들어 있는 띠는 화면 내용이라 제외하지 않음",!cp2.excluded.bar);
+  // ── 그림에 안 보이는 것은 검수 대상이 아니다(이미지 검수는 보이는 것만 본다)
+  function fakeImage(W,H,paint){ // paint(x,y) → [r,g,b]. dd.data 모양만 흉내 낸다.
+    var d=new Uint8ClampedArray(W*H*4);
+    for(var y=0;y<H;y++)for(var x=0;x<W;x++){var c=paint(x,y),i=(y*W+x)*4;d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];d[i+3]=255;}
+    return{data:d};
+  }
+  function occDesign(coverType){
+    return{name:"가림 시험",width:100,height:100,elements:[
+      {id:"panel",type:coverType||"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:100,h:100},values:{fill:"#FFFFFF"}},
+      {id:"hidden",type:"TEXT",kind:"text",parentId:null,text:"가린 글자",box:{x:10,y:10,w:60,h:20},values:{color:"#333333"}}]};
+  }
+  var white=fakeImage(100,100,function(){return[255,255,255];});
+  var withInk=fakeImage(100,100,function(x,y){return(y>=12&&y<=26&&x>=12&&x<=60&&x%3===0)?[51,51,51]:[255,255,255];});
+  check("네모난 불투명 요소에 덮이고 그림도 한 색뿐이면 '가려짐'으로 제외",
+    !!occludedIds(occDesign(),childMap(occDesign()),white,100,100,1).hidden);
+  check("같은 자리에 제 글자색이 보이면 가려진 게 아니다(멀쩡한 글자를 지우지 않음)",
+    !occludedIds(occDesign(),childMap(occDesign()),withInk,100,100,1).hidden);
+  check("동그라미·벡터는 상자만 클 뿐 가운데가 비어 있어 덮개로 보지 않는다",
+    !occludedIds(occDesign("ELLIPSE"),childMap(occDesign("ELLIPSE")),white,100,100,1).hidden);
+  var busy=fakeImage(100,100,function(x,y){return(x+y)%2?[250,250,250]:[160,160,160];}); // 키보드처럼 어수선한 덮개
+  check("덮개가 어수선해도 제 글자색이 없으면 가려진 것(키보드에 가린 글자)",
+    !!occludedIds(occDesign(),childMap(occDesign()),busy,100,100,1).hidden);
+  // ── 맨 위 여백: 겹쳐 맞추기(ty)에 흡수되는 통짜 밀림을 따로 잰다
+  function tgUnit(y,dy,score){return{missing:false,u:{el:{id:"e"+y,box:{x:0,y:y,w:40,h:20}}},pb:{x:0,y:y,w:40,h:20},best:{dx:0,dy:dy,score:score==null?.9:score}};}
+  var tgSame=measureTopGap([tgUnit(20,0),tgUnit(60,0),tgUnit(100,0)],[],{ty:-18},1,function(b){return{x:b.x,y:b.y,w:b.w,h:b.h};});
+  check("위쪽 요소들이 같은 값을 말하면 맨 위 여백 차이를 잰다",tgSame&&Math.round(tgSame.delta)===18&&tgSame.designGap===20&&Math.round(tgSame.capGap)===38);
+  check("위쪽 띠를 뺀 자리부터 잰다",
+    Math.round(measureTopGap([tgUnit(40,0),tgUnit(60,0),tgUnit(100,0)],[{edge:"top",box:{x:0,y:0,w:100,h:30}}],{ty:30},1,function(b){return b;}).delta)===0);
+  check("위쪽 요소끼리 말이 다르면 여백이 아니라 개별 밀림(후보 안 냄)",
+    measureTopGap([tgUnit(20,0),tgUnit(60,20),tgUnit(100,0)],[],{ty:-18},1,function(b){return b;})===null);
+  check("기준 삼을 요소가 셋도 안 되면 재지 않는다",
+    measureTopGap([tgUnit(20,0),tgUnit(60,0)],[],{ty:-18},1,function(b){return b;})===null);
+  function tgCands(g){var c=[];c.topGap=g;return c;}
+  check("검수 시작선이 확실하지 않으면(위쪽에 안 걷어낸 띠) 맨 위 여백 후보를 내지 않는다",
+    addTopGapCandidate(tgCands(tgSame),"p",false,0).length===0);
+  check("몇 px 차이(정렬 오차 수준)는 후보로 올리지 않는다",
+    addTopGapCandidate(tgCands({delta:4,designGap:20,capGap:24,rawBox:{x:0,y:0,w:10,h:10},designBox:{x:0,y:0,w:10,h:10},elId:"e",confidence:80}),"p",true,0).length===0);
+  var tgOut=addTopGapCandidate(tgCands(tgSame),"p",true,7);
+  check("확실할 때는 '화면 맨 위 여백' 후보 하나로 올리고, 잘라낸 만큼 자리를 되돌린다",
+    tgOut.length===1&&tgOut[0].label===LABEL_TOP_GAP&&tgOut[0].kind==="spacing"&&tgOut[0].rawBox.y===tgSame.rawBox.y+7&&tgOut[0].no===1);
   function mkCand(id,kind,nodes,status){return{id:id,kind:kind,designNodeIds:nodes,designBox:{x:20,y:50,w:60,h:20},status:status||"confirmed",detail:"원래 사유",base:{label:LABEL_TEXT_CONTENT,detail:"원래 사유",confidence:80}};}
   var exC=mkCand("e1","text",["bart0"]),keepC=mkCand("e2","text",["bodyt"]),userC=mkCand("e3","text",["bart0"],"confirmed");userC.userSet=true;
   [exC,keepC,userC].forEach(function(c){applyCandidatePolicy(c,cp);});
