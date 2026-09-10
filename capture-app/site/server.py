@@ -1038,7 +1038,8 @@ class 손님(BaseHTTPRequestHandler):
                                         '안드로이드 앱의 속이름(예: kr.co.s1.samsungbus)을 적어 주세요.</div>'))
             빠진계정 = [n for n, r in enumerate(작업["초안"], 1)
                     if ("<아이디>" in (r.get("동작") or "") and not 작업["시험아이디"])
-                    or ("<비번>" in (r.get("동작") or "") and not 작업["시험비밀번호"])]
+                    or (("<비번>" in (r.get("동작") or "") or "<틀린비번>" in (r.get("동작") or ""))
+                        and not 작업["시험비밀번호"])]
             if 빠진계정 and 한개("그래도") != "1":
                 return self._html(화면_초안(
                     '<div class="err">아래 줄은 <b>로그인이 필요한 동작</b>인데 '
