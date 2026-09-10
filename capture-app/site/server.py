@@ -535,7 +535,7 @@ def 화면_초안(알림=""):
           <td class="muted">{i+1}</td>
           <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}" style="width:64px"></td>
           <td><input class="s" type="text" name="이름_{i}" value="{_e(r['이름'])}"></td>
-          <td><input class="s" type="text" name="상태_{i}" value="{_e(r['상태'])}" style="width:96px"></td>
+          <td><input class="s" type="text" name="상태_{i}" value="{_e(r['상태'])}" style="width:160px"></td>
           <td><input class="s" type="text" name="누를것_{i}" value="{_e(r['누를것'])}"
                  {'disabled' if 이어서 else ''} style="width:150px"></td>
           <td><input class="s" type="text" name="동작_{i}" value="{_e(r.get('동작',''))}"
@@ -788,8 +788,8 @@ def 화면_촬영():
     if 목록파일.exists():
         for s2 in json.loads(목록파일.read_text(encoding="utf-8")).get("찍힌것", []):
             고를칸 += (f'<label><input type="checkbox" name="사진" value="{_e(s2["파일"])}" checked>'
-                    f'<span>{_e(s2.get("상태",""))}</span>'
-                    f'<span class="dim">{_e(s2["화면번호"])}</span></label>')
+                    f'<span>{_e(s2.get("화면이름") or s2.get("상태",""))}</span>'
+                    f'<span class="dim">{_e(s2["화면번호"])} · {_e(s2.get("상태",""))}</span></label>')
     보내기 = ""
     if 끝남 and not 보냄:
         보내기 = f"""

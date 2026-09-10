@@ -85,10 +85,19 @@ def 확인(tag, path):
 
 PLATFORM_CODE = {"android": "AND", "ios": "IOS", "web": "WEB"}
 
+# 상태에는 '비밀번호 커서 활성화 상태' 처럼 띄어쓰기가 들어온다.
+# 데이터에는 그대로 두고, 파일 이름으로 쓸 때만 안전한 글자로 바꾼다.
+_파일금지 = re.compile(r'[\\/:*?"<>|@\s]+')
+
+
+def 상태파일글자(상태):
+    깎은것 = _파일금지.sub("-", (상태 or "").strip()).strip("-")
+    return 깎은것 or "default"
+
 
 def 사진이름(tag, screen):
     """포털이 알아보는 이름 — 화면ID@상태.png (예: SET-AND-002@default.png)"""
     plat = PLATFORM_CODE.get(tag["플랫폼"].strip().lower())
     if not plat:
         raise 이름표오류(f"플랫폼은 android / ios / web 중 하나여야 합니다 — {tag['플랫폼']}")
-    return f"{tag['서비스코드']}-{plat}-{screen['번호']}@{screen['상태']}.png"
+    return f"{tag['서비스코드']}-{plat}-{screen['번호']}@{상태파일글자(screen['상태'])}.png"
