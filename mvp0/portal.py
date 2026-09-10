@@ -812,6 +812,8 @@ _PAGE_CSS = """
   /* 헤더 세 칸: 왼쪽 제목 · 가운데 이전·다음 · 오른쪽 차수 */
   header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; flex-shrink:0; }
   .head-left { display:flex; align-items:center; gap:14px; min-width:0; }
+  .head-left .back { white-space:nowrap; flex-shrink:0; }
+  .head-left h1 { flex-shrink:0; }
   .head-left h1, .head-left .meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .page-navigation {justify-self:center;display:flex;align-items:center;gap:10px;font-size:12px;color:#6b7280;white-space:nowrap;}
   .page-step {display:inline-block;padding:7px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;text-decoration:none;font-size:13px;}
