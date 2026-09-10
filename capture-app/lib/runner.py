@@ -19,6 +19,7 @@ sys.path.insert(0, 여기)
 
 import account  # noqa: E402
 import actions  # noqa: E402
+import burst  # noqa: E402
 import nametag  # noqa: E402
 
 손 = {"android": "android.sh", "ios": "android.sh", "web": "web.sh"}
@@ -64,12 +65,17 @@ def 묶기(화면들):
     return 묶음
 
 
-# 스플래시는 몇 백 밀리초 만에 지나간다 — 뜨자마자 찍어야 한다.
-_스플래시 = re.compile(r"splash|스플래시|스플레시", re.I)
+# 스플래시는 몇 백 밀리초 만에 지나간다 — 시간을 맞추지 않고 연사로 찍는다(burst.py).
+스플래시인가 = burst.스플래시인가
 
 
-def 스플래시인가(화면):
-    return bool(_스플래시.search(화면.get("이름", "") or ""))
+def 연사로찍을묶음인가(plat, 한묶음):
+    """앱을 켠 순간만 찍으면 되는 한 장짜리 스플래시 묶음인가.
+
+    연사는 폰 안에서 도는 것이라 안드로이드에서만 된다. 상태 변형이 뒤에
+    이어붙은 묶음(이어서=예)은 앱을 켜 둔 채로 계속 눌러야 하므로 예전 길로 간다.
+    """
+    return plat == "android" and len(한묶음) == 1 and 스플래시인가(한묶음[0])
 
 
 def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=None):
@@ -104,6 +110,29 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
     return 경로
 
 
+def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패):
+    """스플래시 한 장을 연사로 찍고 고른 결과를 목록에 담는다.
+
+    적어 둔 '기다림 …' 은 여기서 쓰지 않는다 — 기다릴 시간을 사람이 맞추지
+    않아도 되게 하려고 연사로 바꾼 것이기 때문이다.
+    """
+    사진이름 = nametag.사진이름(tag, 화면)
+    기록 = os.path.join(결과폴더, "연사기록", 사진이름[:-4])
+    try:
+        결과 = burst.찍기(tag.get("앱주소", ""), os.path.join(결과폴더, 사진이름), 기록)
+    except Exception as e:
+        까닭 = f"연사로 찍지 못했습니다 — {e}"
+        print(f"  ✗ {화면['이름']} — {까닭}", flush=True)
+        실패.append({"화면이름": 화면["이름"], "까닭": 까닭})
+        return
+    print(f"  ✓ {화면['이름']} → {사진이름}"
+          f"  (연사 {결과['장수']}장 중 {결과['고른때']}밀리초 장 — {결과['까닭']})", flush=True)
+    찍힌것.append({"파일": 사진이름, "화면번호": 화면["번호"], "화면이름": 화면["이름"],
+                 "상태": 화면.get("상태", "default"),
+                 "연사": {"장수": 결과["장수"], "고른때": 결과["고른때"],
+                        "까닭": 결과["까닭"], "기록폴더": os.path.relpath(기록, 결과폴더)}})
+
+
 def 한번에찍기(tag, 결과폴더):
     """화면 여러 장을 촬영 도구 한 번 띄워서 몰아 찍는다.
 
@@ -131,18 +160,33 @@ def 한번에찍기(tag, 결과폴더):
               + "\n    ".join(빠짐) + "\n", flush=True)
 
     묶음들 = 묶기(tag["화면"])
+    찍힌것, 실패 = [], []
+
+    # 스플래시는 촬영 도구에 맡기지 않고 먼저 연사로 찍는다(시간을 맞출 수 없으므로).
+    연사묶음 = {id(묶) for 묶 in 묶음들 if 연사로찍을묶음인가(plat, 묶)}
+    for 한묶음 in 묶음들:
+        if id(한묶음) in 연사묶음:
+            연사한장(tag, 한묶음[0], 결과폴더, 찍힌것, 실패)
+
     이름들 = []
-    for i, 한묶음 in enumerate(묶음들, 1):
+    순번 = 0
+    for 한묶음 in 묶음들:
+        if id(한묶음) in 연사묶음:
+            continue
+        순번 += 1
         사진이름들 = [nametag.사진이름(tag, s) for s in 한묶음]
-        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, i, 계정)
+        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정)
         이름들 += list(zip(한묶음, 사진이름들))
 
+    if not 이름들:
+        shutil.rmtree(임시, ignore_errors=True)
+        return 목록쓰기(tag, plat, 결과폴더, 찍힌것, 실패)
+
     print(f"촬영 도구를 한 번만 띄워 {len(이름들)}장을 찍습니다"
-          f"({len(묶음들)}묶음). 잠시 기다려 주세요.\n", flush=True)
+          f"({순번}묶음). 잠시 기다려 주세요.\n", flush=True)
     r = subprocess.run([손파일, 대본폴더, tag.get("앱주소", ""), "-", "-", 임시],
                        capture_output=True, text=True)
 
-    찍힌것, 실패 = [], []
     if r.returncode != 0:
         꼬리 = [l for l in (r.stdout + r.stderr).strip().splitlines()
               if l.strip() and not l.strip().startswith(("│", "╭", "╰", "="))][-6:]
@@ -163,6 +207,7 @@ def 한번에찍기(tag, 결과폴더):
             실패.append({"화면이름": s["이름"], "까닭": 까닭})
 
     shutil.rmtree(임시, ignore_errors=True)
+    찍힌것.sort(key=lambda x: x["화면번호"])
     return 목록쓰기(tag, plat, 결과폴더, 찍힌것, 실패)
 
 
@@ -191,6 +236,10 @@ def 찍기(tag, 결과폴더):
 
     for i, s in enumerate(tag["화면"], 1):
         이름 = nametag.사진이름(tag, s)
+        if 연사로찍을묶음인가(plat, [s]):
+            print(f"[{i}/{len(tag['화면'])}] {s['이름']} → {이름}", flush=True)
+            연사한장(tag, s, 결과폴더, 찍힌것, 실패)
+            continue
         누를것 = s.get("누를것", "-")
         대본 = "shoot-home.yaml" if 누를것 in ("-", "", "없음") else "shoot-menu.yaml"
         대본경로 = os.path.join(뿌리, "flows", "android", 대본)
