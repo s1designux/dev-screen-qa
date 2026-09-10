@@ -1,7 +1,10 @@
 // Figma에서 드래그로 고른 화면을 '촬영 준비' 사이트로 보낸다.
 // 읽기만 한다. 파일을 고치지 않는다.
+//
+// 2026-09-10 덧붙임: 고른 프레임에 이미 검수 화면이 있으면 단추가 '검수 시안 바꾸기'가 된다.
+// 그때는 촬영 준비를 거치지 않고 검수 포털(내 PC, 8765)로 그림·요소·설정을 바로 보낸다. Figma 토큰이 필요 없다.
 
-figma.showUI(__html__, { width: 340, height: 460 });
+figma.showUI(__html__, { width: 340, height: 520 });
 
 function 펼치기(노드들) {
   // 섹션을 골랐으면 그 안의 화면까지 펼친다.
@@ -117,11 +120,112 @@ function 속알맹이(뿌리) {
   return 모은것;
 }
 
+// ── 검수 포털용 요소 목록 ───────────────────────────────────────────────
+// 검수기(dev-screen-qa/plugin-image-qa/code.js)의 collectDesign()과 같은 모양을 만든다.
+// 포털의 자동 검수가 이 목록으로 정렬·차이 찾기를 하므로, 저쪽 규칙을 바꾸면 여기도 같이 고친다.
+function 소수1(n) { return Math.round(n * 10) / 10; }
+function 이오오(n) { return Math.round(n * 255); }
+function 검수색(paint) {
+  if (!paint || paint.type !== 'SOLID' || paint.visible === false) return null;
+  var c = paint.color, a = paint.opacity == null ? 1 : paint.opacity;
+  if (a < 1) return 'rgba(' + 이오오(c.r) + ', ' + 이오오(c.g) + ', ' + 이오오(c.b) + ', ' + 소수1(a) + ')';
+  return '#' + [c.r, c.g, c.b].map(function (v) { var s = 이오오(v).toString(16).toUpperCase(); return s.length < 2 ? '0' + s : s; }).join('');
+}
+function 검수첫색(items) {
+  if (!Array.isArray(items)) return null;
+  for (var i = 0; i < items.length; i++) { var c = 검수색(items[i]); if (c) return c; }
+  return null;
+}
+function 안전수(v) { return typeof v === 'number' && isFinite(v) ? 소수1(v) : null; }
+function 안전글꼴(node) {
+  try { if (node.fontName && node.fontName !== figma.mixed && node.fontName.family) return { family: node.fontName.family, style: node.fontName.style || '' }; } catch (e) {}
+  return { family: '혼합', style: '' };
+}
+function 안전줄높이(node) {
+  try {
+    var h = node.lineHeight;
+    if (h === figma.mixed || !h) return null;
+    if (h.unit === 'AUTO') return '자동';
+    if (h.unit === 'PIXELS') return 소수1(h.value);
+    if (h.unit === 'PERCENT') return 소수1(h.value) + '%';
+  } catch (e) {}
+  return null;
+}
+function 안전둥글기(node) {
+  try {
+    if (typeof node.cornerRadius === 'number') return 소수1(node.cornerRadius);
+    if (typeof node.topLeftRadius === 'number') return 소수1(node.topLeftRadius);
+  } catch (e) {}
+  return null;
+}
+function 안전테두리(node) {
+  try { if (typeof node.strokeWeight === 'number') return 소수1(node.strokeWeight); } catch (e) {}
+  try { if (typeof node.strokeTopWeight === 'number') return 소수1(node.strokeTopWeight); } catch (e) {}
+  return null;
+}
+function 글자속성이름(node) {
+  try { var refs = node.componentPropertyReferences; if (refs && refs.characters) return String(refs.characters).replace(/#.*$/, ''); } catch (e) {}
+  return null;
+}
+function 검수요소하나(node, rootBox, depth, parentId, parentType, chain) {
+  var bb = node.absoluteBoundingBox;
+  if (!bb || bb.width < 1 || bb.height < 1) return null;
+  var box = { x: 소수1(bb.x - rootBox.x), y: 소수1(bb.y - rootBox.y), w: 소수1(bb.width), h: 소수1(bb.height) };
+  var base = { id: node.id, name: node.name || node.type, type: node.type, box: box, depth: depth, parentId: parentId || null, parentType: parentType || null };
+  if (node.type === 'TEXT') {
+    var fn = 안전글꼴(node);
+    base.kind = 'text';
+    base.text = String(node.characters || '').slice(0, 120);
+    base.chain = (chain || []).slice(0, 4);
+    base.propRef = 글자속성이름(node);
+    base.values = { text: base.text, fontSize: 안전수(node.fontSize), fontWeight: 안전수(node.fontWeight), fontFamily: fn.family, fontStyle: fn.style,
+                    lineHeight: 안전줄높이(node), color: 검수첫색(node.fills), textAlign: node.textAlignHorizontal || null };
+    return base;
+  }
+  var fill = null, stroke = null, hasImage = false;
+  try { fill = 검수첫색(node.fills); } catch (e) {}
+  try { hasImage = Array.isArray(node.fills) && node.fills.some(function (p) { return p && p.type === 'IMAGE' && p.visible !== false; }); } catch (e1) {}
+  try { stroke = 검수첫색(node.strokes); } catch (e2) {}
+  if (!fill && !stroke && !hasImage && !/^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION|RECTANGLE|ELLIPSE)$/.test(node.type)) return null;
+  base.kind = hasImage ? 'image' : /^(VECTOR|BOOLEAN_OPERATION|STAR|POLYGON|LINE)$/.test(node.type) ? 'icon' : 'shape';
+  base.text = '';
+  base.values = { width: 소수1(bb.width), height: 소수1(bb.height), fill: fill, stroke: stroke, strokeWidth: 안전테두리(node), radius: 안전둥글기(node), opacity: 안전수(node.opacity) };
+  return base;
+}
+function 검수요소(root) {
+  var rb = root.absoluteBoundingBox, items = [];
+  function walk(n, depth, parentId, parentType, chain) {
+    if (n.id !== root.id && n.visible !== false && n.absoluteBoundingBox) {
+      var el = 검수요소하나(n, rb, depth, parentId, parentType, chain);
+      if (el) {
+        var b = el.box;
+        if (b.x < rb.width && b.y < rb.height && b.x + b.w > 0 && b.y + b.h > 0) items.push(el);
+      }
+    }
+    var nextChain = n.id === root.id ? [] : [{ n: String(n.name || ''), t: n.type }].concat(chain || []).slice(0, 4);
+    if ('children' in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i], depth + 1, n.id, n.type, nextChain);
+  }
+  walk(root, 0, null, null, []);
+  return items;
+}
+function 검수설정(node) {
+  // 검수기에서 사람이 정한 설정(화면 종류·글자 가변 여부). 공유 칸(devScreenQa) 먼저, 없으면 예전 개인 칸.
+  var raw = '';
+  try { if (node.getSharedPluginData) raw = node.getSharedPluginData('devScreenQa', 'imageQaPolicy') || ''; } catch (e) {}
+  if (!raw) { try { raw = node.getPluginData ? node.getPluginData('imageQaPolicy') || '' : ''; } catch (e2) {} }
+  if (!raw) return null;
+  try { var p = JSON.parse(raw); return p && typeof p === 'object' ? p : null; } catch (e3) { return null; }
+}
+
+function 파일열쇠() { try { return figma.fileKey || ''; } catch (e) { return ''; } }
+
 function 알리기() {
   var 고른것 = 줄세우기(펼치기(figma.currentPage.selection.slice()));
   figma.ui.postMessage({
     갈래: '고른것',
     페이지: figma.currentPage.name,
+    파일열쇠: 파일열쇠(),
+    파일이름: figma.root.name,
     화면들: 고른것.map(function (n) {
       var b = n.absoluteBoundingBox;
       return { id: n.id, 이름: n.name, 폭: Math.round(b.width), 높이: Math.round(b.height),
@@ -136,6 +240,28 @@ figma.on('selectionchange', 알리기);
 figma.ui.onmessage = async function (msg) {
   if (msg.갈래 === '사이트열기') {
     figma.openExternal('http://localhost:8767');
+    return;
+  }
+  if (msg.갈래 === '검수열기') {
+    if (msg.주소) figma.openExternal(msg.주소);
+    return;
+  }
+  if (msg.갈래 === '검수시안보내기') {
+    // 대상: [{id, page}] — 검수 화면이 있는 프레임만. 촬영 준비를 거치지 않는다.
+    var 대상 = msg.대상 || [];
+    for (var k = 0; k < 대상.length; k++) {
+      var node = await figma.getNodeByIdAsync(대상[k].id);
+      if (!node || !node.absoluteBoundingBox) { figma.ui.postMessage({ 갈래: '검수부치기', 실패: '프레임을 찾지 못했어요.', page: 대상[k].page }); continue; }
+      var bb = node.absoluteBoundingBox;
+      figma.ui.postMessage({ 갈래: '진행', 지금: k + 1, 전부: 대상.length });
+      var 배율 = Math.min(1, 4096 / Math.max(1, Math.max(bb.width, bb.height)));   // 검수기와 같은 배율(원본 해상도)
+      var 그림 = await node.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 배율 } });
+      figma.ui.postMessage({
+        갈래: '검수부치기', page: 대상[k].page, 마지막: k === 대상.length - 1,
+        프레임: { id: node.id, name: node.name, width: 소수1(bb.width), height: 소수1(bb.height), png: Array.from(그림),
+                elements: 검수요소(node), policy: 검수설정(node) }
+      });
+    }
     return;
   }
   if (msg.갈래 !== '보내기') return;

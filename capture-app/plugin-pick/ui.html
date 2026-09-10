@@ -1,18 +1,20 @@
 <style>
   :root { --gray-50:#F5F5F5; --gray-100:#E9E9E9; --gray-200:#D9D9D9; --gray-500:#757575;
-          --gray-800:#353535; --blue-400:#1D6CEB; --red-400:#E50533; }
+          --gray-800:#353535; --blue-400:#1D6CEB; --red-400:#E50533; --orange-500:#EA580C; }
   * { box-sizing:border-box; }
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; margin:0; padding:14px;
          color:var(--gray-800); font-size:12px; }
   h1 { font-size:13px; margin:0 0 4px; }
   .sub { color:var(--gray-500); margin-bottom:10px; line-height:1.6; }
   .list { border:1px solid var(--gray-200); border-radius:4px; max-height:250px; overflow:auto; }
-  .row { display:flex; gap:8px; padding:7px 10px; border-bottom:1px solid var(--gray-100); }
+  .row { display:flex; flex-wrap:wrap; gap:4px 8px; padding:7px 10px; border-bottom:1px solid var(--gray-100); align-items:center; }
   .row:last-child { border-bottom:none; }
   .row .n { color:var(--gray-500); width:18px; }
   .row .t { flex:1; word-break:break-all; }
   .row .d { color:var(--gray-500); white-space:nowrap; }
   .row.warn .d { color:var(--red-400); }
+  .row .where { flex-basis:100%; display:flex; gap:6px; align-items:center; padding-left:26px; color:var(--gray-500); }
+  .row .where.hit { color:var(--orange-500); }
   .empty { padding:22px 10px; text-align:center; color:var(--gray-500); }
   button { width:100%; margin-top:12px; padding:10px; font-size:13px; font-weight:600;
            border:none; border-radius:4px; background:var(--blue-400); color:#fff; cursor:pointer;
@@ -21,45 +23,102 @@
   button.line { background:#fff; color:var(--gray-800); border:1px solid var(--gray-200);
                 font-weight:500; margin-top:8px; }
   button.line:hover { background:var(--gray-50); }
-  .말 { margin-top:8px; text-align:center; color:var(--gray-500); min-height:16px; }
+  button.swap { background:var(--orange-500); }
+  button.swap:disabled { background:var(--gray-100); color:#C4C4C4; }
+  .말 { margin-top:8px; text-align:center; color:var(--gray-500); min-height:16px; line-height:1.6; }
   .말.bad { color:var(--red-400); }
   .말.ok { color:#12864e; }
+  .말 a { color:var(--blue-400); cursor:pointer; text-decoration:underline; }
+  .hint { margin-top:6px; color:var(--gray-500); font-size:11px; line-height:1.5; }
 </style>
 
 <h1>촬영 준비로 보내기</h1>
-<div class="sub">캔버스에서 찍을 화면을 드래그로 고르세요. 고른 것만 넘어갑니다.</div>
+<div class="sub">캔버스에서 찍을 화면을 드래그로 고르세요. 고른 것만 넘어갑니다.<br>이름이 같은 검수 화면이 있으면 <b>검수 시안 바꾸기</b>로 그 시안을 바로 덮어씁니다.</div>
 <div class="list" id="목록"><div class="empty">아직 고른 화면이 없습니다.</div></div>
+<button id="바꾸기" class="swap" disabled hidden>검수 시안 바꾸기</button>
 <button id="보내기" disabled>원본 인식하기</button>
 <button id="사이트" class="line">촬영 준비 사이트 열기 ↗</button>
 <div class="말" id="말"></div>
+<div class="hint" id="힌트"></div>
 
 <script>
-  var 화면들 = [];
+  var 포털 = 'http://127.0.0.1:8765';          // 검수 포털(내 PC). 꺼져 있으면 '검수 시안 바꾸기'는 조용히 숨긴다.
+  var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
+  var 짝 = {};                                   // 프레임 id → 검수 화면 uuid (사람이 고른 값)
+  var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
+  var 주소 = {}, 라벨 = {};                      // 검수 화면 uuid → 열 주소 · 이름
   var 말 = document.getElementById('말');
+  var 힌트 = document.getElementById('힌트');
   var 단추 = document.getElementById('보내기');
+  var 바꾸기 = document.getElementById('바꾸기');
+  var 물어본차례 = 0;
+
+  function 바꾸기갱신() {
+    var n = 화면들.filter(function (f) { return 짝[f.id]; }).length;
+    바꾸기.hidden = !선택지.length;
+    바꾸기.disabled = !n;
+    바꾸기.textContent = n ? '검수 시안 바꾸기 (' + n + ')' : '검수 시안 바꾸기';
+  }
 
   function 그리기() {
     var el = document.getElementById('목록');
     if (!화면들.length) {
       el.innerHTML = '<div class="empty">아직 고른 화면이 없습니다.</div>';
       단추.disabled = true; 단추.textContent = '원본 인식하기';
+      바꾸기갱신();
       return;
     }
     el.innerHTML = 화면들.map(function (f, i) {
       var 넓음 = f.폭 >= 1400;               // 폰으로 찍을 화면치고 너무 넓다
+      var where = '';
+      if (선택지.length) {
+        // 고르게 하지 않는다 — 검수 화면이 있으면(같은 프레임이거나 이름이 같으면) 그 화면 시안을 덮어쓴다.
+        where = 짝[f.id] ? '<span class="where hit">검수 시안 바꿈 → ' + (라벨[짝[f.id]] || '').replace(/</g, '&lt;') + '</span>'
+                         : '<span class="where">검수 화면 없음 → 촬영 준비로</span>';
+      }
       return '<div class="row' + (넓음 ? ' warn' : '') + '"><span class="n">' + (i + 1) +
-             '</span><span class="t">' + f.이름 + '</span><span class="d">' +
-             f.폭 + '×' + f.높이 + (넓음 ? ' ⚠︎' : '') + '</span></div>';
+             '</span><span class="t">' + f.이름.replace(/</g, '&lt;') + '</span><span class="d">' +
+             f.폭 + '×' + f.높이 + (넓음 ? ' ⚠︎' : '') + '</span>' + where + '</div>';
     }).join('');
     단추.disabled = false;
     단추.textContent = '원본 인식하기';
+    바꾸기갱신();
   }
 
+  function 포털에묻기() {
+    // 고른 프레임마다 검수 화면이 있는지. 포털이 꺼져 있으면 조용히 넘어간다.
+    var 차례 = ++물어본차례;
+    if (!화면들.length) { 선택지 = []; 짝 = {}; 그리기(); return; }
+    fetch(포털 + '/api/frames', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, frames: 화면들.map(function (f) { return { id: f.id, name: f.이름 }; }) })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (차례 !== 물어본차례) return;
+      선택지 = j.options || []; 짝 = {}; 주소 = {};
+      선택지.forEach(function (o) { 주소[o.page] = o.url; 라벨[o.page] = o.label; });
+      (j.frames || []).forEach(function (f) { if (f.match) 짝[f.id] = f.match.page; });
+      var byName = (j.frames || []).filter(function (f) { return f.match && f.match.how === 'name'; }).length;
+      힌트.textContent = byName ? '프레임 이름과 같은 검수 화면이 있어 그 시안을 덮어써요.' : '';
+      그리기();
+    }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 힌트.textContent = ''; 그리기(); });
+  }
+
+  function base64(bytes) {
+    var u = new Uint8Array(bytes), s = '', 덩이 = 0x8000;
+    for (var i = 0; i < u.length; i += 덩이) s += String.fromCharCode.apply(null, u.subarray(i, i + 덩이));
+    return btoa(s);
+  }
+
+  var 바꾼것 = [], 바꾸기실패 = [];
   onmessage = function (e) {
     var m = e.data.pluginMessage;
     if (!m) return;
 
-    if (m.갈래 === '고른것') { 화면들 = m.화면들; 그리기(); 말.textContent = ''; 말.className = '말'; }
+    if (m.갈래 === '고른것') {
+      화면들 = m.화면들; 파일열쇠 = m.파일열쇠 || ''; 파일이름 = m.파일이름 || '';
+      말.textContent = ''; 말.className = '말';
+      그리기(); 포털에묻기();
+    }
 
     if (m.갈래 === '진행') {
       말.className = '말';
@@ -67,6 +126,18 @@
     }
 
     if (m.갈래 === '알림') { 말.className = '말 bad'; 말.textContent = m.글; }
+
+    if (m.갈래 === '검수부치기') {
+      if (m.실패) { 바꾸기실패.push(m.실패); if (m.마지막) 바꾸기끝(); return; }
+      var 프레임 = m.프레임; 프레임.png = base64(프레임.png);
+      fetch(포털 + '/api/design', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, page: m.page, frame: 프레임 })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) 바꾸기실패.push(j.error); else 바꾼것.push({ name: 프레임.name, url: j.url });
+        if (m.마지막) 바꾸기끝();
+      }).catch(function () { 바꾸기실패.push('포털이 꺼져 있어요.'); if (m.마지막) 바꾸기끝(); });
+    }
 
     if (m.갈래 === '부치기') {
       fetch('http://localhost:8767/pick', {
@@ -86,8 +157,29 @@
     }
   };
 
+  function 바꾸기끝() {
+    바꾸기.disabled = false; 단추.disabled = false;
+    if (!바꾼것.length) { 말.className = '말 bad'; 말.textContent = '바꾸지 못했어요 — ' + (바꾸기실패[0] || '알 수 없는 이유'); return; }
+    말.className = '말 ok';
+    말.innerHTML = 바꾼것.length + '개 시안을 바꿨어요. ' + 바꾼것.map(function (b) {
+      return '<a data-url="' + b.url + '">' + b.name.replace(/</g, '&lt;') + ' 검수 화면 열기 ↗</a>';
+    }).join(' · ') + (바꾸기실패.length ? '<br>못 바꾼 것 ' + 바꾸기실패.length + ': ' + 바꾸기실패[0] : '');
+    Array.prototype.forEach.call(말.querySelectorAll('a'), function (a) {
+      a.onclick = function () { parent.postMessage({ pluginMessage: { 갈래: '검수열기', 주소: 포털 + a.dataset.url } }, '*'); };
+    });
+    포털에묻기();   // 이제 id로 찾히므로 목록을 다시 맞춘다
+  }
+
   document.getElementById('사이트').onclick = function () {
     parent.postMessage({ pluginMessage: { 갈래: '사이트열기' } }, '*');
+  };
+
+  바꾸기.onclick = function () {
+    var 대상 = 화면들.filter(function (f) { return 짝[f.id]; }).map(function (f) { return { id: f.id, page: 짝[f.id] }; });
+    if (!대상.length) return;
+    바꾸기.disabled = true; 단추.disabled = true; 바꾼것 = []; 바꾸기실패 = [];
+    말.className = '말'; 말.textContent = '그림 뜨는 중…';
+    parent.postMessage({ pluginMessage: { 갈래: '검수시안보내기', 대상: 대상 } }, '*');
   };
 
   단추.onclick = function () {
