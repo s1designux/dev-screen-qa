@@ -595,11 +595,13 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
 <body class="{'app-view' if native_app else 'web-view'}">
   <header>
-    <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
-    <h1>{_esc(page['name'])}</h1>
-    <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
+    <div class="head-left">
+      <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
+      <h1>{_esc(page['name'])}</h1>
+      <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
+    </div>
+    {navigation or '<span></span>'}
     {round_sel or '<span class="rounds"><span class="pf">미검수</span></span>'}
-    {navigation}
   </header>
   <div class="wrap">
 
@@ -807,9 +809,11 @@ _PAGE_CSS = """
   html, body { height:100%; }
   /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
-  header { position:relative; background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
-  /* 이전·다음은 헤더 한가운데 (제목은 왼쪽, 차수는 오른쪽) */
-  .page-navigation {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;font-size:12px;color:#6b7280;white-space:nowrap;}
+  /* 헤더 세 칸: 왼쪽 제목 · 가운데 이전·다음 · 오른쪽 차수 */
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; flex-shrink:0; }
+  .head-left { display:flex; align-items:center; gap:14px; min-width:0; }
+  .head-left h1, .head-left .meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .page-navigation {justify-self:center;display:flex;align-items:center;gap:10px;font-size:12px;color:#6b7280;white-space:nowrap;}
   .page-step {display:inline-block;padding:7px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;text-decoration:none;font-size:13px;}
   .page-step:hover {background:#f3f4f6;}
   .page-step.disabled {opacity:.4;}
@@ -819,7 +823,7 @@ _PAGE_CSS = """
   .key { font-family:ui-monospace,monospace; }
   .pf { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
   .pf.fail { background:#fef2f2; color:#b42318; } .pf.pass { background:#ecfdf3; color:#12864e; }
-  .rounds { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .rounds { justify-self:end; display:flex; align-items:center; gap:6px; }
   .rlbl { font-size:12px; color:#6b7280; }
   .rchip { font-size:12px; font-weight:700; text-decoration:none; color:#374151; border:1px solid #d1d5db; border-radius:999px; padding:3px 12px; }
   .rchip.on { background:#111827; color:#fff; border-color:#111827; }
