@@ -807,8 +807,9 @@ _PAGE_CSS = """
   html, body { height:100%; }
   /* 페이지 상세만 풀 너비 + 위 고정 / 카드만 스크롤 */
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; display:flex; flex-direction:column; overflow:hidden; }
-  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
-  .page-navigation {width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#6b7280;}
+  header { position:relative; background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0; }
+  /* 이전·다음은 헤더 한가운데 (제목은 왼쪽, 차수는 오른쪽) */
+  .page-navigation {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;font-size:12px;color:#6b7280;white-space:nowrap;}
   .page-step {display:inline-block;padding:7px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;text-decoration:none;font-size:13px;}
   .page-step:hover {background:#f3f4f6;}
   .page-step.disabled {opacity:.4;}
