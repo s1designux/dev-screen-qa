@@ -125,6 +125,8 @@ class Store:
                 c.execute("ALTER TABLE intake_design ADD COLUMN qa_settings TEXT NOT NULL DEFAULT ''")  # 검수기에서 사람이 정한 설정(JSON). 예전 DB 보강.
             from design_plan import SCHEMA as PLAN_SCHEMA
             c.executescript(PLAN_SCHEMA)
+            from auto_inspect import SCHEMA as AUTO_SCHEMA  # 자동 검수 후보(사람이 확정하기 전 단계)
+            c.executescript(AUTO_SCHEMA)
 
     def event(self, c, batch, item, action, detail, actor='로컬 사용자'):
         c.execute('INSERT INTO intake_event VALUES (?,?,?,?,?,?,?)',
@@ -363,6 +365,37 @@ class Store:
             first=c.execute('SELECT page_id FROM intake_item WHERE id=?',(rows[0]['id'],)).fetchone()['page_id']
             screen=c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?',(first,)).fetchone()['screen_id']
             return f'/screen/{screen}/page/{first}'
+
+    LATEST_SQL = """SELECT d.id orig_id,d.fetched_at orig_at,n.id new_id,n.name,n.fetched_at,n.source_url,
+        a.filename design_file FROM intake_design d
+        JOIN intake_design n ON n.rowid=(SELECT x.rowid FROM intake_design x
+          WHERE x.file_key=d.file_key AND x.node_id=d.node_id ORDER BY x.rowid DESC LIMIT 1)
+        JOIN intake_asset a ON a.id=n.asset_id WHERE d.id=?"""
+
+    def latest_design(self,design):
+        """같은 Figma 프레임(file_key+node_id)의 가장 최근 판. 옛 판은 지우지 않고 그대로 둔다."""
+        if not design:
+            return None
+        with self.connect() as c:
+            return c.execute(self.LATEST_SQL,(design,)).fetchone()
+
+    def page_design(self,page):
+        """검수 페이지가 지금 보아야 할 시안. 처음 붙인 판이 아니라 같은 프레임의 최신 판을 따라간다.
+        받아온 뒤 새 판이 생겼으면 changed=True (화면에 '시안 새 판'으로 표시)."""
+        with self.connect() as c:
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='intake_design'").fetchone():
+                return None
+            design=c.execute('SELECT design_id FROM intake_item WHERE page_id=?',(page,)).fetchone()
+            if not design and c.execute("SELECT 1 FROM sqlite_master WHERE name='design_case'").fetchone():
+                design=c.execute('SELECT design_id FROM design_case WHERE page_id=?',(page,)).fetchone()
+            if not design or not design['design_id']:
+                return None
+            row=c.execute(self.LATEST_SQL,(design['design_id'],)).fetchone()
+        if not row:
+            return None
+        out=dict(row)
+        out['changed']=row['new_id']!=row['orig_id']
+        return out
 
     def page_link(self,page):
         with self.connect() as c:

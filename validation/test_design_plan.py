@@ -39,6 +39,26 @@ class DesignPlanTests(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(q,ensure_ascii=False)),q)
         with self.store.connect() as c:self.assertEqual(''.join(c.iterdump()),before)
         self.assertEqual(self.store.batch(self.batch)[1][0]['status'],'unlinked')
+    def test_same_frame_new_version_replaces_view_and_keeps_old(self):
+        """같은 Figma 프레임을 다시 받으면 검수 화면이 최신 판을 본다. 옛 판은 남고 '새 판' 표시가 붙는다."""
+        import zlib
+        self.update('request',{'reason':'x'})
+        r=self.case();self.plans.upload(self.plan,r['id'],r['revision'],'c.png',png())
+        self.update('confirm');page=self.case()['page_id']
+        first=self.store.page_design(page)
+        self.assertFalse(first['changed'])
+        new=self.store.add_design('file','1:1','시안1 새 판','https://www.figma.com/design/file/?node-id=1-1','1:0',
+                                  png(zlib.compress(b'\x00\x00\xff\x00')))
+        now=self.store.page_design(page)
+        self.assertTrue(now['changed'])
+        self.assertEqual(now['new_id'],new)
+        self.assertNotEqual(now['design_file'],first['design_file'])
+        with self.store.connect() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) c FROM intake_design WHERE node_id=?',('1:1',)).fetchone()['c'],2)
+        row=self.plans.get(self.plan)[1][0]
+        self.assertEqual(row['design_file'],now['design_file'])
+        self.assertTrue(row['design_changed'])
+
     def test_request_upload_pending_confirm_new_page(self):
         self.update('request',{'reason':'키보드 포함 필요'})
         r=self.case();self.plans.upload(self.plan,r['id'],r['revision'],'새 촬영.png',png())

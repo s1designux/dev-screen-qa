@@ -279,6 +279,13 @@ MVP0 핵심 엔티티. (Capture / DevelopmentBuild 등은 필드만 남기고 �
 없는 글자 생성 / 가변 자리 판단 불가 / 설정을 함께 배포해야만 재현됨. 2번-2 "자동 검수는 확정하지 않는다"와도 일치.)
 정렬(겹치기) 조각은 **완료·커밋됨**(기준 요소 5개→화면 전체 격자, 화면 5개 회귀 확인).
 
+**포털 자동 검수 1차 (2026-09-10 완료):** 페이지 상세를 열면 그 차수의 **후보**가 바로 보인다.
+엔진은 `plugin-image-qa/ui.html` 한 벌을 포털이 `/engine/ui.html`로 내보내 숨은 iframe에서 돌린다(복사 없음, 규칙 고치면 양쪽 반영).
+디자인 요소는 Figma REST 프레임 트리에서 읽고(`mvp0/figma_elements.py` = code.js collectDesign과 같은 모양), 사람이 검수기에서 정한 설정(공유 칸)을 그대로 쓴다.
+저장: `auto_run` / `auto_candidate` / `auto_candidate_event`(append-only) / `design_elements`. **후보는 지적이 아니다** — 사람이 '지적 등록'을 눌러야 `inspection_issue`가 생긴다(2번-2).
+같은 입력으로 플러그인 재현과 후보 목록 동일(`validation-image-qa/repro/portal_parity.js`, 체류시간 정답 7/7).
+페이지를 여는 것만으로는 DB에 쓰지 않는다(첫 실행·저장은 페이지 JS의 POST).
+
 **다음 작업 대기열 (우선순위 순):**
 0. **현재 진행 — 검수 정책(무엇을 오류로 볼 것인가) 규칙화 + 검수 제외 영역.**
    정렬을 고친 뒤 드러난 **다음 병목**. 8번 3계층 정책의 첫 실물 조각이다. 범위:
