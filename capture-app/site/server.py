@@ -918,6 +918,12 @@ class 손님(BaseHTTPRequestHandler):
                 이름 = f"{i:03d}.png"
                 (그림자리 / 이름).write_bytes(bytes(f["그림"]))
                 줄["디자인그림"] = str(그림자리 / 이름)
+            if isinstance(f.get("검수요소"), list):
+                # 검수 포털의 자동 검수용 요소 목록 — 크므로 파일로 두고 자리만 적는다.
+                요소파일 = 그림자리 / f"{i:03d}_elements.json"
+                요소파일.write_text(json.dumps({"틀": f.get("틀") or {}, "설정": f.get("검수설정"), "요소": f["검수요소"]},
+                                            ensure_ascii=False), encoding="utf-8")
+                줄["검수요소파일"] = str(요소파일)
             고른화면.append(줄)
 
         작업 = 작업읽기()

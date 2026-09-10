@@ -11,7 +11,6 @@
   "networkAccess": {
     "allowedDomains": [
       "http://localhost:8767",
-      "http://127.0.0.1:8765",
       "http://localhost:8765"
     ],
     "reasoning": "내 PC에서 도는 촬영 준비 사이트(8767)와 검수 포털(8765)로 고른 화면만 보낸다. 바깥으로 나가지 않는다."

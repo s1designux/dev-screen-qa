@@ -42,7 +42,7 @@
 <div class="hint" id="힌트"></div>
 
 <script>
-  var 포털 = 'http://127.0.0.1:8765';          // 검수 포털(내 PC). 꺼져 있으면 '검수 시안 바꾸기'는 조용히 숨긴다.
+  var 포털 = 'http://localhost:8765';       // Figma는 http 주소로 localhost만 허용한다(127.0.0.1은 manifest 오류)          // 검수 포털(내 PC). 꺼져 있으면 '검수 시안 바꾸기'는 조용히 숨긴다.
   var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
   var 짝 = {};                                   // 프레임 id → 검수 화면 uuid (사람이 고른 값)
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]

@@ -280,7 +280,9 @@ figma.ui.onmessage = async function (msg) {
     보낼것.push({
       id: n.id, 이름: n.name, 폭: Math.round(b.width), 높이: Math.round(b.height),
       x: Math.round(b.x), y: Math.round(b.y), 그림: Array.from(그림),
-      속: 속알맹이(n)
+      속: 속알맹이(n),
+      // 검수 포털의 자동 검수용(검수기와 같은 모양의 요소 목록·사람이 정한 설정). 촬영 준비 → 검수 접수 때 포털에 함께 들어간다.
+      검수요소: 검수요소(n), 검수설정: 검수설정(n), 틀: { 폭: 소수1(b.width), 높이: 소수1(b.height) }
     });
   }
   figma.ui.postMessage({

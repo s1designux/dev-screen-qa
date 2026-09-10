@@ -64,6 +64,55 @@ def _하나(conn, 물음, 값=()):
     return r[0] if r else None
 
 
+def _표있음(conn, 이름):
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (이름,)).fetchone() is not None
+
+
+def _시안판등록(conn, page, 노드, 작업, 초안줄, 시안이름, 시안, 지금):
+    """시안을 포털의 '시안 판'(intake_design)으로도 등록하고 페이지에 잇는다.
+    플러그인이 함께 보낸 요소 목록이 있으면 같이 넣어, 포털을 열면 자동 검수 후보가 바로 뜬다.
+    포털이 아직 그 표를 만들지 않았으면(옛 포털) 조용히 건너뛴다 — 그림만으로도 검수는 된다."""
+    if not all(_표있음(conn, t) for t in ("intake_asset", "intake_design", "design_elements", "page_design_link")):
+        return
+    import hashlib
+    크기 = _png크기(시안)
+    if not 크기:
+        return
+    열쇠 = (작업.get("파일", {}) or {}).get("파일열쇠") or ""
+    if not 열쇠:
+        이름 = (작업.get("파일", {}) or {}).get("파일이름") or ""
+        열쇠 = ("name:" + 이름) if 이름 else "plugin"
+    설정 = None
+    요소 = None
+    틀 = {}
+    길 = 초안줄.get("검수요소파일", "")
+    if 길 and Path(길).exists():
+        try:
+            꾸러미 = json.loads(Path(길).read_text(encoding="utf-8"))
+            요소 = 꾸러미.get("요소")
+            설정 = 꾸러미.get("설정")
+            틀 = 꾸러미.get("틀") or {}
+        except (ValueError, OSError):
+            요소 = None
+    자산 = uuidmod.uuid4().hex
+    conn.execute("INSERT INTO intake_asset VALUES (?,?,?,?,?,?)",
+                 (자산, 시안이름, hashlib.sha256(시안).hexdigest(), 크기[0], 크기[1], 지금))
+    시안판 = uuidmod.uuid4().hex
+    conn.execute("INSERT INTO intake_design VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                 (시안판, 열쇠, 노드 or 시안판, 초안줄.get("이름") or 초안줄.get("상태") or "디자인", "", 노드 or "",
+                  자산, 지금, None, "Figma 플러그인",
+                  json.dumps({"policy": 설정}, ensure_ascii=False) if isinstance(설정, dict) else ""))
+    if isinstance(요소, list):
+        conn.execute("INSERT OR REPLACE INTO design_elements VALUES (?,?,?,?,?)",
+                     (시안판, 지금, None,
+                      json.dumps({"id": 노드, "name": 초안줄.get("이름") or "", "width": 틀.get("폭") or 크기[0], "height": 틀.get("높이") or 크기[1]}, ensure_ascii=False),
+                      json.dumps(요소, ensure_ascii=False)))
+    conn.execute("INSERT OR REPLACE INTO page_design_link VALUES (?,?,?)", (page, 시안판, 지금))
+    if _표있음(conn, "page_design_event"):
+        conn.execute("INSERT INTO page_design_event VALUES (?,?,?,?,?,?,?,?)",
+                     (uuidmod.uuid4().hex, page, 시안판, None, 시안이름, 지금, "촬영기 접수", "촬영 준비에서 시안과 함께 접수"))
+
+
 def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
     """찍은 사진 묶음을 포털에 화면 1개 + 상태별 검수 페이지로 넣는다."""
     결과폴더 = Path(결과폴더)
@@ -154,6 +203,8 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
             (사진자리 / 시안이름).write_bytes(시안)
             conn.execute("UPDATE inspection_page SET design_img=? WHERE uuid=?",
                          (시안이름, page))
+            _시안판등록(conn, page, 노드표.get(s["화면번호"], ""), 작업, 초안.get(s["화면번호"], {}),
+                    시안이름, 시안, 지금)
 
         run = uuidmod.uuid4().hex
         이름 = f"{run}_dev.png"
