@@ -349,7 +349,7 @@ def render_screen(human_key: str, notice=""):
 
     if pages:
         rows = ""
-        for p in pages:
+        for n, p in enumerate(pages, 1):
             dummy = '<span class="dummy">더미</span>' if p["note"] else ""
             un = p["unresolved"]
             uncls = "num zero" if un == 0 else "num"
@@ -358,7 +358,7 @@ def render_screen(human_key: str, notice=""):
             rows += f"""<tr onclick="location.href='{href}'">
               <td class="ctr pick"><input type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
                    onclick="event.stopPropagation()" aria-label="{_esc(p['name'])} 선택"></td>
-              <td class="ctr">{p['seq']}</td>
+              <td class="ctr">{n}</td>
               <td class="name">{_esc(p['name'])} {dummy}</td>
               <td class="ctr">{up}</td>
               <td class="ctr dates">{dates_cell(p)}</td>
@@ -384,10 +384,10 @@ def render_screen(human_key: str, notice=""):
     removed_html = ""
     if removed:
         items = ""
-        for p in removed:
+        for n, p in enumerate(removed, 1):
             why = " · ".join(x for x in [p["removed_by"], p["removed_note"]] if x)
             items += f"""<tr>
-              <td class="ctr">{p['seq']}</td>
+              <td class="ctr">{n}</td>
               <td class="name">{_esc(p['name'])}</td>
               <td class="ctr">{_esc(queries.day(p['removed_at']))}</td>
               <td>{_esc(why)}</td>
