@@ -11,4 +11,4 @@ if [[ ! -f "$QA_PORTAL_DB" ]]; then
   exit 1
 fi
 print '화면 목록: http://127.0.0.1:8771/'
-python3 "$QA_PREVIEW_DIR/portal.py"
+python3 "$QA_PREVIEW_DIR/run_portal.py"

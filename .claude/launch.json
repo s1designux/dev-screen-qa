@@ -4,7 +4,9 @@
     {
       "name": "portal",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["portal.py"],
+      "runtimeArgs": [
+        "run_portal.py"
+      ],
       "cwd": "mvp0",
       "port": 8765
     }

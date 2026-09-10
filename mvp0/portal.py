@@ -13,6 +13,7 @@
 """
 import html
 import os
+import time
 import intake_store
 import intake_http
 import design_plan_http
@@ -35,6 +36,8 @@ BASE = Path(__file__).resolve().parent
 REAL_DB = Path(os.environ.get("QA_PORTAL_DB", str(BASE / "mvp0-real.db")))   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
 UPLOADS = Path(os.environ.get("QA_PORTAL_UPLOADS", str(BASE / "uploads")))        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
 PORT = int(os.environ.get("QA_PORTAL_PORT", "8765"))
+AUTORELOAD = os.environ.get("QA_PORTAL_AUTORELOAD") == "1"   # run_portal.py 가 켤 때만 1
+BOOT_ID = str(time.time())                                    # 다시 켜지면 바뀐다 → 열어 둔 화면이 새로고침
 
 
 def intake():
@@ -316,6 +319,7 @@ def render_screen(human_key: str):
 def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *, draft=None, store=None, workflow=None):
     store = store or intake()
     conn = dbmod.connect(store.database)
+    siblings = []
     if draft:
         batch, item = draft
         page = {'uuid': item['id'], 'name': item['state_name'], 'design_img': item['design_file']}
@@ -332,6 +336,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         all_issues = queries.issues_of_page(conn, page_uuid)
         hist_by_issue = {i['uuid']: queries.history_of_issue(conn, i['uuid']) for i in all_issues}
         runs = queries.runs_of_page(conn, page_uuid)
+        siblings = queries.pages_of_screen(conn, s['uuid'])
     persons = queries.list_persons(conn, active_only=True)
     roster = queries.roster_names(conn)
     conn.close()
@@ -568,6 +573,21 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     native_app = app_layout.is_app(s['platform'])
     parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
     if workflow:parent_href=workflow["parent"]
+    navigation = workflow.get("navigation", "") if workflow else ""
+    if not navigation and len(siblings) > 1:
+        idx = next((i for i, p_ in enumerate(siblings) if p_["uuid"] == page_uuid), None)
+        if idx is not None:
+            def _step(offset, label):
+                t = idx + offset
+                if not 0 <= t < len(siblings):
+                    return f'<span class="page-step disabled" aria-disabled="true">{label}</span>'
+                nxt = siblings[t]
+                return (f'<a class="page-step" href="/screen/{_esc(human_key)}/page/{_esc(nxt["uuid"])}"'
+                        f' title="{_esc(nxt["name"])}">{label}</a>')
+            navigation = ('<nav class="page-navigation" aria-label="검수 페이지 이동">'
+                          + _step(-1, "← 이전")
+                          + f'<span>{idx + 1} / {len(siblings)}</span>'
+                          + _step(1, "다음 →") + '</nav>')
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -579,7 +599,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     <h1>{_esc(page['name'])}</h1>
     <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
     {round_sel or '<span class="rounds"><span class="pf">미검수</span></span>'}
-    {workflow.get("navigation", "") if workflow else ""}
+    {navigation}
   </header>
   <div class="wrap">
 
@@ -618,6 +638,15 @@ class Handler(BaseHTTPRequestHandler):
 
         if not self._local_host():
             self.send_error(403)
+            return
+        if path == "/__rev":
+            data = BOOT_ID.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
         if path.startswith('/design'):
             design_plan_http.get(self, intake(), path)
@@ -712,7 +741,10 @@ class Handler(BaseHTTPRequestHandler):
         return f"<p style='font-family:sans-serif;padding:40px'>{_esc(msg)} <a href='/'>← 목록</a></p>"
 
     def _html(self, body, code=200):
-        data = intake_http.decorate(body).encode("utf-8")
+        body = intake_http.decorate(body)
+        if AUTORELOAD:
+            body = body.replace("</body>", _RELOAD_JS + "</body>", 1)
+        data = body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -959,6 +991,20 @@ function focusPin(uuid){
 }
 """
 
+
+# 코드를 고쳐 포털이 다시 켜지면, 열어 둔 화면도 스스로 새로고침한다. (run_portal.py 로 켤 때만 붙는다)
+_RELOAD_JS = """<script>
+(function(){
+  var boot=null;
+  function tick(){
+    fetch('/__rev',{cache:'no-store'}).then(function(r){return r.text()}).then(function(v){
+      if(boot===null){boot=v}
+      else if(v!==boot){location.reload()}
+    }).catch(function(){});
+  }
+  setInterval(tick,1000); tick();
+})();
+</script>"""
 
 def main():
     if not REAL_DB.exists():
