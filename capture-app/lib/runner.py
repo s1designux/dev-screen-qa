@@ -20,7 +20,9 @@ sys.path.insert(0, 여기)
 import account  # noqa: E402
 import actions  # noqa: E402
 import burst  # noqa: E402
+import learn  # noqa: E402
 import nametag  # noqa: E402
+import places  # noqa: E402
 
 손 = {"android": "android.sh", "ios": "android.sh", "web": "web.sh"}
 
@@ -78,11 +80,18 @@ def 연사로찍을묶음인가(plat, 한묶음):
     return plat == "android" and len(한묶음) == 1 and 스플래시인가(한묶음[0])
 
 
-def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=None):
+def 기다림으로끝나나(동작):
+    """동작이 '기다림 3' 으로 끝나면 뒤에 기다림을 또 붙이지 않는다(겹쳐서 느려진다)."""
+    마디들 = actions.쪼개기(동작)
+    return bool(마디들) and 마디들[-1].split(None, 1)[0] in ("기다림", "대기")
+
+
+def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=None, 자리=None):
     """한 묶음(같은 화면의 상태들)을 한 대본으로 적는다.
 
     동작에 적힌 <아이디>·<비번> 표식은 여기서 진짜 시험 계정으로 바뀐다.
     스플래시 화면은 앱이 뜨기를 기다리지 않고 곧바로 찍는다.
+    기억해 둔 자리가 있으면 글자를 찾지 않고 그 자리를 바로 누른다(빠르다).
     """
     줄 = [f"appId: {tag.get('앱주소','')}", "---", "- stopApp", "- launchApp"]
     if not 스플래시인가(한묶음[0]):
@@ -96,12 +105,14 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
               "- waitForAnimationToEnd:", "    timeout: 5000"]
 
     for s, 사진이름 in zip(한묶음, 사진이름들):
-        줄 += actions.옮기기(s.get("동작", ""), 계정, account.실패화면(s.get("이름", "")))
+        동작 = s.get("동작", "")
+        줄 += actions.옮기기(동작, 계정, account.실패화면(s.get("이름", "")), 자리)
         # 동작 뒤에는 화면이 가라앉기를 기다린다. 스플래시만은 기다리지 않는다 —
         # 기다리는 사이에 이미 다음 화면으로 넘어가 버리기 때문이다.
-        if (s.get("동작", "").strip() not in ("", "-", "없음")
-                and not 스플래시인가(s)):
-            줄 += ["- waitForAnimationToEnd:", "    timeout: 3000"]
+        # 동작이 '기다림'으로 끝났으면 방금 기다린 것이므로 또 기다리지 않는다.
+        if (동작.strip() not in ("", "-", "없음") and not 스플래시인가(s)
+                and not 기다림으로끝나나(동작)):
+            줄 += ["- waitForAnimationToEnd:", "    timeout: 2000"]
         줄 += [f"- takeScreenshot: {사진이름[:-4]}"]
 
     경로 = os.path.join(대본폴더, f"{순번:03d}.yaml")
@@ -131,6 +142,64 @@ def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패):
                  "상태": 화면.get("상태", "default"),
                  "연사": {"장수": 결과["장수"], "고른때": 결과["고른때"],
                         "까닭": 결과["까닭"], "기록폴더": os.path.relpath(기록, 결과폴더)}})
+
+
+def 자리기억켰나():
+    """'자리기억' 이라고 뒤에 붙여 부르면 켜진다(기본은 꺼짐)."""
+    return any(a.strip("-") == "자리기억" for a in sys.argv[1:])
+
+
+def 묶음자리(한묶음, 자리사전):
+    """이 묶음에서 쓸 '글자 → 자리' 만 추려 준다(화면마다 자리가 다르므로)."""
+    추린것 = {}
+    for s in 한묶음:
+        for 글자 in actions.누를글자들(s.get("동작", "")):
+            좌표 = 자리사전.get(places.열쇠(s["번호"], 글자))
+            if 좌표:
+                추린것[글자] = 좌표
+    return 추린것
+
+
+def 같은사진인가(가, 나):
+    try:
+        with open(가, "rb") as f1, open(나, "rb") as f2:
+            return f1.read() == f2.read()
+    except OSError:
+        return False
+
+
+def 다시찍기(tag, 묶음차례, 계정, 손파일, 결과폴더, 임시):
+    """자리가 어긋나 앞 장과 똑같이 찍힌 묶음을, 글자로 찾는 예전 방식으로 다시 찍는다."""
+    되돌릴것 = []
+    for 한묶음, 사진이름들, 한묶음자리 in 묶음차례:
+        if not 한묶음자리 or len(사진이름들) < 2:
+            continue
+        길 = [os.path.join(결과폴더, n) for n in 사진이름들]
+        겹침 = any(같은사진인가(가, 나) for 가, 나 in zip(길, 길[1:]))
+        if 겹침:
+            되돌릴것.append((한묶음, 사진이름들))
+    if not 되돌릴것:
+        return
+
+    앱주소 = tag.get("앱주소", "")
+    for 한묶음, _ in 되돌릴것:
+        places.지우기(앱주소, [places.열쇠(s["번호"], 글자) for s in 한묶음
+                          for 글자 in actions.누를글자들(s.get("동작", ""))])
+    print(f"기억해 둔 자리가 맞지 않는 묶음 {len(되돌릴것)}개를 글자로 다시 찍습니다.", flush=True)
+
+    다시폴더 = os.path.join(임시, "다시대본")
+    shutil.rmtree(다시폴더, ignore_errors=True)
+    os.makedirs(다시폴더, exist_ok=True)
+    for i, (한묶음, 사진이름들) in enumerate(되돌릴것, 1):
+        대본쓰기(tag, 한묶음, 사진이름들, 다시폴더, i, 계정, None)
+    다시임시 = os.path.join(임시, "다시")
+    subprocess.run([손파일, 다시폴더, 앱주소, "-", "-", 다시임시],
+                   capture_output=True, text=True)
+    for _, 사진이름들 in 되돌릴것:
+        for 사진이름 in 사진이름들:
+            찍힌파일 = 사진찾기(다시임시, 사진이름[:-4])
+            if 찍힌파일:
+                shutil.move(찍힌파일, os.path.join(결과폴더, 사진이름))
 
 
 def 한번에찍기(tag, 결과폴더):
@@ -168,15 +237,30 @@ def 한번에찍기(tag, 결과폴더):
         if id(한묶음) in 연사묶음:
             연사한장(tag, 한묶음[0], 결과폴더, 찍힌것, 실패)
 
+    # 자리 기억 — 글자를 찾지 않고 좌표를 바로 누르면 빠르지만, 서버 응답에 따라
+    # 단추가 오르내리는 화면에서는 헛손질이 된다(통근버스 로그인에서 두 장이 잘못 찍혔다).
+    # 그래서 기본은 꺼 둔다. 화면이 늘 같은 자리인 앱에서만 켜서 쓴다:
+    #     ./run.sh apps/이름표.yaml 자리기억
+    자리기억 = 자리기억켰나()
+    찍을묶음 = [묶 for 묶 in 묶음들 if id(묶) not in 연사묶음]
+    if plat == "android" and 자리기억:
+        try:
+            learn.익히기(tag, 찍을묶음, 계정, 손파일, 결과폴더,
+                      스플래시인가, account.실패화면)
+        except Exception as e:
+            print(f"자리를 익히지 못했습니다 — 예전처럼 글자로 찾아 찍습니다({e}).\n", flush=True)
+    자리 = places.읽기(tag.get("앱주소", "")) if (plat == "android" and 자리기억) else {}
+
     이름들 = []
+    묶음차례 = []
     순번 = 0
-    for 한묶음 in 묶음들:
-        if id(한묶음) in 연사묶음:
-            continue
+    for 한묶음 in 찍을묶음:
         순번 += 1
         사진이름들 = [nametag.사진이름(tag, s) for s in 한묶음]
-        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정)
+        한묶음자리 = 묶음자리(한묶음, 자리)
+        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정, 한묶음자리)
         이름들 += list(zip(한묶음, 사진이름들))
+        묶음차례.append((한묶음, 사진이름들, 한묶음자리))
 
     if not 이름들:
         shutil.rmtree(임시, ignore_errors=True)
@@ -195,6 +279,13 @@ def 한번에찍기(tag, 결과폴더):
         찍힌파일 = 사진찾기(임시, 사진이름[:-4])
         if 찍힌파일:
             shutil.move(찍힌파일, os.path.join(결과폴더, 사진이름))
+
+    # 기억해 둔 자리가 어긋나면 아무 일도 일어나지 않아 앞 장과 똑같은 사진이 찍힌다.
+    # 그런 묶음은 자리 기억을 지우고 예전처럼 글자로 찾아 한 번 더 찍는다.
+    다시찍기(tag, 묶음차례, 계정, 손파일, 결과폴더, 임시)
+
+    for s, 사진이름 in 이름들:
+        if os.path.exists(os.path.join(결과폴더, 사진이름)):
             print(f"  ✓ {s['이름']} → {사진이름}", flush=True)
             찍힌것.append({"파일": 사진이름, "화면번호": s["번호"], "화면이름": s["이름"],
                          "상태": s.get("상태", "default")})
@@ -276,13 +367,14 @@ def 찍기(tag, 결과폴더):
 
 
 def main():
-    if len(sys.argv) < 2:
+    붙임말 = [a for a in sys.argv[1:] if a.strip("-") != "자리기억"]
+    if not 붙임말:
         raise SystemExit("쓰는 법: ./run.sh apps/이름표.yaml")
-    이름표경로 = sys.argv[1]
+    이름표경로 = 붙임말[0]
     tag = nametag.읽기(이름표경로)
 
     폴더이름 = time.strftime("%Y%m%d-%H%M") + "-" + tag["서비스코드"]
-    결과폴더 = sys.argv[2] if len(sys.argv) > 2 else os.path.join(뿌리, "shots", 폴더이름)
+    결과폴더 = 붙임말[1] if len(붙임말) > 1 else os.path.join(뿌리, "shots", 폴더이름)
 
     print(f"■ {tag['앱이름']} — 화면 {len(tag['화면'])}개 찍습니다\n")
     한장씩 = os.environ.get("한장씩") == "1"      # 예전 방식(느림)으로 돌리고 싶을 때
