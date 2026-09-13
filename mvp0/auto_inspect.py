@@ -18,6 +18,7 @@ from pathlib import Path
 import figma_elements
 import figma_reader
 import issue_categories
+import policy as policymod
 
 PLUGIN_UI = Path(__file__).resolve().parents[1] / 'plugin-image-qa' / 'ui.html'
 ENGINE_MARKER = 'if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});'
@@ -301,19 +302,25 @@ class Auto:
         with self.store.connect() as c:
             settings = json.loads(design['qa_settings']) if design['qa_settings'] else {}
             frame = got['frame']
+            # 정책 값은 층으로 겹친다: 시스템 → 서비스 → 화면 → 요소. 피그마 프레임에서 따라온 설정은 포털 행이 없을 때만.
+            pol = policymod.Policy(self.store)
+            merged = pol.engine_policy(c, run['screen_id'], settings.get('policy'))
             out = {
                 'autoRunId': r['id'],
                 'design': {'id': design['node_id'], 'name': design['name'], 'pngUrl': '/uploads/' + design['filename'],
                            'width': frame.get('width') or design['width'], 'height': frame.get('height') or design['height'],
-                           'elements': got['elements'], 'policy': settings.get('policy')},
+                           'elements': got['elements'], 'policy': merged or None},
                 'capture': {'pngUrl': '/uploads/' + run['dev_img'], 'width': run['dev_img_w'], 'height': run['dev_img_h']},
             }
+            # 검수 범위: 이 차수에 직접 정한 것 > 화면·서비스 층에 정한 것 > 자동 규칙
+            top, bottom = pol.capture_range(c, run['screen_id'])
             rng = self.current_range(c, run_id)
-            if rng:  # 사람이 정한 검수 범위가 있으면 엔진에 그대로 넘긴다(자동 규칙보다 우선)
-                if rng['top'] is not None:
-                    out['capture']['topTrim'] = rng['top']
-                if rng['bottom'] is not None:
-                    out['capture']['bottomTrim'] = rng['bottom']
+            if rng:
+                top, bottom = rng['top'], rng['bottom']
+            if top is not None:
+                out['capture']['topTrim'] = top
+            if bottom is not None:
+                out['capture']['bottomTrim'] = bottom
             return out
 
     def save_result(self, auto_run_id, result):
@@ -358,6 +365,29 @@ class Auto:
                 return
             c.execute('UPDATE auto_candidate SET status=? WHERE id=?', (status, candidate_id))
             c.execute('INSERT INTO auto_candidate_event VALUES (?,?,?,?,?,?,?)', (uid(), candidate_id, k['status'], status, actor, now(), note))
+            self._remember(c, k, status, actor)
+
+    def _remember(self, c, k, status, actor):
+        """사람이 후보에 내린 판정을 그 화면의 **요소 층 정책**으로 쌓는다 — 다음 차수·다음 시안에서도 기억하게.
+        가변 ↔ 고정(open)은 글자에만, 제외는 어떤 요소든. 요소를 여럿 가리키는 후보는 하나하나에 쓴다."""
+        ids = json.loads(k['design_node_ids'] or '[]')
+        if not ids:
+            return
+        run = c.execute('SELECT r.screen_id FROM auto_run a JOIN inspection_run r ON r.uuid=a.run_id WHERE a.id=?', (k['auto_run_id'],)).fetchone()
+        if not run:
+            return
+        pol = policymod.Policy(self.store)
+        for nid in ids:
+            if status == 'variable':
+                pol.set(c, 'element', 'text.variable', True, target=run['screen_id'], key=nid, actor=actor, note=f'후보 #{k["no"]}에서 가변으로')
+            elif status == 'excluded':
+                pol.set(c, 'element', 'element.exclude', True, target=run['screen_id'], key=nid, actor=actor, note=f'후보 #{k["no"]}에서 제외로')
+            else:  # open: 가변·제외를 거둔다. 글자면 '고정'으로 못 박는다(사람이 정한 것이 규칙보다 앞선다)
+                pol.set(c, 'element', 'element.exclude', None, target=run['screen_id'], key=nid, actor=actor, note=f'후보 #{k["no"]}를 되돌림')
+                if k['kind'] in ('text', 'fixed', 'variable'):
+                    pol.set(c, 'element', 'text.variable', False, target=run['screen_id'], key=nid, actor=actor, note=f'후보 #{k["no"]}에서 고정으로')
+                else:
+                    pol.set(c, 'element', 'text.variable', None, target=run['screen_id'], key=nid, actor=actor, note=f'후보 #{k["no"]}를 되돌림')
 
     def register(self, candidate_id, actor, rnd):
         """후보 → 지적(inspection_issue). 사람이 누를 때만. dedup_key가 이미 있으면 그 지적에 잇는다."""
@@ -419,7 +449,7 @@ class Auto:
                 if not r or stale:
                     # 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
-                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view}
+                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view, 'screen_id': run['screen_id']}
                 cands = [dict(k) for k in self.candidates(c, r['id'])] if r['status'] == 'done' else []
                 numbers = {}
                 if any(k['issue_id'] for k in cands):
@@ -427,7 +457,7 @@ class Auto:
                     numbers = {row['uuid']: n + 1 for n, row in enumerate(rows)}
         except sqlite3.OperationalError:
             return None  # 옛 DB(접수·자동검수 표 없음)는 자동 검수 없이 그대로 보여준다
-        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view,
+        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view, 'screen_id': run['screen_id'],
                 'scale': ((run['coord_ref_w'] or r['capture_w'] or 1) / (r['capture_w'] or run['coord_ref_w'] or 1)) if r['status'] == 'done' else 1}
 
 
@@ -484,7 +514,8 @@ def range_html(view, person_options=''):
     return (f'<div class="auto-range" id="auto-range" data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
             f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}">'
             f'<b>검수 범위</b> <span class="auto-range-sum">{_e(summary)}</span>'
-            f'<button type="button" onclick="autoRangeOpen()">조정</button></div>'
+            f'<button type="button" onclick="autoRangeOpen()">조정</button>'
+            + (f' <a class="auto-policy-link" href="/policy/screen/{_e(view["screen_id"])}">이 화면의 규칙</a>' if view.get('screen_id') else '') + '</div>'
             f'<div class="auto-range-editor" id="auto-range-editor" hidden>'
             f'<p class="auto-hint">붉은 선 바깥(위쪽 선 위, 아래쪽 선 아래)은 비교하지 않아요. 상태바·주소창·키보드·하단 단추 줄이 끝나는 곳에 선을 끌어 맞춰 주세요.</p>'
             f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'

@@ -22,6 +22,7 @@ import app_layout
 import comparison_view
 import auto_inspect
 import design_receive
+import policy_ui
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -858,6 +859,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         if auto_inspect.get(self, intake(), path, q):
             return
+        if path == '/policy' or path.startswith('/policy/'):
+            conn = dbmod.connect(REAL_DB)
+            persons = queries.list_persons(conn, active_only=True)
+            conn.close()
+            policy_ui.get(self, intake(), path, "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons))
+            return
         if path.startswith('/design'):
             design_plan_http.get(self, intake(), path)
         elif path.startswith('/intake'):
@@ -918,6 +925,8 @@ class Handler(BaseHTTPRequestHandler):
             intake_http.post(self, intake(), path)
             return
         if auto_inspect.post(self, intake(), path):
+            return
+        if policy_ui.post(self, intake(), path):
             return
         length = int(self.headers.get("Content-Length", 0))
         if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/purge", "/rename")):

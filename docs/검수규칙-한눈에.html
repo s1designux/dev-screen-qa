@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검수 규칙 한눈에 — 2026-09-10</title>
+<style>
+  :root{--ink:#1E293B;--dim:#64748B;--line:#E2E8F0;--bg:#F8FAFC;--ok:#0F766E;--warn:#B45309;--bad:#B91C1C;--blue:#1D6CEB}
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 24px 80px;font:15px/1.7 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;color:var(--ink);background:#fff}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:var(--dim);margin:0 0 28px;font-size:14px}
+  h2{font-size:19px;margin:38px 0 6px;padding-top:18px;border-top:2px solid var(--ink)}
+  h2 .n{color:var(--blue)}
+  .lead{margin:0 0 14px;color:var(--dim);font-size:14px}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--warn);background:var(--bg);padding:14px 16px;border-radius:6px;margin:0 0 26px}
+  .callout b{color:var(--warn)}
+  .callout.good{border-left-color:var(--ok)}
+  .callout.good b{color:var(--ok)}
+  table{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:14px}
+  th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{background:var(--bg);font-weight:700;white-space:nowrap;border-bottom:2px solid var(--line)}
+  td.k{white-space:nowrap;font-weight:600}
+  td.n{white-space:nowrap;color:var(--dim);text-align:center;width:38px}
+  .flow{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 26px}
+  .flow div{flex:1 1 180px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--bg)}
+  .flow b{display:block;font-size:14px;margin-bottom:2px}
+  .flow span{font-size:13px;color:var(--dim)}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--dim)}
+  .tag.on{border-color:var(--ok);color:var(--ok)}
+  .tag.off{border-color:var(--bad);color:var(--bad)}
+  .tag.half{border-color:var(--warn);color:var(--warn)}
+  .note{font-size:13px;color:var(--dim);margin:0 0 24px}
+  code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>검수 규칙 한눈에</h1>
+<p class="sub">지금 검수기(플러그인)와 포털이 <b>똑같이 쓰는</b> 규칙 전부 · 2026-09-10 기준</p>
+
+<div class="callout">
+  <b>먼저 알아 둘 것 하나.</b> 아래 규칙은 검수기와 포털이 <b>같은 파일 한 벌</b>을 쓰기 때문에 양쪽이 늘 같습니다.
+  다만 <b>사람이 검수기에서 손으로 정한 것</b>(이 글자는 가변이다 / 이 화면은 공통화면이다 / 위·아래 몇 px는 빼라)은
+  지금 포털로 <b>하나도 넘어오지 않고 있습니다.</b> 포털에 들어온 시안 57개 중 설정이 담긴 것은 <b>0개</b>입니다.
+  자세한 건 맨 아래 <b>7번</b>에 적었습니다.
+</div>
+
+<h2><span class="n">0.</span> 규칙이 도는 순서</h2>
+<p class="lead">규칙은 뒤죽박죽 도는 게 아니라 네 걸음으로 돕니다. 앞 걸음에서 빠진 것은 뒤 걸음에 아예 오지 않습니다.</p>
+<div class="flow">
+  <div><b>① 볼 범위 정하기</b><span>기기·브라우저가 그린 것, 그림에 안 보이는 것을 먼저 뺀다</span></div>
+  <div><b>② 두 그림 겹치기</b><span>같은 요소끼리 짝을 찾아 배율·자리를 맞춘다</span></div>
+  <div><b>③ 다른 곳 찾기</b><span>없어짐·글자·색·모양·자리·간격을 본다 → 후보</span></div>
+  <div><b>④ 걸러내기</b><span>데이터라서 다른 것은 '가변', 검수 대상 아닌 것은 '제외'로 내린다</span></div>
+</div>
+<p class="note">③에서 나온 것은 <b>후보</b>일 뿐입니다. 지적으로 확정하는 건 언제나 사람이 누릅니다.</p>
+
+<h2><span class="n">1.</span> 개발 사진에서 먼저 빼는 것</h2>
+<p class="lead">사진만 보고 판단합니다. 사람이 범위를 직접 정하면 그쪽이 이깁니다.</p>
+<table>
+  <tr><th>무엇</th><th>어떻게 알아내나</th><th>비고</th></tr>
+  <tr><td class="k">기기 상태바</td><td>맨 위에서 처음 만나는 잉크 덩어리(시계·배터리)가 화면 높이 8% 안에서 끝나면</td><td>세로가 긴 앱 촬영본에만</td></tr>
+  <tr><td class="k">화면 키보드</td><td>바닥부터 같은 회색 바탕 줄이 이어져 높이의 25~60%를 차지하면</td><td>세로가 긴 앱 촬영본에만</td></tr>
+  <tr><td class="k">기기 하단 단추줄</td><td>맨 아래 잉크가 높이 8% 안이고 그 위가 비어 있으면</td><td>키보드가 잡혔으면 그 안에 포함</td></tr>
+  <tr><td class="k">브라우저 탭·주소창</td><td>시안 내용이 시작되는 자리보다 위에 남는 띠가 있으면</td><td>시안에도 틀이 있을 때만 자름</td></tr>
+</table>
+
+<h2><span class="n">2.</span> 디자인 시안에서 먼저 빼는 것</h2>
+<p class="lead">시안에 그려 넣었어도 <b>개발이 만든 것이 아닌 것</b>은 견줄 대상이 아닙니다.</p>
+<table>
+  <tr><td class="n">1</td><td class="k">이름·글자로 분명한 틀</td>
+      <td>화면 위/아래 끝에 붙은 가로로 꽉 찬 띠 중, 이름이나 안에 든 글자가 브라우저·상태바·주소창·노치·홈 인디케이터를 가리키면</td></tr>
+  <tr><td class="n">2</td><td class="k">그려 넣은 브라우저 틀·작업표시줄</td>
+      <td>화면 끝에 붙어 폭을 거의 다 덮는 띠인데 안에 본문 글자가 없다시피 하면</td></tr>
+  <tr><td class="n">3</td><td class="k">GNB 아래 탭 줄</td>
+      <td>같은 높이 글자 3개 이상이 한 줄에 늘어서고 바탕이 하나만 밝으면 → 안 열린 탭은 통째로 제외, 열린 탭은 <b>글자만</b> 보고 자리는 안 따짐</td></tr>
+  <tr><td class="n">4</td><td class="k">시안에 그려 넣은 화면 키보드 <span class="tag on">새 규칙</span></td>
+      <td>이름이 키보드/keyboard/자판 계열이고, 가로로 80% 이상 · 아래쪽 · 높이 15% 이상을 덮으면. 비교뿐 아니라 <b>겹쳐 맞추는 기준에서도</b> 뺍니다</td></tr>
+  <tr><td class="n">5</td><td class="k">그림에 안 보이는 것 <span class="tag on">새 규칙</span></td>
+      <td>네모난 불투명 요소에 상자가 통째로 덮여 있고, 시안 그림의 그 자리가 <b>한 색뿐</b>이거나 글자면 <b>제 글자색이 거의 없으면</b></td></tr>
+  <tr><td class="n">6</td><td class="k">짝을 못 찾은 끝 띠</td>
+      <td>화면 끝 띠인데 개발 사진에서 짝을 못 찾았거나 · 사진 바깥에 해당하거나 · 본문과 가로로 다르게 밀렸으면</td></tr>
+</table>
+
+<h2><span class="n">3.</span> 무엇을 다르다고 보는가 (후보 종류)</h2>
+<table>
+  <tr><th>후보</th><th>언제 나오나</th></tr>
+  <tr><td class="k">없어짐</td><td>시안에 있는 요소를 개발 사진에서 못 찾음 (부모가 이미 없어짐이면 자식은 말하지 않음)</td></tr>
+  <tr><td class="k">디자인에 없는 것</td><td>시안에는 없는데 개발 사진에만 잉크가 있음</td></tr>
+  <tr><td class="k">글자 내용·표기</td><td>글자줄을 토막 내어 대조 → 일부만 다르면 그 자리를 짚음</td></tr>
+  <tr><td class="k">줄바꿈·말줄임 / 글자 폭·높이 / 폰트 모양 / 글자 모양</td><td>글자 윤곽 통계(줄 수·폭·높이)가 어긋나는 꼴에 따라 갈라짐</td></tr>
+  <tr><td class="k">색상</td><td>같은 글자·같은 자리인데 잉크 색 또는 배경색이 크게 다름</td></tr>
+  <tr><td class="k">아이콘·이미지</td><td>아이콘 자리의 그림이 많이 다름</td></tr>
+  <tr><td class="k">모양·크기</td><td>테두리·배경 있는 상자의 생김새가 다름</td></tr>
+  <tr><td class="k">위치·정렬</td><td>3px 이상 밀린 요소들. <b>한 곳씩 말하지 않고</b> 화면 단위로 묶어 한 줄로 알려줌</td></tr>
+  <tr><td class="k">컴포넌트 사이 간격</td><td>테두리·배경이 보이는 <b>형제</b> 요소 두 개 사이 간격이 3px 이상 달라짐 (사이 간격 2~180px일 때만)</td></tr>
+  <tr><td class="k">화면 맨 위 여백 <span class="tag on">새 규칙</span></td><td>검수 시작선에서 처음 그려진 줄까지를 두 그림에서 각각 재서 6px 이상 다르면. 겹쳐 맞추기를 거치지 않아, 화면이 통째로 밀린 것도 잡힘</td></tr>
+  <tr><td class="k">빈자리 픽셀 차이</td><td>요소가 없는 자리인데 두 그림의 색·윤곽이 다름</td></tr>
+</table>
+<p class="note">안쪽 여백(padding) 같은 미세 간격은 <b>일부러 안 봅니다</b> — 퍼블리싱 단계에서 걸러지는 몫입니다.</p>
+
+<h2><span class="n">4.</span> 글자가 '데이터라서 달라도 되는지' 가리는 8줄</h2>
+<p class="lead">위에서부터 <b>먼저 맞는 줄이 이깁니다.</b> 가변으로 판정되면 내용 차이는 오류로 세지 않고 '가변' 칸으로 내려갑니다(숨기지 않음).</p>
+<table>
+  <tr><th>순</th><th>규칙</th><th>내용</th></tr>
+  <tr><td class="n">1</td><td class="k">사람이 정한 것</td><td>검수기에서 손으로 '가변/고정'을 누른 것 — 무조건 이김 <span class="tag off">지금 사이트에 안 넘어옴</span></td></tr>
+  <tr><td class="n">2</td><td class="k">글자 꼴</td><td>숫자·날짜·전화번호·%·건/명/원·홍길동·샘플 → 가변 / "…해 주세요", 회사 정보 → 고정</td></tr>
+  <tr><td class="n">3</td><td class="k">표 컬럼 제목</td><td>표의 제목 줄 글자는 고정 (칸이 빠졌는지는 여기서 드러남)</td></tr>
+  <tr><td class="n">4</td><td class="k">메뉴·탭 이름</td><td>나란한 칸 이름들은 고정</td></tr>
+  <tr><td class="n">5</td><td class="k">컴포넌트 역할 이름</td><td>Button/Label/Placeholder/Tab/Header cell → 고정 · Table Cell/Row/List item/value → 가변</td></tr>
+  <tr><td class="n">6</td><td class="k">반복되는 행·카드 안</td><td>같은 모양이 3개 이상 세로로 쌓인 행 안의 글자·요소 → 가변</td></tr>
+  <tr><td class="n">7</td><td class="k">버튼 모양 안의 글자</td><td>채움·테두리 있는 작은 상자 가운데 글자 하나 → 고정</td></tr>
+  <tr><td class="n">8</td><td class="k">화면 종류</td><td>공통화면(로그인·회원가입·찾기·약관·오류·빈 상태)이면 고정 / 그 밖은 가변 <span class="tag half">이름으로 추정</span></td></tr>
+</table>
+<p class="note">가변으로 내려가도 <b>글자 높이·색 차이</b>는 그대로 오류 후보로 남습니다. 내용과 상관없는 차이니까요.<br>
+'없어짐' 후보는 가변이어도 검토를 유지합니다 — 구조가 진짜 빠진 것일 수 있어서입니다(단, 표 본문 값은 예외).</p>
+
+<h2><span class="n">5.</span> 여러 후보를 함께 봐야 아는 것</h2>
+<table>
+  <tr><td class="k">표 본문 값이 안 보임</td>
+      <td>개발 화면엔 진짜 데이터가 들어 있어 시안의 예시 값이 통째로 '없어졌다'고 잡힙니다. 그래서 <b>표 본문 값의 없어짐은 데이터 차이</b>로 봅니다. 칸(컬럼)이 진짜 빠졌는지는 <b>컬럼 제목</b>에서 봅니다.</td></tr>
+  <tr><td class="k">밀림은 묶어서 한 줄로</td>
+      <td>밀린 곳이 여럿이면 한 곳씩 지적하지 않고 화면 단위로 묶어 "이 자리에서 N곳이 밀려 보입니다"로 알려 줍니다.</td></tr>
+  <tr><td class="k">같은 말 두 번 안 하기</td>
+      <td>바깥 상자가 이미 같은 이유로 걸렸으면 안쪽 껍데기는 올리지 않습니다.</td></tr>
+</table>
+
+<h2><span class="n">6.</span> 사람이 정할 수 있는 것</h2>
+<table>
+  <tr><th>어디서</th><th>무엇을</th><th>지금 상태</th></tr>
+  <tr><td class="k">검수기 플러그인</td><td>글자마다 가변/고정</td><td><span class="tag off">포털로 안 넘어옴</span></td></tr>
+  <tr><td class="k">검수기 플러그인</td><td>화면 종류(공통/일반)</td><td><span class="tag off">포털로 안 넘어옴</span></td></tr>
+  <tr><td class="k">검수기 플러그인</td><td>검수 범위(사진 위·아래 뺄 px)</td><td><span class="tag off">포털이 아예 안 읽음</span></td></tr>
+  <tr><td class="k">포털</td><td>검수 범위(선 두 개 끌기 → 그 범위로 다시 검수)</td><td><span class="tag on">됨</span> · 지금까지 쓴 기록 0건</td></tr>
+  <tr><td class="k">포털</td><td>후보를 '제외' / '가변'으로 내리기, '지적 등록'</td><td><span class="tag on">됨</span> · 제외 5건 · 되돌림 3건</td></tr>
+</table>
+
+<h2><span class="n">7.</span> 안 넘어오고 있는 것 (확인한 사실)</h2>
+<div class="callout">
+  <b>시안 57개 중 설정이 담겨 온 것은 0개입니다.</b>
+  검수기가 값을 넣는 자리와 촬영 준비 플러그인이 읽는 자리는 <b>같습니다</b>(<code>devScreenQa · imageQaPolicy</code>).
+  배선은 맞는데 값이 비어 있으니, 둘 중 하나입니다 — ① 그 프레임들에는 손으로 정한 설정이 애초에 없었다,
+  또는 ② 설정은 <b>다른 파일·다른 프레임</b>에 해 두었고 포털에는 그 프레임이 안 왔다.
+</div>
+<div class="callout">
+  <b>검수 범위는 배선 자체가 없습니다.</b>
+  검수기는 사람이 정한 위·아래 px를 <b>캡처 노드</b>에 <code>imageQaTopTrim / imageQaBottomTrim</code>으로 저장하는데,
+  촬영 준비 플러그인도 포털도 이 값을 읽지 않습니다. 포털은 자기 것(범위 조정)을 따로 씁니다.
+</div>
+<div class="callout good">
+  <b>규칙 자체는 양쪽이 늘 같습니다.</b> 포털은 검수기 파일을 복사하지 않고 그대로 내보내 돌립니다.
+  규칙을 고치면 포털은 저장해 둔 옛 결과를 버리지 않은 채 새 회차로 다시 찾습니다.
+</div>
+
+</div>
+</body>
+</html>

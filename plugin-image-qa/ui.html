@@ -787,6 +787,15 @@ function buttonLikeIds(design,children){
 }
 // ── 제외표: 애초에 검수 대상이 아닌 것 ────────────────────────────────────
 var POLICY_EXCLUDE_RULES=[{
+  id:"manual",title:"사람이 검수 대상에서 뺀 요소 — 포털의 요소 층 정책(design.policy.exclude)",
+  // 포털에서 후보를 '제외'로 내리면 그 요소는 다음 차수·다음 시안에서도 처음부터 제외로 온다. 사람이 정한 것이 모든 규칙보다 앞선다.
+  find:function(design,children){
+    var out={},ex=design.policy&&design.policy.exclude;if(!ex)return out;
+    Object.keys(ex).forEach(function(id){if(!ex[id])return;var why=typeof ex[id]==="string"?ex[id]:"사람이 검수 대상에서 뺌";out[id]=why;
+      var e=null;(design.elements||[]).forEach(function(x){if(x.id===id)e=x;});if(e)descendantsOf(e,children).forEach(function(d){if(!out[d.id])out[d.id]=why;});});
+    return out;
+  }
+},{
   id:"tabStrip",title:"GNB 아래 탭 줄 — 열린 탭만 보이므로 탭 구성 차이는 오류가 아니다 (2026-09-08 river 확정)",
   // 탭 줄: 같은 높이의 글자 3개 이상이 한 줄에 가로로 늘어서고, 바탕이 하나만 밝고(선택된 탭) 나머지는 어둡다.
   // 선택 안 된 탭은 통째로 제외. 선택된 탭은 글자 내용만 보고 자리는 묻지 않는다(따로 표시).
@@ -1390,10 +1399,12 @@ function numberCandidates(cands,pairId){
   cands.sort(function(a,b){return a.designBox.y-b.designBox.y||a.designBox.x-b.designBox.x;});
   cands.forEach(function(c,i){c.no=i+1;c.id=pairId+"_c"+(i+1);});return cands;
 }
-function addTopGapCandidate(cands,pairId,anchored,trim){
+function addTopGapCandidate(cands,pairId,anchored,trim,minPx){
   // 맨 위 여백은 '검수 시작선이 어디인지'가 확실할 때만 잰다.
   // 개발 캡처 위쪽에 아직 안 걷어낸 띠(브라우저 탭·상태바)가 남아 있으면 그 띠 두께를 여백으로 착각한다.
-  var g=cands.topGap;if(!anchored||!g||Math.abs(g.delta)<6)return cands;
+  // 기준(px)은 정책 값(topGap.minPx, 기본 6) — 정렬 오차(1~2px)와 겹치지 않는 선.
+  var lim=(minPx!=null&&isFinite(minPx))?Math.max(0,Number(minPx)):6;
+  var g=cands.topGap;if(!anchored||!g||Math.abs(g.delta)<lim)return cands;
   var dg=Math.round(g.designGap),cg=Math.round(g.capGap),wider=g.delta>0;
   cands.push({kind:"spacing",axis:"vertical",status:"confirmed",
     rawBox:{x:g.rawBox.x,y:g.rawBox.y+(trim||0),w:g.rawBox.w,h:g.rawBox.h},designBox:g.designBox,designNodeIds:[],
@@ -1806,7 +1817,7 @@ function comparePair(p,d,cap,img){
     cands=shiftCandidatesDown(buildDiff(d,img,view,model,p.id,opts2),trim);
   }
   // 맨 위 여백: 위쪽 검수 시작선이 확실할 때만(사람이 정했거나 · 잘라냈거나 · 남은 띠가 없을 때) 잰다.
-  addTopGapCandidate(cands,p.id,manual!=null||trim>0||!strip||topStripIsBlank(cap.img,strip),trim);
+  addTopGapCandidate(cands,p.id,manual!=null||trim>0||!strip||topStripIsBlank(cap.img,strip),trim,d.policy&&d.policy.topGapMinPx);
   // 검수 범위 안내(제외했으면 왜 제외했는지, 제외 안 했으면 무엇이 보이는지)
   function ruleWhy(rs){return "앱 화면 기본 규칙에 따라 "+rs.map(function(r){return r.title;}).join("·")+"로 보고";}
   var logicalScale=img.width/d.width;
@@ -2711,6 +2722,14 @@ async function runSelfTest(){
   check("몇 px 차이(정렬 오차 수준)는 후보로 올리지 않는다",
     addTopGapCandidate(tgCands({delta:4,designGap:20,capGap:24,rawBox:{x:0,y:0,w:10,h:10},designBox:{x:0,y:0,w:10,h:10},confidence:80}),"p",true,0).length===0);
   var tgOut=addTopGapCandidate(tgCands(tgSame),"p",true,7);
+  check("맨 위 여백 기준은 정책 값으로 바꿀 수 있다(4px로 낮추면 4px 차이도 후보)",
+    addTopGapCandidate(tgCands({delta:4,designGap:20,capGap:24,rawBox:{x:0,y:0,w:10,h:10},designBox:{x:0,y:0,w:10,h:10},confidence:80}),"p",true,0,4).length===1);
+  (function(){var d={name:"정책 시험",width:100,height:100,policy:{exclude:{"pnl":true}},elements:[
+      {id:"pnl",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:50,h:50},values:{fill:"#EEEEEE"}},
+      {id:"pnlt",kind:"text",parentId:"pnl",text:"안 볼 글자",box:{x:5,y:5,w:40,h:20},values:{}},
+      {id:"keep",kind:"text",parentId:null,text:"볼 글자",box:{x:60,y:5,w:30,h:20},values:{}}]};
+    var ex=buildTextPolicy(d).excluded;
+    check("포털 요소 층에서 '검수 대상 아님'으로 정한 요소와 그 자식은 처음부터 제외",!!ex.pnl&&!!ex.pnlt&&!ex.keep);})();
   check("확실할 때는 '화면 맨 위 여백' 후보 하나로 올리고, 잘라낸 만큼 자리를 되돌린다",
     tgOut.length===1&&tgOut[0].label===LABEL_TOP_GAP&&tgOut[0].kind==="spacing"&&tgOut[0].rawBox.y===tgSame.rawBox.y+7&&tgOut[0].no===1);
   // ── 시안에 그려 넣은 화면 키보드도 개발 캡처와 똑같이 뺀다

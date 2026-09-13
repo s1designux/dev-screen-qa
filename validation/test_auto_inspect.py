@@ -121,7 +121,7 @@ class AutoFlow(unittest.TestCase):
             m2 = self.auto.materials(self.page, self.run['uuid'])
         self.assertEqual(api.call_count, 1)                        # 두 번째는 저장본
         self.assertEqual(m['autoRunId'], m2['autoRunId'])
-        self.assertEqual(m['design']['policy'], {'screenType': 'common', 'variable': {'1:3': False}})
+        self.assertEqual(m['design']['policy'], {'screenType': 'common', 'variable': {'1:3': False}, 'topGapMinPx': 6})  # 정책 층의 기본값이 함께 실린다
         self.assertEqual((m['design']['width'], m['design']['height']), (400, 300))
         self.assertEqual([e['id'] for e in m['design']['elements']], ['1:2', '1:3', '1:5', '1:6'])
         self.assertTrue(m['capture']['pngUrl'].startswith('/uploads/'))

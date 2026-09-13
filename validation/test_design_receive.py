@@ -102,7 +102,7 @@ class Receive(unittest.TestCase):
         out1 = self.r.receive({'fileName': '버스 앱', 'page': self.page, 'frame': self.frame()})
         m = auto.materials(self.page, run['uuid'])                      # 플러그인이 보낸 요소를 그대로 씀(Figma 토큰 불필요)
         self.assertEqual(m['design']['elements'][0]['text'], '로그인')
-        self.assertEqual(m['design']['policy'], {'screenType': 'common'})
+        self.assertEqual(m['design']['policy'], {'screenType': 'common', 'topGapMinPx': 6})
         auto.save_result(m['autoRunId'], {'candidates': [{'no': 1, 'status': 'confirmed', 'kind': 'text', 'label': 'x', 'rawBox': {'x': 0, 'y': 0, 'w': 1, 'h': 1}}], 'capture': {'w': 1, 'h': 1}})
         self.assertEqual(auto.view(self.page, run)['run']['status'], 'done')
         out2 = self.r.receive({'fileName': '버스 앱', 'page': self.page, 'frame': self.frame()})
