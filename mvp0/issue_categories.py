@@ -10,7 +10,6 @@ GROUPS = {
     'structure': ('요소 추가·누락', '#d97706'),
     'image': ('아이콘·이미지', '#0d9488'),
     'mixed': ('복합', '#334155'),
-    'legacy_spacing': ('기존 간격 항목', '#0d9488'),
     'other': ('기타', '#6b7280'),
 }
 ALIASES = {
@@ -18,7 +17,8 @@ ALIASES = {
     'layout':'position','position':'position','size':'position','alignment':'position',
     'color':'appearance','shape':'appearance','appearance':'appearance',
     'structure':'structure','missing':'structure','extra':'structure','added':'structure',
-    'icon':'image','image':'image','mixed':'mixed','spacing':'legacy_spacing',
+    'icon':'image','image':'image','mixed':'mixed',
+    # 안쪽여백 등 간격은 검수 대상이 아니다(CLAUDE.md 8번) — 갈래를 두지 않고 '기타'로 떨어뜨린다.
 }
 
 

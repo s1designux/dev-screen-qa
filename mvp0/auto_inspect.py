@@ -63,6 +63,29 @@ ENGINE_STATUS = {'confirmed': 'open', 'excluded': 'excluded', 'variable': 'varia
 KIND_CATEGORY = {'text': 'text', 'fixed': 'text', 'variable': 'text', 'missing': 'missing', 'area': 'mixed',
                  'position': 'position', 'icon': 'icon', 'image': 'image', 'shape': 'appearance', 'spacing': 'spacing'}
 
+# 갈래는 **카드에 적힌 말**을 따른다. 요소 종류로 나누면 같은 말이 서로 다른 갈래로 흩어진다.
+# (예: '디자인에 없는 요소'는 요소를 짚었든 자리로만 짚었든 '요소 추가·누락'이다.)
+LABEL_CATEGORY = [
+    ('디자인에 없는 요소', 'structure'),
+    ('디자인에 있는 요소', 'structure'),
+    ('아이콘 또는 이미지', 'icon'),
+    ('색상이 다르게', 'color'),
+    ('요소의 모양 또는 크기', 'shape'),
+    ('요소의 위치 또는 정렬', 'position'),
+    ('화면 맨 위 여백', 'position'),
+    ('글자', 'text'),
+    ('줄바꿈 또는 말줄임', 'text'),
+    ('폰트 모양', 'text'),
+]
+
+
+def candidate_category(k):
+    label = str(k['label'] or '')
+    for prefix, cat in LABEL_CATEGORY:
+        if label.startswith(prefix):
+            return cat
+    return KIND_CATEGORY.get(k['kind'], 'other')
+
 
 def uid():
     return uuid.uuid4().hex
@@ -407,7 +430,7 @@ class Auto:
             node_ids = json.loads(k['design_node_ids'] or '[]')
             anchor = node_ids[0] if node_ids else f'{box[0]},{box[1]},{box[2]},{box[3]}'
             dedup = f"{k['page_id']}|{anchor}|{k['kind']}|auto"
-            category = KIND_CATEGORY.get(k['kind'], 'other')
+            category = candidate_category(k)
             existing = c.execute('SELECT uuid,status FROM inspection_issue WHERE dedup_key=?', (dedup,)).fetchone()
             note = f"자동 검수 후보 #{k['no']} 등록: {k['label']}"
             if existing:
@@ -530,8 +553,9 @@ def range_html(view, person_options=''):
 
 
 def card_html(k, numbers, page_id, rnd):
-    kind_lbl = issue_categories.label(KIND_CATEGORY.get(k['kind'], 'other'))
-    color = issue_categories.color(KIND_CATEGORY.get(k['kind'], 'other'))
+    cat = candidate_category(k)
+    kind_lbl = issue_categories.label(cat)
+    color = issue_categories.color(cat)
     pol = json.loads(k['policy'] or '{}')
     pol_html = f'<div class="loc">가변 판정: {_e(pol.get("reason"))}</div>' if pol.get('reason') else ''
     conf = f'<span class="sev">신뢰도 {k["confidence"]}%</span>' if k['confidence'] is not None else ''
@@ -556,7 +580,7 @@ def card_html(k, numbers, page_id, rnd):
 
 def overlay_json(view):
     return json.dumps([{'id': k['id'], 'no': k['no'], 'status': k['status'], 'registered': bool(k['issue_id']),
-                        'color': issue_categories.color(KIND_CATEGORY.get(k['kind'], 'other')),
+                        'color': issue_categories.color(candidate_category(k)),
                         'box': [k['box_x'] or 0, k['box_y'] or 0, k['box_w'] or 0, k['box_h'] or 0]} for k in view['candidates']], ensure_ascii=False)
 
 
