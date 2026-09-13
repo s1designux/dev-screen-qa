@@ -19,6 +19,7 @@ import figma_elements
 import figma_reader
 import issue_categories
 import policy as policymod
+import rule_log
 
 PLUGIN_UI = Path(__file__).resolve().parents[1] / 'plugin-image-qa' / 'ui.html'
 ENGINE_MARKER = 'if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});'
@@ -388,6 +389,7 @@ class Auto:
                 return
             c.execute('UPDATE auto_candidate SET status=? WHERE id=?', (status, candidate_id))
             c.execute('INSERT INTO auto_candidate_event VALUES (?,?,?,?,?,?,?)', (uid(), candidate_id, k['status'], status, actor, now(), note))
+            rule_log.record(c, k, status, actor=actor, note=note)  # 어느 규칙이 이 후보를 그 자리에 뒀는지 함께 남긴다
             self._remember(c, k, status, actor)
 
     def _remember(self, c, k, status, actor):
@@ -445,6 +447,7 @@ class Auto:
                 self._history(c, issue_id, None, '발견', actor, note, rnd)
             c.execute('UPDATE auto_candidate SET issue_id=? WHERE id=?', (issue_id, candidate_id))
             c.execute('INSERT INTO auto_candidate_event VALUES (?,?,?,?,?,?,?)', (uid(), candidate_id, k['status'], 'open', actor, now(), note))
+            rule_log.record(c, k, 'open', actor=actor, action='register', note=note)  # 사람이 진짜 오류로 인정 — 규칙이 맞았다는 기록
             return issue_id
 
     @staticmethod

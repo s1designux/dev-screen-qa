@@ -10,6 +10,7 @@ from html import escape as _e
 from urllib.parse import parse_qs
 
 import policy as policymod
+import rule_log
 
 CSS = '''
 body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;color:#1E293B;background:#F8FAFC}
@@ -31,6 +32,8 @@ button.primary{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
 ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:6px 0;border-bottom:1px solid #E2E8F0}ul.list a{color:#1D6CEB;text-decoration:none}
 .note{background:#fff;border:1px solid #E2E8F0;border-left:4px solid #B45309;border-radius:6px;padding:10px 14px;font-size:14px;margin:0 0 18px}
 .hist{font-size:13px;color:#64748B}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bad{color:#B91C1C;font-weight:700}.good{color:#166534}
 '''
 
 
@@ -102,6 +105,30 @@ def _history(pol, c, scope, target):
     return '<h2>이 층의 변경 이력</h2><ul class="list">' + ''.join(items) + '</ul>'
 
 
+def _rule_score(c, screen_id=None):
+    """규칙별 성적표 — 그 규칙이 이름표를 붙인 후보가 몇 개였고, 사람이 그대로 뒀는지 뒤집었는지.
+
+    여기서 규칙을 고치지는 않는다(CLAUDE.md 2번). 세어서 보여주기만 하고, 고칠지는 사람이 정한다."""
+    rows = rule_log.stats(c, screen_id)
+    seen = [r for r in rows if r['agree'] or r['overturn']]
+    if not rows:
+        return ('<h2>규칙 성적</h2><p class="sub">아직 판정 기록이 없어요. 페이지 상세에서 후보를 '
+                '<b>제외</b>·<b>가변</b>으로 내리거나 <b>지적으로 등록</b>하면 어느 규칙이 그렇게 만들었는지 여기에 쌓입니다.</p>')
+    body = []
+    for r in rows:
+        judged = r['agree'] + r['overturn']
+        rate = '—' if r['rate'] is None else f'{r["rate"]}%'
+        cls = ' class="bad"' if (r['rate'] is not None and r['rate'] < 60 and judged >= 3) else (' class="good"' if (r['rate'] is not None and r['rate'] >= 90 and judged >= 3) else '')
+        body.append(f'<tr><td class="k">{_e(r["title"])}</td><td class="help">{_e(r["rule"])}</td>'
+                    f'<td class="n">{r["fired"]}</td><td class="n">{r["agree"]}</td><td class="n">{r["overturn"]}</td>'
+                    f'<td class="n"{cls}>{rate}</td></tr>')
+    note = ('' if seen else '<p class="sub">아직 사람이 판정한 후보가 없어 맞음·뒤집힘이 모두 0입니다.</p>')
+    return ('<h2>규칙 성적</h2><p class="sub">후보를 그 자리에 둔 규칙마다, 사람이 <b>그대로 둔 수</b>와 <b>뒤집은 수</b>입니다. '
+            '뒤집힘이 많은 규칙이 다음에 고칠 규칙입니다. (여기서 자동으로 바꾸지 않습니다.)</p>' + note +
+            '<table><tr><th>규칙</th><th>이름</th><th>나온 후보</th><th>그대로 둠</th><th>뒤집음</th><th>맞은 비율</th></tr>'
+            + ''.join(body) + '</table>')
+
+
 def page_root(store, person_options=''):
     pol = policymod.Policy(store)
     with store.connect() as c:
@@ -109,10 +136,11 @@ def page_root(store, person_options=''):
         table = _rules_table(pol, c, 'system', '', resolved, '/policy', person_options)
         projects = c.execute('SELECT uuid,name FROM project ORDER BY name').fetchall()
         hist = _history(pol, c, 'system', '')
+        score = _rule_score(c)
     items = ''.join(f'<li><a href="/policy/service/{_e(p["uuid"])}">{_e(p["name"] or "(이름 없음)")}</a></li>' for p in projects)
     body = (f'<h1>검수 규칙</h1><p class="sub">규칙 값은 <b>시스템 기본 → 서비스 → 화면 → 요소</b> 순으로 겹치고, 아래층이 위층을 덮습니다. '
             f'바꾼 값은 지우지 않고 이력으로 쌓입니다.</p>'
-            f'<h2>시스템 기본값</h2>{table}{hist}'
+            f'<h2>시스템 기본값</h2>{table}{score}{hist}'
             f'<h2>서비스별 규칙</h2><ul class="list">{items or "<li>서비스가 아직 없어요.</li>"}</ul>')
     return _shell('검수 규칙', body)
 
@@ -156,12 +184,13 @@ def page_screen(store, screen_id, person_options=''):
                 el_rows.append(f'<tr><td class="k">{_e(spec["title"])}</td><td>{_e(key)}</td><td>{_value_text(rule, v)}</td>'
                                f'<td class="help">{_e(cur.get("note") or "")}{(" · " + _e(cur["actor"])) if cur.get("actor") else ""}</td><td>{undo}</td></tr>')
         hist = _history(pol, c, 'screen', screen_id) + _history(pol, c, 'element', screen_id).replace('이 층의 변경 이력', '요소 층의 변경 이력')
+        score = _rule_score(c, screen_id)
     el_table = ('<table><tr><th>규칙</th><th>요소</th><th>값</th><th>어떻게 정해졌나</th><th></th></tr>' + ''.join(el_rows) + '</table>') if el_rows else \
         '<p class="sub">아직 없어요. 페이지 상세에서 후보를 <b>가변</b>·<b>제외</b>로 내리면 여기에 쌓입니다.</p>'
     body = (f'<h1>화면 규칙 — {_e(s["human_key"] or "")} {_e(s["name"] or "")}</h1>'
             f'<p class="sub">서비스 <a href="/policy/service/{_e(s["project_id"])}">{_e(s["pname"])}</a> 의 값을 이 화면에서만 덮습니다. '
             f'검수 범위(위·아래 px)는 차수에서 직접 정한 것이 있으면 그쪽이 먼저입니다.</p>'
-            f'{table}<h2>요소별 예외 (사람이 정한 것)</h2>{el_table}{hist}')
+            f'{table}<h2>요소별 예외 (사람이 정한 것)</h2>{el_table}{score}{hist}')
     return _shell(f'화면 규칙 — {s["human_key"] or s["name"]}', body, (f'/policy/service/{s["project_id"]}', '← 서비스 규칙'))
 
 

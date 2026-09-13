@@ -131,6 +131,8 @@ class Store:
             c.executescript(RECEIVE_SCHEMA)
             from policy import SCHEMA as POLICY_SCHEMA  # 검수 정책 값의 층(시스템·서비스·화면·요소)
             c.executescript(POLICY_SCHEMA)
+            from rule_log import SCHEMA as RULELOG_SCHEMA  # 사람의 판정 ↔ 그렇게 만든 규칙 잇기
+            c.executescript(RULELOG_SCHEMA)
         import auto_inspect
         auto_inspect.repair(self.database)  # 옛 모양의 자동 검수 표를 고친다(외래키를 끈 별도 연결에서)
 

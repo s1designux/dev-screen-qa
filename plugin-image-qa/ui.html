@@ -969,7 +969,9 @@ function deviceKeyboardBands(design){
     box:{x:0,y:best.y,w:W,h:H-best.y}}];
 }
 function buildExcludeMap(design,children){
-  var out={};POLICY_EXCLUDE_RULES.forEach(function(rule){var got=rule.find(design,children)||{};Object.keys(got).forEach(function(id){if(!out[id])out[id]=got[id];});});
+  // out[id]=사람이 읽는 사유 / design.__excludeRule[id]=그렇게 정한 규칙 이름(판정↔규칙 기록용)
+  var out={},by={};POLICY_EXCLUDE_RULES.forEach(function(rule){var got=rule.find(design,children)||{};Object.keys(got).forEach(function(id){if(!out[id]){out[id]=got[id];by[id]=rule.id;}});});
+  design.__excludeRule=by;
   return out;
 }
 // ── 가변표: 위에서부터 먼저 맞는 규칙이 이긴다 ─────────────────────────────
@@ -1010,7 +1012,7 @@ function buildTextPolicy(design){
     }
   });
   // 표·메뉴 같은 "자리" 정보도 함께 넘긴다(후보 목록 규칙이 쓴다).
-  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.tabSelected=design.__tabSelected||{};map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
+  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.excludedRule=design.__excludeRule||{};map.tabSelected=design.__tabSelected||{};map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
 }
 // ── 목록 규칙: 후보 하나만 봐서는 알 수 없고, 여러 후보를 함께 봐야 아는 것 ─────────
 function inRepeatRow(map,c){
@@ -1028,6 +1030,7 @@ var POLICY_LIST_RULES=[{
       if(c.kind!=="missing"||!inRepeatRow(map,c))return;
       if(c.listDetail==null)c.listDetail=c.detail||"";
       c.detail="표 본문 값 · 개발 화면의 데이터가 달라서일 수 있어요(칸이 빠졌는지는 컬럼 제목으로 봅니다). "+c.listDetail;
+      c.policy={source:"rowValueMissing",variable:true,reason:"표 본문 값"};
       if(!c.userSet)c.status="variable";
     });
   }
@@ -1081,16 +1084,24 @@ function excludedFor(map,c){
   var why=null;for(var i=0;i<ids.length;i++){if(!ex[ids[i]])return null;why=why||ex[ids[i]];}
   return why;
 }
+function excludeRuleFor(map,c){
+  // 이 후보를 제외로 내린 규칙 이름. 여러 요소를 가리키면 먼저 맞은 것.
+  var by=(map&&map.excludedRule)||{},ids=c.designNodeIds||[];
+  for(var i=0;i<ids.length;i++){if(by[ids[i]])return by[ids[i]];}
+  return "exclude";
+}
 function applyCandidatePolicy(c,map){
-  var ex=excludedFor(map,c);c.policyExcluded=ex||null;
-  if(!ex&&(c.kind==="position"||c.kind==="spacing")&&map&&map.tabSelected){var ids=c.designNodeIds||[];if(ids.length&&ids.every(function(id){return map.tabSelected[id];}))ex="선택된 탭 — 글자만 같으면 되고 자리는 달라도 됨";}
+  var ex=excludedFor(map,c),rule=ex?excludeRuleFor(map,c):null;c.policyExcluded=ex||null;
+  if(!ex&&(c.kind==="position"||c.kind==="spacing")&&map&&map.tabSelected){var ids=c.designNodeIds||[];if(ids.length&&ids.every(function(id){return map.tabSelected[id];})){ex="선택된 탭 — 글자만 같으면 되고 자리는 달라도 됨";rule="tabSelected";}}
   if(ex){ // 지우지 않고 '제외(오류 아님)' 묶음으로 내린다. 사람이 직접 누른 번호는 건드리지 않는다.
     if(c.exDetail==null)c.exDetail=c.detail||"";
     c.detail=ex+" — 검수 대상이 아닙니다. "+c.exDetail;
+    c.policy={source:rule,variable:false,reason:ex,excluded:true};
     if(!c.userSet)c.status="excluded";
     return c;
   }
   if(c.exDetail!=null){c.detail=c.exDetail;c.exDetail=null;if(c.status==="excluded"&&!c.userSet)c.status="confirmed";}
+  c.policy=null; // 아래 갈래가 다시 채운다(제외가 풀린 뒤 옛 이름표가 남지 않게)
   if(c.kind==="missing")return applyMissingPolicy(c,policyFor(map,c));
   if(c.kind==="text")return applyTextPolicy(c,policyFor(map,c));
   if(ROW_UNIT_KINDS[c.kind])return applyUnitPolicy(c,policyFor(map,c));
@@ -1614,7 +1625,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   // 정책표는 디자인만 보고 정해지므로 비교 전에 만들어 둔다. 선택된 탭은 찾는 방식이 달라지기 때문(compareUnit).
   var policyMap=design.policyMap=buildTextPolicy(design);
   // 그림에 안 보이는 것은 검수 대상이 아니다 — 디자인 그림을 봐야 알 수 있어 여기서 합친다.
-  (function(occ){Object.keys(occ).forEach(function(id){if(!policyMap.excluded[id])policyMap.excluded[id]=occ[id];});})(occludedIds(design,childMap(design),ddF,W,H,lg));
+  (function(occ){policyMap.excludedRule=policyMap.excludedRule||{};Object.keys(occ).forEach(function(id){if(!policyMap.excluded[id]){policyMap.excluded[id]=occ[id];policyMap.excludedRule[id]="occluded";}});})(occludedIds(design,childMap(design),ddF,W,H,lg));
   var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId,tabSelected:policyMap.tabSelected||{}};
   ctx.cEd=dilateEdges(ctx.cE,W,H,Math.max(1,Math.round(1*lg)));
   var units=collectUnits(design),sectionInfo=buildSections(design,units),sections=sectionInfo.sections,notices=[];
