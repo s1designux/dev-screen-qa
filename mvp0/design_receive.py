@@ -9,6 +9,7 @@ Figma 토큰이 필요 없다 — 플러그인이 river님 로그인 안에서 �
 import base64
 import json
 import re
+import unicodedata
 import uuid
 from datetime import datetime
 
@@ -47,12 +48,18 @@ def file_key_of(payload):
     key = str(payload.get('fileKey') or '').strip()
     if re.fullmatch(r'[A-Za-z0-9]+', key):
         return key
-    name = str(payload.get('fileName') or '').strip()
+    name = nfc(payload.get('fileName')).strip()
     return 'name:' + name if name else 'plugin'
 
 
+def nfc(s):
+    """한글 자모가 풀린 글자(NFD)와 모아진 글자(NFC)를 같은 것으로 본다.
+    macOS를 거쳐 들어온 파일 이름은 풀려 있고 피그마가 주는 이름은 모아져 있어, 안 맞추면 같은 파일을 못 알아본다."""
+    return unicodedata.normalize('NFC', str(s or ''))
+
+
 def _norm(s):
-    return re.sub(r'\s+', '', str(s or '')).lower()
+    return re.sub(r'\s+', '', nfc(s)).lower()
 
 
 class Receiver:
@@ -72,23 +79,45 @@ class Receiver:
     def url_of(row):
         return f"/screen/{row['human_key'] or row['screen']}/page/{row['page']}"
 
+    def frame_map(self, c):
+        """(파일 열쇠, 프레임 id) → 페이지 uuid. 가장 최근에 붙인 것부터."""
+        id_map = {}
+        for r in c.execute('SELECT l.page_id, d.file_key, d.node_id FROM page_design_link l JOIN intake_design d ON d.id=l.design_id'):
+            id_map.setdefault((nfc(r['file_key']), r['node_id']), r['page_id'])
+        for sql in ('SELECT i.page_id, d.file_key, d.node_id FROM intake_item i JOIN intake_design d ON d.id=i.design_id WHERE i.page_id IS NOT NULL',
+                    'SELECT dc.page_id, d.file_key, d.node_id FROM design_case dc JOIN intake_design d ON d.id=dc.design_id WHERE dc.page_id IS NOT NULL'):
+            try:
+                for r in c.execute(sql):
+                    id_map.setdefault((nfc(r['file_key']), r['node_id']), r['page_id'])
+            except Exception:  # 접수 표가 없는 옛 DB
+                pass
+        return id_map
+
+    def screen_for_frame(self, c, payload):
+        """검수기 플러그인이 보낸 (파일 열쇠, 프레임 id)로 포털의 화면을 찾는다. 없으면 None.
+        프레임 id로 못 찾으면 프레임 이름이 꼭 하나만 맞을 때에 한해 그것으로 본다."""
+        key = file_key_of(payload)
+        node = str(payload.get('nodeId') or payload.get('frameId') or '')
+        rows = [dict(r) for r in self.pages(c)]
+        page = self.frame_map(c).get((key, node))
+        row = next((r for r in rows if r['page'] == page), None) if page else None
+        if not row:
+            # 프레임 id로 못 찾으면 이름으로. 검수 페이지 이름(상태명)과 화면 이름 둘 다 보되,
+            # **꼭 하나만** 맞을 때만 인정한다(엉뚱한 화면에 규칙을 쌓지 않게).
+            want = _norm(payload.get('frameName') or payload.get('name'))
+            for field in ('page_name', 'screen_name'):
+                same = [r for r in rows if _norm(r[field]) == want]
+                if len(same) == 1:
+                    return same[0]
+        return row
+
     def frames_status(self, payload):
         """플러그인이 고른 프레임마다 '검수 화면이 있는지'. id로 정확히 맞으면 how='id', 이름만 같으면 how='name'."""
         key = file_key_of(payload)
         with self.store.connect() as c:
             rows = [dict(r) for r in self.pages(c)]
             by_page = {r['page']: r for r in rows}
-            # 프레임 id → 페이지 (가장 최근에 붙인 것부터)
-            id_map = {}
-            for r in c.execute('''SELECT l.page_id, d.file_key, d.node_id FROM page_design_link l JOIN intake_design d ON d.id=l.design_id'''):
-                id_map.setdefault((r['file_key'], r['node_id']), r['page_id'])
-            for sql in ('SELECT i.page_id, d.file_key, d.node_id FROM intake_item i JOIN intake_design d ON d.id=i.design_id WHERE i.page_id IS NOT NULL',
-                        'SELECT dc.page_id, d.file_key, d.node_id FROM design_case dc JOIN intake_design d ON d.id=dc.design_id WHERE dc.page_id IS NOT NULL'):
-                try:
-                    for r in c.execute(sql):
-                        id_map.setdefault((r['file_key'], r['node_id']), r['page_id'])
-                except Exception:  # 접수 표가 없는 옛 DB
-                    pass
+            id_map = self.frame_map(c)  # 프레임 id → 페이지 (가장 최근에 붙인 것부터)
         out = []
         for f in payload.get('frames') or []:
             node = str(f.get('id') or '')

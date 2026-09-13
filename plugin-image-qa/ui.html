@@ -309,6 +309,42 @@
 
 <script>
 var post=function(m){parent.postMessage({pluginMessage:m},"*");};
+// ── 검수 규칙의 원본은 포털이다(CLAUDE.md 8번). 내 PC 포털이 켜져 있으면 규칙을 받아 오고, 바꾼 것도 보낸다.
+// 꺼져 있으면 조용히 넘어간다 — 배선이 없어도 검수기는 그대로 돌고, 값은 피그마 프레임에만 남는다.
+var PORTAL="http://localhost:8765",portalOff=false,portalScreen=null;
+function portalCall(path,body){
+  if(portalOff||window.__portal)return Promise.resolve(null); // 포털 안에서 돌 때(__portal)는 이미 겹쳐진 값이 온다
+  return Promise.race([
+    fetch(PORTAL+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json();}),
+    new Promise(function(res){setTimeout(function(){res(null);},2500);})
+  ]).catch(function(){portalOff=true;return null;});
+}
+function frameRef(d,extra){
+  return Object.assign({fileKey:d.fileKey||"",fileName:d.fileName||"",nodeId:d.id,frameName:d.name},extra||{});
+}
+function mergePortalPolicy(d,got){
+  // 포털 값이 이긴다(포털이 원본). 포털에 없는 것만 피그마 프레임 값이 남는다.
+  if(!got||!got.policy)return null;
+  d.policy=Object.assign({},d.policy||{},got.policy);
+  if(got.range){if(got.range.top!=null)d.policy.rangeTop=got.range.top;if(got.range.bottom!=null)d.policy.rangeBottom=got.range.bottom;}
+  return got.screen||null;
+}
+async function pullPortalPolicy(list){
+  // 비교를 시작하기 전에 화면마다 포털 규칙을 받아 겹친다.
+  var seen={},screens=[];
+  for(var i=0;i<list.length;i++){
+    var d=list[i];if(!d||seen[d.id])continue;seen[d.id]=1;
+    var got=await portalCall("/api/policy/read",frameRef(d,{mirror:d.policy||null}));
+    var sc=mergePortalPolicy(d,got);if(sc)screens.push(sc);
+  }
+  portalScreen=screens.length?screens[0]:null;
+  return screens;
+}
+function pushPortalPolicy(d,changes){
+  // 검수기에서 정한 것을 포털의 화면·요소 층에 쌓는다(포털이 꺼져 있으면 조용히 넘어간다).
+  if(!changes||!changes.length)return;
+  portalCall("/api/policy/write",frameRef(d,{actor:"검수기",changes:changes}));
+}
 var designs=[],captures=[],pairs=[],results=[];
 var currentResult=0,selectedCandidateId=null,renderWaiters={},overlayVisibleByPair={};
 var designImages={},captureById={},messageTarget="design",pendingCompare=false,selectionReady=false;
@@ -1750,6 +1786,8 @@ async function runCompare(){
   var active=pairs.filter(function(p){return p.captureId;});if(!active.length)return;
   messageTarget="compare";startCompare.disabled=true;
   setView("loading");
+  loadingStatus.textContent="포털에서 검수 규칙 받는 중…";
+  await pullPortalPolicy(active.map(function(p){return designs[p.designIndex];}));
   results=[];overlayVisibleByPair={};canvasCompareKey=null;
   for(var i=0;i<active.length;i++){
     var p=active[i],d=designs[p.designIndex],cap=captureById[p.captureId],img=designImages[d.id];
@@ -1775,7 +1813,9 @@ function comparePair(p,d,cap,img){
   // 1차: 캡처 전체로 정렬·비교해 디자인의 틀 띠와 캡처의 위·아래 띠를 찾는다.
   // 디자인에도 틀(가짜 탭바·하단 내비게이션)이 있고 캡처의 같은 쪽에도 띠가 있으면 둘 다 틀로 보고 그만큼 잘라 2차 비교한다.
   // 디자인에 틀이 없는데 캡처에만 띠가 있으면 진짜 추가 요소일 수 있으니 자르지 않고 안내만 한다(사람이 검수 범위에서 결정).
-  var manual=cap.topTrim!=null?cap.topTrim:null,manualBottom=cap.bottomTrim!=null?cap.bottomTrim:null;
+  var pol=d.policy||{};
+  var manual=cap.topTrim!=null?cap.topTrim:(pol.rangeTop!=null?pol.rangeTop:null);       // 이 캡처에 직접 정한 값 > 포털 화면·서비스 층
+  var manualBottom=cap.bottomTrim!=null?cap.bottomTrim:(pol.rangeBottom!=null?pol.rangeBottom:null);
   var trim=manual!=null?Math.max(0,Math.round(manual)):0,bottom=manualBottom!=null?Math.max(0,Math.round(manualBottom)):0;
   var auto=false,autoBottom=false,strip=0,model,cands,bandsFirst=null,view=cap;
   var designBands=deviceKeyboardBands(d); // 시안에 그려 넣은 화면 키보드도 개발 캡처와 똑같이 뺀다
@@ -1841,6 +1881,7 @@ async function recompareCurrent(topTrim,bottomTrim){
   var r=results[currentResult];if(!r)return;var p=pairs.filter(function(x){return x.id===r.pairId;})[0];if(!p)return;
   bottomTrim=Math.max(0,Math.round(bottomTrim||0));
   var cap=r.capture;cap.topTrim=topTrim;cap.bottomTrim=bottomTrim;if(cap.nodeId)post({type:"set-capture-trim",nodeId:cap.nodeId,topTrim:topTrim,bottomTrim:bottomTrim});
+  pushPortalPolicy(r.design,[{rule:"rangeTop",value:topTrim},{rule:"rangeBottom",value:bottomTrim}]);
   rangeApply.disabled=true;rangeNone.disabled=true;rangeApply.textContent="다시 비교 중…";
   await new Promise(function(res){setTimeout(res,20);});
   var next=comparePair(p,r.design,cap,designImages[r.design.id]);results[currentResult]=next;selectedCandidateId=null;overlayVisibleByPair[next.pairId]=false;
@@ -1941,16 +1982,19 @@ function renderReview(){
   numberLists.querySelectorAll(".number-group.fold .number-title").forEach(function(t){t.onclick=function(){variableOpen=!variableOpen;renderReview();};});
 }
 var variableOpen=false; // '가변 글자' 묶음은 접힌 것이 기본
-function savePolicy(d){post({type:"set-design-policy",designId:d.id,policy:d.policy||null});}
+function savePolicy(d,changes){
+  post({type:"set-design-policy",designId:d.id,policy:d.policy||null}); // 피그마 프레임(거울)
+  pushPortalPolicy(d,changes);                                          // 포털(원본)
+}
 function pushPolicyChanges(r){applyPolicyToResult(r).forEach(function(k){post({type:"candidate-status",candidateId:k.id,status:k.status});});}
 function setTextOverride(id,variable){
   // 사람이 '가변'/'고정'을 누르면 그 글자(디자인 노드)를 기억해 두고, 같은 글자의 후보를 바로 다시 묶는다. 다음 검수부터는 자동으로 같은 판정.
   var r=results[currentResult],c=findCandidate(id);if(!r||!c)return;var nid=(c.designNodeIds||[])[0];if(!nid)return;
   var d=r.design;d.policy=d.policy||{};d.policy.variable=d.policy.variable||{};d.policy.variable[nid]=!!variable;
-  savePolicy(d);pushPolicyChanges(r);if(variable)variableOpen=true;renderReview();
+  savePolicy(d,[{rule:"variable",key:nid,value:!!variable}]);pushPolicyChanges(r);if(variable)variableOpen=true;renderReview();
 }
 function setScreenKind(type){
-  var r=results[currentResult];if(!r)return;var d=r.design;d.policy=d.policy||{};d.policy.screenType=type;savePolicy(d);
+  var r=results[currentResult];if(!r)return;var d=r.design;d.policy=d.policy||{};d.policy.screenType=type;savePolicy(d,[{rule:"screenType",value:type}]);
   results.forEach(function(x){if(x.design===d)pushPolicyChanges(x);});renderReview();
 }
 function renderScreenKind(r){

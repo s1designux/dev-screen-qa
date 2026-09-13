@@ -23,6 +23,7 @@ import comparison_view
 import auto_inspect
 import design_receive
 import policy_ui
+import policy_api
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -925,6 +926,8 @@ class Handler(BaseHTTPRequestHandler):
             intake_http.post(self, intake(), path)
             return
         if auto_inspect.post(self, intake(), path):
+            return
+        if policy_api.post(self, intake(), path):   # 검수기 플러그인 ↔ 포털 규칙 배선
             return
         if policy_ui.post(self, intake(), path):
             return

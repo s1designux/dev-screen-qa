@@ -153,6 +153,8 @@ function collectDesign(root) {
   return items;
 }
 
+function fileKeyOf() { try { return figma.fileKey || ""; } catch (e) { return ""; } }
+function fileNameOf() { try { return (figma.root && figma.root.name) || ""; } catch (e) { return ""; } }
 function readDesignPolicy(node) {
   // 디자인 프레임에 저장된 설정값(화면 종류·글자 가변 여부). 없거나 깨졌으면 null.
   try {
@@ -290,7 +292,8 @@ async function exportSelectedDesigns() {
       id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
       x: round1(bb.x), y: round1(bb.y),
       width: round1(bb.width), height: round1(bb.height),
-      bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root)
+      bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root),
+      fileKey: fileKeyOf(), fileName: fileNameOf()   // 포털이 이 프레임에 해당하는 검수 화면을 찾는 데 쓴다
     });
   }
   return out;
@@ -961,7 +964,8 @@ figma.ui.onmessage = async function (msg) {
             id: root.id, name: root.name || ("디자인 " + (i + 1)), type: root.type,
             x: round1(bb.x), y: round1(bb.y),
             width: round1(bb.width), height: round1(bb.height),
-            bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root)
+            bytes: Array.from(bytes), elements: collectDesign(root), policy: readDesignPolicy(root),
+            fileKey: fileKeyOf(), fileName: fileNameOf()
           });
         }
       }
