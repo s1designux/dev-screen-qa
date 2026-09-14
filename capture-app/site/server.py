@@ -1110,13 +1110,28 @@ class _여섯(HTTPServer):
 
 
 def main():
-    print(f"촬영 준비 사이트 → http://127.0.0.1:{PORT}   (끄려면 Ctrl+C)")
+    # 기본은 내 PC에서만. 같은 망의 다른 PC에서도 열려면 QA_CAPTURE_BIND=0.0.0.0 으로 켠다.
+    묶을자리 = os.environ.get("QA_CAPTURE_BIND", "127.0.0.1")
+    보일주소 = 묶을자리 if 묶을자리 not in ("0.0.0.0", "") else _내주소()
+    print(f"촬영 준비 사이트 → http://{보일주소}:{PORT}   (끄려면 Ctrl+C)")
     try:                                   # 127.0.0.1 과 ::1 둘 다 받는다(Figma 플러그인용)
         여섯 = _여섯(("::1", PORT), 손님)
         threading.Thread(target=여섯.serve_forever, daemon=True).start()
     except OSError:
         pass
-    HTTPServer(("127.0.0.1", PORT), 손님).serve_forever()
+    HTTPServer((묶을자리, PORT), 손님).serve_forever()
+
+
+def _내주소():
+    """같은 망의 다른 PC가 칠 주소를 알려 주기만 한다(바깥으로 보내지 않는다)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.168.0.1", 9))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 
 if __name__ == "__main__":
