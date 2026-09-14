@@ -158,7 +158,7 @@
     return btoa(s);
   }
 
-  var 바꾼것 = [], 바꾸기실패 = [], 남은것 = [];
+  var 바꾼것 = [], 바꾸기실패 = [];
   onmessage = function (e) {
     var m = e.data.pluginMessage;
     if (!m) return;
@@ -221,16 +221,14 @@
 
   function 바꾸기끝() {
     포털에묻기();   // 이제 id로 찾히므로 목록을 다시 맞춘다
-    if (남은것.length) { 촬영준비로(); return; }    // 검수 화면이 없던 것만 이어서 촬영 준비로
-    단추그리기();
-    바꾼말('');
+    촬영준비로();   // 바꾼 것까지 모두 촬영 준비로 이어 보낸다
   }
 
+  // 고른 것은 하나도 빼지 않고 촬영 준비로 보낸다 — 시안을 갈아끼운 화면도 다시 찍어야 한다(river 2026-09-14).
   function 촬영준비로() {
     말.className = '말'; 말.textContent = '그림 뜨는 중…';
     parent.postMessage({ pluginMessage: {
-      갈래: '보내기', 플랫폼: 갈래, 찍을폭: 대표폭(),
-      건너뛸: 화면들.filter(function (f) { return 짝[f.id]; }).map(function (f) { return f.id; })
+      갈래: '보내기', 플랫폼: 갈래, 찍을폭: 대표폭()
     } }, '*');
   }
 
@@ -238,14 +236,13 @@
     parent.postMessage({ pluginMessage: { 갈래: '사이트열기' } }, '*');
   };
 
-  // 단추는 하나다. 줄마다 적힌 대로 갈라 보낸다 —
-  // 검수 화면이 있는 것은 그 시안을 덮어쓰고, 없는 것만 촬영 준비로 보낸다.
+  // 단추는 하나다. 검수 화면이 있는 것은 그 시안을 먼저 덮어쓰고,
+  // 그다음 고른 것 **전부**(바꾼 것 포함)를 촬영 준비로 보낸다.
   단추.onclick = function () {
     단추.disabled = true;
     바꾼것 = []; 바꾸기실패 = [];
     var 바꿀것 = 화면들.filter(function (f) { return 짝[f.id]; })
                     .map(function (f) { return { id: f.id, page: 짝[f.id] }; });
-    남은것 = 화면들.filter(function (f) { return !짝[f.id]; });
     if (바꿀것.length) {
       말.className = '말'; 말.textContent = '그림 뜨는 중…';
       parent.postMessage({ pluginMessage: { 갈래: '검수시안보내기', 대상: 바꿀것 } }, '*');

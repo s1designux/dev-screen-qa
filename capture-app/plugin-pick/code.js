@@ -294,11 +294,8 @@ figma.ui.onmessage = async function (msg) {
     return;
   }
   if (msg.갈래 !== '보내기') return;
+  // 시안을 갈아끼운 화면도 빼지 않는다 — 시안이 바뀌었으면 개발 화면도 다시 찍어야 한다.
   var 고른것 = 줄세우기(펼치기(figma.currentPage.selection.slice()));
-  // 검수 화면이 이미 있는 프레임은 시안만 갈아끼웠으므로 촬영 준비로 또 보내지 않는다.
-  var 건너뛸 = {};
-  (msg.건너뛸 || []).forEach(function (id) { 건너뛸[id] = 1; });
-  고른것 = 고른것.filter(function (n) { return !건너뛸[n.id]; });
   if (!고른것.length) {
     figma.ui.postMessage({ 갈래: '알림', 글: '먼저 캔버스에서 화면을 골라 주세요.' });
     return;
