@@ -40,6 +40,31 @@ BASE = Path(__file__).resolve().parent
 REAL_DB = Path(os.environ.get("QA_PORTAL_DB", str(BASE / "mvp0-real.db")))   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
 UPLOADS = Path(os.environ.get("QA_PORTAL_UPLOADS", str(BASE / "uploads")))        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
 PORT = int(os.environ.get("QA_PORTAL_PORT", "8765"))
+# 기본은 이 컴퓨터에서만. QA_PORTAL_SHARE=1 이면 같은 네트워크의 동료도 들어올 수 있다.
+HOST = "0.0.0.0" if os.environ.get("QA_PORTAL_SHARE") == "1" else "127.0.0.1"
+
+
+def _is_private_ip(addr):
+    """사무실 안에서만 쓰는 주소인지. 밖에서 온 요청은 받지 않는다."""
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(addr)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback
+
+
+def _lan_ip():
+    """같은 네트워크에서 쓸 수 있는 이 컴퓨터의 주소."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
 AUTORELOAD = os.environ.get("QA_PORTAL_AUTORELOAD") == "1"   # run_portal.py 가 켤 때만 1
 BOOT_ID = str(time.time())                                    # 다시 켜지면 바뀐다 → 열어 둔 화면이 새로고침
 
@@ -1000,7 +1025,16 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _local_host(self):
-        return self.headers.get('Host', '') in (f'127.0.0.1:{PORT}', f'localhost:{PORT}')
+        host = self.headers.get('Host', '')
+        if host in (f'127.0.0.1:{PORT}', f'localhost:{PORT}'):
+            return True
+        # 동료 공유를 켜면 같은 사무실 네트워크(사설 IP)에서 들어오는 것도 받는다.
+        if HOST != "0.0.0.0":
+            return False
+        name = host.rsplit(':', 1)
+        if len(name) != 2 or name[1] != str(PORT):
+            return False
+        return _is_private_ip(name[0])
 
     @staticmethod
     def _nf(msg):
@@ -1354,8 +1388,11 @@ def main():
             f"{REAL_DB} 없음. 먼저: python load_fixture.py fixtures/tb-web-001.json mvp0-real.db"
         )
     intake().init()
-    srv = HTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"포털 실행 → http://127.0.0.1:{PORT}  (Ctrl+C 종료)")
+    srv = HTTPServer((HOST, PORT), Handler)
+    if HOST == "127.0.0.1":
+        print(f"포털 실행 → http://127.0.0.1:{PORT}  (이 컴퓨터에서만, Ctrl+C 종료)")
+    else:
+        print(f"포털 실행 → http://{_lan_ip()}:{PORT}  (같은 사무실 네트워크에서 접속, Ctrl+C 종료)")
     srv.serve_forever()
 
 
