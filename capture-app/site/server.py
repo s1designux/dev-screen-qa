@@ -260,17 +260,28 @@ tr.tie td { background:var(--color-bg-level-1); }
 .dim2.warn { color:var(--color-red-400); }
 .sect { font-size:var(--font-size-12); font-weight:var(--font-weight-bold);
   color:var(--color-text-body-primary); margin:var(--spacing-14) 0 var(--spacing-6); }
-/* 동작 사양 — 시안에서 채우면 좋을 것. 항목이 많아질 수 있어 갈래로 접어 둔다. */
-.spec details { border-top:1px solid var(--color-border-subtle); }
-.spec details:first-of-type { border-top:0; }
-.spec summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:var(--spacing-8);
-  padding:var(--spacing-10) var(--spacing-2); font-size:var(--font-size-14);
-  font-weight:var(--font-weight-medium); color:var(--color-text-body-primary); }
-.spec summary::-webkit-details-marker { display:none; }
-.spec summary::before { content:"▸"; color:var(--color-text-helper); font-size:var(--font-size-10); }
-.spec details[open] > summary::before { content:"▾"; }
-.spec summary .n { margin-left:auto; font-size:var(--font-size-12);
-  font-weight:var(--font-weight-bold); color:var(--color-yellow-450); }
+/* 동작 사양 — 시안에서 채우면 좋을 것. 칸째로 접었다 펴고, 안에서 갈래로 또 접는다. */
+.spec { padding:0; border-color:var(--color-red-100); }
+.spec > summary { list-style:none; cursor:pointer; display:flex; align-items:center;
+  gap:var(--spacing-6); padding:var(--spacing-16) var(--spacing-20);
+  font-size:var(--font-size-14); color:var(--color-text-state-caution);
+  border-radius:var(--radius-12); }
+.spec > summary::-webkit-details-marker { display:none; }
+.spec > summary:hover { background:var(--color-red-50); }
+.spec[open] > summary { border-radius:var(--radius-12) var(--radius-12) 0 0; }
+.spec > summary .ttl { font-weight:var(--font-weight-bold); }
+.spec > summary .muted { font-weight:var(--font-weight-medium); }
+.spec > summary .arw { margin-left:auto; flex:0 0 auto; transition:transform .15s; }
+.spec[open] > summary .arw { transform:rotate(180deg); }
+/* 펴 놓으면 길어질 수 있어, 일정 높이부터는 안쪽만 굴러간다(머리말은 제자리에 남는다). */
+.spec > .body { padding:0 var(--spacing-20) var(--spacing-16); max-height:440px; overflow-y:auto; }
+.spec .body .grp { display:flex; align-items:center; gap:var(--spacing-8);
+  border-top:1px solid var(--color-border-subtle); padding:var(--spacing-10) var(--spacing-2);
+  font-size:var(--font-size-14); font-weight:var(--font-weight-medium);
+  color:var(--color-text-body-primary); }
+.spec .body .grp:first-child { border-top:0; }
+.spec .body .grp .n { margin-left:auto; font-size:var(--font-size-12);
+  font-weight:var(--font-weight-bold); color:var(--color-text-state-caution); }
 .spec .it { display:flex; gap:var(--spacing-10); align-items:flex-start;
   padding:var(--spacing-2) var(--spacing-2) var(--spacing-12) var(--spacing-20); font-size:var(--font-size-12); }
 .spec .it img, .spec .it .cut { width:360px; height:240px; flex:0 0 360px;
@@ -283,7 +294,7 @@ tr.tie td { background:var(--color-bg-level-1); }
 .spec .it img { object-fit:cover; object-position:top center; }
 .spec .it .cut { display:block; background-repeat:no-repeat; }
 .spec .it .tx { min-width:0; }
-.spec h2 .ico { vertical-align:-3px; margin-right:var(--spacing-6); }
+.spec > summary .ico { flex:0 0 auto; }
 .spec .it .nm { color:var(--color-text-body-primary); word-break:keep-all; }
 .spec .it .why { color:var(--color-text-body-tertiary); margin-top:var(--spacing-2); line-height:1.55; }
 .spec .more { padding:0 var(--spacing-2) var(--spacing-10) var(--spacing-20); font-size:var(--font-size-12); }
@@ -463,12 +474,10 @@ def _동작사양칸(고른것, 유형=None):
     if not 나온것:
         return ""
     첫줄 = 5                                   # 갈래마다 처음 보일 줄 수 — 나머지는 '더 보기'
-    덩이, 복사줄 = "", []
+    덩이 = ""
     for gi, (갈래, 항목) in enumerate(동작점검.갈래별(나온것)):
-        복사줄.append("[%s]" % 갈래)
         줄 = ""
         for i, it in enumerate(항목):
-            복사줄.append("  - %s — %s" % (it["화면"], it["말"]))
             숨김 = ' class="it hid" style="display:none"' if i >= 첫줄 else ' class="it"'
             그림 = ""
             if it.get("자리"):
@@ -489,35 +498,31 @@ def _동작사양칸(고른것, 유형=None):
         if len(항목) > 첫줄:
             줄 += (f'<div class="more" data-g="{gi}">'
                    f'<a onclick="더보기({gi}, this)">… {len(항목) - 첫줄}개 더 보기</a></div>')
-        덩이 += (f'<details{" open" if gi == 0 else ""}><summary>{_e(갈래)}'
-                 f'<span class="n">{len(항목)}</span></summary>{줄}</details>')
-        복사줄.append("")
-    복사 = _e("\n".join(복사줄).strip())
+        # 갈래 머리말은 접지 않는다 — 칸 자체가 접히므로 안에서 또 접으면 두 번 눌러야 한다.
+        덩이 += (f'<div class="grp">{_e(갈래)}'
+                 f'<span class="n">{len(항목)}</span></div>{줄}')
     주의아이콘 = ('<svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">'
-              '<path fill="var(--color-yellow-400)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
-              '<path fill="var(--color-yellow-400)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
+              '<path fill="var(--color-icon-red)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
+              '<path fill="var(--color-icon-red)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
+    # 접혔을 때는 머리말만 보이고, 오른쪽 화살표가 펼 수 있다고 알린다.
+    화살표 = ('<svg class="arw" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">'
+            '<path fill="none" stroke="var(--color-icon-red)" stroke-width="2" stroke-linecap="round"'
+            ' stroke-linejoin="round" d="m7 10 5 5 5-5"/></svg>')
     return f"""
-    <div class="card spec"><h2>{주의아이콘}디자인 수정 필요
-        <span class="muted">· 받은 {len(고른것)}개 중 {len(나온것)}건</span>
-        <span class="cnt"><a class="btn" style="padding:var(--spacing-4) var(--spacing-10)" onclick="사양복사(this)">목록 복사</a></span></h2>
-      <div class="hint" style="margin:0 0 var(--spacing-4)">눌러 봐야 알 수 있는 것만 봅니다 — 색·크기 같은 기준은
-        디자인 쪽 검수기에서 보세요.</div>
+    <details class="card spec">
+      <summary>{주의아이콘}<span class="ttl">디자인 수정 필요</span>
+        <span class="muted">· 받은 {len(고른것)}개 중 {len(나온것)}건</span>{화살표}</summary>
+      <div class="body">
       {덩이}
-      <textarea id="사양글" style="position:absolute;left:-9999px" readonly>{복사}</textarea>
       <script>
         function 더보기(g, el) {{
           document.querySelectorAll('.spec .it.hid[data-g="' + g + '"]')
             .forEach(function(d) {{ d.style.display = ''; }});
           el.parentNode.style.display = 'none';
         }}
-        function 사양복사(el) {{
-          var t = document.getElementById('사양글');
-          t.select(); document.execCommand('copy');
-          var 옛 = el.textContent; el.textContent = '복사했습니다';
-          setTimeout(function() {{ el.textContent = 옛; }}, 1200);
-        }}
       </script>
-    </div>"""
+      </div>
+    </details>"""
 
 
 def 화면_디자인(오류=""):
@@ -592,7 +597,8 @@ def 화면_디자인(오류=""):
                    f'<figcaption>{_e(f.get("이름",""))}'
                    f'<span class="dim2{" warn" if 넓음 else ""}">{f.get("폭")}×{f.get("높이")}'
                    f'{" ⚠︎ 폰치고 넓음" if 넓음 else ""}</span></figcaption></figure>')
-        본문 = f"""
+        # '디자인 수정 필요'는 걸음 칩 바로 아래 — 받은 화면을 보기 전에 먼저 눈에 띄게 둔다.
+        본문 = _동작사양칸(고른것, 작업.get("유형")) + f"""
         <div class="card"><h2>{_e(작업["파일"].get("파일이름"))} —
             {_e(고른것[0].get("페이지", "") if 고른것 else "")}
             <span class="cnt">받은 화면 {len(고른것)}개</span></h2>
@@ -602,7 +608,7 @@ def 화면_디자인(오류=""):
           <div class="bar"><a class="btn" href="/비우기">비우고 다시 받기</a>
             <span class="right"></span>
             <a class="btn go" href="/초안">다음 — 찍을 목록 만들기 →</a></div>
-        </div>""" + _동작사양칸(고른것, 작업.get("유형")) + 안내
+        </div>""" + 안내
         return 껍데기("/", 본문, "Figma에서 고른 화면만 가져온다", 알림)
 
     본문 = 안내 + 열쇠칸 + f"""
