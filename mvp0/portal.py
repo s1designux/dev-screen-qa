@@ -450,7 +450,7 @@ def render_screen(human_key: str, notice=""):
         주소 = (json.loads(s["dev_keys"] or "[]") or [""])[0]
     except Exception:
         주소 = ""
-    셈 = fixdoc_http.셈하기(UPLOADS, pages, human_key, 주소) if pages else None
+    셈 = fixdoc_http.셈하기(UPLOADS, pages, human_key, 주소, intake()) if pages else None
     warn_html = fixdoc_http.카드(_esc(human_key), 셈) if 셈 is not None else ""
 
     return f"""<!DOCTYPE html>
@@ -1060,7 +1060,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             주소 = ""
         try:
-            글 = fixdoc_http.문서만들기(UPLOADS, pages, human_key, row["name"], 주소)
+            글 = fixdoc_http.문서만들기(UPLOADS, pages, human_key, row["name"], 주소, intake())
         except Exception as e:
             self._html(f"<p style='font-family:sans-serif;padding:40px'>수정요청서를 만들지 못했습니다 — {_esc(str(e))}</p>", 500)
             return

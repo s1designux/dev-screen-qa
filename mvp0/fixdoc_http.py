@@ -9,9 +9,14 @@
 
 둘 다 있는 페이지만 대조한다(앱 촬영본·옛 자료는 값이 없어 건너뛴다).
 여기서 나오는 것도 **후보**다 — 확정은 사람이 한다(CLAUDE.md 2번-2).
+
+같은 후보가 페이지 상세에도 카드로 올라가 있다(`value_candidates.py`). 사람이 거기서 **제외**로 내린 것은
+이 문서에서도 빠진다 — 문서는 데이터를 읽어 만드는 출력물이다(CLAUDE.md 2번-1).
 """
 import json
 import time
+
+import value_candidates
 
 준비됨 = True
 try:
@@ -51,11 +56,13 @@ def _짝자료(uploads, pages):
     return 쓸것
 
 
-def _대조(uploads, pages, human_key, 주소):
-    """페이지별 값 대조 + (받아 둔 정본이 있으면) 규정 대조."""
+def _대조(uploads, pages, human_key, 주소, store=None):
+    """페이지별 값 대조 + (받아 둔 정본이 있으면) 규정 대조. 사람이 제외한 후보는 뺀다."""
     본 = 정본()
+    쓸것 = _짝자료(uploads, pages)
+    판정 = value_candidates.판정표(store, [p['uuid'] for _, p, _, _ in 쓸것]) if store else {}
     화면별 = []
-    for n, p, 시안길, 개발길 in _짝자료(uploads, pages):
+    for n, p, 시안길, 개발길 in 쓸것:
         시안 = 시안읽기(str(시안길))
         with open(개발길, encoding="utf-8") as f:
             개발 = json.load(f)
@@ -64,26 +71,26 @@ def _대조(uploads, pages, human_key, 주소):
         if 본:
             from valueqa.rules import 규정검사
             메모["규정"] = 규정검사(결과, 본, None, 0, "PC")
-        화면별.append((결과, 메모))
+        화면별.append((value_candidates.거른것(결과, 판정.get(p['uuid'])), 메모))
     return 화면별
 
 
-def 셈하기(uploads, pages, human_key, 주소):
+def 셈하기(uploads, pages, human_key, 주소, store=None):
     """주의 카드에 적을 숫자. **문서의 '모두' 칸과 같은 수**를 쓴다(둘이 어긋나면 안 된다)."""
     if not 준비됨:
         return None
     try:
-        화면별 = _대조(uploads, pages, human_key, 주소)
+        화면별 = _대조(uploads, pages, human_key, 주소, store)
     except Exception:
         return None
     return 셈만(화면별) if 화면별 else None
 
 
-def 문서만들기(uploads, pages, human_key, 화면이름, 주소):
+def 문서만들기(uploads, pages, human_key, 화면이름, 주소, store=None):
     """내려받을 Markdown 한 장."""
     if not 준비됨:
         return None
-    화면별 = _대조(uploads, pages, human_key, 주소)
+    화면별 = _대조(uploads, pages, human_key, 주소, store)
     if not 화면별:
         return None
     return 지시서묶음(화면별, 제목="개발화면 수정 요청 — %s" % 화면이름, 차수=1)

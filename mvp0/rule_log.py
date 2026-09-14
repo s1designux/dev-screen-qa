@@ -51,6 +51,7 @@ RULE_TITLE = {
     'screen': '화면 종류(공통=고정 / 일반=가변)',
     'rowValueMissing': '표 본문 값이 안 보이는 것은 데이터 차이',
     'exclude': '제외(규칙 이름 없음 — 옛 결과)',
+    'value': '값 대조 — 시안 값과 다름(valueqa)',
 }
 
 

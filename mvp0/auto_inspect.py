@@ -20,6 +20,7 @@ import figma_reader
 import issue_categories
 import policy as policymod
 import rule_log
+import value_candidates
 
 ENGINE_UI = Path(__file__).resolve().parents[1] / 'engine' / 'ui.html'
 PLUGIN_UI = ENGINE_UI  # (옛 이름) 2026-09-14 피그마 플러그인 폐기 — 엔진 원본은 engine/ui.html 한 벌뿐이다
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS auto_run (
  status TEXT NOT NULL CHECK(status IN ('pending','done','failed')), engine TEXT NOT NULL DEFAULT '',
  created_at TEXT NOT NULL, finished_at TEXT, error TEXT NOT NULL DEFAULT '',
  alignment TEXT NOT NULL DEFAULT '', range TEXT NOT NULL DEFAULT '', notices TEXT NOT NULL DEFAULT '[]',
- capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT ''
+ capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT '',
+ source TEXT NOT NULL DEFAULT 'engine'
 );
 CREATE TABLE IF NOT EXISTS auto_range (
  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES inspection_run(uuid),
@@ -105,7 +107,7 @@ def _table_sql(name):
 
 def repair(database):
     """옛 모양의 자동 검수 표를 지금 모양으로 다시 세운다. 행은 하나도 버리지 않는다.
-    - auto_run: design_id가 없거나 (run_id, design_id) 유일 제약이 남아 있으면(검수 범위를 바꿔 다시 돌리면 회차가 여러 개) 다시 세운다.
+    - auto_run: design_id·source가 없거나 (run_id, design_id) 유일 제약이 남아 있으면(검수 범위를 바꿔 다시 돌리면 회차가 여러 개) 다시 세운다.
     - auto_candidate / auto_candidate_event: 참조가 이름 바뀐 옛 표(auto_run_v1 등)를 가리키면 다시 세운다.
     - 이름 바꾸다 남은 auto_run_v0/v1, auto_candidate_v0의 행은 합치고 표는 지운다.
     외래키 검사를 끈 별도 연결에서 한다(같은 연결·트랜잭션 안에서는 끌 수 없어 참조가 꼬였다)."""
@@ -137,7 +139,7 @@ def repair(database):
             for t in ('auto_run__new', 'auto_candidate__new', 'auto_candidate_event__new'):
                 if t in names():
                     conn.execute(f'DROP TABLE "{t}"')  # 전에 고치다 만 자취
-            if 'design_id' not in cols('auto_run') or 'UNIQUE(' in sql_of('auto_run'):
+            if 'design_id' not in cols('auto_run') or 'source' not in cols('auto_run') or 'UNIQUE(' in sql_of('auto_run'):
                 rebuild('auto_run')
             merge('auto_run', 'auto_run_v1')
             merge('auto_run', 'auto_run_v0')
@@ -242,7 +244,8 @@ class Auto:
     def run_for(self, c, run_id, page_id=None):
         """그 차수 + 지금 시안의 자동 검수. 시안이 바뀌면 새로 돈다(옛 결과는 남는다)."""
         design = self.design_of_page(c, page_id) if page_id else None
-        return c.execute('SELECT * FROM auto_run WHERE run_id=? AND design_id=? ORDER BY rowid DESC LIMIT 1', (run_id, design['id'] if design else '')).fetchone()
+        return c.execute("SELECT * FROM auto_run WHERE run_id=? AND design_id=? AND source='engine' ORDER BY rowid DESC LIMIT 1",
+                         (run_id, design['id'] if design else '')).fetchone()
 
     # ── 검수 범위(사람이 정한 위·아래 제외 px) ────────────────────────
     def current_range(self, c, run_id):
@@ -396,6 +399,8 @@ class Auto:
     def _remember(self, c, k, status, actor):
         """사람이 후보에 내린 판정을 그 화면의 **요소 층 정책**으로 쌓는다 — 다음 차수·다음 시안에서도 기억하게.
         가변 ↔ 고정(open)은 글자에만, 제외는 어떤 요소든. 요소를 여럿 가리키는 후보는 하나하나에 쓴다."""
+        if value_candidates.값후보인가(k):
+            return                                   # 값 대조 후보의 판정은 그림 검수 규칙이 아니다 — 요소 층에 쌓지 않는다
         ids = json.loads(k['design_node_ids'] or '[]')
         if not ids:
             return
@@ -459,7 +464,11 @@ class Auto:
 
     # ── 화면 조각 ─────────────────────────────────────────────────
     def view(self, page_id, run):
-        """페이지 상세에 넣을 재료(읽기 전용 — 페이지를 여는 것만으로는 아무것도 쓰지 않는다).
+        """페이지 상세에 넣을 재료 — 그림 검수 후보 + 값 대조 후보(valueqa)를 한 목록으로."""
+        return value_candidates.붙이기(self.store, page_id, run, self._engine_view(page_id, run))
+
+    def _engine_view(self, page_id, run):
+        """그림 검수(engine/ui.html) 쪽 재료(읽기 전용 — 페이지를 여는 것만으로는 아무것도 쓰지 않는다).
         결과가 없으면 가상의 '대기' 상태를 돌려주고, 실제 회차 생성·엔진 실행은 페이지 JS의 POST가 한다."""
         if not run:
             return None
@@ -500,23 +509,27 @@ def panel_html(view, page_id, person_options='', which='open'):
         return f'<div class="grid">{cards}</div>' if cards else '<p class="empty">항목 없음</p>'
     r = view['run']
     head = f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" data-round="{view["round"]}" data-scale="{view["scale"]}"></div>'
+    def grid(items):
+        cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
+        return f'<div class="grid">{cards}</div>' if cards else ''
+    열린것 = [k for k in view['candidates'] if k['status'] == 'open']
+    # 그림 검수가 아직 돌고 있거나 못 돌았어도 값 대조 후보는 이미 나와 있다 — 먼저 보여 준다.
+    값것 = [k for k in 열린것 if value_candidates.값후보인가(k)]
     if r['status'] == 'pending':
-        return head + ('<p class="empty auto-wait"><span class="auto-spin" aria-hidden="true"></span>'
-                       '<span id="auto-msg">검수중입니다.</span></p>')
+        줄 = ' inline' if 값것 else ''
+        return head + (f'<p class="empty auto-wait{줄}"><span class="auto-spin" aria-hidden="true"></span>'
+                       '<span id="auto-msg">검수중입니다.</span></p>') + grid(값것)
     if r['status'] == 'failed':
         return head + (f'<p class="empty auto-msg">자동 검수를 못 했어요 — {_e(r["error"])}</p>'
                        f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>'
-                       + range_html(view, person_options))
-    out = head + range_html(view, person_options)
-    items = [k for k in view['candidates'] if k['status'] == 'open']
-    cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
-    return out + (f'<div class="grid">{cards}</div>' if cards else '')
+                       + range_html(view, person_options)) + grid(값것)
+    return head + range_html(view, person_options) + grid(열린것)
 
 
 def range_html(view, person_options=''):
     """검수 범위 카드: 지금 개발 화면에서 위·아래 몇 px를 비교에서 뺐는지 + '조정'(선 두 개 끌기 → 그 범위로 다시 검수)."""
     rv = view.get('range') or {}
-    if not rv.get('dev_img'):
+    if view.get('값만') or not rv.get('dev_img'):
         return ''
     r = view['run']
     try:
@@ -574,11 +587,13 @@ def card_html(k, numbers, page_id, rnd):
         ex = (f'<button type="button" class="auto-ex{" on" if off else ""}" '
               f'onclick="event.stopPropagation();autoStatus(\'{k["id"]}\', '
               f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
+    from_value = value_candidates.값후보인가(k)
+    tags = f'<span class="tag">{_e(kind_lbl)}</span>' + ('<span class="tag val">값 대조</span>' if from_value else '')
     box = f'({int(k["box_x"] or 0)},{int(k["box_y"] or 0)}) {int(k["box_w"] or 0)}×{int(k["box_h"] or 0)}'
     dv = f'<div class="loc">디자인 원본값: {_e(k["design_values"])}</div>' if k['design_values'] else ''
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" onclick="autoFocus(\'{k["id"]}\')">'
             f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(k["label"])}</b></div>'
-            f'<div class="props"><span class="tag">{_e(kind_lbl)}</span></div>'
+            f'<div class="props">{tags}</div>'
             f'<div class="loc">{_e(k["detail"])}</div>{dv}{pol_html}<div class="loc">위치 {box}</div>{foot}</div>')
 
 
@@ -626,6 +641,9 @@ CSS = '''
 .auto-range-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:12px}
 .auto-range-form input{width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px}
 .auto-range-form select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
+.auto-wait.inline{position:static;flex-direction:row;justify-content:flex-start;gap:8px;margin:0 0 10px;font-size:13px}
+.auto-wait.inline .auto-spin{width:18px;height:18px;border-width:3px}
+.auto-card .tag.val{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}
 .auto-wait{color:#475569;position:absolute;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
 .auto-spin{width:44px;height:44px;flex:none;border:4px solid #dfe6f0;border-top-color:#1D6CEB;border-radius:50%;animation:auto-spin .8s linear infinite}
 @keyframes auto-spin{to{transform:rotate(360deg)}}
