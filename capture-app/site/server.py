@@ -107,6 +107,7 @@ header { background:#fff; border-bottom:1px solid #e5e7eb; padding:16px 28px; }
 h1 { font-size:18px; margin:0; }
 .sub { font-size:12px; color:#6b7280; margin-top:4px; }
 .wrap { max-width:1040px; margin:0 auto; padding:20px 28px 70px; }
+.wrap.w2 { max-width:1320px; }   /* 칸이 많은 '찍을 목록' 쪽만 넓게 */
 .steps { display:flex; gap:8px; margin:16px 0 22px; flex-wrap:wrap; }
 .steps a, .steps span { font-size:13px; padding:6px 14px; border-radius:999px; border:1px solid #d1d5db;
   background:#fff; color:#6b7280; text-decoration:none; }
@@ -127,6 +128,16 @@ input[disabled] { background:var(--gray-50); color:var(--gray-300); border-color
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
 input.s { padding:6px 8px; font-size:13px; }
+/* 찍을 목록 — '동작'은 문장이라 한 줄 칸에 가두면 앞부분만 보인다.
+   여러 줄로 풀어 쓰는 칸으로 두고, 적은 만큼 칸이 자란다. */
+textarea.s { width:100%; box-sizing:border-box; padding:6px 8px; font-size:13px; line-height:1.55;
+  color:var(--form-text); font-family:inherit; border:1px solid var(--form-border);
+  border-radius:var(--radius-control); background:var(--form-bg); resize:vertical;
+  overflow:hidden; min-height:34px; }
+textarea.s:focus { outline:none; border-color:var(--blue-400); box-shadow:0 0 0 2px var(--blue-50); }
+textarea.s::placeholder { color:var(--form-placeholder); }
+table.list td { vertical-align:top; }
+table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
 /* 비밀번호 칸 — 눈 아이콘을 칸 안 오른쪽에 둔다(S-1 Input · Password 정본).
    숨김 중에는 eye_hide, 보이는 중에는 eye_show. 아이콘 색은 어느 상태에서나 하나다. */
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
@@ -354,7 +365,7 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
 <title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{CSS}</style></head><body>
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:13px">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
-<div class="wrap"><div class="steps">{칩}</div>{알림}{본문}</div>
+<div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{알림}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
 </body></html>"""
 
@@ -660,9 +671,9 @@ def 화면_초안(알림=""):
     def 셋째칸(i, r, 이어서):
         if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다
             return (f'<td><input class="s" type="text" name="주소_{i}" value="{_e(r.get("주소",""))}" '
-                    f'placeholder="/login" style="width:170px"></td>')
+                    f'placeholder="/login"></td>')
         return (f'<td><input class="s" type="text" name="누를것_{i}" value="{_e(r["누를것"])}" '
-                f'{"disabled" if 이어서 else ""} style="width:150px"></td>')
+                f'{"disabled" if 이어서 else ""}></td>')
 
     행 = ""
     for i, r in enumerate(작업["초안"]):
@@ -673,12 +684,12 @@ def 화면_초안(알림=""):
         빈동작 = 이어서 and not (r.get("동작", "") or "").strip()
         행 += f"""<tr class="{'tie' if 이어서 else ''}">
           <td class="muted">{i+1}</td>
-          <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}" style="width:64px"></td>
-          <td><input class="s" type="text" name="이름_{i}" value="{_e(r['이름'])}"></td>
-          <td><input class="s" type="text" name="상태_{i}" value="{_e(r['상태'])}" style="width:160px"></td>
+          <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}"></td>
+          <td><textarea class="s act" name="이름_{i}" rows="2" wrap="soft">{_e(r['이름'])}</textarea></td>
+          <td><textarea class="s act" name="상태_{i}" rows="2" wrap="soft">{_e(r['상태'])}</textarea></td>
           {셋째칸(i, r, 이어서)}
-          <td><input class="s" type="text" name="동작_{i}" value="{_e(r.get('동작',''))}"
-                 placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">
+          <td><textarea class="s act" name="동작_{i}" rows="2" wrap="soft"
+                 placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">{_e(r.get('동작',''))}</textarea>
               {f'<div class="bad">{_e(틀림)}</div>' if 틀림
                 else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}</td>
           <td style="font-size:11px">{표시}<div class="muted" style="font-size:10px">{_e(r.get('디자인이름',''))}</div></td>
@@ -799,12 +810,24 @@ def 화면_초안(알림=""):
       </script>
     </div>
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
-      <table><thead><tr><th></th><th>번호</th><th>화면 이름</th><th>상태</th>
+      <table class="list">
+        <colgroup><col style="width:30px"><col style="width:72px"><col style="width:18%">
+          <col style="width:15%"><col style="width:12%"><col><col style="width:120px"></colgroup>
+        <thead><tr><th></th><th>번호</th><th>화면 이름</th><th>상태</th>
         <th>{'개발 주소 <span class="muted">(기본 주소 뒤에 붙는 부분)</span>'
              if 웹 else '눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span>'}</th>
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
         <th>화면 묶음</th></tr></thead>
         <tbody>{행}</tbody></table>
+      <script>
+        /* 동작 칸은 적은 글만큼 스스로 자란다 — 긴 문장도 잘리지 않게. */
+        (function () {{
+          var 칸들 = document.querySelectorAll('textarea.act');
+          function 맞추기(t) {{ t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }}
+          칸들.forEach(function (t) {{ 맞추기(t); t.addEventListener('input', function () {{ 맞추기(t); }}); }});
+          window.addEventListener('resize', function () {{ 칸들.forEach(맞추기); }});
+        }})();
+      </script>
       <div class="bar"><a class="btn" href="/">← 다시 고르기</a>
         <span class="right"></span>
         <button type="submit" name="그래도" value="1">그대로 진행</button>
@@ -1285,12 +1308,13 @@ class 손님(BaseHTTPRequestHandler):
             틀린것, 빈줄 = [], []
             for i, r in enumerate(작업.get("초안", [])):
                 for k in ("번호", "이름", "상태") + (() if 웹 else ("누를것",)):
-                    v = 한개(f"{k}_{i}")
+                    v = " ".join(한개(f"{k}_{i}").split())   # 여러 줄 칸 — 줄바꿈은 공백으로
                     if v:
                         r[k] = v
                 if 웹:
                     r["주소"] = 한개(f"주소_{i}")
-                r["동작"] = 한개(f"동작_{i}")
+                # 동작 칸은 여러 줄로 적을 수 있다 — 줄바꿈은 화살표 앞뒤 공백과 같이 다룬다.
+                r["동작"] = " ".join(한개(f"동작_{i}").split())
                 까닭 = 동작말.확인(r["동작"], 유형(작업))
                 앞줄 = 작업["초안"][i - 1] if i else None
                 # 앱은 앞 화면에 이어 찍으므로 동작이 비면 같은 사진이 나온다.
