@@ -66,6 +66,57 @@ def _모아쓴글자(요소들):
     return {e["id"]: " ".join(t for t in 훑기(e["id"]) if t).strip()[:50] for e in 요소들}
 
 
+def _아이콘속(요소들):
+    """아이콘 부품(이름에 'icon' 마디가 든 것)과 그 안에 든 것 전부의 id 모음.
+
+    개발화면은 아이콘을 그림 한 장으로 그린다. 그래서 시안 아이콘의 속(벡터·원·사각형)을
+    개발 쪽 값과 견줄 수가 없다 — 속까지 통째로 뺀다.
+    """
+    아이콘이름 = re.compile(r"(^|[/\s_-])icons?([/\s_-]|$)", re.I)
+    뿌리 = {e["id"] for e in 요소들
+            if e.get("kind") == "icon" or 아이콘이름.search(e.get("name") or "")}
+    if not 뿌리:
+        return 뿌리
+    자식 = {}
+    for e in 요소들:
+        자식.setdefault(e.get("parentId"), []).append(e["id"])
+    속 = set(뿌리)
+    쌓기 = list(뿌리)
+    while 쌓기:
+        for c in 자식.get(쌓기.pop(), []):
+            if c not in 속:
+                속.add(c)
+                쌓기.append(c)
+    return 속
+
+
+def _아이콘틀(요소들):
+    """아이콘을 감싸려고 깔아 둔 껍데기 사각형의 id 모음.
+
+    피그마 아이콘 부품은 벡터 옆에 같은 크기의 투명/회색 사각형('Bounding box')을 하나 둔다.
+    개발화면에는 그런 것이 없으므로 값 대조에 올리면 헛지적이 된다.
+    """
+    형제 = {}
+    for e in 요소들:
+        형제.setdefault(e.get("parentId"), []).append(e)
+    틀 = set()
+    for e in 요소들:
+        if e.get("kind") != "shape" or e.get("type") != "RECTANGLE":
+            continue
+        b = e["box"]
+        for o in 형제.get(e.get("parentId"), []):
+            if o is e or o.get("kind") != "icon":
+                continue
+            ob = o["box"]
+            감쌈 = (b["x"] <= ob["x"] + 1 and b["y"] <= ob["y"] + 1
+                   and b["x"] + b["w"] >= ob["x"] + ob["w"] - 1
+                   and b["y"] + b["h"] >= ob["y"] + ob["h"] - 1)
+            if 감쌈:
+                틀.add(e["id"])
+                break
+    return 틀
+
+
 def 시안값으로(검수요소, 프레임=None):
     """검수요소 목록 → {meta, elements} (값 대조가 읽는 모양)."""
     프레임 = 프레임 or {}
@@ -77,6 +128,7 @@ def 시안값으로(검수요소, 프레임=None):
         H = max((e["box"]["y"] + e["box"]["h"] for e in 검수요소), default=1)
 
     속글자 = _모아쓴글자(검수요소)
+    아이콘틀 = _아이콘틀(검수요소) | _아이콘속(검수요소)
     날것 = []
     for e in 검수요소:
         v = e.get("values") or {}
@@ -98,9 +150,16 @@ def 시안값으로(검수요소, 프레임=None):
         else:
             칠 = 색바꾸기(v.get("fill"))
             선 = 색바꾸기(v.get("stroke"))
-            선굵기 = v.get("strokeWidth") or 0
-            # 아이콘 조각(작은 벡터)은 뺀다 — 개발화면은 아이콘을 그림 하나로 그려서 값 비교 자체가 안 된다.
-            if e.get("type") in 벡터류 and max(bb["w"], bb["h"]) < 32:
+            # 피그마는 테두리를 아예 안 준 노드에도 strokeWidth 1 을 적어 둔다.
+            # 그대로 믿으면 '없는 테두리'가 생겨 헛지적이 된다 — 선 색이 있을 때만 두께를 인정한다.
+            선굵기 = (v.get("strokeWidth") or 0) if 선 else 0
+            # 아이콘은 뺀다 — 개발화면은 아이콘을 그림 한 장(img·svg·배경그림)으로 그린다.
+            # 그래서 시안의 벡터 칠(#757575 같은 것)을 개발의 '배경색'과 견주면 늘 다르게 나온다(헛지적).
+            # 작은 벡터뿐 아니라 collectDesign 이 아이콘으로 표시한 것 전부(로고 포함)를 뺀다.
+            if e.get("kind") == "icon" or (e.get("type") in 벡터류 and max(bb["w"], bb["h"]) < 32):
+                continue
+            # 아이콘을 감싸려고 깔아 둔 껍데기 사각형(피그마 아이콘 부품의 'Bounding box')도 뺀다.
+            if e["id"] in 아이콘틀:
                 continue
             # 글자도 칠도 보이는 테두리도 없는 껍데기는 뺀다.
             if not 칠 and not (선 and 선굵기 > 0):

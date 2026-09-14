@@ -25,6 +25,8 @@ def 시안읽기(경로):
         return d                                   # 이미 값 대조 모양
     if isinstance(d, dict) and isinstance(d.get("검수요소"), list):
         return 시안값으로(d["검수요소"], d.get("틀") or d)
+    if isinstance(d, dict) and isinstance(d.get("요소"), list):
+        return 시안값으로(d["요소"], d.get("틀") or d)   # 촬영 준비 사이트가 갈무리해 둔 판(요소/틀)
     if isinstance(d, dict) and isinstance(d.get("elements"), list):
         return 시안값으로(d["elements"], d)          # 프레임 꾸러미(elements + width/height)
     if isinstance(d, list):

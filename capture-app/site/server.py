@@ -29,6 +29,7 @@ sys.path.insert(0, str(뿌리 / "lib"))
 import design_source as 디자인
 import actions as 동작말
 import appbook as 앱사전
+import 동작점검
 import draft as 초안만들기
 import intake as 접수하기
 import nametag
@@ -94,6 +95,7 @@ CSS = """
   --gray-300:#C4C4C4; --gray-400:#9D9D9D; --gray-500:#757575; --gray-600:#555555;
   --gray-800:#353535; --gray-900:#202020;
   --blue-400:#1D6CEB; --blue-50:#E2F1FF; --red-400:#E50533; --red-50:#FFEBEF;
+  --yellow-400:#DBA400;   /* 정본 --color-status-warning (registry/tokens/canonical-token-draft.json) */
   --radius-control:4px; --radius-card:10px;
   --form-bg:#FFFFFF; --form-border:var(--gray-200); --form-text:var(--gray-800);
   --form-placeholder:var(--gray-500);
@@ -181,6 +183,30 @@ tr.tie td { background:#FAFAFA; }
 .dim2 { display:block; color:var(--gray-400); margin-top:2px; }
 .dim2.warn { color:var(--red-400); }
 .sect { font-size:12px; font-weight:700; color:#374151; margin:14px 0 6px; }
+/* 동작 사양 — 시안에서 채우면 좋을 것. 항목이 많아질 수 있어 갈래로 접어 둔다. */
+.spec details { border-top:1px solid var(--gray-100); }
+.spec details:first-of-type { border-top:0; }
+.spec summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px;
+  padding:10px 2px; font-size:13px; font-weight:600; color:#374151; }
+.spec summary::-webkit-details-marker { display:none; }
+.spec summary::before { content:"▸"; color:#9ca3af; font-size:11px; }
+.spec details[open] > summary::before { content:"▾"; }
+.spec summary .n { margin-left:auto; font-size:12px; font-weight:700; color:#b45309; }
+.spec .it { display:flex; gap:10px; align-items:flex-start; padding:2px 2px 12px 20px; font-size:12px; }
+.spec .it img, .spec .it .cut { width:360px; height:240px; flex:0 0 360px;
+  border:1px solid var(--gray-100); border-radius:8px; background-color:#fff; }
+@media (max-width: 900px) {
+  .spec .it { flex-direction:column; }
+  .spec .it img, .spec .it .cut { width:100%; flex:0 0 auto; height:auto; aspect-ratio:3/2; }
+}
+.spec .it img { object-fit:cover; object-position:top center; }
+.spec .it .cut { display:block; background-repeat:no-repeat; }
+.spec .it .tx { min-width:0; }
+.spec h2 .ico { vertical-align:-3px; margin-right:6px; }
+.spec .it .nm { color:#374151; word-break:keep-all; }
+.spec .it .why { color:#6b7280; margin-top:2px; line-height:1.55; }
+.spec .more { padding:0 2px 10px 20px; font-size:12px; }
+.spec .more a { color:#1d6ceb; cursor:pointer; }
 .cnt { float:right; font-size:12px; font-weight:600; color:#12864e; }
 .dim { font-size:11px; color:#9ca3af; margin-left:auto; white-space:nowrap; }
 /* 보낼 사진 고르기 — 이름이 길어 칸에 갇히면 세로로 쪼개져 읽히지 않는다.
@@ -299,7 +325,7 @@ def _그림(번호, 기본):
 <path d="M9.00047 8.57777C10.7728 8.57777 12.2096 7.14101 12.2096 5.36866C12.2096 3.59632 10.7728 2.15956 9.00047 2.15956C7.22813 2.15956 5.79136 3.59632 5.79136 5.36866C5.79136 7.14101 7.22813 8.57777 9.00047 8.57777Z"/>
 </g></svg>"""
 
-걸음 = [("/", "① 디자인 고르기"), ("/초안", "② 찍을 목록"),
+걸음 = [("/", "① 디자인 업로드"), ("/초안", "② 찍을 목록"),
       ("/조건", "③ 조건 확인"), ("/촬영", "④ 전체 촬영")]
 
 
@@ -334,6 +360,73 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
 
 
 # ────────────────────────────────────────────────── ① 디자인 고르기
+def _동작사양칸(고른것, 유형=None):
+    """① 디자인 업로드 — 받은 시안 칸 바로 아래에 붙는 '디자인 수정 필요' 칸.
+
+    색·크기 같은 눈에 보이는 기준은 여기서 말하지 않는다(디자인 쪽 GUI 검수기 몫).
+    의견일 뿐이라 고르는 단추는 두지 않고, 촬영을 막지도 않는다.
+    """
+    나온것 = 동작점검.점검(고른것, 유형)
+    if not 나온것:
+        return ""
+    첫줄 = 5                                   # 갈래마다 처음 보일 줄 수 — 나머지는 '더 보기'
+    덩이, 복사줄 = "", []
+    for gi, (갈래, 항목) in enumerate(동작점검.갈래별(나온것)):
+        복사줄.append("[%s]" % 갈래)
+        줄 = ""
+        for i, it in enumerate(항목):
+            복사줄.append("  - %s — %s" % (it["화면"], it["말"]))
+            숨김 = ' class="it hid" style="display:none"' if i >= 첫줄 else ' class="it"'
+            그림 = ""
+            if it.get("자리"):
+                주소 = f'/받은그림/{it["자리"]:03d}.png'
+                ㅈ = it.get("잘라")
+                if ㅈ and ㅈ["w"] < 99 and ㅈ["h"] < 99:
+                    # 칸·버튼 있는 데만 확대해 보여 준다 — 시안 한 장을 통째로 줄이면 단추가 점만 해진다.
+                    px = ㅈ["x"] / (100 - ㅈ["w"]) * 100 if ㅈ["w"] < 100 else 0
+                    py = ㅈ["y"] / (100 - ㅈ["h"]) * 100 if ㅈ["h"] < 100 else 0
+                    그림 = (f'<span class="cut" style="background-image:url({주소});'
+                          f'background-size:{100 / ㅈ["w"] * 100:.1f}% auto;'
+                          f'background-position:{px:.1f}% {py:.1f}%"></span>')
+                else:
+                    그림 = f'<img src="{주소}" alt="" loading="lazy">'
+            줄 += (f'<div{숨김} data-g="{gi}">{그림}<div class="tx">'
+                   f'<div class="nm">{_e(it["화면"])}</div>'
+                   f'<div class="why">{_e(it["말"])}</div></div></div>')
+        if len(항목) > 첫줄:
+            줄 += (f'<div class="more" data-g="{gi}">'
+                   f'<a onclick="더보기({gi}, this)">… {len(항목) - 첫줄}개 더 보기</a></div>')
+        덩이 += (f'<details{" open" if gi == 0 else ""}><summary>{_e(갈래)}'
+                 f'<span class="n">{len(항목)}</span></summary>{줄}</details>')
+        복사줄.append("")
+    복사 = _e("\n".join(복사줄).strip())
+    주의아이콘 = ('<svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">'
+              '<path fill="var(--yellow-400)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
+              '<path fill="var(--yellow-400)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
+    return f"""
+    <div class="card spec"><h2>{주의아이콘}디자인 수정 필요
+        <span class="muted">· 받은 {len(고른것)}개 중 {len(나온것)}건</span>
+        <span class="cnt"><a class="btn" style="padding:3px 10px" onclick="사양복사(this)">목록 복사</a></span></h2>
+      <div class="hint" style="margin:0 0 4px">눌러 봐야 알 수 있는 것만 봅니다 — 색·크기 같은 기준은
+        디자인 쪽 검수기에서 보세요.</div>
+      {덩이}
+      <textarea id="사양글" style="position:absolute;left:-9999px" readonly>{복사}</textarea>
+      <script>
+        function 더보기(g, el) {{
+          document.querySelectorAll('.spec .it.hid[data-g="' + g + '"]')
+            .forEach(function(d) {{ d.style.display = ''; }});
+          el.parentNode.style.display = 'none';
+        }}
+        function 사양복사(el) {{
+          var t = document.getElementById('사양글');
+          t.select(); document.execCommand('copy');
+          var 옛 = el.textContent; el.textContent = '복사했습니다';
+          setTimeout(function() {{ el.textContent = 옛; }}, 1200);
+        }}
+      </script>
+    </div>"""
+
+
 def 화면_디자인(오류=""):
     작업 = 작업읽기()
     알림 = f'<div class="err">{_e(오류)}</div>' if 오류 else ""
@@ -416,7 +509,7 @@ def 화면_디자인(오류=""):
           <div class="bar"><a class="btn" href="/비우기">비우고 다시 받기</a>
             <span class="right"></span>
             <a class="btn go" href="/초안">다음 — 찍을 목록 만들기 →</a></div>
-        </div>""" + 안내
+        </div>""" + _동작사양칸(고른것, 작업.get("유형")) + 안내
         return 껍데기("/", 본문, "Figma에서 고른 화면만 가져온다", 알림)
 
     본문 = 안내 + 열쇠칸 + f"""
