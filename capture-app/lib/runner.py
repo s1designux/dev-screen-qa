@@ -23,6 +23,7 @@ import burst  # noqa: E402
 import learn  # noqa: E402
 import nametag  # noqa: E402
 import places  # noqa: E402
+import webshot  # noqa: E402
 
 손 = {"android": "android.sh", "ios": "android.sh", "web": "web.sh"}
 
@@ -377,8 +378,14 @@ def main():
     결과폴더 = 붙임말[1] if len(붙임말) > 1 else os.path.join(뿌리, "shots", 폴더이름)
 
     print(f"■ {tag['앱이름']} — 화면 {len(tag['화면'])}개 찍습니다\n")
-    한장씩 = os.environ.get("한장씩") == "1"      # 예전 방식(느림)으로 돌리고 싶을 때
-    목록 = 찍기(tag, 결과폴더) if 한장씩 else 한번에찍기(tag, 결과폴더)
+    if tag["플랫폼"].strip().lower() == "web":
+        # 웹은 폰을 꽂지 않는다 — 브라우저만 열면 되므로 윈도우 PC에서 그대로 돈다.
+        목록 = webshot.찍기(tag, 결과폴더)
+        with open(os.path.join(결과폴더, "찍은목록.json"), "w", encoding="utf-8") as f:
+            json.dump(목록, f, ensure_ascii=False, indent=2)
+    else:
+        한장씩 = os.environ.get("한장씩") == "1"      # 예전 방식(느림)으로 돌리고 싶을 때
+        목록 = 찍기(tag, 결과폴더) if 한장씩 else 한번에찍기(tag, 결과폴더)
 
     print(f"\n■ 끝. 찍힌 것 {len(목록['찍힌것'])}장 / 못 찍은 것 {len(목록['못찍은것'])}장")
     print(f"   폴더: {결과폴더}")
