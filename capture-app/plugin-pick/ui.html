@@ -65,7 +65,7 @@
   var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
   var 짝 = {};                                   // 프레임 id → 검수 화면 uuid (사람이 고른 값)
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
-  var 주소 = {}, 라벨 = {};                      // 검수 화면 uuid → 열 주소 · 이름
+  var 주소 = {};                                 // 검수 화면 uuid → 열 주소
   var 말 = document.getElementById('말');
   var 단추 = document.getElementById('보내기');
   var 갈래칸 = document.getElementById('갈래');
@@ -74,6 +74,10 @@
   // 유형은 사람이 고른다(짐작하지 않는다). 고르기 전에는 보내기를 누를 수 없다.
   var 갈래 = '';                 // 'web' / 'mobile-web' / 'android' / 'pcapp'
   var 웹인가 = function () { return 갈래 === 'web' || 갈래 === 'mobile-web'; };
+  // 유형마다 '이 폭이면 너무 넓다'가 다르다 (lib/매체.py 의 시안폭경고 와 같은 값).
+  // PC 웹·PC S/W 는 1920 이 정상이라 짚지 않는다. 유형을 고르기 전에는 짐작하지 않는다.
+  var 폭경고 = { 'web': 0, 'mobile-web': 1400, 'android': 1400, 'pcapp': 0 };
+  var 너무넓은가 = function (폭) { var 기준 = 폭경고[갈래] || 0; return 기준 > 0 && 폭 >= 기준; };
 
   function 갈래그리기(){
     Array.prototype.forEach.call(갈래칸.querySelectorAll('input'), function (i) {
@@ -109,7 +113,7 @@
   }
 
   Array.prototype.forEach.call(갈래칸.querySelectorAll('input'), function (i) {
-    i.onchange = function () { 갈래 = i.value; 갈래그리기(); };
+    i.onchange = function () { 갈래 = i.value; 그리기(); };   // 유형이 바뀌면 폭 경고 기준도 바뀐다
   });
 
   function 그리기() {
@@ -120,11 +124,11 @@
       return;
     }
     el.innerHTML = 화면들.map(function (f, i) {
-      var 넓음 = f.폭 >= 1400;               // 폰으로 찍을 화면치고 너무 넓다
+      var 넓음 = 너무넓은가(f.폭);           // 기준은 고른 유형이 정한다
       var where = '';
       if (선택지.length) {
         // 고르게 하지 않는다 — 검수 화면이 있으면(같은 프레임이거나 이름이 같으면) 그 화면 시안을 덮어쓴다.
-        where = 짝[f.id] ? '<span class="where hit">검수 시안 바꿈 → ' + (라벨[짝[f.id]] || '').replace(/</g, '&lt;') + '</span>'
+        where = 짝[f.id] ? '<span class="where hit">검수 시안 변경</span>'
                          : '<span class="where">검수 화면 없음 → 촬영 준비로</span>';
       }
       return '<div class="row' + (넓음 ? ' warn' : '') + '"><span class="n">' + (i + 1) +
@@ -144,7 +148,7 @@
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (차례 !== 물어본차례) return;
       선택지 = j.options || []; 짝 = {}; 주소 = {};
-      선택지.forEach(function (o) { 주소[o.page] = o.url; 라벨[o.page] = o.label; });
+      선택지.forEach(function (o) { 주소[o.page] = o.url; });
       (j.frames || []).forEach(function (f) { if (f.match) 짝[f.id] = f.match.page; });
       그리기();
     }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 그리기(); });
