@@ -869,6 +869,42 @@ var POLICY_EXCLUDE_RULES=[{
     return out;
   }
 }];
+// ── 그림표: 로고처럼 '한 덩어리 그림'으로 봐야 하는 컴포넌트 ─────────────────
+// 왜 (river 2026-09-14 확정 · 모든 서비스 공통): 로고는 글자가 섞여 있어도 사람은 그림 하나로 본다.
+// 안쪽 글자를 글자로 비교하면 글꼴·굵기·줄높이 같은 쓸모없는 값이 카드에 오르고, 정작 봐야 할
+// "로고가 통째로 커졌다"는 못 짚는다. 그래서 이런 덩어리는 안쪽을 따로 보지 않고 그림 하나로 견준다.
+// 가려내는 기준은 셋을 모두 만족: ① 이름이 로고·이미지를 가리킨다 ② 안에 그림 요소가 있다
+// ③ 글자는 곁들임뿐이다(2개 이하·24자 이하) — 글이 많은 카드·배너를 삼키지 않게.
+var POLICY_IMAGE_NAME_RE=/(^|[\/_\-. ])(img|image|logo|로고|wordmark|워드마크|bi|ci|symbol|심볼|emblem|엠블럼)([\/_\-. 0-9]|$)/i;
+function imageLikeName(e){
+  var c=e.component||{};
+  return POLICY_IMAGE_NAME_RE.test(String(e.name||""))||POLICY_IMAGE_NAME_RE.test(String(c.set||""))||POLICY_IMAGE_NAME_RE.test(String(c.name||""));
+}
+var POLICY_IMAGE_RULES=[{
+  id:"logoLockup",title:"로고·이미지 덩어리 — 안쪽 글자를 따로 보지 않고 그림 하나로 견준다",
+  find:function(design,children){
+    var out={},frameArea=(design.width||0)*(design.height||0);
+    (design.elements||[]).forEach(function(e){
+      var b=e.box;if(!b||!b.w||!b.h)return;
+      if(b.h>160||(frameArea&&b.w*b.h>frameArea*.15))return;        // 큰 덩어리는 화면 구역이지 로고가 아니다
+      if(!imageLikeName(e))return;
+      var desc=descendantsOf(e,children);if(!desc.length)return;     // 안이 비었으면 이미 그림 하나다
+      var 그림=desc.filter(function(d){return d.kind==="icon"||d.kind==="image"||(d.kind==="shape"&&isVisibleShape(d));});
+      if(!그림.length&&e.kind!=="icon"&&e.kind!=="image")return;
+      var 글자=desc.filter(function(d){return d.kind==="text"&&String(d.text||"").trim();});
+      if(글자.length>2)return;
+      var 글자수=0;글자.forEach(function(d){글자수+=String(d.text||"").trim().length;});
+      if(글자수>24)return;
+      out[e.id]="로고·이미지 덩어리("+(e.name||"이름 없음")+")";
+    });
+    return out;
+  }
+}];
+function imageLockups(design,children){
+  var out={};POLICY_IMAGE_RULES.forEach(function(rule){var got=rule.find(design,children)||{};
+    Object.keys(got).forEach(function(id){if(!out[id])out[id]=got[id];});});
+  return out;
+}
 // ── 촬영본 제외표: 앱·모바일 촬영본(세로가 긴 캡처)에서 시안과 무관하게 늘 딸려 오는 것 ─────────
 // 기기 상태바·하단 내비게이션·화면 키보드는 개발 결과물이 아니라 기기가 그린 것이다. 시안에 그려져 있든 없든 비교에서 뺀다.
 // 사람이 '검수 범위'를 직접 정했으면 그 값이 이긴다(3계층: 화면별 예외가 기본값을 덮는다).
@@ -1269,9 +1305,16 @@ function descendantsOf(e,children){var out=[],st=(children[e.id]||[]).slice();wh
 function collectUnits(design){
   // 비교 단위: 글자 / 아이콘·이미지 묶음 / 테두리나 배경이 보이는 도형. 아이콘의 부속 벡터는 묶음 하나로 합친다.
   var els=design.elements||[],children=childMap(design),absorbed={},units=[],frameArea=design.width*design.height;
+  // 그림표: 로고·이미지 덩어리는 안쪽을 따로 보지 않는다(차례에 기대지 않게 안쪽을 미리 다 표시한다)
+  var lockups=imageLockups(design,children);
+  Object.keys(lockups).forEach(function(id){
+    var e=null;els.forEach(function(x){if(x.id===id)e=x;});
+    if(e)descendantsOf(e,children).forEach(function(d){absorbed[d.id]=1;});
+  });
   els.forEach(function(e){
     if(absorbed[e.id])return;var b=e.box;if(!b||b.w<4||b.h<4)return;
     if(b.w*b.h>frameArea*.9)return;
+    if(lockups[e.id]){units.push({el:e,kind:"icon",container:false,lockup:lockups[e.id]});return;}
     var desc=descendantsOf(e,children),iconish=function(d){return d.kind==="icon"||d.kind==="image";};
     if(iconish(e)){units.push({el:e,kind:"icon",container:false});desc.forEach(function(d){absorbed[d.id]=1;});return;}
     if(desc.length&&b.w<=96&&b.h<=96&&desc.some(iconish)&&desc.every(function(d){return iconish(d)||(d.kind!=="text"&&!isVisibleShape(d));})){units.push({el:e,kind:"icon",container:false});desc.forEach(function(d){absorbed[d.id]=1;});return;}
@@ -1558,9 +1601,25 @@ function parentInnerBox(el,ctx){
   // 글자를 감싸는 가장 가까운 테두리·배경 있는 부모의 안쪽 상자(디자인 이미지 px). 글자 통계가 부모 테두리를 글자로 오해하지 않게 한다.
   var byId=ctx.byId||{},p=el.parentId;while(p&&byId[p]){var e=byId[p];if(e.kind==="shape"&&isVisibleShape(e)){var sw=(e.values&&e.values.strokeWidth)||0,inset=(sw+2)*ctx.lg;return{x:e.box.x*ctx.lg+inset,y:e.box.y*ctx.lg+inset,w:e.box.w*ctx.lg-inset*2,h:e.box.h*ctx.lg-inset*2};}p=e.parentId;}return null;
 }
-function growInkBox(ctx,pb,dx,dy,inner){
+function iconSizeDetail(res,ctx,W,H,scaleX,u){
+  // 그림 한 덩어리(로고 등)가 개발에서 얼마나 커졌는지 — 잉크가 실제로 차지한 가로폭으로 잰다.
+  // 양쪽 다 '잉크가 끊기는 곳까지 넓히기'로 재야 한쪽만 커 보이지 않는다(디자인은 상자가 딱 맞아 거의 안 넓어진다).
+  // 8%·3px 안쪽이면 말하지 않는다 — 글꼴 폴백·안티앨리어싱으로 늘 조금씩 흔들린다.
+  var pb=res.pb,r=res.best,inner=parentInnerBox(u.el,ctx);
+  var dbox=growInkBox(ctx,pb,0,0,inner,ctx.dd.data);
+  var ds=edgeStats(ctx.dE,W,H,Math.round(dbox.x),Math.round(dbox.y),Math.round(dbox.w),Math.round(dbox.h));
+  var cbox=growInkBox(ctx,pb,r.dx,r.dy,inner);
+  var cs=edgeStats(ctx.cE,W,H,Math.round(cbox.x+r.dx),Math.round(cbox.y+r.dy),Math.round(cbox.w),Math.round(cbox.h));
+  if(!ds.w||!cs.w)return null;
+  var 비=cs.w/ds.w,디자인=Math.round(ds.w*scaleX),개발=Math.round(cs.w*scaleX);
+  return{ratio:비,다름:Math.abs(비-1)>=.08&&Math.abs(개발-디자인)>=3,
+    text:"디자인 그림은 가로 "+디자인+"px · 개발 이미지는 약 "+개발+"px로 보입니다(약 "+
+         Math.round(Math.abs(비-1)*100)+"% "+(비>1?"큼":"작음")+")."};
+}
+function growInkBox(ctx,pb,dx,dy,inner,data){
   // 개발 캡처의 글자가 디자인 상자보다 크면 상자를 잉크가 끊기는 곳까지 넓혀 실제 글자 크기를 잰다. 부모 테두리 안쪽을 넘지 않는다.
-  var cd=ctx.cd.data,W=ctx.W,H=ctx.H,box={x:pb.x,y:pb.y,w:pb.w,h:pb.h},lim=inner||{x:0,y:0,w:W,h:H};
+  // data를 주면 그 그림에서 잰다(디자인 쪽도 같은 방식으로 재야 두 폭을 견줄 수 있다).
+  var cd=data||ctx.cd.data,W=ctx.W,H=ctx.H,box={x:pb.x,y:pb.y,w:pb.w,h:pb.h},lim=inner||{x:0,y:0,w:W,h:H};
   var bg=averageCell(ctx.dd.data,W,H,Math.max(0,Math.floor(pb.x)),Math.max(0,Math.floor(pb.y)),Math.min(W,Math.ceil(pb.x+pb.w)),Math.min(H,Math.ceil(pb.y+pb.h)));
   function inkRow(y){var cy=Math.round(y+dy);if(cy<0||cy>=H)return false;var n=0;for(var x=Math.max(0,Math.floor(box.x+dx));x<Math.min(W,Math.ceil(box.x+box.w+dx));x++){var i=(cy*W+x)*4;if(colorDistance([cd[i],cd[i+1],cd[i+2]],bg)>60&&++n>=3)return true;}return false;}
   function inkCol(x){var cx=Math.round(x+dx);if(cx<0||cx>=W)return false;var n=0;for(var y=Math.max(0,Math.floor(box.y+dy));y<Math.min(H,Math.ceil(box.y+box.h+dy));y++){var i=(y*W+cx)*4;if(colorDistance([cd[i],cd[i+1],cd[i+2]],bg)>60&&++n>=2)return true;}return false;}
@@ -1718,7 +1777,13 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   results.forEach(function(res){
     if(res.missing)return;var u=res.u,r=res.best,pb=res.pb,label=null,detail=null,confidence=null;
     if(u.kind==="text"){var tc=textCandidateFor(res,ctx);if(tc){label=tc.label;detail=tc.detail;confidence=tc.confidence;}}
-    else if(u.kind==="icon"){if(res.mismatch>.4){label=LABEL_ICON;confidence=clamp(Math.round(50+res.mismatch*40),55,90);}}
+    else if(u.kind==="icon"){
+      // 그림은 무늬가 다르면 짚는다. 크기(가로폭)는 **로고·이미지 덩어리에서만** 본다 —
+      // 작은 아이콘까지 재면 잉크 넓히기가 옆 요소를 물어 헛지적이 쏟아진다(10화면에서 +35건, 2026-09-14 실측).
+      var iz=(res.mismatch>.4||u.lockup)?iconSizeDetail(res,ctx,W,H,scaleX,u):null;
+      if(res.mismatch>.4){label=LABEL_ICON;confidence=clamp(Math.round(50+res.mismatch*40),55,90);detail=iz&&iz.다름?iz.text:null;}
+      else if(iz&&iz.다름&&u.lockup){label=LABEL_ICON;detail=iz.text;confidence=clamp(Math.round(45+Math.abs(iz.ratio-1)*200),55,85);}
+    }
     else{
       var v=u.el.values||{},inset=3+(v.strokeWidth||0);
       if(v.fill){var dAvg=interiorAverage(ctx.dd.data,W,H,pb,0,0,inset),cAvg=interiorAverage(ctx.cd.data,W,H,pb,r.dx,r.dy,inset);if(dAvg&&cAvg&&colorDistance(dAvg,cAvg)>45){label=LABEL_COLOR;detail="디자인 배경 "+v.fill+" · 개발 캡처의 색이 다르게 보입니다.";confidence=clamp(Math.round(50+colorDistance(dAvg,cAvg)/3),55,90);}}
@@ -1729,7 +1794,8 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
     // 못 찾은 자리에서는 입 다물기 — 개발 캡처에서 그 요소를 못 찾았으면 크기·색·아이콘 판정은 내지 않는다(없어짐·글자 내용은 그대로 올린다)
     if(res.best.score<.35&&(label===LABEL_SHAPE||label===LABEL_COLOR||label===LABEL_ICON))return;
     var boxes=(u.kind==="text"&&tc&&tc.boxes&&tc.boxes.length)?tc.boxes:[pb];
-    boxes.forEach(function(box){var logical=logicalOf(box),dv=designValuesFor(design,logical),c={kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence};
+    // 그림 단위는 그 덩어리 자신의 값만 적는다 — 안에 든 글자의 글꼴·굵기는 로고에 쓸모없다(그림표와 한 몸)
+    boxes.forEach(function(box){var logical=logicalOf(box),dv=u.kind==="icon"?{text:formatDesignValues(u.el),ids:[u.el.id]}:designValuesFor(design,logical),c={kind:u.kind,rawBox:toRaw(shifted(box,r.dx,r.dy)),designBox:logical,designNodeIds:[u.el.id],designValues:dv.text,label:label,detail:detail,confidence:confidence};
       c.base={label:label,detail:detail,confidence:confidence}; // 가변 판정을 되돌릴 수 있게 원래 판정을 남긴다
       if(u.kind==="text")c.textAlt={heightRatio:res.heightRatio||null,colorDiff:res.inkColorDiff||0,designColor:u.el.values&&u.el.values.color||""};
       push(c);});
@@ -2374,6 +2440,31 @@ async function runSelfTest(){
   var capX=canvasFor(200,120),xx2=capX.getContext("2d");xx2.drawImage(dc,0,0);xx2.fillStyle="#0a7f2e";xx2.fillRect(30,95,60,18);
   var diffX=buildDiff(design,dc,{img:capX,width:200,height:120},{s:1,tx:0,ty:0},"x");
   check("추가 요소 분류(개발에만 있음)",diffX.some(function(c){return c.label==="디자인에 없는 요소가 표시되어 있습니다.";}));
+  // ── 그림표(로고 덩어리): 안쪽 글자를 글자로 보지 않고 그림 하나로 견준다 ──
+  var 로고시안={width:400,height:120,elements:[
+    {id:"lg",name:"C/IMG/Logo/Brand",type:"INSTANCE",kind:"shape",box:{x:20,y:20,w:170,h:24},values:{width:170,height:24}},
+    {id:"lgi",name:"Wordmark",type:"VECTOR",kind:"icon",parentId:"lg",box:{x:20,y:20,w:100,h:23},values:{}},
+    {id:"lgt",name:"브랜드글자",type:"TEXT",kind:"text",parentId:"lg",text:"통근버스",box:{x:130,y:24,w:56,h:16},values:{fontSize:16}},
+    {id:"ttl",name:"제목",type:"TEXT",kind:"text",box:{x:20,y:70,w:120,h:20},text:"제목",values:{fontSize:16}}]};
+  var 로고단위=collectUnits(로고시안);
+  check("로고 덩어리는 그림 하나로 보고 안쪽 글자는 따로 보지 않음",
+    로고단위.some(function(u){return u.el.id==="lg"&&u.kind==="icon";})&&!로고단위.some(function(u){return u.el.id==="lgt";})&&
+    로고단위.some(function(u){return u.el.id==="ttl"&&u.kind==="text";}));
+  var 카드시안=JSON.parse(JSON.stringify(로고시안));카드시안.elements[0].name="C/CARD/Notice";
+  check("로고·이미지 이름이 아니면 글자를 그대로 본다",collectUnits(카드시안).some(function(u){return u.el.id==="lgt"&&u.kind==="text";}));
+  var 글많은시안=JSON.parse(JSON.stringify(로고시안));글많은시안.elements[2].text="여기에는 글이 아주 많이 들어 있습니다 정말로 많습니다";
+  check("글이 많은 이미지 묶음은 삼키지 않음",collectUnits(글많은시안).some(function(u){return u.el.id==="lgt"&&u.kind==="text";}));
+  var 로고디자인=canvasFor(300,80),ld=로고디자인.getContext("2d");ld.fillStyle="#fff";ld.fillRect(0,0,300,80);ld.fillStyle="#111";ld.font="20px sans-serif";ld.textBaseline="top";ld.fillText("BRAND 로고",20,30);
+  var 로고캡처=canvasFor(300,80),lc=로고캡처.getContext("2d");lc.fillStyle="#fff";lc.fillRect(0,0,300,80);lc.fillStyle="#111";lc.font="23px sans-serif";lc.textBaseline="top";lc.fillText("BRAND 로고",20,28);
+  var 로고시안2={width:300,height:80,elements:[
+    {id:"lg2",name:"C/IMG/Logo/Brand",type:"INSTANCE",kind:"shape",box:{x:18,y:28,w:130,h:26},values:{width:130,height:26}},
+    {id:"lg2i",name:"mark",kind:"icon",parentId:"lg2",box:{x:18,y:28,w:60,h:26},values:{}},
+    {id:"lg2t",name:"로고글자",kind:"text",parentId:"lg2",text:"BRAND",box:{x:80,y:30,w:60,h:20},values:{fontSize:20}}]};
+  var 로고차이=buildDiff(로고시안2,로고디자인,{img:로고캡처,width:300,height:80},{s:1,tx:0,ty:0},"lg");
+  check("로고가 커지면 글자 후보가 아니라 그림 후보로 잡는다",
+    로고차이.some(function(c){return c.kind==="icon"&&c.label===LABEL_ICON;})&&!로고차이.some(function(c){return c.kind==="text";}));
+  check("로고 후보는 디자인·개발 가로폭을 알려 준다",
+    로고차이.some(function(c){return c.kind==="icon"&&/디자인 그림은 가로 \d+px · 개발 이미지는 약 \d+px/.test(c.detail||"");}));
   var tdes=canvasFor(700,400),td=tdes.getContext("2d");td.fillStyle="#fff";td.fillRect(0,0,700,400);td.strokeStyle="#ccc";td.strokeRect(60,60,300,44);td.fillStyle="#aaa";td.font="14px sans-serif";td.fillText("이름을 입력해 주세요",76,88);
   var tcap=canvasFor(700,400),tc=tcap.getContext("2d");tc.drawImage(tdes,0,0);tc.fillStyle="#fff";tc.fillRect(62,62,296,40);tc.fillStyle="#aaa";tc.font="14px sans-serif";tc.fillText("휴대전화번호 입력",76,88);
   var designT={width:700,height:400,elements:[{id:"tx1",kind:"text",box:{x:74,y:72,w:180,h:20},values:{}}]};

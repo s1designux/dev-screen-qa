@@ -66,7 +66,8 @@ def 지문(시안길, 개발길):
     h = hashlib.sha1()
     for p in (시안길, 개발길):
         h.update(p.read_bytes())
-    return 'value:' + h.hexdigest()[:12]
+    # 끝의 판 번호는 '카드에 담는 모양'이 바뀔 때 올린다 — 옛 회차는 남고, 사람이 내린 판정은 이어받는다.
+    return 'value2:' + h.hexdigest()[:12]
 
 
 def 대조(시안길, 개발길):
@@ -123,6 +124,16 @@ def 시안값(c):
     return ' · '.join('%s %s' % (r['label'], _css값(r['k'], r['a'])) for r in _고칠줄(c))
 
 
+def 줄들(c):
+    """카드가 [무엇이 · 지금 개발 · 디자인 기준] 세 칸으로 그릴 줄. 글월을 되읽지 않게 값째로 남긴다."""
+    줄 = [{'이름': r['label'], '기준': _css값(r['k'], r['a']), '개발': _css값(r['k'], r['b'])}
+          for r in _고칠줄(c)]
+    if not 줄:
+        줄 = [{'이름': d['속성'], '기준': str(d['시안']), '개발': str(d['개발'])}
+              for d in (c.get('다른곳') or [])]
+    return 줄
+
+
 def _잣대(결과, run):
     """개발 값(웹 좌표) → 개발 그림(촬영본) 좌표로 옮기는 배율·기준점."""
     m = (결과.get('meta') or {}).get('개발') or {}
@@ -174,7 +185,8 @@ def 챙기기(store, page_id, run, 길):
             c.execute('INSERT INTO auto_candidate VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                       (새후보, 새회차, n, KIND, 라벨(k), 자세히(k),
                        int(round((k.get('신뢰도') or 0) * 100)), 상태, 'confirmed',
-                       json.dumps({'source': 출처, '키': 이름표}, ensure_ascii=False),
+                       json.dumps({'source': 출처, '키': 이름표, '줄': 줄들(k),
+                                  '자리': (k.get('개발자리') or {}).get('고르개') or ''}, ensure_ascii=False),
                        x, y, w, h,
                        json.dumps(k.get('box') or {}, ensure_ascii=False),
                        json.dumps([k['시안id']] if k.get('시안id') else [], ensure_ascii=False),

@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import card_view
 import figma_elements
 import figma_reader
 import issue_categories
@@ -592,8 +593,6 @@ def card_html(k, numbers, page_id, rnd):
     cat = candidate_category(k)
     kind_lbl = issue_categories.label(cat)
     color = issue_categories.color(cat)
-    pol = json.loads(k['policy'] or '{}')
-    pol_html = f'<div class="loc">가변 판정: {_e(pol.get("reason"))}</div>' if pol.get('reason') else ''
     conf = f'<span class="sev">신뢰도 {k["confidence"]}%</span>' if k['confidence'] is not None else ''
     if k['issue_id']:
         n = numbers.get(k['issue_id'])
@@ -608,12 +607,11 @@ def card_html(k, numbers, page_id, rnd):
               f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
     from_value = value_candidates.값후보인가(k)
     tags = f'<span class="tag">{_e(kind_lbl)}</span>' + ('<span class="tag val">값 대조</span>' if from_value else '')
-    box = f'({int(k["box_x"] or 0)},{int(k["box_y"] or 0)}) {int(k["box_w"] or 0)}×{int(k["box_h"] or 0)}'
-    dv = f'<div class="loc">디자인 원본값: {_e(k["design_values"])}</div>' if k['design_values'] else ''
+    # 본문(무엇이 기준인지 · 지금 개발은 어떤지 · 개발이 볼 자리)은 card_view가 줄을 갈라 그린다.
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" onclick="autoFocus(\'{k["id"]}\')">'
-            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(k["label"])}</b></div>'
+            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(card_view.제목(k))}</b></div>'
             f'<div class="props">{tags}</div>'
-            f'<div class="loc">{_e(k["detail"])}</div>{dv}{pol_html}<div class="loc">위치 {box}</div>{foot}</div>')
+            f'{card_view.body_html(k, page_id)}{foot}</div>')
 
 
 def _design_box(k):

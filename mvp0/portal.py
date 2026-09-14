@@ -19,6 +19,7 @@ import intake_http
 import design_plan_http
 import issue_categories
 import app_layout
+import card_view
 import comparison_view
 import auto_inspect
 import design_receive
@@ -842,7 +843,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(page['name'])} — 페이지 상세</title>
-<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{app_layout.CSS if native_app else ""}</style></head>
+<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{card_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
 <body class="{'app-view' if native_app else 'web-view'}">
   <header>
     <div class="head-left">

@@ -216,6 +216,58 @@ async function 인스턴스정체(node) {
   }
   return { name: String(주.name || ''), set: 세트, props: props };
 }
+// ── 디자인가이드 이름(토큰·스타일) ────────────────────────────────
+// 왜: 카드에 `#000000` 만 적히면 개발자는 어느 토큰을 써야 할지 모른다. 시안에 변수/스타일이 매여 있으면
+// 그 **이름**을 함께 싣는다. 레거시 화면은 매인 것이 없어 비어 오고, 그때는 포털이 헥사를 그대로 보인다.
+// (river 2026-09-14 — "나중에는 디자인 원본에서도 토큰값 또는 컴포넌트 값이 나와야 한다")
+var 이름캐시 = {};
+async function 변수이름(id) {
+  if (!id) return null;
+  if (이름캐시[id] !== undefined) return 이름캐시[id];
+  var 이름 = null;
+  try { var v = await figma.variables.getVariableByIdAsync(id); if (v) 이름 = String(v.name || ''); } catch (e) {}
+  이름캐시[id] = 이름;
+  return 이름;
+}
+async function 스타일이름(id) {
+  if (!id || id === figma.mixed) return null;
+  var 열쇠 = 'S:' + id;
+  if (이름캐시[열쇠] !== undefined) return 이름캐시[열쇠];
+  var 이름 = null;
+  try { var s = await figma.getStyleByIdAsync(String(id)); if (s) 이름 = String(s.name || ''); } catch (e) {}
+  이름캐시[열쇠] = 이름;
+  return 이름;
+}
+function 첫별칭(v) {
+  if (!v) return null;
+  if (Array.isArray(v)) v = v[0];
+  return v && v.id ? v.id : null;
+}
+var 변수칸 = { fills: 'fill', strokes: 'stroke', strokeWeight: 'strokeWidth', cornerRadius: 'radius',
+              topLeftRadius: 'radius', fontSize: 'fontSize', fontWeight: 'fontWeight',
+              fontFamily: 'fontFamily', characters: 'text', opacity: 'opacity' };
+async function 요소토큰(node) {
+  var 표 = {}, 글자 = node.type === 'TEXT';
+  var bv = null;
+  try { bv = node.boundVariables || null; } catch (e) {}
+  if (bv) {
+    for (var 칸 in 변수칸) {
+      if (!Object.prototype.hasOwnProperty.call(변수칸, 칸) || !bv[칸]) continue;
+      var 이름 = await 변수이름(첫별칭(bv[칸]));
+      if (!이름) continue;
+      var 자리 = 변수칸[칸];
+      if (자리 === 'fill' && 글자) 자리 = 'color';      // 글자는 fills 가 글자색이다
+      if (!표[자리]) 표[자리] = 이름;
+    }
+  }
+  try {
+    var fs = await 스타일이름(node.fillStyleId);
+    if (fs) { var 칸이름 = 글자 ? 'color' : 'fill'; if (!표[칸이름]) 표[칸이름] = fs; }
+  } catch (e1) {}
+  try { var ss = await 스타일이름(node.strokeStyleId); if (ss && !표.stroke) 표.stroke = ss; } catch (e2) {}
+  try { var ts = await 스타일이름(node.textStyleId); if (ts) 표.textStyle = ts; } catch (e3) {}
+  return 표;
+}
 async function 검수요소(root) {
   var rb = root.absoluteBoundingBox, items = [], 노드들 = [];
   function walk(n, depth, parentId, parentType, chain) {
@@ -234,6 +286,10 @@ async function 검수요소(root) {
     if (노드들[j].type !== 'INSTANCE') continue;
     var 정체 = await 인스턴스정체(노드들[j]);
     if (정체) items[j].component = 정체;
+  }
+  for (var t = 0; t < items.length; t++) {
+    var 토큰 = await 요소토큰(노드들[t]);
+    if (토큰 && Object.keys(토큰).length) items[t]['토큰'] = 토큰;
   }
   return items;
 }
