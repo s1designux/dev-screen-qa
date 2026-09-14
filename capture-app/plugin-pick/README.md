@@ -6,8 +6,12 @@ Figma 캔버스에서 **드래그로 고른 화면만** 촬영 준비 사이트�
 ## 까는 법 (한 번만)
 
 1. 촬영 준비 사이트를 켠다 — `capture-app/site.sh`
-2. Figma 데스크톱 앱 → 메뉴 **Plugins → Development → Import plugin from manifest…**
-3. 이 폴더의 `manifest.json` 을 고른다.
+2. Figma **데스크톱 앱** → 메뉴 **Plugins → Development → Import plugin from manifest…**
+3. 이 폴더의 `manifest.json` 을 고른다 — `capture-app/plugin-pick/manifest.json` 하나뿐이다.
+   (2026-09-14 전에는 저장소 맨 위에도 같은 이름의 것이 있었다. 치웠다.)
+
+폴더를 옮기거나 이름을 바꾸면 피그마가 `Locate missing manifest` 라고 한다 —
+그 줄을 지우고(오른쪽 클릭 → Remove) 위 3번을 다시 하면 된다.
 
 ## 쓰는 법
 
