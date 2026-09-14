@@ -1,0 +1,7 @@
+{
+  "_meta": { "id": "button", "name": "Button" },
+  "variants": { "list": ["primary", "secondary", "blue-line"], "pcSize": ["md", "xsm", "xxsm"] },
+  "sizing": { "radius": "--radius-button-md" },
+  "pendingVariants": [ { "name": "danger", "status": "deprecated" }, { "name": "ghost", "status": "legacy" } ],
+  "figma": { "componentName": "Button", "valueMap": { "md": "MD", "xsm": "XSM", "xxsm": "XXSM" } }
+}

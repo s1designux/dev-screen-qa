@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "componentSets": [
+    {
+      "name": "Button",
+      "axes": { "Size": ["MD", "XSM", "XXSM", "LG"], "State": ["Default", "Hover", "Pressed", "Disabled"], "Variant": ["Primary", "Secondary", "Blue-Line"], "Break": ["PC", "Mobile"] },
+      "variants": [
+        { "name": "Size=MD, State=Default, Variant=Primary, Break=PC", "axes": { "Size": "MD", "State": "Default", "Variant": "Primary", "Break": "PC" },
+          "node": { "type": "COMPONENT", "dimensions": { "width": 80, "height": 44 }, "layout": { "layoutMode": "HORIZONTAL", "primaryAxisSizingMode": "AUTO", "minWidth": 80 },
+                    "appearance": { "fill": "color/button/bg/primary--default", "stroke": "color/button/border/primary--default", "cornerRadius": null } } },
+        { "name": "Size=MD, State=Default, Variant=Secondary, Break=PC", "axes": { "Size": "MD", "State": "Default", "Variant": "Secondary", "Break": "PC" },
+          "node": { "type": "COMPONENT", "dimensions": { "width": 80, "height": 44 }, "layout": { "layoutMode": "HORIZONTAL", "primaryAxisSizingMode": "AUTO", "minWidth": 80 },
+                    "appearance": { "fill": "color/button/bg/secondary--default", "stroke": "color/button/border/secondary--default", "cornerRadius": null } } },
+        { "name": "Size=XSM, State=Default, Variant=Primary, Break=PC", "axes": { "Size": "XSM", "State": "Default", "Variant": "Primary", "Break": "PC" },
+          "node": { "type": "COMPONENT", "dimensions": { "width": 64, "height": 34 }, "layout": { "layoutMode": "HORIZONTAL", "primaryAxisSizingMode": "AUTO", "minWidth": 64 },
+                    "appearance": { "fill": "color/button/bg/primary--default", "stroke": "color/button/border/primary--default", "cornerRadius": null } } },
+        { "name": "Size=XXSM, State=Default, Variant=Primary, Break=PC", "axes": { "Size": "XXSM", "State": "Default", "Variant": "Primary", "Break": "PC" },
+          "node": { "type": "COMPONENT", "dimensions": { "width": 56, "height": 28 }, "layout": { "layoutMode": "HORIZONTAL", "primaryAxisSizingMode": "AUTO", "minWidth": 56 },
+                    "appearance": { "fill": "color/button/bg/primary--default", "stroke": "color/button/border/primary--default", "cornerRadius": null } } }
+      ]
+    },
+    {
+      "name": "Chip",
+      "axes": { "Size": ["SM", "MD"] },
+      "variants": [
+        { "name": "Size=SM", "axes": { "Size": "SM" }, "node": { "type": "COMPONENT", "dimensions": { "width": 60, "height": 28 }, "layout": {}, "appearance": { "fill": "(없음)", "stroke": null } } }
+      ]
+    }
+  ]
+}

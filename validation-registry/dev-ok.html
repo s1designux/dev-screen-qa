@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>규정 시험 화면 — 토큰 안의 값만 (헛것 없어야 함)</title>
+<style>
+  /* ===== 회사 토큰 안의 값만 쓴 화면. 규정 대조에서 후보가 0 이어야 한다. =====
+     값은 정본 assets/css/tokens.css 의 것(2026-09-14 판)을 그대로 적었다.
+     클래스 이름은 일부러 디자인 시스템 것(s1-btn)이 아니다 — 실제 서비스 화면처럼. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F5F6FB; /* --color-base-home-bg */ color: #353535; /* --color-gray-800 */
+         font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif; font-size: 16px; font-weight: 400; }
+  .app { width: 1440px; }
+  .header { height: 64px; padding: 0 24px; background: #FFFFFF; border-bottom: 1px solid #D9D9D9; /* --color-gray-200 */
+            display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 18px; font-weight: 700; color: #1D6CEB; /* --color-blue-400 */ }
+  .badge { height: 28px; padding: 0 12px; display: flex; align-items: center; border-radius: 4px;
+           background: #0072CE; /* --color-brand-blue */ color: #FFFFFF; font-size: 12px; font-weight: 500; }
+  .main { padding: 24px; }
+  .title { font-size: 24px; font-weight: 700; color: #000000; /* --color-text-title-primary */ margin-bottom: 24px; }
+  .stats { display: flex; gap: 16px; }
+  .card { flex: 1; background: #FFFFFF; border: 1px solid #D9D9D9; border-radius: 10px; /* --radius-card-md */ padding: 16px; }
+  .card .label { font-size: 14px; color: #757575; /* --color-gray-500 */ }
+  .card .value { font-size: 24px; font-weight: 700; color: #353535; margin-top: 8px; }
+  .footer { margin-top: 24px; display: flex; gap: 12px; }
+  /* 정본 Button · Primary · PC md — 높이 44 · 최소 너비 80 · 모서리 4 · 배경 blue-400 · 글자 흰색 */
+  .primary-button { height: 44px; min-width: 80px; padding: 0 16px; background: #1D6CEB; color: #FFFFFF;
+                    border: 1px solid #1D6CEB; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  /* 정본 Button · Secondary · PC md — 배경 흰색 · 테두리 gray-200 · 글자 gray-800 */
+  .secondary-button { height: 44px; min-width: 80px; padding: 0 16px; background: #FFFFFF; color: #353535;
+                      border: 1px solid #D9D9D9; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="logo">MyDashboard</div>
+      <div class="badge">NEW</div>
+    </header>
+    <main class="main">
+      <h1 class="title">관리자 대시보드</h1>
+      <section class="stats">
+        <div class="card"><div class="label">방문자</div><div class="value">9,873</div></div>
+        <div class="card"><div class="label">신규 가입</div><div class="value">982</div></div>
+        <div class="card"><div class="label">전환율</div><div class="value">2.1%</div></div>
+      </section>
+      <div class="footer">
+        <button class="primary-button">보고서 내보내기</button>
+        <button class="secondary-button">취소</button>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

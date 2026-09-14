@@ -120,11 +120,16 @@ def 시안값으로(검수요소, 프레임=None):
             글 = 속글자.get(e["id"], "")
 
         이름 = e.get("name") or e.get("type") or ""
-        날것.append({
+        요소 = {
             "id": e.get("id"), "name": 이름, "role": e.get("type"),
             "isText": 글자냐, "text": 글, "box": dict(bb), "style": style,
             "contentZone": 이름.startswith("content/"),
-        })
+        }
+        # 피그마 컴포넌트 인스턴스면 정체(세트 이름·변형 속성)를 함께 싣는다 — 규정 대조가 짝 건너 개발 요소에 옮겨 붙인다.
+        if e.get("component"):
+            c = e["component"]
+            요소["컴포넌트"] = {"이름": c.get("name") or "", "세트": c.get("set") or "", "속성": c.get("props") or {}}
+        날것.append(요소)
 
     # 거의 같은 자리·같은 종류로 겹친 레이어는 하나만 (컴포넌트 껍데기 + 배경 중복 제거)
     걸러낸 = []
@@ -144,6 +149,6 @@ def 시안값으로(검수요소, 프레임=None):
                  "frameName": 프레임.get("name") or 프레임.get("이름") or "",
                  "rootId": 프레임.get("id"),
                  "artboardWidth": round(W, 1), "artboardHeight": round(H, 1),
-                 "toolVersion": "valueqa-design-1.0"},
+                 "toolVersion": "valueqa-design-1.1"},
         "elements": 걸러낸,
     }

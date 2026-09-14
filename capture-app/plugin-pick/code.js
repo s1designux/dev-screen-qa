@@ -192,20 +192,49 @@ function 검수요소하나(node, rootBox, depth, parentId, parentType, chain) {
   base.values = { width: 소수1(bb.width), height: 소수1(bb.height), fill: fill, stroke: stroke, strokeWidth: 안전테두리(node), radius: 안전둥글기(node), opacity: 안전수(node.opacity) };
   return base;
 }
-function 검수요소(root) {
-  var rb = root.absoluteBoundingBox, items = [];
+// 인스턴스가 정본의 어느 컴포넌트인지 — 세트 이름(Button)과 변형 속성(Size=MD, Variant=Primary …).
+// 규정 대조(valueqa/rules.py)가 이것을 짝 건너 개발 요소에 옮겨 붙여 컴포넌트 규격을 본다.
+// 개발 화면의 클래스 이름에 기대지 않으려고 시안 쪽에서 정체를 싣는다 (river 2026-09-14).
+async function 인스턴스정체(node) {
+  if (node.type !== 'INSTANCE') return null;
+  var 주 = null;
+  try { 주 = await node.getMainComponentAsync(); } catch (e) { try { 주 = node.mainComponent; } catch (e2) {} }
+  if (!주) return null;
+  var 세트 = '';
+  try { if (주.parent && 주.parent.type === 'COMPONENT_SET') 세트 = String(주.parent.name || ''); } catch (e3) {}
+  var props = {};
+  try {
+    var cp = node.componentProperties || {};
+    Object.keys(cp).forEach(function (k) {
+      var v = cp[k];
+      if (v && (v.type === 'VARIANT' || v.type === 'BOOLEAN' || v.type === 'TEXT')) props[k.replace(/#.*$/, '')] = v.value;
+    });
+  } catch (e4) {}
+  // 속성을 못 읽었으면 변형 이름("Size=MD, State=Default")에서 푼다.
+  if (!Object.keys(props).length && 세트 && /=/.test(String(주.name || ''))) {
+    String(주.name).split(',').forEach(function (kv) { var m = kv.split('='); if (m.length === 2) props[m[0].trim()] = m[1].trim(); });
+  }
+  return { name: String(주.name || ''), set: 세트, props: props };
+}
+async function 검수요소(root) {
+  var rb = root.absoluteBoundingBox, items = [], 노드들 = [];
   function walk(n, depth, parentId, parentType, chain) {
     if (n.id !== root.id && n.visible !== false && n.absoluteBoundingBox) {
       var el = 검수요소하나(n, rb, depth, parentId, parentType, chain);
       if (el) {
         var b = el.box;
-        if (b.x < rb.width && b.y < rb.height && b.x + b.w > 0 && b.y + b.h > 0) items.push(el);
+        if (b.x < rb.width && b.y < rb.height && b.x + b.w > 0 && b.y + b.h > 0) { items.push(el); 노드들.push(n); }
       }
     }
     var nextChain = n.id === root.id ? [] : [{ n: String(n.name || ''), t: n.type }].concat(chain || []).slice(0, 4);
     if ('children' in n) for (var i = 0; i < n.children.length; i++) walk(n.children[i], depth + 1, n.id, n.type, nextChain);
   }
   walk(root, 0, null, null, []);
+  for (var j = 0; j < items.length; j++) {
+    if (노드들[j].type !== 'INSTANCE') continue;
+    var 정체 = await 인스턴스정체(노드들[j]);
+    if (정체) items[j].component = 정체;
+  }
   return items;
 }
 function 검수설정(node) {
@@ -259,7 +288,7 @@ figma.ui.onmessage = async function (msg) {
       figma.ui.postMessage({
         갈래: '검수부치기', page: 대상[k].page, 마지막: k === 대상.length - 1,
         프레임: { id: node.id, name: node.name, width: 소수1(bb.width), height: 소수1(bb.height), png: Array.from(그림),
-                elements: 검수요소(node), policy: 검수설정(node) }
+                elements: await 검수요소(node), policy: 검수설정(node) }
       });
     }
     return;
@@ -286,7 +315,7 @@ figma.ui.onmessage = async function (msg) {
       x: Math.round(b.x), y: Math.round(b.y), 그림: Array.from(그림),
       속: 속알맹이(n),
       // 검수 포털의 자동 검수용(검수기와 같은 모양의 요소 목록·사람이 정한 설정). 촬영 준비 → 검수 접수 때 포털에 함께 들어간다.
-      검수요소: 검수요소(n), 검수설정: 검수설정(n), 틀: { 폭: 소수1(b.width), 높이: 소수1(b.height) }
+      검수요소: await 검수요소(n), 검수설정: 검수설정(n), 틀: { 폭: 소수1(b.width), 높이: 소수1(b.height) }
     });
   }
   figma.ui.postMessage({
