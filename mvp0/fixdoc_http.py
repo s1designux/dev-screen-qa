@@ -106,19 +106,41 @@ def 카드(human_key, 셈):
         <p>{몇} 색·크기·글꼴처럼 <b>값으로 딱 떨어지는 것</b>과, 회사 토큰·공통 컴포넌트 규정에
            어긋난 것입니다. 사람이 눈으로 보는 검수를 시작하기 <b>전에</b> 개발이 먼저 반영해야
            같은 지적을 차수마다 되풀이하지 않습니다.</p>
-        <a class="warn-btn" href="/screen/{human_key}/수정요청.md" download>수정요청서 내려받기 (.md)</a>
-        <span class="warn-hint">개발·퍼블리셔에게 그대로 넘기는 문서입니다. 자동으로 찾은 후보이며 확정은 디자이너가 합니다.</span>
+        <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.md" download>수정요청서 MD 다운로드</a>
+        <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.html" target="_blank">수정요청서 PDF 보기</a>
+        <span class="warn-hint">개발·퍼블리셔에게 그대로 넘기는 문서입니다. 자동으로 찾은 후보이며 확정은 디자이너가 합니다.
+          <b>PDF 보기</b>는 내려받지 않고 그 자리에서 읽고, 눌러서 PDF 로 저장합니다.</span>
       </div>
     </section>"""
 
 
 CSS = """
-.warn-card{border:1px solid #F0B429;border-radius:10px;background:#FFFBEB;margin:0 0 18px;overflow:hidden}
-.warn-head{background:#F0B429;color:#3A2A00;font-weight:700;padding:8px 14px;font-size:14px}
-.warn-body{padding:12px 14px 14px}
-.warn-body p{margin:0 0 10px;font-size:13px;line-height:1.65;color:#5A4300}
-.warn-btn{display:inline-block;background:#B45309;color:#fff;text-decoration:none;font-weight:700;
-  font-size:13px;padding:8px 14px;border-radius:8px}
-.warn-btn:hover{background:#92400E}
-.warn-hint{display:block;margin-top:8px;font-size:12px;color:#8A6D1F}
+/* 주의 카드 — 값은 S-1 디자인가이드 토큰만 쓴다(색·크기를 직접 적지 않는다).
+   토큰 네 장은 포털이 /assets/css/ 로 내보낸다. */
+.warn-card{border:var(--border-width-1) solid var(--color-status-warning);
+  border-radius:var(--radius-card-md);background:var(--color-bg-level-1);
+  margin:0 0 var(--spacing-16);overflow:hidden}
+.warn-head{background:var(--color-status-warning);color:var(--color-text-primary);
+  font-weight:var(--font-weight-bold);padding:var(--spacing-8) var(--spacing-14);
+  font-size:var(--font-size-14)}
+.warn-body{padding:var(--spacing-12) var(--spacing-14) var(--spacing-14)}
+.warn-body p{margin:0 0 var(--spacing-10);font-size:var(--font-size-14);
+  line-height:var(--line-height-140);color:var(--color-text-tertiary)}
+.warn-hint{display:block;margin-top:var(--spacing-8);
+  font-size:var(--font-size-12);color:var(--color-text-caption)}
+
+/* S-1 Button · Size XSM(PC) — h34 / 좌우 spacing-8 / radius-4 / body 14M.
+   두 단추는 같은 무게다(둘 다 이 카드의 할 일이다 — river 2026-09-14). */
+.s1-btn{display:inline-flex;align-items:center;justify-content:center;
+  height:34px;min-width:64px;padding:0 var(--spacing-8);
+  border-radius:var(--radius-button-md);border:var(--border-width-1) solid transparent;
+  font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
+  text-decoration:none;cursor:pointer}
+.s1-btn+.s1-btn{margin-left:var(--spacing-8)}
+.s1-btn-primary{background:var(--color-button-bg-primary--default);
+  border-color:var(--color-button-border-primary--default);
+  color:var(--color-button-label-primary--default)}
+.s1-btn-primary:hover{background:var(--color-button-bg-primary--hover);
+  border-color:var(--color-button-border-primary--hover);
+  color:var(--color-button-label-primary--hover)}
 """

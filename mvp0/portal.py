@@ -26,6 +26,11 @@ import design_receive
 import policy_ui
 import policy_api
 import fixdoc_http
+import fixdoc_view
+
+# S-1 디자인가이드 토큰 네 장 — 포털 화면이 var(--…) 로 쓸 수 있게 머리에 잇는다.
+_토큰CSS = "".join("<link rel=stylesheet href='/assets/css/%s.css'>" % x
+                 for x in ("tokens", "site-base", "component-tokens", "typography"))
 import json
 import uuid as uuidmod
 from datetime import datetime
@@ -458,7 +463,7 @@ def render_screen(human_key: str, notice=""):
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
-<style>{_LIST_CSS}{fixdoc_http.CSS}</style></head>
+{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}</style></head>
 <body>
   <header class="row">
     <a class="back" href="/">← 목록</a>
@@ -924,14 +929,29 @@ class Handler(BaseHTTPRequestHandler):
                 case_ref=c.execute('SELECT plan_id,id FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
             page = design_plan_http.ui.detail(intake(),case_ref['plan_id'],case_ref['id'],q.get('notice',[''])[0],rnd) if case_ref else render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
-        elif path.startswith("/screen/") and unquote(path).endswith("/수정요청.md"):
+        elif path.startswith("/screen/") and unquote(path).endswith(("/수정요청.md", "/수정요청.html")):
             # 한글 주소는 브라우저가 %xx 로 싸서 보낸다 — 풀어서 견준다.
             푼길 = unquote(path)
-            self._수정요청(푼길[len("/screen/"):-len("/수정요청.md")])
+            보기 = 푼길.endswith(".html")
+            꼬리 = "/수정요청.html" if 보기 else "/수정요청.md"
+            self._수정요청(푼길[len("/screen/"):-len(꼬리)], 보기)
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
             page = render_screen(human_key, q.get("notice", [""])[0])
             self._html(page if page else self._nf(f"화면 없음: {human_key}"), 200 if page else 404)
+        elif path.startswith("/assets/css/") and path.endswith(".css"):
+            # S-1 디자인가이드 토큰 네 장. `가이드받기.sh --내려두기` 로 받아 둔 것을 그대로 내보낸다.
+            fp = BASE / "assets" / "css" / Path(path[len("/assets/css/"):]).name
+            if fp.exists():
+                data = fp.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/css; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
         elif path.startswith("/uploads/"):
             fp = UPLOADS / Path(path[len("/uploads/"):]).name   # basename만 → 경로 탈출 방지
             if fp.exists() and fp.suffix == ".png":
@@ -1045,8 +1065,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def _수정요청(self, human_key):
-        """개발·퍼블리셔에게 그대로 넘기는 수정 요청 한 장(Markdown)."""
+    def _수정요청(self, human_key, 보기=False):
+        """개발·퍼블리셔에게 그대로 넘기는 수정 요청 한 장.
+
+        `보기`면 같은 글을 A4 모양 화면으로 그려 준다(인쇄창에서 PDF 로 저장). 글은 다시 만들지 않는다.
+        """
         conn = dbmod.connect(REAL_DB)
         scr = queries.get_screen(conn, human_key)
         if scr is None:
@@ -1068,6 +1091,11 @@ class Handler(BaseHTTPRequestHandler):
         if not 글:
             self._html("<p style='font-family:sans-serif;padding:40px'>이 화면에는 잰 값이 없어 "
                        "수정요청서를 만들 수 없습니다. 촬영기로 다시 보내 주세요.</p>", 404)
+            return
+        if 보기:
+            제목 = f"개발화면 수정 요청 — {row['name']}"
+            md주소 = "/screen/" + quote(human_key) + "/" + quote("수정요청.md")
+            self._html(fixdoc_view.한장(글, 제목, md주소))
             return
         data = 글.encode("utf-8")
         이름 = quote(f"수정요청-{row['name']}.md")
