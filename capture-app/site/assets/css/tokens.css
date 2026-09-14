@@ -1,0 +1,873 @@
+/* S-1 디자인가이드 tokens.css — 판 d90d84a · 받은 때 2026-09-14 16:45 (KST) · 원본 a7b8d3d · 손으로 고치지 말고 다시 받으세요 */
+/* >>> GEN:FOUNDATION >>> Auto-generated from vars-data.ts (npm run tokens:gen:foundation) — Variables 정본. 수동 편집 금지. */
+/* ══════════════════════════════════════════════════
+   0. FOUNDATION — Base & Brand
+   ══════════════════════════════════════════════════ */
+:root {
+  --color-base-white  : #FFFFFF;
+  --color-base-black  : #000000;
+  --color-base-home-bg: #F5F6FB;
+  --color-brand-blue  : #0072CE;
+  --color-brand-red   : #FF312C;
+  --color-brand-gray  : #DFDEDE;
+  --color-brand-ci    : #004097; /* CI·로고 전용. UI 직접 사용 금지 */
+}
+
+
+/* ══════════════════════════════════════════════════
+   1. FOUNDATION — Color Foundation
+   ══════════════════════════════════════════════════ */
+:root {
+
+  /* ── Gray · Light ── */
+  --color-gray-0  : #FAFAFA;
+  --color-gray-50 : #F5F5F5;
+  --color-gray-100: #E9E9E9;
+  --color-gray-200: #D9D9D9;
+  --color-gray-300: #C4C4C4;
+  --color-gray-400: #9D9D9D;
+  --color-gray-500: #757575;
+  --color-gray-600: #555555;
+  --color-gray-700: #434343;
+  --color-gray-800: #353535;
+  --color-gray-900: #202020;
+
+  /* ── Gray · Dark ── */
+  --color-gray-dark-0  : #0D0E12;
+  --color-gray-dark-50 : #131418;
+  --color-gray-dark-100: #1C1D23;
+  --color-gray-dark-200: #24252C;
+  --color-gray-dark-300: #2E2F38;
+  --color-gray-dark-400: #35363F;
+  --color-gray-dark-500: #3E4049;
+  --color-gray-dark-600: #55575F;
+  --color-gray-dark-700: #8A8C96;
+  --color-gray-dark-800: #B8BABF;
+  --color-gray-dark-900: #ECEDF0;
+
+  /* ── Blue · Light ── */
+  --color-blue-50 : #E2F1FF;
+  --color-blue-100: #C8E4FF;
+  --color-blue-150: #A4D4FF;
+  --color-blue-200: #8BC6FF;
+  --color-blue-250: #5BB2FF;
+  --color-blue-300: #2B9EFF;
+  --color-blue-350: #268CF8;
+  --color-blue-400: #1D6CEB;
+  --color-blue-450: #2158C8;
+  --color-blue-500: #2747B9;
+
+  /* ── Blue · Dark ── */
+  --color-blue-dark-50 : #0C1D38;
+  --color-blue-dark-100: #112B55;
+  --color-blue-dark-150: #1A3D72;
+  --color-blue-dark-200: #214EA0;
+  --color-blue-dark-250: #2A65C8;
+  --color-blue-dark-300: #3070D8;
+  --color-blue-dark-350: #4285E8;
+  --color-blue-dark-400: #6FA5F8;
+  --color-blue-dark-450: #96BEF9;
+  --color-blue-dark-500: #C0D8FC;
+
+  /* ── Red · Light ── */
+  --color-red-50 : #FFEBEF;
+  --color-red-100: #FFCCD6;
+  --color-red-150: #FBB2BA;
+  --color-red-200: #F8979E;
+  --color-red-250: #FC6E79;
+  --color-red-300: #FF4554;
+  --color-red-350: #F22544;
+  --color-red-400: #E50533;
+  --color-red-450: #D60228;
+  --color-red-500: #C8001E;
+
+  /* ── Red · Dark ── */
+  --color-red-dark-50 : #2A0F14;
+  --color-red-dark-100: #3D1520;
+  --color-red-dark-150: #5C1E2E;
+  --color-red-dark-200: #8A2A3E;
+  --color-red-dark-250: #C03850;
+  --color-red-dark-300: #E04860;
+  --color-red-dark-350: #F06070;
+  --color-red-dark-400: #F48890;
+  --color-red-dark-450: #F8A8B0;
+  --color-red-dark-500: #FCD0D5;
+
+  /* ── Orange · Light ── */
+  --color-orange-50 : #FFEDE0;
+  --color-orange-100: #FDDBBF;
+  --color-orange-150: #FEC6A0;
+  --color-orange-200: #FFB482;
+  --color-orange-250: #FF954E;
+  --color-orange-300: #FF761A;
+  --color-orange-350: #EE680D;
+  --color-orange-400: #DA4C00;
+  --color-orange-450: #B63C00;
+  --color-orange-500: #8E2E00;
+
+  /* ── Orange · Dark ── */
+  --color-orange-dark-50 : #2E1505;
+  --color-orange-dark-100: #42200A;
+  --color-orange-dark-150: #6B3512;
+  --color-orange-dark-200: #A05020;
+  --color-orange-dark-250: #D06828;
+  --color-orange-dark-300: #E88038;
+  --color-orange-dark-350: #F09548;
+  --color-orange-dark-400: #F5AA68;
+  --color-orange-dark-450: #F8C090;
+  --color-orange-dark-500: #FCD8B8;
+
+  /* ── Yellow · Light ── */
+  --color-yellow-50 : #FFF4CE;
+  --color-yellow-100: #FEE89A;
+  --color-yellow-150: #FEDE6C;
+  --color-yellow-200: #FFD53D;
+  --color-yellow-250: #FFCC1E;
+  --color-yellow-300: #FFC200;
+  --color-yellow-350: #F5B900;
+  --color-yellow-400: #DBA400;
+  --color-yellow-450: #BA8900;
+  --color-yellow-500: #8F6A00;
+
+  /* ── Yellow · Dark ── */
+  --color-yellow-dark-50 : #2A2005;
+  --color-yellow-dark-100: #3D2E08;
+  --color-yellow-dark-150: #605010;
+  --color-yellow-dark-200: #907818;
+  --color-yellow-dark-250: #C09828;
+  --color-yellow-dark-300: #D8B038;
+  --color-yellow-dark-350: #E8C048;
+  --color-yellow-dark-400: #F0D068;
+  --color-yellow-dark-450: #F5DE90;
+  --color-yellow-dark-500: #FAEAB8;
+
+  /* ── Green · Light ── */
+  --color-green-50 : #E3F2EA;
+  --color-green-100: #CAECDA;
+  --color-green-150: #9CD8BD;
+  --color-green-200: #6FC4A2;
+  --color-green-250: #47BB8E;
+  --color-green-300: #1FB279;
+  --color-green-350: #10A86C;
+  --color-green-400: #009E5E;
+  --color-green-450: #008650;
+  --color-green-500: #006F42;
+
+  /* ── Green · Dark ── */
+  --color-green-dark-50 : #0A2018;
+  --color-green-dark-100: #102E22;
+  --color-green-dark-150: #184530;
+  --color-green-dark-200: #206840;
+  --color-green-dark-250: #288A55;
+  --color-green-dark-300: #30A868;
+  --color-green-dark-350: #3FBE7E;
+  --color-green-dark-400: #68D098;
+  --color-green-dark-450: #98E0B8;
+  --color-green-dark-500: #C5F0D8;
+
+  /* ── Skyblue · Light ── */
+  --color-skyblue-50 : #C4EEF7;
+  --color-skyblue-100: #A5E5F3;
+  --color-skyblue-150: #7BD6EA;
+  --color-skyblue-200: #51C7E1;
+  --color-skyblue-250: #3BC0DD;
+  --color-skyblue-300: #25B9DA;
+  --color-skyblue-350: #1DAACB;
+  --color-skyblue-400: #159BBC;
+  --color-skyblue-450: #1284A0;
+  --color-skyblue-500: #0F6C84;
+
+  /* ── Skyblue · Dark ── */
+  --color-skyblue-dark-50 : #081E28;
+  --color-skyblue-dark-100: #102A38;
+  --color-skyblue-dark-150: #184050;
+  --color-skyblue-dark-200: #205A70;
+  --color-skyblue-dark-250: #287890;
+  --color-skyblue-dark-300: #3090A8;
+  --color-skyblue-dark-350: #40A8C0;
+  --color-skyblue-dark-400: #68C0D8;
+  --color-skyblue-dark-450: #98D8E8;
+  --color-skyblue-dark-500: #C0E8F0;
+
+  /* ── Purple · Light ── */
+  --color-purple-50 : #E8E9FC;
+  --color-purple-100: #CFD1F9;
+  --color-purple-150: #C0C0FC;
+  --color-purple-200: #B0B0FF;
+  --color-purple-250: #8B8BEE;
+  --color-purple-300: #6666DD;
+  --color-purple-350: #4E4EC3;
+  --color-purple-400: #3535A8;
+  --color-purple-450: #2D2D8F;
+  --color-purple-500: #252576;
+
+  /* ── Purple · Dark ── */
+  --color-purple-dark-50 : #14142A;
+  --color-purple-dark-100: #1E1E3D;
+  --color-purple-dark-150: #2A2A58;
+  --color-purple-dark-200: #383878;
+  --color-purple-dark-250: #4848A0;
+  --color-purple-dark-300: #5858B8;
+  --color-purple-dark-350: #7070D0;
+  --color-purple-dark-400: #9090E0;
+  --color-purple-dark-450: #B0B0EA;
+  --color-purple-dark-500: #D0D0F5;
+
+  /* ── Brown · Light ── */
+  --color-brown-50 : #F6EEE9;
+  --color-brown-100: #E4D5C8;
+  --color-brown-150: #DBC6B3;
+  --color-brown-200: #D1B69F;
+  --color-brown-250: #A68C75;
+  --color-brown-300: #7C614A;
+  --color-brown-350: #685240;
+  --color-brown-400: #554435;
+  --color-brown-450: #483A2D;
+  --color-brown-500: #3B3025;
+
+  /* ── Brown · Dark ── */
+  --color-brown-dark-50 : #1E1610;
+  --color-brown-dark-100: #2A2018;
+  --color-brown-dark-150: #3D3025;
+  --color-brown-dark-200: #584535;
+  --color-brown-dark-250: #786050;
+  --color-brown-dark-300: #907868;
+  --color-brown-dark-350: #A89080;
+  --color-brown-dark-400: #C0A898;
+  --color-brown-dark-450: #D8C0B0;
+  --color-brown-dark-500: #E8D8C8;
+
+  /* ── Visual Gray · Light ── */
+  --color-visual-gray-50 : #F3F5F7;
+  --color-visual-gray-100: #E8EBEF;
+  --color-visual-gray-150: #DADEE5;
+  --color-visual-gray-200: #CDD2DE;
+  --color-visual-gray-250: #ABB2BF;
+  --color-visual-gray-300: #808796;
+  --color-visual-gray-350: #646A74;
+  --color-visual-gray-400: #3E4347;
+  --color-visual-gray-450: #2B2F32;
+  --color-visual-gray-500: #1B1D1F;
+
+  /* ── Visual Gray · Dark ── */
+  --color-visual-gray-dark-50 : #12141A;
+  --color-visual-gray-dark-100: #1A1D25;
+  --color-visual-gray-dark-150: #252830;
+  --color-visual-gray-dark-200: #353840;
+  --color-visual-gray-dark-250: #484C58;
+  --color-visual-gray-dark-300: #606470;
+  --color-visual-gray-dark-350: #787C88;
+  --color-visual-gray-dark-400: #989CA8;
+  --color-visual-gray-dark-450: #B8BCC5;
+  --color-visual-gray-dark-500: #D8DBE0;
+}
+
+
+/* ══════════════════════════════════════════════════
+   2. FOUNDATION — Spacing, Radius, Border Width, Typography
+   ══════════════════════════════════════════════════ */
+:root {
+
+  /* ── Spacing ── */
+  --spacing-2  : 2px;
+  --spacing-4  : 4px;
+  --spacing-6  : 6px;
+  --spacing-8  : 8px;
+  --spacing-10 : 10px;
+  --spacing-12 : 12px;
+  --spacing-14 : 14px;
+  --spacing-16 : 16px;
+  --spacing-20 : 20px;
+  --spacing-24 : 24px;
+  --spacing-28 : 28px;
+  --spacing-32 : 32px;
+  --spacing-36 : 36px;
+  --spacing-40 : 40px;
+  --spacing-44 : 44px;
+  --spacing-48 : 48px;
+  --spacing-56 : 56px;
+  --spacing-64 : 64px;
+  --spacing-80 : 80px;
+  --spacing-96 : 96px;
+  --spacing-128: 128px;
+
+  /* ── Sizing ── */
+  --sizing-10 : 10px;
+  --sizing-16 : 16px;
+  --sizing-18 : 18px;
+  --sizing-20 : 20px;
+  --sizing-24 : 24px;
+  --sizing-28 : 28px;
+  --sizing-30 : 30px;
+  --sizing-32 : 32px;
+  --sizing-34 : 34px;
+  --sizing-38 : 38px;
+  --sizing-40 : 40px;
+  --sizing-44 : 44px;
+  --sizing-48 : 48px;
+  --sizing-56 : 56px;
+  --sizing-60 : 60px;
+  --sizing-64 : 64px;
+  --sizing-80 : 80px;
+  --sizing-128: 128px;
+
+  /* ── Radius ── */
+  --radius-0   : 0px;
+  --radius-2   : 2px;
+  --radius-4   : 4px;
+  --radius-6   : 6px;
+  --radius-8   : 8px;
+  --radius-10  : 10px;
+  --radius-12  : 12px;
+  --radius-16  : 16px;
+  --radius-20  : 20px;
+  --radius-full: 9999px;
+
+  /* ── Border Width ── */
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+
+  /* ── Font Size ── */
+  --font-size-10: 10px;
+  --font-size-12: 12px;
+  --font-size-14: 14px;
+  --font-size-16: 16px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+  --font-size-24: 24px;
+  --font-size-32: 32px;
+
+  /* ── Font Weight ── */
+  --font-weight-regular: 400;
+  --font-weight-medium : 500;
+  --font-weight-bold   : 700;
+
+  /* ── Line Height ── */
+  --line-height-130: 1.3;
+  --line-height-140: 1.4;
+
+  /* ── Opacity ── */
+  --opacity-0  : 0;
+  --opacity-25 : 0.25;
+  --opacity-50 : 0.5;
+  --opacity-75 : 0.75;
+  --opacity-100: 1;
+
+  /* ── Breakpoint ── */
+  --breakpoint-xs : 320px;
+  --breakpoint-sm : 600px;
+  --breakpoint-md : 768px;
+  --breakpoint-lg : 1024px;
+  --breakpoint-xl : 1280px;
+  --breakpoint-2xl: 1440px;
+}
+/* <<< GEN:FOUNDATION <<< */
+
+
+/* ══════════════════════════════════════════════════
+   0b. Status Dark Alias (수동 — vars-data 밖 관리, 350 step alias. registry statusDarkAlias 참조)
+   ══════════════════════════════════════════════════ */
+:root {
+  /* ── Status · Dark (피드백 상태 전용 Dark Foundation) ── */
+  --color-status-dark-red:    #F06070; /* = color-red-dark-350 */
+  --color-status-dark-green:  #3FBE7E; /* = color-green-dark-350 */
+  --color-status-dark-yellow: #E8C048; /* = color-yellow-dark-350 */
+}
+
+
+/* ══════════════════════════════════════════════════
+   2b. Letter Spacing (수동 — 타이포 파이프라인 소속. textstyles-data.ts/typography-gen.js 참조)
+   ══════════════════════════════════════════════════ */
+:root {
+  /* ── Letter Spacing ── */
+  --letter-spacing-tight:  -0.02em;
+  --letter-spacing-normal: 0em;
+  --letter-spacing-wide:   0.02em;
+}
+
+
+:root {
+  /* ══ semantic number (sizing·spacing·radius·border-width) — 763a70a 자동생성기 누락분 복원 2026-06-11 ══ */
+  /* ── spacing (semantic) ── */
+  --spacing-label-gap-inline-sm: var(--spacing-8);
+  --spacing-label-gap-inline-md: var(--spacing-12);
+  --spacing-label-gap-inline-lg: var(--spacing-16);
+  --spacing-label-gap-block-sm:  var(--spacing-4);
+  --spacing-label-gap-block-md:  var(--spacing-8);
+
+  /* ── sizing (semantic) ── */
+  /* 2026-06-12 폐지: 컴포넌트별 사이징 토큰 전부 제거 → 컴포넌트가 Foundation --sizing-N 직접 참조.
+     (값 보존: 옛 토큰은 모두 Foundation sizing step과 1:1 매핑) */
+
+  /* ── radius (semantic) ── */
+  --radius-control-xs: var(--radius-2);
+  --radius-control-sm: var(--radius-4);
+  --radius-button-md:  var(--radius-4);
+  --radius-card-md:    var(--radius-10);
+  --radius-modal-md:   var(--radius-8);
+
+  /* ── border-width (semantic) ── */
+  --border-width-default: var(--border-width-1);
+  --border-width-strong:  var(--border-width-2);
+}
+
+
+/* >>> GEN:SEMANTIC >>> Auto-generated from vars-data.ts (npm run tokens:gen) — Variables 정본. 수동 편집 금지. */
+/* ══════════════════════════════════════════════════
+   SEMANTIC TOKENS — Light (Variables 기준 자동 생성)
+   ══════════════════════════════════════════════════ */
+:root {
+  /* ── bg ── */
+  --color-bg-level-0: var(--color-base-white);
+  --color-bg-level-1: var(--color-gray-0);
+  --color-bg-level-2: var(--color-gray-50);
+  --color-bg-level-3: var(--color-gray-100);
+  --color-bg-home   : var(--color-base-home-bg);
+
+  /* ── surface ── */
+  --color-surface-raised: var(--color-base-white);
+
+  /* ── button ── */
+  --color-button-bg-blue-line--default    : var(--color-base-white);
+  --color-button-bg-blue-line--hover      : var(--color-blue-50);
+  --color-button-bg-disabled              : var(--color-gray-50);
+  --color-button-bg-primary--default      : var(--color-blue-400);
+  --color-button-bg-primary--hover        : var(--color-blue-500);
+  --color-button-bg-secondary--default    : var(--color-base-white);
+  --color-button-bg-secondary--hover      : var(--color-gray-50);
+  --color-button-border-assist--hover     : var(--color-gray-200);
+  --color-button-border-blue-line--default: var(--color-blue-400);
+  --color-button-border-blue-line--hover  : var(--color-blue-400);
+  --color-button-border-disabled          : var(--color-gray-200);
+  --color-button-border-primary--default  : var(--color-blue-400);
+  --color-button-border-primary--hover    : var(--color-blue-500);
+  --color-button-border-secondary--default: var(--color-gray-200);
+  --color-button-border-secondary--hover  : var(--color-gray-200);
+  --color-button-label-assist--default    : var(--color-gray-500);
+  --color-button-label-assist--hover      : var(--color-gray-500);
+  --color-button-label-blue-line--default : var(--color-blue-400);
+  --color-button-label-blue-line--hover   : var(--color-blue-500);
+  --color-button-label-disabled           : var(--color-gray-300);
+  --color-button-label-primary--default   : var(--color-base-white);
+  --color-button-label-primary--hover     : var(--color-base-white);
+  --color-button-label-secondary--default : var(--color-gray-800);
+  --color-button-label-secondary--hover   : var(--color-gray-800);
+
+  /* ── chip ── */
+  --color-chip-line-bg-default        : var(--color-base-white);
+  --color-chip-line-bg-disabled       : var(--color-gray-50);
+  --color-chip-line-bg-hover          : var(--color-gray-0);
+  --color-chip-line-bg-selected       : var(--color-base-white);
+  --color-chip-line-border-default    : var(--color-gray-300);
+  --color-chip-line-border-disabled   : var(--color-gray-100);
+  --color-chip-line-border-selected   : var(--color-blue-400);
+  --color-chip-line-icon-default      : var(--color-gray-500);
+  --color-chip-line-icon-disabled     : var(--color-gray-300);
+  --color-chip-line-label-default     : var(--color-gray-500);
+  --color-chip-line-label-disabled    : var(--color-gray-300);
+  --color-chip-line-label-selected    : var(--color-blue-400);
+  --color-chip-solid-bg-default       : var(--color-gray-50);
+  --color-chip-solid-bg-disabled      : var(--color-gray-50);
+  --color-chip-solid-bg-hover         : var(--color-gray-100);
+  --color-chip-solid-bg-selected      : var(--color-blue-400);
+  --color-chip-solid-bg-selected-hover: var(--color-blue-500);
+  --color-chip-solid-border-default   : var(--color-gray-50);
+  --color-chip-solid-border-disabled  : var(--color-gray-50);
+  --color-chip-solid-border-selected  : var(--color-blue-400);
+  --color-chip-solid-icon-default     : var(--color-gray-800);
+  --color-chip-solid-icon-disabled    : var(--color-gray-300);
+  --color-chip-solid-icon-selected    : var(--color-base-white);
+  --color-chip-solid-label-default    : var(--color-gray-800);
+  --color-chip-solid-label-disabled   : var(--color-gray-300);
+  --color-chip-solid-label-selected   : var(--color-base-white);
+
+  /* ── control ── */
+  --color-control-bg-default            : var(--color-base-white);
+  --color-control-bg-disabled           : var(--color-gray-100);
+  --color-control-bg-hover              : var(--color-gray-50);
+  --color-control-bg-selected           : var(--color-blue-400);
+  --color-control-border-default        : var(--color-gray-200);
+  --color-control-border-disabled       : var(--color-gray-200);
+  --color-control-border-selected       : var(--color-blue-400);
+  --color-control-indicator-disabled    : var(--color-gray-300);
+  --color-control-indicator-selected    : var(--color-base-white);
+  --color-control-indicator-selected-alt: var(--color-blue-400);
+  --color-control-indicator-unselected  : var(--color-gray-300);
+  --color-control-label-default         : var(--color-gray-800);
+  --color-control-label-disabled        : var(--color-gray-300);
+
+  /* ── table ── */
+  --color-table-border-default: var(--color-gray-100);
+  --color-table-border-strong : var(--color-gray-800);
+  --color-table-header-bg     : var(--color-gray-0);
+  --color-table-cell-default  : var(--color-base-white);
+  --color-table-cell-hover    : var(--color-gray-50);
+  --color-table-cell-selected : var(--color-blue-50);
+
+  /* ── dropdown ── */
+  --color-dropdown-list-bg              : var(--color-base-white);
+  --color-dropdown-list-border          : var(--color-gray-200);
+  --color-dropdown-option-bg-default    : var(--color-base-white);
+  --color-dropdown-option-bg-hover      : var(--color-gray-50);
+  --color-dropdown-option-bg-selected   : var(--color-blue-50);
+  --color-dropdown-option-label-default : var(--color-gray-800);
+  --color-dropdown-option-label-hover   : var(--color-gray-900);
+  --color-dropdown-option-label-selected: var(--color-blue-400);
+
+  /* ── form-control ── */
+  --color-form-control-bg-default      : var(--color-base-white);
+  --color-form-control-bg-disabled     : var(--color-gray-50);
+  --color-form-control-bg-hover        : var(--color-gray-0);
+  --color-form-control-bg-selected     : var(--color-base-white);
+  --color-form-control-border-correct  : var(--color-blue-400);
+  --color-form-control-border-default  : var(--color-gray-200);
+  --color-form-control-border-disabled : var(--color-gray-100);
+  --color-form-control-border-error    : var(--color-red-300);
+  --color-form-control-border-selected : var(--color-blue-400);
+  --color-form-control-label-default   : var(--color-gray-800);
+  --color-form-control-label-disabled  : var(--color-gray-300);
+  --color-form-control-text-default    : var(--color-gray-800);
+  --color-form-control-text-disabled   : var(--color-gray-300);
+  --color-form-control-text-placeholder: var(--color-gray-500);
+  --color-form-control-text-selected   : var(--color-gray-900);
+  --color-form-control-icon-default    : var(--color-gray-800);
+  --color-form-control-icon-hover      : var(--color-gray-900);
+  --color-form-control-icon-selected   : var(--color-gray-900);
+  --color-form-control-icon-disabled   : var(--color-gray-300);
+  --color-form-control-text-cursor     : var(--color-blue-400);
+  --color-form-control-text-read-only  : var(--color-gray-500);
+
+  /* ── icon ── */
+  --color-icon-blue      : var(--color-blue-400);
+  --color-icon-gray      : var(--color-gray-dark-600);
+  --color-icon-gray-dark : var(--color-gray-800);
+  --color-icon-gray-light: var(--color-gray-300);
+  --color-icon-red       : var(--color-red-300);
+  --color-icon-white     : var(--color-base-white);
+
+  /* ── line ── */
+  --color-line-blue       : var(--color-blue-400);
+  --color-line-gray-subtle: var(--color-gray-100);
+
+  /* ── navigation ── */
+  --color-navigation-bg                   : var(--color-base-white);
+  --color-navigation-indicator-default    : var(--color-gray-200);
+  --color-navigation-indicator-hover      : var(--color-blue-400);
+  --color-navigation-indicator-selected   : var(--color-blue-400);
+  --color-navigation-label-default        : var(--color-gray-600);
+  --color-navigation-label-default-alt    : var(--color-gray-700);
+  --color-navigation-label-hover          : var(--color-blue-400);
+  --color-navigation-label-selected       : var(--color-blue-400);
+  --color-navigation-submenu-label-default: var(--color-gray-800);
+
+  /* ── overlay ── */
+  --color-overlay           : rgba(0,0,0,0.5);
+  --color-overlay-wheel-fade: var(--color-base-white);
+
+  /* ── date-picker ── */
+  --color-date-picker-panel-bg              : var(--color-base-white);
+  --color-date-picker-panel-border          : var(--color-gray-200);
+  --color-date-picker-cell-bg-hover         : var(--color-gray-50);
+  --color-date-picker-cell-bg-today         : var(--color-base-white);
+  --color-date-picker-cell-bg-selected      : var(--color-blue-400);
+  --color-date-picker-cell-bg-selected-hover: var(--color-blue-500);
+  --color-date-picker-cell-bg-range         : var(--color-blue-50);
+  --color-date-picker-cell-border-today     : var(--color-blue-400);
+  --color-date-picker-icon-default          : var(--color-gray-900);
+  --color-date-picker-icon-hover            : var(--color-gray-800);
+  --color-date-picker-icon-disabled         : var(--color-gray-300);
+  --color-date-picker-text-primary          : var(--color-gray-900);
+  --color-date-picker-text-secondary        : var(--color-gray-800);
+  --color-date-picker-text-disabled         : var(--color-gray-300);
+  --color-date-picker-text-other-month      : var(--color-gray-300);
+  --color-date-picker-text-sunday           : var(--color-red-300);
+  --color-date-picker-text-saturday         : var(--color-blue-400);
+  --color-date-picker-text-today            : var(--color-blue-400);
+  --color-date-picker-text-selected         : var(--color-base-white);
+  --color-date-picker-tile-bg-default       : var(--color-base-white);
+  --color-date-picker-tile-bg-hover         : var(--color-gray-50);
+  --color-date-picker-tile-bg-selected      : var(--color-base-white);
+  --color-date-picker-tile-bg-disabled      : var(--color-gray-100);
+  --color-date-picker-tile-border-default   : var(--color-gray-200);
+  --color-date-picker-tile-border-disabled  : var(--color-gray-100);
+
+  /* ── modal ── */
+  --color-modal-panel-border: var(--color-gray-200);
+
+  /* ── pagination ── */
+  --color-pagination-control-bg-default     : var(--color-base-white);
+  --color-pagination-control-bg-disabled    : var(--color-gray-50);
+  --color-pagination-control-bg-hover       : var(--color-gray-50);
+  --color-pagination-control-border-default : var(--color-gray-200);
+  --color-pagination-control-border-disabled: var(--color-gray-100);
+  --color-pagination-control-border-hover   : var(--color-gray-200);
+  --color-pagination-control-icon-default   : var(--color-gray-800);
+  --color-pagination-control-icon-hover     : var(--color-gray-800);
+  --color-pagination-control-icon-selected  : var(--color-gray-800);
+  --color-pagination-control-icon-disabled  : var(--color-gray-300);
+  --color-pagination-number-default         : var(--color-gray-400);
+  --color-pagination-number-hover           : var(--color-gray-400);
+  --color-pagination-number-selected        : var(--color-gray-800);
+
+  /* ── status-card ── */
+  --color-status-card-text-disabled          : var(--color-gray-300);
+  --color-status-card-text-error             : var(--color-red-300);
+  --color-status-card-text-primary--default  : var(--color-gray-900);
+  --color-status-card-text-primary--sub      : var(--color-gray-800);
+  --color-status-card-text-secondary--default: var(--color-gray-600);
+  --color-status-card-text-secondary--sub    : var(--color-gray-500);
+  --color-status-card-text-tertiary--default : var(--color-gray-400);
+  --color-status-card-text-tertiary--sub     : var(--color-gray-300);
+
+  /* ── text ── */
+  --color-text-body-primary        : var(--color-gray-800);
+  --color-text-body-secondary      : var(--color-gray-600);
+  --color-text-body-tertiary       : var(--color-gray-500);
+  --color-text-state-accent        : var(--color-blue-400);
+  --color-text-state-accent-inverse: var(--color-base-white);
+  --color-text-state-caption       : var(--color-gray-500);
+  --color-text-state-caution       : var(--color-red-300);
+  --color-text-state-correct       : var(--color-blue-400);
+  --color-text-state-disabled      : var(--color-gray-300);
+  --color-text-state-helper        : var(--color-gray-400);
+  --color-text-title-primary       : var(--color-base-black);
+  --color-text-title-secondary     : var(--color-gray-800);
+
+  /* ── scroll ── */
+  --color-scroll-bg: var(--color-gray-200);
+
+  /* ── shadow ── */
+  --shadow-raised   : 0 4px 6px -2px rgba(0,0,0,0.06), 0 12px 20px -4px rgba(0,0,0,0.10);
+  --shadow-raised-up: 0 -4px 16px rgba(0,0,0,0.15);
+  --shadow-dropdown : 0 4px 8px 0 rgba(0,0,0,0.15);
+}
+
+/* ══════════════════════════════════════════════════
+   SEMANTIC TOKENS — Dark (Variables 기준 자동 생성)
+   ══════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  /* ── bg ── */
+  --color-bg-level-0: var(--color-gray-dark-0);
+  --color-bg-level-1: var(--color-gray-dark-50);
+  --color-bg-level-2: var(--color-gray-dark-100);
+  --color-bg-level-3: var(--color-gray-dark-200);
+  --color-bg-home   : var(--color-blue-dark-50);
+
+  /* ── surface ── */
+  --color-surface-raised: var(--color-gray-dark-100);
+
+  /* ── button ── */
+  --color-button-bg-blue-line--default    : var(--color-gray-dark-100);
+  --color-button-bg-blue-line--hover      : var(--color-blue-dark-50);
+  --color-button-bg-disabled              : var(--color-gray-dark-300);
+  --color-button-bg-primary--default      : var(--color-blue-dark-300);
+  --color-button-bg-primary--hover        : var(--color-blue-dark-250);
+  --color-button-bg-secondary--default    : var(--color-gray-dark-100);
+  --color-button-bg-secondary--hover      : var(--color-gray-dark-200);
+  --color-button-border-assist--hover     : var(--color-gray-dark-500);
+  --color-button-border-blue-line--default: var(--color-blue-dark-300);
+  --color-button-border-blue-line--hover  : var(--color-blue-dark-300);
+  --color-button-border-disabled          : var(--color-gray-dark-300);
+  --color-button-border-primary--default  : var(--color-blue-dark-300);
+  --color-button-border-primary--hover    : var(--color-blue-dark-250);
+  --color-button-border-secondary--default: var(--color-gray-dark-500);
+  --color-button-border-secondary--hover  : var(--color-gray-dark-500);
+  --color-button-label-assist--default    : var(--color-gray-dark-700);
+  --color-button-label-assist--hover      : var(--color-gray-dark-700);
+  --color-button-label-blue-line--default : var(--color-blue-dark-300);
+  --color-button-label-blue-line--hover   : var(--color-blue-dark-300);
+  --color-button-label-disabled           : var(--color-gray-dark-600);
+  --color-button-label-primary--default   : var(--color-base-white);
+  --color-button-label-primary--hover     : var(--color-base-white);
+  --color-button-label-secondary--default : var(--color-gray-dark-800);
+  --color-button-label-secondary--hover   : var(--color-gray-dark-800);
+
+  /* ── chip ── */
+  --color-chip-line-bg-default        : var(--color-gray-dark-100);
+  --color-chip-line-bg-disabled       : var(--color-gray-dark-200);
+  --color-chip-line-bg-hover          : var(--color-gray-dark-200);
+  --color-chip-line-bg-selected       : var(--color-gray-dark-100);
+  --color-chip-line-border-default    : var(--color-gray-dark-500);
+  --color-chip-line-border-disabled   : var(--color-gray-dark-200);
+  --color-chip-line-border-selected   : var(--color-blue-dark-300);
+  --color-chip-line-icon-default      : var(--color-gray-dark-700);
+  --color-chip-line-icon-disabled     : var(--color-gray-dark-600);
+  --color-chip-line-label-default     : var(--color-gray-dark-700);
+  --color-chip-line-label-disabled    : var(--color-gray-dark-600);
+  --color-chip-line-label-selected    : var(--color-blue-dark-350);
+  --color-chip-solid-bg-default       : var(--color-gray-dark-300);
+  --color-chip-solid-bg-disabled      : var(--color-gray-dark-200);
+  --color-chip-solid-bg-hover         : var(--color-gray-dark-400);
+  --color-chip-solid-bg-selected      : var(--color-blue-dark-300);
+  --color-chip-solid-bg-selected-hover: var(--color-blue-dark-250);
+  --color-chip-solid-border-default   : var(--color-gray-dark-200);
+  --color-chip-solid-border-disabled  : var(--color-gray-dark-200);
+  --color-chip-solid-border-selected  : var(--color-blue-dark-300);
+  --color-chip-solid-icon-default     : var(--color-gray-dark-700);
+  --color-chip-solid-icon-disabled    : var(--color-gray-dark-600);
+  --color-chip-solid-icon-selected    : var(--color-base-white);
+  --color-chip-solid-label-default    : var(--color-gray-dark-700);
+  --color-chip-solid-label-disabled   : var(--color-gray-dark-600);
+  --color-chip-solid-label-selected   : var(--color-base-white);
+
+  /* ── control ── */
+  --color-control-bg-default            : var(--color-gray-dark-100);
+  --color-control-bg-disabled           : var(--color-gray-dark-300);
+  --color-control-bg-hover              : var(--color-gray-dark-200);
+  --color-control-bg-selected           : var(--color-blue-dark-300);
+  --color-control-border-default        : var(--color-gray-dark-500);
+  --color-control-border-disabled       : var(--color-gray-dark-300);
+  --color-control-border-selected       : var(--color-blue-dark-300);
+  --color-control-indicator-disabled    : var(--color-gray-dark-500);
+  --color-control-indicator-selected    : var(--color-base-white);
+  --color-control-indicator-selected-alt: var(--color-blue-dark-300);
+  --color-control-indicator-unselected  : var(--color-gray-dark-400);
+  --color-control-label-default         : var(--color-gray-dark-800);
+  --color-control-label-disabled        : var(--color-gray-dark-600);
+
+  /* ── table ── */
+  --color-table-border-default: var(--color-gray-dark-300);
+  --color-table-border-strong : var(--color-gray-dark-700);
+  --color-table-header-bg     : var(--color-gray-dark-200);
+  --color-table-cell-default  : var(--color-gray-dark-100);
+  --color-table-cell-hover    : var(--color-gray-dark-200);
+  --color-table-cell-selected : var(--color-blue-dark-100);
+
+  /* ── dropdown ── */
+  --color-dropdown-list-bg              : var(--color-gray-dark-100);
+  --color-dropdown-list-border          : var(--color-gray-dark-500);
+  --color-dropdown-option-bg-default    : var(--color-gray-dark-100);
+  --color-dropdown-option-bg-hover      : var(--color-gray-dark-200);
+  --color-dropdown-option-bg-selected   : var(--color-blue-dark-100);
+  --color-dropdown-option-label-default : var(--color-gray-dark-800);
+  --color-dropdown-option-label-hover   : var(--color-gray-dark-900);
+  --color-dropdown-option-label-selected: var(--color-blue-dark-350);
+
+  /* ── form-control ── */
+  --color-form-control-bg-default      : var(--color-gray-dark-100);
+  --color-form-control-bg-disabled     : var(--color-gray-dark-200);
+  --color-form-control-bg-hover        : var(--color-gray-dark-200);
+  --color-form-control-bg-selected     : var(--color-gray-dark-200);
+  --color-form-control-border-correct  : var(--color-blue-dark-350);
+  --color-form-control-border-default  : var(--color-gray-dark-500);
+  --color-form-control-border-disabled : var(--color-gray-dark-200);
+  --color-form-control-border-error    : var(--color-red-dark-350);
+  --color-form-control-border-selected : var(--color-blue-dark-350);
+  --color-form-control-label-default   : var(--color-gray-dark-800);
+  --color-form-control-label-disabled  : var(--color-gray-dark-600);
+  --color-form-control-text-default    : var(--color-gray-dark-800);
+  --color-form-control-text-disabled   : var(--color-gray-dark-600);
+  --color-form-control-text-placeholder: var(--color-gray-dark-600);
+  --color-form-control-text-selected   : var(--color-gray-dark-800);
+  --color-form-control-icon-default    : var(--color-gray-dark-700);
+  --color-form-control-icon-hover      : var(--color-gray-dark-800);
+  --color-form-control-icon-selected   : var(--color-gray-dark-800);
+  --color-form-control-icon-disabled   : var(--color-gray-dark-500);
+  --color-form-control-text-cursor     : var(--color-blue-dark-350);
+  --color-form-control-text-read-only  : var(--color-gray-dark-700);
+
+  /* ── icon ── */
+  --color-icon-blue      : var(--color-blue-dark-300);
+  --color-icon-gray      : var(--color-gray-dark-700);
+  --color-icon-gray-dark : var(--color-gray-dark-800);
+  --color-icon-gray-light: var(--color-gray-dark-400);
+  --color-icon-red       : var(--color-red-dark-350);
+  --color-icon-white     : var(--color-base-white);
+
+  /* ── line ── */
+  --color-line-blue       : var(--color-blue-dark-300);
+  --color-line-gray-subtle: var(--color-gray-dark-300);
+
+  /* ── navigation ── */
+  --color-navigation-bg                   : var(--color-gray-dark-100);
+  --color-navigation-indicator-default    : var(--color-gray-dark-300);
+  --color-navigation-indicator-hover      : var(--color-blue-dark-300);
+  --color-navigation-indicator-selected   : var(--color-blue-dark-300);
+  --color-navigation-label-default        : var(--color-gray-dark-600);
+  --color-navigation-label-default-alt    : var(--color-gray-dark-700);
+  --color-navigation-label-hover          : var(--color-blue-dark-300);
+  --color-navigation-label-selected       : var(--color-blue-dark-300);
+  --color-navigation-submenu-label-default: var(--color-gray-dark-900);
+
+  /* ── overlay ── */
+  --color-overlay           : rgba(0,0,0,0.75);
+  --color-overlay-wheel-fade: var(--color-gray-dark-100);
+
+  /* ── date-picker ── */
+  --color-date-picker-panel-bg              : var(--color-gray-dark-100);
+  --color-date-picker-panel-border          : var(--color-gray-dark-500);
+  --color-date-picker-cell-bg-hover         : var(--color-gray-dark-200);
+  --color-date-picker-cell-bg-today         : var(--color-gray-dark-100);
+  --color-date-picker-cell-bg-selected      : var(--color-blue-dark-300);
+  --color-date-picker-cell-bg-selected-hover: var(--color-blue-dark-250);
+  --color-date-picker-cell-bg-range         : var(--color-blue-dark-100);
+  --color-date-picker-cell-border-today     : var(--color-blue-dark-300);
+  --color-date-picker-icon-default          : var(--color-gray-dark-900);
+  --color-date-picker-icon-hover            : var(--color-gray-dark-800);
+  --color-date-picker-icon-disabled         : var(--color-gray-dark-500);
+  --color-date-picker-text-primary          : var(--color-gray-dark-900);
+  --color-date-picker-text-secondary        : var(--color-gray-dark-800);
+  --color-date-picker-text-disabled         : var(--color-gray-dark-500);
+  --color-date-picker-text-other-month      : var(--color-gray-dark-400);
+  --color-date-picker-text-sunday           : var(--color-red-dark-350);
+  --color-date-picker-text-saturday         : var(--color-blue-dark-300);
+  --color-date-picker-text-today            : var(--color-blue-dark-300);
+  --color-date-picker-text-selected         : var(--color-base-white);
+  --color-date-picker-tile-bg-default       : var(--color-gray-dark-100);
+  --color-date-picker-tile-bg-hover         : var(--color-gray-dark-200);
+  --color-date-picker-tile-bg-selected      : var(--color-gray-dark-100);
+  --color-date-picker-tile-bg-disabled      : var(--color-gray-dark-200);
+  --color-date-picker-tile-border-default   : var(--color-gray-dark-500);
+  --color-date-picker-tile-border-disabled  : var(--color-gray-dark-300);
+
+  /* ── modal ── */
+  --color-modal-panel-border: var(--color-gray-dark-500);
+
+  /* ── pagination ── */
+  --color-pagination-control-bg-default     : var(--color-gray-dark-100);
+  --color-pagination-control-bg-disabled    : var(--color-gray-dark-300);
+  --color-pagination-control-bg-hover       : var(--color-gray-dark-200);
+  --color-pagination-control-border-default : var(--color-gray-dark-500);
+  --color-pagination-control-border-disabled: var(--color-gray-dark-300);
+  --color-pagination-control-border-hover   : var(--color-gray-dark-500);
+  --color-pagination-control-icon-default   : var(--color-gray-dark-800);
+  --color-pagination-control-icon-hover     : var(--color-gray-dark-800);
+  --color-pagination-control-icon-selected  : var(--color-gray-dark-800);
+  --color-pagination-control-icon-disabled  : var(--color-gray-dark-600);
+  --color-pagination-number-default         : var(--color-gray-dark-600);
+  --color-pagination-number-hover           : var(--color-gray-dark-600);
+  --color-pagination-number-selected        : var(--color-gray-dark-800);
+
+  /* ── status-card ── */
+  --color-status-card-text-disabled          : var(--color-gray-dark-400);
+  --color-status-card-text-error             : var(--color-red-dark-350);
+  --color-status-card-text-primary--default  : var(--color-gray-dark-900);
+  --color-status-card-text-primary--sub      : var(--color-gray-dark-800);
+  --color-status-card-text-secondary--default: var(--color-gray-dark-700);
+  --color-status-card-text-secondary--sub    : var(--color-gray-dark-700);
+  --color-status-card-text-tertiary--default : var(--color-gray-dark-600);
+  --color-status-card-text-tertiary--sub     : var(--color-gray-dark-400);
+
+  /* ── text ── */
+  --color-text-body-primary        : var(--color-gray-dark-900);
+  --color-text-body-secondary      : var(--color-gray-dark-800);
+  --color-text-body-tertiary       : var(--color-gray-dark-700);
+  --color-text-state-accent        : var(--color-blue-dark-300);
+  --color-text-state-accent-inverse: var(--color-base-white);
+  --color-text-state-caption       : var(--color-gray-dark-800);
+  --color-text-state-caution       : var(--color-red-dark-350);
+  --color-text-state-correct       : var(--color-blue-dark-300);
+  --color-text-state-disabled      : var(--color-gray-dark-400);
+  --color-text-state-helper        : var(--color-gray-dark-600);
+  --color-text-title-primary       : var(--color-gray-dark-900);
+  --color-text-title-secondary     : var(--color-gray-dark-800);
+
+  /* ── scroll ── */
+  --color-scroll-bg: var(--color-gray-dark-600);
+
+  /* ── shadow ── */
+  --shadow-raised   : 0 8px 8px -4px rgba(0,0,0,1), 0 20px 24px -4px rgba(0,0,0,1);
+  --shadow-raised-up: 0 -4px 16px rgba(0,0,0,0.15);
+  --shadow-dropdown : 0 4px 8px 0 rgba(0,0,0,0.15);
+}
+/* <<< GEN:SEMANTIC <<< */

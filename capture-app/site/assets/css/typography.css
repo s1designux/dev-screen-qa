@@ -1,0 +1,131 @@
+/* S-1 디자인가이드 typography.css — 판 d90d84a · 받은 때 2026-09-14 16:45 (KST) · 원본 a7b8d3d · 손으로 고치지 말고 다시 받으세요 */
+/* ══════════════════════════════════════════════════
+   typography.css — 자동 생성 (npm run typo:gen). 수동 편집 금지.
+   정본: plugins/figma-vars-installer/src/textstyles-data.ts (TEXT_STYLES)
+   합성 타이포 토큰 → CSS 유틸리티 클래스. font 4속성을 foundation 변수로 참조.
+   사용: <span class="typo-body-14r">텍스트</span> (일반 콘텐츠용 / 컴포넌트는 내부 선언 유지)
+   ══════════════════════════════════════════════════ */
+
+/* ── title ── */
+.typo-title-32b {
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-32r {
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-24b {
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-20b {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-20r {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-18b {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-18m {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-title-16b {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-16m {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-title-14b {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-title-14m {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+/* ── body ── */
+.typo-body-18m {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-body-16m {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-body-16r {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-body-14m {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-body-14r {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+}
+.typo-body-12m {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-body-12r {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+}
+.typo-body-10m {
+  font-size: var(--font-size-10);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-140);
+  letter-spacing: var(--letter-spacing-wide);
+}
+.typo-body-10r {
+  font-size: var(--font-size-10);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-140);
+  letter-spacing: var(--letter-spacing-wide);
+}

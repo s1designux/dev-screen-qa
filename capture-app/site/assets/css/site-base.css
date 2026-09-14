@@ -1,0 +1,149 @@
+/* S-1 디자인가이드 site-base.css — 판 d90d84a · 받은 때 2026-09-14 16:45 (KST) · 원본 a7b8d3d · 손으로 고치지 말고 다시 받으세요 */
+/* ══════════════════════════════════════════════════
+   site-base.css — 사이트(포털) 전용 베이스 semantic
+   ──────────────────────────────────────────────────
+   목적: 가이드 포털 UI(레이아웃·타이포·테두리 등)가 쓰는 범용 토큰.
+   tokens.css 는 "컴포넌트(Variables) 토큰"만 보유 → 사이트 전용 토큰은 여기로 분리.
+   ※ 컴포넌트 하네스는 Figma Variables(--color-button-* 등)로 마이그레이션 중.
+     이 파일의 토큰은 포털 크롬 및 미마이그레이션 영역 폴백용.
+   ══════════════════════════════════════════════════ */
+:root {
+  /* bg */
+  --color-bg-default               : var(--color-gray-0);
+  --color-bg-subtle                : var(--color-gray-50);
+  --color-bg-muted                 : var(--color-gray-100);
+  --color-bg-elevated              : var(--color-gray-100);
+  --color-bg-home                  : #F5F6FB;
+  --color-bg-selected              : var(--color-blue-50);
+
+  /* surface */
+  --color-surface-default          : var(--color-base-white);
+  --color-surface-raised           : var(--color-base-white);
+
+  /* text */
+  --color-text-primary             : var(--color-gray-900);
+  --color-text-secondary           : var(--color-gray-800);
+  --color-text-tertiary            : var(--color-gray-600);
+  --color-text-caption             : var(--color-gray-500);
+  --color-text-placeholder         : var(--color-gray-500);
+  --color-text-helper              : var(--color-gray-400);
+  --color-text-link                : var(--color-blue-400);
+  --color-text-correct             : var(--color-blue-400);
+  --color-text-danger              : var(--color-red-300);
+  --color-text-disabled            : var(--color-gray-300);
+  --color-text-readonly            : var(--color-gray-500);
+  --color-text-inverse             : var(--color-base-white);
+  --color-text-state-error         : var(--color-status-error);
+
+  /* border */
+  --color-border-subtle            : var(--color-gray-100);
+  --color-border-default           : var(--color-gray-200);
+  --color-border-disabled          : var(--color-gray-200);
+  --color-border-strong            : var(--color-gray-300);
+  --color-border-emphasis          : var(--color-gray-800);
+  --color-border-focus             : var(--color-blue-400);
+  --color-border-white             : var(--color-base-white);
+  --color-border-danger            : var(--color-red-300);
+  --color-border-correct           : var(--color-blue-400);
+
+  /* icon */
+  --color-icon-default             : var(--color-gray-500);
+  --color-icon-muted               : var(--color-gray-300);
+  --color-icon-emphasis            : var(--color-gray-800);
+  --color-icon-accent              : var(--color-blue-400);
+  --color-icon-inverse             : var(--color-base-white);
+  --color-icon-danger              : var(--color-red-300);
+
+  /* action */
+  --color-action-primary-default   : var(--color-blue-400);
+  --color-action-primary-hover     : var(--color-blue-450);
+  --color-action-primary-pressed   : var(--color-blue-500);
+  --color-action-primary-text      : var(--color-base-white);
+  --color-action-primary-subtle    : var(--color-blue-50);
+
+  /* status */
+  --color-status-success           : var(--color-blue-400);
+  --color-status-error             : var(--color-red-400);
+  --color-status-warning           : var(--color-yellow-400);
+  --color-status-info              : var(--color-gray-500);
+
+  /* control */
+  --color-control-border-hover     : var(--color-blue-400);
+
+  /* form */
+  --color-form-control-border-hover: var(--color-border-strong);
+
+  /* navigation */
+  --color-navigation-bg            : var(--color-surface-default);
+  --color-navigation-icon          : var(--color-gray-800);
+}
+
+[data-theme="dark"] {
+  /* bg */
+  --color-bg-default               : var(--color-gray-dark-50);
+  --color-bg-subtle                : var(--color-gray-dark-200);
+  --color-bg-muted                 : var(--color-gray-dark-300);
+  --color-bg-elevated              : var(--color-gray-dark-400);
+  --color-bg-home                  : var(--color-gray-dark-50);
+  --color-bg-selected              : var(--color-blue-dark-100);
+
+  /* surface */
+  --color-surface-default          : var(--color-gray-dark-100);
+  --color-surface-raised           : var(--color-gray-dark-400);
+
+  /* text */
+  --color-text-primary             : var(--color-gray-dark-900);
+  --color-text-secondary           : var(--color-gray-dark-800);
+  --color-text-tertiary            : var(--color-gray-dark-700);
+  --color-text-caption             : var(--color-gray-dark-700);
+  --color-text-placeholder         : var(--color-gray-dark-600);
+  --color-text-helper              : var(--color-gray-dark-600);
+  --color-text-link                : var(--color-blue-dark-400);
+  --color-text-correct             : var(--color-blue-dark-400);
+  --color-text-danger              : var(--color-status-dark-red);
+  --color-text-disabled            : var(--color-gray-dark-400);
+  --color-text-readonly            : var(--color-gray-dark-500);
+  --color-text-inverse             : var(--color-base-white);
+
+  /* border */
+  --color-border-subtle            : var(--color-gray-dark-200);
+  --color-border-default           : var(--color-gray-dark-300);
+  --color-border-disabled          : var(--color-gray-dark-200);
+  --color-border-strong            : var(--color-gray-dark-500);
+  --color-border-emphasis          : var(--color-gray-dark-700);
+  --color-border-focus             : var(--color-blue-dark-350);
+  --color-border-white             : var(--color-base-white);
+  --color-border-danger            : var(--color-status-dark-red);
+  --color-border-correct           : var(--color-blue-dark-350);
+
+  /* icon */
+  --color-icon-default             : var(--color-gray-dark-700);
+  --color-icon-muted               : var(--color-gray-dark-400);
+  --color-icon-emphasis            : var(--color-gray-dark-800);
+  --color-icon-accent              : var(--color-blue-dark-400);
+  --color-icon-inverse             : var(--color-gray-dark-900);
+  --color-icon-danger              : var(--color-status-dark-red);
+
+  /* action */
+  --color-action-primary-default   : var(--color-blue-dark-300);
+  --color-action-primary-hover     : var(--color-blue-dark-250);
+  --color-action-primary-pressed   : var(--color-blue-dark-200);
+  --color-action-primary-text      : var(--color-base-white);
+  --color-action-primary-subtle    : var(--color-blue-dark-100);
+
+  /* status */
+  --color-status-success           : var(--color-status-dark-green);
+  --color-status-error             : var(--color-status-dark-red);
+  --color-status-warning           : var(--color-status-dark-yellow);
+  --color-status-info              : var(--color-gray-dark-700);
+
+  /* control */
+  --color-control-border-hover     : var(--color-blue-dark-300);
+
+  /* form */
+  --color-form-control-border-hover: var(--color-border-strong);
+
+  /* navigation */
+  --color-navigation-bg            : var(--color-surface-default);
+  --color-navigation-icon          : var(--color-gray-dark-700);
+}

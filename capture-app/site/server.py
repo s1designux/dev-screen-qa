@@ -88,125 +88,194 @@ def _e(v):
 
 
 # ────────────────────────────────────────────────── 겉모습
+# ── S-1 디자인가이드 토큰 ────────────────────────────────
+# 값을 코드에 베껴 적지 않는다 — 가이드는 계속 바뀐다. 받아 둔 CSS 를 그대로 읽어 화면 앞에 붙인다.
+#   새로 받기: bash ~/.claude/skills/s1-design/scripts/가이드받기.sh --내려두기 capture-app/site/assets/css
+토큰자리 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "css")
+
+
+def 토큰CSS():
+    묶음 = []
+    for 이름 in ("tokens.css", "component-tokens.css", "typography.css", "site-base.css"):
+        길 = os.path.join(토큰자리, 이름)
+        if os.path.exists(길):
+            묶음.append(open(길, encoding="utf-8").read())
+    return "\n".join(묶음)
+
+
+토큰 = 토큰CSS()
+
+
 CSS = """
-/* 색·모서리 값은 S-1 UX 디자인시스템 토큰을 그대로 가져다 쓴다
-   (s1designux/S-1-UX-DESIGN-AI-GUIDELINE · assets/css/tokens.css) */
+/* 색·크기·굵기·모서리는 S-1 디자인가이드 토큰만 쓴다. 값을 여기에 베껴 적지 않는다.
+   토큰 CSS 는 assets/css/ 에서 그대로 읽어 온다(위 토큰CSS()).
+   새로 받기: bash ~/.claude/skills/s1-design/scripts/가이드받기.sh --내려두기 capture-app/site/assets/css */
 :root {
-  --gray-0:#FAFAFA; --gray-50:#F5F5F5; --gray-100:#E9E9E9; --gray-200:#D9D9D9;
-  --gray-300:#C4C4C4; --gray-400:#9D9D9D; --gray-500:#757575; --gray-600:#555555;
-  --gray-800:#353535; --gray-900:#202020;
-  --blue-400:#1D6CEB; --blue-50:#E2F1FF; --red-400:#E50533; --red-50:#FFEBEF;
-  --yellow-400:#DBA400;   /* 정본 --color-status-warning (registry/tokens/canonical-token-draft.json) */
-  --radius-control:4px; --radius-card:10px;
-  --form-bg:#FFFFFF; --form-border:var(--gray-200); --form-text:var(--gray-800);
-  --form-placeholder:var(--gray-500);
-  --form-bg-readonly:var(--gray-50); --form-text-readonly:var(--gray-500);
+  /* 이 사이트에서만 쓰는 별명 — 값이 아니라 가이드 토큰을 가리킨다 */
+  --form-bg:            var(--color-form-control-bg-default);
+  --form-border:        var(--color-form-control-border-default);
+  --form-text:          var(--color-form-control-text-default);
+  --form-placeholder:   var(--color-form-control-text-placeholder);
+  --form-bg-readonly:   var(--color-bg-level-2);
+  --form-text-readonly: var(--color-form-control-text-read-only);
 }
 * { box-sizing:border-box; }
-body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; color:#1a1a1a; margin:0; background:#f6f7f9; }
-header { background:#fff; border-bottom:1px solid #e5e7eb; padding:16px 28px; }
-h1 { font-size:18px; margin:0; }
-.sub { font-size:12px; color:#6b7280; margin-top:4px; }
-.wrap { max-width:1040px; margin:0 auto; padding:20px 28px 70px; }
+body { font-family:Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  color:var(--color-text-primary); margin:0; background:var(--color-bg-level-1);
+  font-size:var(--font-size-14); }
+header { background:var(--color-surface-default); border-bottom:1px solid var(--color-border-subtle);
+  padding:var(--spacing-16) var(--spacing-28); }
+h1 { font-size:var(--font-size-18); margin:0; }
+.sub { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); margin-top:var(--spacing-4); }
+.wrap { max-width:1040px; margin:0 auto; padding:var(--spacing-20) var(--spacing-28) var(--spacing-64); }
 .wrap.w2 { max-width:1320px; }   /* 칸이 많은 '찍을 목록' 쪽만 넓게 */
-.steps { display:flex; gap:8px; margin:16px 0 22px; flex-wrap:wrap; }
-.steps a, .steps span { font-size:13px; padding:6px 14px; border-radius:999px; border:1px solid #d1d5db;
-  background:#fff; color:#6b7280; text-decoration:none; }
-.steps .on { background:#111827; color:#fff; border-color:#111827; font-weight:600; }
-.steps .done { color:#12864e; border-color:#a7e3c3; background:#f2fdf7; }
-.card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; margin-bottom:16px; }
-.card h2 { font-size:14px; margin:0 0 12px; }
-label.f { display:block; font-size:12px; color:#6b7280; margin:10px 0 4px; }
-input[type=text], input[type=password], select { width:100%; max-width:420px; padding:8px 11px;
-  font-size:13px; color:var(--form-text); border:1px solid var(--form-border);
-  border-radius:var(--radius-control); font-family:inherit; background:var(--form-bg); }
+/* 걸음 표시 — S-1 Chip(Solid). 지금 걸음만 고른 것(selected), 나머지는 고르지 않은 것(default).
+   지나온 걸음도 '다 됨'으로 따로 칠하지 않는다 — 칩에 그런 상태가 없다. */
+.steps { display:flex; gap:var(--spacing-8); margin:var(--spacing-16) 0 var(--spacing-20); flex-wrap:wrap; }
+.steps a, .steps span { display:inline-flex; align-items:center; gap:var(--spacing-4);
+  height:var(--sizing-34); padding:0 var(--spacing-16); border-radius:var(--radius-full);
+  border:var(--border-width-default) solid var(--chip-line-default-border);
+  background:var(--chip-line-default-bg); color:var(--chip-line-default-text);
+  font-size:var(--font-size-14); font-weight:var(--font-weight-medium); line-height:1;
+  text-decoration:none; white-space:nowrap; }
+.steps a:hover { background:var(--chip-line-hover-bg); border-color:var(--chip-line-hover-border); }
+.steps .on { background:var(--chip-line-selected-bg); border-color:var(--chip-line-selected-border);
+  color:var(--chip-line-selected-text); }
+.card { background:var(--color-surface-default); border:1px solid var(--color-border-subtle);
+  border-radius:var(--radius-12); padding:var(--spacing-20); margin-bottom:var(--spacing-16); }
+.card h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-12); }
+label.f { display:block; font-size:var(--font-size-12); color:var(--color-form-control-label-default);
+  margin:var(--spacing-10) 0 var(--spacing-4); }
+input[type=text], input[type=password], select { width:100%; max-width:420px;
+  padding:var(--spacing-8) var(--spacing-12);
+  font-size:var(--font-size-14); color:var(--form-text); border:1px solid var(--form-border);
+  border-radius:var(--radius-control-sm); font-family:inherit; background:var(--form-bg); }
 input::placeholder { color:var(--form-placeholder); }
 input[type=text]:focus, input[type=password]:focus, select:focus {
-  outline:none; border-color:var(--blue-400); box-shadow:0 0 0 2px var(--blue-50); }
+  outline:none; border-color:var(--color-border-focus); box-shadow:0 0 0 2px var(--color-blue-50); }
 input[readonly] { background:var(--form-bg-readonly); color:var(--form-text-readonly);
-  border-color:var(--gray-200); }
-input[disabled] { background:var(--gray-50); color:var(--gray-300); border-color:var(--gray-100); }
+  border-color:var(--color-border-default); }
+input[disabled] { background:var(--color-form-control-bg-disabled); color:var(--color-text-disabled);
+  border-color:var(--color-form-control-border-disabled); }
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
-input.s { padding:6px 8px; font-size:13px; }
+input.s { padding:var(--spacing-6) var(--spacing-8); font-size:var(--font-size-14); }
 /* 찍을 목록 — '동작'은 문장이라 한 줄 칸에 가두면 앞부분만 보인다.
    여러 줄로 풀어 쓰는 칸으로 두고, 적은 만큼 칸이 자란다. */
-textarea.s { width:100%; box-sizing:border-box; padding:6px 8px; font-size:13px; line-height:1.55;
+textarea.s { width:100%; box-sizing:border-box; padding:var(--spacing-6) var(--spacing-8);
+  font-size:var(--font-size-14); line-height:1.55;
   color:var(--form-text); font-family:inherit; border:1px solid var(--form-border);
-  border-radius:var(--radius-control); background:var(--form-bg); resize:vertical;
+  border-radius:var(--radius-control-sm); background:var(--form-bg); resize:vertical;
   overflow:hidden; min-height:34px; }
-textarea.s:focus { outline:none; border-color:var(--blue-400); box-shadow:0 0 0 2px var(--blue-50); }
+textarea.s:focus { outline:none; border-color:var(--color-border-focus); box-shadow:0 0 0 2px var(--color-blue-50); }
 textarea.s::placeholder { color:var(--form-placeholder); }
 table.list td { vertical-align:top; }
 table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
 /* 비밀번호 칸 — 눈 아이콘을 칸 안 오른쪽에 둔다(S-1 Input · Password 정본).
    숨김 중에는 eye_hide, 보이는 중에는 eye_show. 아이콘 색은 어느 상태에서나 하나다. */
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
-.pw input[type=text], .pw input[type=password] { max-width:none; padding-right:38px; }
+.pw input[type=text], .pw input[type=password] { max-width:none; padding-right:var(--spacing-40); }
 .pw .eye { position:absolute; top:50%; right:6px; transform:translateY(-50%);
-  width:28px; height:28px; padding:2px; border:0; background:none; border-radius:var(--radius-control);
-  color:var(--gray-500); display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.pw .eye:hover { background:var(--gray-50); }
+  width:28px; height:28px; padding:var(--spacing-2); border:0; background:none;
+  border-radius:var(--radius-control-sm);
+  color:var(--color-form-control-icon-default); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.pw .eye:hover { background:var(--color-bg-level-2); }
 .pw .eye svg { display:block; width:24px; height:24px; fill:currentColor; }
 .pw .eye .show { display:none; }
 .pw .eye[aria-pressed="true"] .show { display:block; }
 .pw .eye[aria-pressed="true"] .hide { display:none; }
-button, .btn { font-size:13px; padding:9px 18px; border-radius:8px; border:1px solid #d1d5db;
-  background:#fff; color:#374151; cursor:pointer; text-decoration:none; display:inline-block; font-family:inherit; }
-button.go { background:#111827; color:#fff; border-color:#111827; font-weight:600; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-table { width:100%; border-collapse:collapse; font-size:13px; }
-th, td { padding:8px 10px; border-bottom:1px solid #f0f1f3; text-align:left; vertical-align:middle; }
-th { font-size:11px; color:#6b7280; font-weight:600; }
-.muted { color:#9ca3af; }
-.err { background:#fef2f2; color:#b42318; border:1px solid #fecaca; border-radius:8px; padding:10px 12px;
-  font-size:13px; margin-bottom:14px; }
-.ok { background:#ecfdf3; color:#12864e; border:1px solid #a7e3c3; border-radius:8px; padding:10px 12px;
-  font-size:13px; margin-bottom:14px; }
-.hint { font-size:12px; color:#6b7280; margin-top:8px; line-height:1.6; }
-.guide4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:14px 0 4px; }
-.g4 { border:1px solid #e5e7eb; border-radius:10px; padding:12px 13px 14px; background:#fcfcfd; position:relative; }
-.g4 .pic { background:#fff; border:1px solid #eef0f2; border-radius:8px; padding:8px; margin-bottom:10px; }
-.g4 .pic svg, .g4 .pic img { display:block; width:100%; height:auto; border-radius:4px; }
+/* 단추 — S-1 Button (Secondary 기본 · 주요 액션은 Primary) */
+button, .btn { font-size:var(--font-size-14); padding:var(--spacing-10) var(--spacing-20);
+  border-radius:var(--radius-button-md); border:1px solid var(--button-secondary-default-border);
+  background:var(--button-secondary-default-bg); color:var(--button-secondary-default-text);
+  cursor:pointer; text-decoration:none; display:inline-block; font-family:inherit; }
+button:hover, .btn:hover { background:var(--button-secondary-hover-bg); }
+button.go { background:var(--button-primary-default-bg); color:var(--button-primary-default-text);
+  border-color:var(--button-primary-default-bg); font-weight:var(--font-weight-medium); }
+button.go:hover { background:var(--button-primary-hover-bg); border-color:var(--button-primary-hover-bg); }
+button.go:active { background:var(--button-primary-pressed-bg); border-color:var(--button-primary-pressed-bg); }
+button:disabled { background:var(--button-secondary-disabled-bg);
+  border-color:var(--button-secondary-disabled-border); color:var(--button-secondary-disabled-text);
+  cursor:not-allowed; }
+button.go:disabled { background:var(--button-primary-disabled-bg);
+  border-color:var(--button-primary-disabled-border); color:var(--button-primary-disabled-text); }
+table { width:100%; border-collapse:collapse; font-size:var(--font-size-14); }
+th, td { padding:var(--spacing-8) var(--spacing-10); border-bottom:1px solid var(--color-border-subtle);
+  text-align:left; vertical-align:middle; }
+th { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); font-weight:var(--font-weight-medium); }
+.muted { color:var(--color-text-helper); }
+.err { background:var(--color-red-50); color:var(--color-text-state-error);
+  border:1px solid var(--color-red-100); border-radius:var(--radius-8);
+  padding:var(--spacing-10) var(--spacing-12);
+  font-size:var(--font-size-14); margin-bottom:var(--spacing-14); }
+.ok { background:var(--color-green-50); color:var(--color-green-450);
+  border:1px solid var(--color-green-150); border-radius:var(--radius-8);
+  padding:var(--spacing-10) var(--spacing-12);
+  font-size:var(--font-size-14); margin-bottom:var(--spacing-14); }
+.hint { font-size:var(--font-size-12); color:var(--color-text-body-tertiary);
+  margin-top:var(--spacing-8); line-height:1.6; }
+.guide4 { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--spacing-12);
+  margin:var(--spacing-14) 0 var(--spacing-4); }
+.g4 { border:1px solid var(--color-border-subtle); border-radius:var(--radius-10);
+  padding:var(--spacing-12) var(--spacing-12) var(--spacing-14); background:var(--color-bg-level-1);
+  position:relative; }
+.g4 .pic { background:var(--color-surface-default); border:1px solid var(--color-border-subtle);
+  border-radius:var(--radius-8); padding:var(--spacing-8); margin-bottom:var(--spacing-10); }
+.g4 .pic svg, .g4 .pic img { display:block; width:100%; height:auto; border-radius:var(--radius-4); }
 .g4 .no { position:absolute; top:10px; left:12px; width:19px; height:19px; border-radius:50%;
-  background:#111827; color:#fff; font-size:11px; font-weight:700; text-align:center; line-height:19px; }
-.g4 .tt { font-size:13px; font-weight:700; margin-bottom:3px; }
-.g4 .dd { font-size:12px; color:#4b5563; line-height:1.6; }
-.g4 .g { color:#9ca3af; }
+  background:var(--color-blue-400); color:var(--color-text-inverse); font-size:var(--font-size-10);
+  font-weight:var(--font-weight-bold); text-align:center; line-height:19px; }
+.g4 .tt { font-size:var(--font-size-14); font-weight:var(--font-weight-bold); margin-bottom:var(--spacing-2); }
+.g4 .dd { font-size:var(--font-size-12); color:var(--color-text-body-secondary); line-height:1.6; }
+.g4 .g { color:var(--color-text-helper); }
 @media (max-width:820px) { .guide4 { grid-template-columns:repeat(2,1fr); } }
-code { background:#f3f4f6; padding:1px 5px; border-radius:4px; font-size:12px; }
-.frames { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; margin-top:6px; }
-.frames label { display:flex; gap:8px; align-items:center; font-size:13px; padding:8px 10px;
-  border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; }
-.frames label:hover { background:#f9fafb; }
-.chips { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 4px; }
-.chips .chip { font-size:12px; padding:5px 11px; border:1px solid #d1d5db; border-radius:999px;
-  background:#fff; color:#374151; cursor:pointer; }
-.chips .chip.on { background:#111827; color:#fff; border-color:#111827; }
-.chips .chip.on .muted { color:#d1d5db; }
-tr.tie td { background:#FAFAFA; }
-.ties { color:#9D9D9D; font-size:11px; }
-.bad { color:#E50533; font-size:11px; margin-top:3px; }
-.picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:12px; }
-.picks figure { margin:0; background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:8px; }
-.picks img { width:100%; display:block; border-radius:4px; background:var(--gray-50);
+code { background:var(--color-bg-level-2); padding:var(--spacing-2) var(--spacing-6);
+  border-radius:var(--radius-4); font-size:var(--font-size-12); }
+.frames { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:var(--spacing-8); margin-top:var(--spacing-6); }
+.frames label { display:flex; gap:var(--spacing-8); align-items:center; font-size:var(--font-size-14);
+  padding:var(--spacing-8) var(--spacing-10);
+  border:1px solid var(--color-border-subtle); border-radius:var(--radius-8);
+  background:var(--color-surface-default); cursor:pointer; }
+.frames label:hover { background:var(--color-bg-level-1); }
+.chips { display:flex; flex-wrap:wrap; gap:var(--spacing-6); margin:0 0 var(--spacing-4); }
+.chips .chip { font-size:var(--font-size-12); padding:var(--spacing-6) var(--spacing-12);
+  border:1px solid var(--color-border-default); border-radius:var(--radius-full);
+  background:var(--color-surface-default); color:var(--color-text-body-primary); cursor:pointer; }
+.chips .chip.on { background:var(--button-primary-default-bg); color:var(--button-primary-default-text);
+  border-color:var(--button-primary-default-bg); }
+.chips .chip.on .muted { color:var(--color-blue-100); }
+tr.tie td { background:var(--color-bg-level-1); }
+.ties { color:var(--color-text-helper); font-size:var(--font-size-12); }
+.bad { color:var(--color-text-state-error); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
+.picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:var(--spacing-12); margin-top:var(--spacing-12); }
+.picks figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-default);
+  border-radius:var(--radius-8); padding:var(--spacing-8); }
+.picks img { width:100%; display:block; border-radius:var(--radius-4); background:var(--color-bg-level-2);
   max-height:220px; object-fit:contain; object-position:top; }
-.picks figcaption { font-size:11px; color:var(--gray-600); margin-top:6px; word-break:break-all; }
-.dim2 { display:block; color:var(--gray-400); margin-top:2px; }
-.dim2.warn { color:var(--red-400); }
-.sect { font-size:12px; font-weight:700; color:#374151; margin:14px 0 6px; }
+.picks figcaption { font-size:var(--font-size-12); color:var(--color-text-body-secondary);
+  margin-top:var(--spacing-6); word-break:break-all; }
+.dim2 { display:block; color:var(--color-text-helper); margin-top:var(--spacing-2); }
+.dim2.warn { color:var(--color-red-400); }
+.sect { font-size:var(--font-size-12); font-weight:var(--font-weight-bold);
+  color:var(--color-text-body-primary); margin:var(--spacing-14) 0 var(--spacing-6); }
 /* 동작 사양 — 시안에서 채우면 좋을 것. 항목이 많아질 수 있어 갈래로 접어 둔다. */
-.spec details { border-top:1px solid var(--gray-100); }
+.spec details { border-top:1px solid var(--color-border-subtle); }
 .spec details:first-of-type { border-top:0; }
-.spec summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px;
-  padding:10px 2px; font-size:13px; font-weight:600; color:#374151; }
+.spec summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:var(--spacing-8);
+  padding:var(--spacing-10) var(--spacing-2); font-size:var(--font-size-14);
+  font-weight:var(--font-weight-medium); color:var(--color-text-body-primary); }
 .spec summary::-webkit-details-marker { display:none; }
-.spec summary::before { content:"▸"; color:#9ca3af; font-size:11px; }
+.spec summary::before { content:"▸"; color:var(--color-text-helper); font-size:var(--font-size-10); }
 .spec details[open] > summary::before { content:"▾"; }
-.spec summary .n { margin-left:auto; font-size:12px; font-weight:700; color:#b45309; }
-.spec .it { display:flex; gap:10px; align-items:flex-start; padding:2px 2px 12px 20px; font-size:12px; }
+.spec summary .n { margin-left:auto; font-size:var(--font-size-12);
+  font-weight:var(--font-weight-bold); color:var(--color-yellow-450); }
+.spec .it { display:flex; gap:var(--spacing-10); align-items:flex-start;
+  padding:var(--spacing-2) var(--spacing-2) var(--spacing-12) var(--spacing-20); font-size:var(--font-size-12); }
 .spec .it img, .spec .it .cut { width:360px; height:240px; flex:0 0 360px;
-  border:1px solid var(--gray-100); border-radius:8px; background-color:#fff; }
+  border:1px solid var(--color-border-subtle); border-radius:var(--radius-8);
+  background-color:var(--color-surface-default); }
 @media (max-width: 900px) {
   .spec .it { flex-direction:column; }
   .spec .it img, .spec .it .cut { width:100%; flex:0 0 auto; height:auto; aspect-ratio:3/2; }
@@ -214,35 +283,45 @@ tr.tie td { background:#FAFAFA; }
 .spec .it img { object-fit:cover; object-position:top center; }
 .spec .it .cut { display:block; background-repeat:no-repeat; }
 .spec .it .tx { min-width:0; }
-.spec h2 .ico { vertical-align:-3px; margin-right:6px; }
-.spec .it .nm { color:#374151; word-break:keep-all; }
-.spec .it .why { color:#6b7280; margin-top:2px; line-height:1.55; }
-.spec .more { padding:0 2px 10px 20px; font-size:12px; }
-.spec .more a { color:#1d6ceb; cursor:pointer; }
-.cnt { float:right; font-size:12px; font-weight:600; color:#12864e; }
-.dim { font-size:11px; color:#9ca3af; margin-left:auto; white-space:nowrap; }
+.spec h2 .ico { vertical-align:-3px; margin-right:var(--spacing-6); }
+.spec .it .nm { color:var(--color-text-body-primary); word-break:keep-all; }
+.spec .it .why { color:var(--color-text-body-tertiary); margin-top:var(--spacing-2); line-height:1.55; }
+.spec .more { padding:0 var(--spacing-2) var(--spacing-10) var(--spacing-20); font-size:var(--font-size-12); }
+.spec .more a { color:var(--color-text-link); cursor:pointer; }
+.cnt { float:right; font-size:var(--font-size-12); font-weight:var(--font-weight-medium);
+  color:var(--color-green-450); }
+.dim { font-size:var(--font-size-12); color:var(--color-text-helper);
+  margin-left:auto; white-space:nowrap; }
 /* 보낼 사진 고르기 — 이름이 길어 칸에 갇히면 세로로 쪼개져 읽히지 않는다.
    한 줄에 하나씩, 이름은 왼쪽부터 가로로 풀어 쓴다. */
-.rows { display:flex; flex-direction:column; border:1px solid var(--gray-100);
-  border-radius:var(--radius-control); overflow:hidden; }
-.rows label { display:flex; gap:10px; align-items:center; font-size:13px; padding:9px 12px;
-  background:#fff; cursor:pointer; }
-.rows label + label { border-top:1px solid var(--gray-100); }
-.rows label:hover { background:#f9fafb; }
+.rows { display:flex; flex-direction:column; border:1px solid var(--color-border-subtle);
+  border-radius:var(--radius-control-sm); overflow:hidden; }
+.rows label { display:flex; gap:var(--spacing-10); align-items:center; font-size:var(--font-size-14);
+  padding:var(--spacing-10) var(--spacing-12);
+  background:var(--color-surface-default); cursor:pointer; }
+.rows label + label { border-top:1px solid var(--color-border-subtle); }
+.rows label:hover { background:var(--color-bg-level-1); }
 .rows .nm { flex:1; min-width:0; word-break:keep-all; }
-.bar { display:flex; gap:10px; align-items:center; margin-top:16px; }
+.bar { display:flex; gap:var(--spacing-10); align-items:center; margin-top:var(--spacing-16); }
 .bar .right { margin-left:auto; }
-pre.log { background:#0f172a; color:#e2e8f0; font-size:12px; padding:14px; border-radius:10px;
+pre.log { background:var(--color-gray-dark-0); color:var(--color-gray-dark-800);
+  font-size:var(--font-size-12); padding:var(--spacing-14); border-radius:var(--radius-10);
   max-height:280px; overflow:auto; margin:0; white-space:pre-wrap; }
-.shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; margin-top:8px; }
-.shots figure { margin:0; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:8px; }
-.shots img { width:100%; display:block; border-radius:6px; background:#f3f4f6; }
-.shots figcaption { font-size:11px; color:#4b5563; margin-top:6px; word-break:break-all; text-align:center; }
-footer { max-width:1040px; margin:0 auto; padding:0 28px 40px; font-size:11px; color:#9ca3af; }
+.shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:var(--spacing-14); margin-top:var(--spacing-8); }
+.shots figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-subtle);
+  border-radius:var(--radius-10); padding:var(--spacing-8); }
+.shots img { width:100%; display:block; border-radius:var(--radius-6); background:var(--color-bg-level-2); }
+.shots figcaption { font-size:var(--font-size-12); color:var(--color-text-body-secondary);
+  margin-top:var(--spacing-6); word-break:break-all; text-align:center; }
+footer { max-width:1040px; margin:0 auto; padding:0 var(--spacing-28) var(--spacing-40);
+  font-size:var(--font-size-12); color:var(--color-text-helper); }
 """
 
 # ── 안내 그림 — 실제 Figma 화면을 보고 그렸다.
 #    site/그림/1.png … 4.png 를 넣어 두면 그 사진이 대신 보인다.
+#    s1-제외 시작 — 아래는 우리 화면이 아니라 '남의 화면을 그린 삽화'다(사진 대용).
+#    사진을 디자인가이드 색으로 칠하지 않듯, 여기 색·크기도 토큰으로 바꾸지 않는다.
 _틀 = ('<svg viewBox="0 0 200 104" xmlns="http://www.w3.org/2000/svg" '
       'font-family="-apple-system,sans-serif">')
 _끝 = "</svg>"
@@ -317,6 +396,9 @@ _그림_복사 = _틀 + \
     '<text x="12" y="90" font-size="5.5" fill="#b42318">이 글자는 이때 한 번만 보입니다</text>' + _끝
 
 
+# s1-제외 끝
+
+
 def _그림(번호, 기본):
     """site/그림/<번호>.png 가 있으면 그 사진을, 없으면 그린 그림을 보여 준다."""
     if (여기 / "그림" / f"{번호}.png").exists():
@@ -354,17 +436,16 @@ def _무리(이름):
 
 def 껍데기(지금, 본문, 부제="", 알림=""):
     작업 = 작업읽기()
-    끝난것 = {"/": bool(작업.get("고른화면")), "/초안": bool(작업.get("이름표경로")),
-           "/조건": bool(작업.get("조건확인")), "/촬영": bool(작업.get("결과폴더"))}
     칩 = ""
     for 길, 이름 in 걸음:
-        cls = "on" if 길 == 지금 else ("done" if 끝난것.get(길) else "")
+        # 지금 걸음만 고른 것으로 보인다. 지나온 걸음도 '고르지 않은 것'이다(S-1 Chip 상태: default/selected).
+        cls = "on" if 길 == 지금 else ""
         칩 += (f'<a class="{cls}" href="{길}">{이름}</a>' if cls != "on"
                else f'<span class="{cls}">{이름}</span>')
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{CSS}</style></head><body>
-<header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:13px">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
+<title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head><body>
+<header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
 <div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{알림}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
@@ -413,13 +494,13 @@ def _동작사양칸(고른것, 유형=None):
         복사줄.append("")
     복사 = _e("\n".join(복사줄).strip())
     주의아이콘 = ('<svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">'
-              '<path fill="var(--yellow-400)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
-              '<path fill="var(--yellow-400)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
+              '<path fill="var(--color-yellow-400)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
+              '<path fill="var(--color-yellow-400)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
     return f"""
     <div class="card spec"><h2>{주의아이콘}디자인 수정 필요
         <span class="muted">· 받은 {len(고른것)}개 중 {len(나온것)}건</span>
-        <span class="cnt"><a class="btn" style="padding:3px 10px" onclick="사양복사(this)">목록 복사</a></span></h2>
-      <div class="hint" style="margin:0 0 4px">눌러 봐야 알 수 있는 것만 봅니다 — 색·크기 같은 기준은
+        <span class="cnt"><a class="btn" style="padding:var(--spacing-4) var(--spacing-10)" onclick="사양복사(this)">목록 복사</a></span></h2>
+      <div class="hint" style="margin:0 0 var(--spacing-4)">눌러 봐야 알 수 있는 것만 봅니다 — 색·크기 같은 기준은
         디자인 쪽 검수기에서 보세요.</div>
       {덩이}
       <textarea id="사양글" style="position:absolute;left:-9999px" readonly>{복사}</textarea>
@@ -600,12 +681,12 @@ def 화면_디자인(오류=""):
                 <span class="cnt" id="cnt">고른 것 {len(고른것)}개</span></h2>
               <form method="post" action="/고르기">
                 <input type="hidden" name="페이지" value="{_e(고른페이지)}">
-                <div class="bar" style="margin:0 0 8px">
+                <div class="bar" style="margin:0 0 var(--spacing-8)">
                   <input type="text" class="s" id="찾기" placeholder="이름으로 걸러내기 (예: 로그인 -회원)"
                          style="max-width:300px" oninput="걸러()">
                   <button type="button" onclick="pick(true)">보이는 것 전체 선택</button>
                   <button type="button" onclick="pick(false)">전체 해제</button></div>
-                <div class="hint" style="margin:0 0 8px">낱말을 띄어 쓰면 <b>둘 다</b> 든 것만,
+                <div class="hint" style="margin:0 0 var(--spacing-8)">낱말을 띄어 쓰면 <b>둘 다</b> 든 것만,
                   낱말 앞에 <b>-</b> 를 붙이면 그 낱말이 든 것은 뺍니다.</div>
                 <div class="chips">{칩}</div>
                 {덩이 or '<p class="muted">이 페이지에는 화면(프레임)이 없습니다.</p>'}
@@ -693,7 +774,7 @@ def 화면_초안(알림=""):
                  placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">{_e(r.get('동작',''))}</textarea>
               {f'<div class="bad">{_e(틀림)}</div>' if 틀림
                 else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}</td>
-          <td style="font-size:11px">{표시}<div class="muted" style="font-size:10px">{_e(r.get('디자인이름',''))}</div></td>
+          <td style="font-size:var(--font-size-12)">{표시}<div class="muted" style="font-size:var(--font-size-10)">{_e(r.get('디자인이름',''))}</div></td>
         </tr>"""
     겹침 = 초안만들기.겹친번호(작업["초안"])
     경고 = (f'<div class="err">번호가 겹칩니다 — {", ".join(겹침)}. '
@@ -742,13 +823,13 @@ def 화면_초안(알림=""):
       <label class="f">찍을 폭</label>
       <input type="text" name="화면폭" id="화면폭" class="w-md"
              value="{작업.get('찍을폭') or (작업['고른화면'][0]['폭'] if 작업.get('고른화면') else 1440)}">
-      <div class="hint" style="margin-top:4px">시안 폭 그대로 찍습니다. 고치면 고친 폭으로 찍습니다.</div>'''
+      <div class="hint" style="margin-top:var(--spacing-4)">시안 폭 그대로 찍습니다. 고치면 고친 폭으로 찍습니다.</div>'''
         if 웹 else f'''<label class="f">앱 주소</label>
       <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
              class="w-md" value="{_e(작업.get('앱주소',''))}" disabled>
       <datalist id="깔린앱들">{깔린앱}</datalist>'''}
 
-      {'' if 웹 else '''<div class="bar" style="margin-top:10px">
+      {'' if 웹 else '''<div class="bar" style="margin-top:var(--spacing-10)">
         <button type="button" id="고치기버튼" onclick="직접고치기()" style="display:none">직접 고치기</button>
       </div>'''}
 
@@ -769,7 +850,7 @@ def 화면_초안(알림=""):
         }}
         function 말(글, 색) {{
           var e = document.getElementById('읽은말');
-          e.innerHTML = 글; e.style.color = 색 || '#6b7280';
+          e.innerHTML = 글; e.style.color = 색 || 'var(--color-text-body-tertiary)';
         }}
         function 고치기단추(보임) {{
           var b = document.getElementById('고치기버튼');
@@ -790,11 +871,11 @@ def 화면_초안(알림=""):
         }}
         function 읽기() {{
           var 이름 = document.getElementById('앱이름').value.trim();
-          if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', '#b42318'); return; }}
+          if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', 'var(--color-text-state-error)'); return; }}
           var 것 = 사전[이름];
           if (!것) {{
             직접고치기();
-            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', '#b42318');
+            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', 'var(--color-text-state-error)');
             return;
           }}
           칸들.forEach(function(k) {{
@@ -802,7 +883,7 @@ def 화면_초안(알림=""):
             if (잠글칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
           }});
           잠그기();
-          말('<b>' + 이름 + '</b> 을(를) 찾았습니다.' + (웹 ? ' 다르면 그냥 고쳐 쓰세요.' : ' 다르면 <b>직접 고치기</b>를 누르세요.'), '#12864e');
+          말('<b>' + 이름 + '</b> 을(를) 찾았습니다.' + (웹 ? ' 다르면 그냥 고쳐 쓰세요.' : ' 다르면 <b>직접 고치기</b>를 누르세요.'), 'var(--color-green-450)');
         }}
         if ({1 if 작업.get("앱주소") else 0}) {{ 잠그기(); }}
         document.querySelector('form[action="/초안"]').addEventListener('submit', function() {{
@@ -870,7 +951,7 @@ def _계정칸(작업, 다시촬영=False, 접기=True):
     """아이디·비밀번호를 고쳐 넣는 칸 — ③ 조건과 ④ 촬영에서 같은 것을 쓴다."""
     숨김 = '<input type="hidden" name="다시촬영" value="1">' if 다시촬영 else ""
     단추 = "고쳐서 다시 촬영 →" if 다시촬영 else "고쳐서 다시 해 보기"
-    return f"""<form method="post" action="/계정" style="margin-top:10px">{숨김}
+    return f"""<form method="post" action="/계정" style="margin-top:var(--spacing-10)">{숨김}
       <label class="f">시험 아이디</label>
       <input type="text" name="시험아이디" class="w-md" autocomplete="off"
              value="{_e(작업.get('시험아이디',''))}">
@@ -890,12 +971,12 @@ def _계정카드(작업):
     계정 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
           + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
           if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
-    말 = {True: ("✅", "로그인됩니다", "#12864e"),
-         False: ("⚠️", "로그인이 안 됩니다", "#b42318"),
-         None: ("ℹ️", "미리 해 보지 못했습니다", "#6b7280")}.get(됨) \
-        if 본것 else ("", "아직 해 보지 않았습니다", "#6b7280")
+    말 = {True: ("✅", "로그인됩니다", "var(--color-green-450)"),
+         False: ("⚠️", "로그인이 안 됩니다", "var(--color-text-state-error)"),
+         None: ("ℹ️", "미리 해 보지 못했습니다", "var(--color-text-body-tertiary)")}.get(됨) \
+        if 본것 else ("", "아직 해 보지 않았습니다", "var(--color-text-body-tertiary)")
     표, 글, 색 = 말
-    까닭 = f'<div class="hint" style="margin-top:4px">{_e(본것.get("까닭",""))}</div>' if 본것 else ""
+    까닭 = f'<div class="hint" style="margin-top:var(--spacing-4)">{_e(본것.get("까닭",""))}</div>' if 본것 else ""
     고치기 = _계정칸(작업) if 됨 is False else ""
     return f"""
     <div class="card"><h2>시험 계정</h2>
@@ -927,7 +1008,7 @@ def 화면_조건(알림=""):
     def 줄(제목, 됨, 설명):
         표 = "✅" if 됨 else "⚠️"
         return (f'<tr><td style="width:34px">{표}</td><td><b>{_e(제목)}</b><div class="hint" '
-                f'style="margin:2px 0 0">{설명}</div></td></tr>')
+                f'style="margin:var(--spacing-2) 0 0">{설명}</div></td></tr>')
 
     폰이름 = 폰[0]["이름"] if 폰 else ""
     검사 = (줄("폰이 연결됐다", bool(폰),
@@ -997,7 +1078,7 @@ def 화면_조건_웹(작업, 알림=""):
     def 줄(제목, 됨, 설명):
         표 = "✅" if 됨 else "⚠️"
         return (f'<tr><td style="width:34px">{표}</td><td><b>{_e(제목)}</b><div class="hint" '
-                f'style="margin:2px 0 0">{설명}</div></td></tr>')
+                f'style="margin:var(--spacing-2) 0 0">{설명}</div></td></tr>')
 
     검사 = (줄("브라우저가 있다", bool(브라우저),
              " · ".join(브라우저) if 브라우저 else "크롬이나 엣지를 깔아 주세요.")
@@ -1093,17 +1174,17 @@ def 진행바(글, 끝남=False):
     """찍는 동안 '몇 번째 / 몇 개'를 막대와 글로 보여 준다."""
     r = 진행줄(글)
     if not r["전부"]:
-        return '<div class="hint" style="margin:8px 0 0">시작하는 중…</div>' if not 끝남 else ""
+        return '<div class="hint" style="margin:var(--spacing-8) 0 0">시작하는 중…</div>' if not 끝남 else ""
     찬만큼 = round(100 * (r["전부"] if 끝남 else max(0, r["찍힘"] + r["못찍음"] - 1)) / r["전부"])
     센말 = f'찍은 것 {r["찍힘"]}장' + (f' · 못 찍은 것 {r["못찍음"]}장' if r["못찍음"] else "")
     말 = (f'{r["전부"]}장 다 돌았습니다 · {센말}' if 끝남
          else f'{r["지금"]} / {r["전부"]}번째 — {_e(r["이름"])} <span class="muted">· {센말}</span>')
     return f"""
-    <div style="margin:10px 0 0">
-      <div style="height:8px;border-radius:999px;background:#e9e9e9;overflow:hidden">
-        <div style="height:100%;width:{찬만큼}%;background:#1D6CEB;transition:width .3s"></div>
+    <div style="margin:var(--spacing-10) 0 0">
+      <div style="height:8px;border-radius:var(--radius-full);background:var(--color-gray-100);overflow:hidden">
+        <div style="height:100%;width:{찬만큼}%;background:var(--color-blue-400);transition:width .3s"></div>
       </div>
-      <div class="hint" style="margin:6px 0 0">{말}</div>
+      <div class="hint" style="margin:var(--spacing-6) 0 0">{말}</div>
     </div>"""
 
 
@@ -1125,7 +1206,7 @@ def 화면_촬영():
     if 막힌줄 and not 목록파일.exists():
         까닭 = 막힌줄[0].split(":", 1)[-1].strip()
         잠김 = "(잠김)" in 막힌줄[0]
-        막힘 = (f'<div class="card"><div class="err" style="margin:0 0 10px">'
+        막힘 = (f'<div class="card"><div class="err" style="margin:0 0 var(--spacing-10)">'
               f'<b>시험 계정으로 로그인이 안 돼 촬영을 멈췄습니다.</b><br>{_e(까닭)}</div>'
               + ('<div class="hint" style="margin-top:0">계정이 잠긴 것 같습니다. '
                  '잠시 뒤에 다시 해 보세요.</div>' if 잠김 else
@@ -1164,7 +1245,7 @@ def 화면_촬영():
           <div class="hint" style="margin-top:0">보낼 사진만 골라 주세요.
             상태마다 검수 페이지 한 장으로 들어갑니다.</div>
           <form method="post" action="/접수" id="보내기폼">
-            <div class="rows" style="margin:10px 0 0">{고를칸}</div>
+            <div class="rows" style="margin:var(--spacing-10) 0 0">{고를칸}</div>
             <div class="bar"><button class="go" type="submit">검수로 보낸 후 포털 열기 →</button>
               <span class="hint" style="margin:0">포털이 꺼져 있으면 먼저 켜 주세요.</span></div>
           </form>
@@ -1445,7 +1526,7 @@ class 손님(BaseHTTPRequestHandler):
                     '<div class="err">아래 줄은 <b>동작이 비어 있어</b> 앞 장과 '
                     '똑같은 사진이 찍힙니다.<br>'
                     + "<br>".join(_e(t) for t in 빈줄)
-                    + '<div style="margin-top:8px">그 상태를 만드는 동작을 적어 주세요. '
+                    + '<div style="margin-top:var(--spacing-8)">그 상태를 만드는 동작을 적어 주세요. '
                       '일부러 같은 화면을 두 번 찍는 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
             if 틀린것:
                 return self._html(화면_초안('<div class="err">동작을 알아듣지 못했습니다.<br>'
@@ -1472,7 +1553,7 @@ class 손님(BaseHTTPRequestHandler):
                     '<div class="err">아래 줄은 <b>로그인이 필요한 동작</b>인데 '
                     '<b>시험 아이디·비밀번호</b>가 비어 있습니다 — '
                     + ", ".join(f"{n}번째 줄" for n in 빠진계정)
-                    + '<div style="margin-top:8px">위 <b>앱 정보</b>에 검수용 시험 계정을 적어 주세요. '
+                    + '<div style="margin-top:var(--spacing-8)">위 <b>앱 정보</b>에 검수용 시험 계정을 적어 주세요. '
                       '로그인 없이 그냥 찍을 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
             앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업.get("앱주소", ""),
                        작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
