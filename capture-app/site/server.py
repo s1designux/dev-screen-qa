@@ -67,6 +67,30 @@ def 작업쓰기(d):
 유형이름 = {"web": "PC 웹", "mobile-web": "모바일 웹", "android": "앱", "pcapp": "PC S/W"}
 유형코드 = {"web": "WEB", "mobile-web": "WEB", "android": "AND", "pcapp": "APP"}
 
+# 서비스 코드를 짐작할 때 뜻이 없는 말 — 주소·꾸러미 이름에 흔히 끼어 있다.
+흔한말 = {"www", "dev", "develop", "test", "stage", "staging", "qa", "m", "mobile",
+       "web", "portal", "admin", "app", "apps", "site", "front", "new",
+       "com", "co", "kr", "net", "org", "io", "go", "or", "local", "localhost"}
+
+
+def 서비스코드제안(작업):
+    """화면 이름 앞에 붙을 코드를 짐작해 준다 — {서비스}-{유형}-{번호} (CLAUDE.md 7번).
+    제안일 뿐이라 사람이 칸에서 그냥 고쳐 쓴다. 유형(웹·앱)에 상관없이 같은 차례로 본다."""
+    적힌것 = (작업.get("서비스코드") or "").strip()
+    if 적힌것:
+        return 적힌것.upper()
+    이름 = 작업.get("앱이름", "") or ""
+    기억 = (앱사전.읽기().get(이름) or {}).get("서비스코드")      # ① 전에 사람이 정해 둔 것
+    if 기억:
+        return 기억.strip().upper()
+    for 낱말 in re.findall(r"[A-Za-z][A-Za-z0-9-]*", 이름):        # ② 이름에 섞인 영문
+        if 낱말.lower() not in 흔한말:
+            return re.sub(r"[^A-Za-z0-9]", "", 낱말).upper()
+    조각 = (urlparse(작업.get("기본주소", "")).hostname or "").split(".") if 웹인가(작업) \
+        else (작업.get("앱주소", "") or "").split(".")             # ③ 주소·꾸러미 이름
+    쓸것 = [c for c in 조각 if c and c.lower() not in 흔한말]
+    return re.sub(r"[^A-Za-z0-9]", "", 쓸것[-1]).upper() if 쓸것 else ""
+
 
 def 유형(작업=None):
     """플러그인에서 사람이 고른 네 가지 중 하나. 옛 작업 파일은 앱으로 본다."""
@@ -791,12 +815,17 @@ def 화면_초안(알림=""):
     보일사전 = {k: v for k, v in 사전.items()
              if bool(v.get("기본주소")) == 웹인가(작업)} or (
                  {} if 웹인가(작업) else 사전)
+    제안코드 = 서비스코드제안(작업)
+    제안출처 = ("적힌것" if (작업.get("서비스코드") or "").strip()
+            else "기억" if (사전.get(작업.get("앱이름", "")) or {}).get("서비스코드") else "짐작")
+    자리코드 = "WEB" if 웹 else "AND"
     고름목록 = "".join(f'<option value="{_e(k)}">' for k in sorted(보일사전))
     깔린앱 = "".join(f'<option value="{_e(pkg)}">' for pkg in 깔린앱목록())
 
     본문 = f"""{경고}
     <form method="post" action="/초안">
-    <div class="card"><h2>{'사이트 정보' if 웹 else '앱 정보'}</h2>
+    <div class="card"><h2>{'사이트 정보' if 웹 else '앱 정보'}
+      <span class="muted">· {_e(유형이름.get(유형(작업), '앱'))} <span style="font-weight:400">— 플러그인에서 고른 유형</span></span></h2>
       <label class="f">{'사이트 이름' if 웹 else '앱 이름'}</label>
       <div class="bar" style="margin:0">
         <input type="text" name="앱이름" id="앱이름" list="앱들" autocomplete="off"
@@ -821,8 +850,11 @@ def 화면_초안(알림=""):
       </div>
 
       <label class="f">서비스 코드</label>
-      <input type="text" name="서비스코드" id="서비스코드" class="w-md"
-             value="{_e(작업.get('서비스코드',''))}" disabled>
+      <input type="text" name="서비스코드" id="서비스코드" class="w-md" autocomplete="off"
+             value="{_e(제안코드)}" placeholder="예: UV" oninput="이름미리()">
+      <div class="hint">화면 이름은 <b><span id="이름미리보기">{_e(제안코드 or '코드')}-{자리코드}-001</span></b> 처럼 붙습니다 —
+        가운데 <b>{자리코드}</b>는 플러그인에서 고른 유형({_e(유형이름.get(유형(작업), '앱'))})이 정합니다.
+        앞 글자는 {'전에 쓰던 것을 그대로 제안했습니다' if 제안출처 == '기억' else '이름·주소를 보고 제안한 것입니다'} — 다르면 그냥 고쳐 쓰세요.</div>
       {f'''<label class="f">기본 주소</label>
       <input type="text" name="기본주소" id="기본주소" autocomplete="off"
              class="w-md" value="{_e(작업.get('기본주소',''))}" placeholder="https://dev.example.com">
@@ -832,19 +864,18 @@ def 화면_초안(알림=""):
       <div class="hint" style="margin-top:var(--spacing-4)">시안 폭 그대로 찍습니다. 고치면 고친 폭으로 찍습니다.</div>'''
         if 웹 else f'''<label class="f">앱 주소</label>
       <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
-             class="w-md" value="{_e(작업.get('앱주소',''))}" disabled>
+             class="w-md" value="{_e(작업.get('앱주소',''))}">
       <datalist id="깔린앱들">{깔린앱}</datalist>'''}
-
-      {'' if 웹 else '''<div class="bar" style="margin-top:var(--spacing-10)">
-        <button type="button" id="고치기버튼" onclick="직접고치기()" style="display:none">직접 고치기</button>
-      </div>'''}
 
       <script>
         var 사전 = {json.dumps(보일사전, ensure_ascii=False)};
         var 웹 = {1 if 웹 else 0};
         var 칸들 = 웹 ? ['서비스코드', '기본주소', '화면폭', '시험아이디', '시험비밀번호']
                      : ['서비스코드', '앱주소', '시험아이디', '시험비밀번호'];
-        var 잠글칸 = 웹 ? ['서비스코드'] : ['서비스코드', '앱주소'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
+        // 이름을 읽으면 사전에 적힌 값으로 새로 채운다. 잠그지 않는다 — 어느 유형이든 그냥 고쳐 쓴다.
+        var 덮을칸 = 웹 ? ['서비스코드', '기본주소', '화면폭'] : ['서비스코드', '앱주소'];
+        var 흔한말 = ['www','dev','develop','test','stage','staging','qa','m','mobile','web','portal',
+                    'admin','app','apps','site','front','new','com','co','kr','net','org','io','go','or','local','localhost'];
         function 칸(k) {{ return document.getElementById(k); }}
         function 비번보기() {{
           var e = 칸('시험비밀번호'), 단추 = document.getElementById('비번보기버튼');
@@ -858,42 +889,49 @@ def 화면_초안(알림=""):
           var e = document.getElementById('읽은말');
           e.innerHTML = 글; e.style.color = 색 || 'var(--color-text-body-tertiary)';
         }}
-        function 고치기단추(보임) {{
-          var b = document.getElementById('고치기버튼');
-          if (b) b.style.display = 보임 ? '' : 'none';
+        function 이름미리() {{
+          var e = document.getElementById('이름미리보기');
+          if (e) e.textContent = ((칸('서비스코드').value || '코드').toUpperCase()) + '-{자리코드}-001';
         }}
-        function 잠그기() {{
-          잠글칸.forEach(function(k) {{
-            칸(k).disabled = false; 칸(k).readOnly = true;
+        function 쓸만한조각(글) {{                      // 주소·꾸러미 이름에서 뜻 있는 조각만
+          var 남은 = (글 || '').split('.').filter(function(c) {{
+            return c && 흔한말.indexOf(c.toLowerCase()) < 0;
           }});
-          고치기단추(true);
+          return 남은.length ? 남은[남은.length - 1] : '';
         }}
-        function 직접고치기() {{
-          잠글칸.forEach(function(k) {{
-            칸(k).disabled = false; 칸(k).readOnly = false;
-          }});
-          고치기단추(false);
-          말('직접 적는 중입니다. 저장하면 기억해 둡니다.');
+        function 코드제안() {{                          // 서버가 하는 것과 같은 차례(서비스코드제안)
+          if (칸('서비스코드').value.trim()) return;
+          var 이름 = document.getElementById('앱이름').value.trim();
+          var 영문 = 이름.match(/[A-Za-z][A-Za-z0-9-]*/g) || [];
+          for (var i = 0; i < 영문.length; i++) {{
+            if (흔한말.indexOf(영문[i].toLowerCase()) < 0) {{
+              칸('서비스코드').value = 영문[i].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+              return 이름미리();
+            }}
+          }}
+          var 주소 = 웹 ? (칸('기본주소') ? 칸('기본주소').value : '') : (칸('앱주소') ? 칸('앱주소').value : '');
+          var 조각 = 쓸만한조각(주소.replace(/^[a-z]+:\/\//i, '').split('/')[0]);
+          칸('서비스코드').value = 조각.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+          이름미리();
         }}
         function 읽기() {{
           var 이름 = document.getElementById('앱이름').value.trim();
           if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', 'var(--color-text-state-error)'); return; }}
           var 것 = 사전[이름];
           if (!것) {{
-            직접고치기();
+            코드제안();
             말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', 'var(--color-text-state-error)');
             return;
           }}
           칸들.forEach(function(k) {{
-            칸(k).disabled = false;
-            if (잠글칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
+            if (덮을칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
           }});
-          잠그기();
-          말('<b>' + 이름 + '</b> 을(를) 찾았습니다.' + (웹 ? ' 다르면 그냥 고쳐 쓰세요.' : ' 다르면 <b>직접 고치기</b>를 누르세요.'), 'var(--color-green-450)');
+          이름미리();
+          말('<b>' + 이름 + '</b> 을(를) 찾았습니다. 다르면 그냥 고쳐 쓰세요.', 'var(--color-green-450)');
         }}
-        if ({1 if 작업.get("앱주소") else 0}) {{ 잠그기(); }}
-        document.querySelector('form[action="/초안"]').addEventListener('submit', function() {{
-          칸들.forEach(function(k) {{ 칸(k).disabled = false; }});   // 잠긴 칸도 함께 보내진다
+        ['기본주소', '앱주소'].forEach(function(k) {{        // 주소를 적으면 빈 코드 칸을 채워 준다
+          var e = 칸(k);
+          if (e) e.addEventListener('blur', 코드제안);
         }});
       </script>
     </div>
@@ -1515,7 +1553,7 @@ class 손님(BaseHTTPRequestHandler):
                 elif 같아짐 and not r["동작"].strip():
                     빈줄.append(f"{i+1}번째 줄 · {r['이름']}")
             작업["앱이름"] = 한개("앱이름") or "이름없는 앱"
-            작업["서비스코드"] = (한개("서비스코드") or "APP").upper()
+            작업["서비스코드"] = re.sub(r"[^A-Za-z0-9_-]", "", 한개("서비스코드")).upper()
             if 웹:
                 # 주소는 유형표가 정한 대로 다듬는다 — 웹은 끝 빗금을 떼지 않는다(뗐더니 404 를 찍었다).
                 작업["기본주소"] = 매체.주소다듬기(한개("기본주소"), 유형(작업))
@@ -1537,6 +1575,9 @@ class 손님(BaseHTTPRequestHandler):
             if 틀린것:
                 return self._html(화면_초안('<div class="err">동작을 알아듣지 못했습니다.<br>'
                                         + "<br>".join(_e(t) for t in 틀린것) + '</div>'))
+            if not 작업["서비스코드"]:
+                return self._html(화면_초안('<div class="err">서비스 코드가 비었습니다. '
+                                        '사진 이름 앞에 붙는 글자(영문·숫자)를 적어 주세요 — 예: UV.</div>'))
             if 웹:
                 주소없는줄 = [f'{n}번째 줄 · {r["이름"]}' for n, r in enumerate(작업["초안"], 1)
                           if not (r.get("주소") or "").strip()]
