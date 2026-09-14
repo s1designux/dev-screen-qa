@@ -18,6 +18,7 @@ import account
 import actions
 import nametag
 import webvalue
+import 매체
 
 기본폭 = 1440
 기본기다림 = 1.5          # 화면이 가라앉기를 기다리는 초
@@ -52,9 +53,17 @@ def 브라우저켜기(연장):
     raise 웹오류(f"브라우저를 열지 못했습니다 — {마지막탈}")
 
 
+def _갈래(tag):
+    """이 이름표가 어느 매체인지 — 유형표(lib/매체.py)의 열쇠. 옛 이름표는 '플랫폼' 만 있다."""
+    return (tag.get("유형") or tag.get("플랫폼") or 매체.PC웹)
+
+
 def 주소만들기(tag, 화면):
+    """사람이 적은 주소를 그대로 연다. **끝 빗금을 떼지 않는다** — 유형표(lib/매체.py) 겪은일 2026-09-14.
+    (뗐더니 서버가 404 오류 페이지로 보냈고, 그 오류 화면을 로그인 화면인 줄 알고 찍었다.)"""
     주소 = (화면.get("주소") or "").strip()
-    바탕 = (tag.get("기본주소") or "").strip().rstrip("/")
+    갈래 = _갈래(tag)
+    바탕 = 매체.주소다듬기(tag.get("기본주소"), 갈래)
     if not 주소:
         if not 바탕:
             raise 웹오류(f"{화면['이름']}: 주소가 없습니다")
@@ -63,7 +72,7 @@ def 주소만들기(tag, 화면):
         return 주소
     if not 바탕:
         raise 웹오류(f"{화면['이름']}: '기본주소' 가 없어 '{주소}' 만으로는 열 수 없습니다")
-    return 바탕 + "/" + 주소.lstrip("/")
+    return 바탕.rstrip("/") + "/" + 주소.lstrip("/")
 
 
 def _칸찾기(쪽, 글자):
@@ -81,6 +90,11 @@ def _칸찾기(쪽, 글자):
 
 
 def _누를것찾기(쪽, 글자):
+    """누를 것을 찾는다 — 단추·링크·글자, 그리고 **적는 칸**까지.
+
+    '탭 비밀번호를 입력해 주세요.' 처럼 안내글이 적힌 칸을 눌러 커서만 두는 화면이 있다.
+    칸은 단추도 링크도 아니고 안내글이 글자로도 안 잡혀서, 칸 찾는 길을 뒤에 붙인다.
+    """
     for 찾기 in (lambda: 쪽.get_by_role("button", name=글자, exact=False),
                lambda: 쪽.get_by_role("link", name=글자, exact=False),
                lambda: 쪽.get_by_text(글자, exact=False)):
@@ -90,46 +104,160 @@ def _누를것찾기(쪽, 글자):
             return 것
         except Exception:
             continue
-    return None
+    try:
+        return _칸찾기(쪽, 글자)
+    except 웹오류:
+        return None
 
 
-def 동작하기(쪽, 동작, 계정, 실패, 기다림):
-    """사람이 적은 동작 한 줄을 그대로 해 본다(앱 쪽과 같은 말)."""
-    for 마디 in actions.쪼개기(동작):
-        낱말 = 마디.split(None, 1)
-        앞 = 낱말[0]
-        뒤 = 낱말[1].strip() if len(낱말) > 1 else ""
+def _적기(칸, 값, 갈래=None):
+    """칸에 글자를 넣는다. 웹은 **한 글자씩** 친다 — 자판을 뗄 때(keyup)만 단추를 켜는 화면이 있어서다.
+    한 번에 밀어 넣으면(fill) 자판 신호가 나지 않아 로그인 단추가 꺼진 채로 남는다(유형표 겪은일 2026-09-14)."""
+    칸.click()
+    칸.fill("")
+    if not 매체.값(갈래, "입력.한글자씩", False):
+        칸.fill(값)
+        return
+    try:
+        칸.press_sequentially(값, delay=30)      # Playwright 새 판
+    except AttributeError:
+        칸.type(값, delay=30)                    # 옛 판
 
-        if 앞 in ("탭", "누르기", "클릭"):
-            것 = _누를것찾기(쪽, 뒤)
-            if 것 is None:
-                raise 웹오류(f"'{뒤}' 를 화면에서 찾지 못했습니다")
-            것.click()
-        elif 앞 in ("있으면탭", "있으면누르기"):
-            것 = _누를것찾기(쪽, 뒤)
-            if 것 is not None:
-                것.click()
-        elif 앞 in ("입력", "적기"):
-            if "=" not in 뒤:
-                raise 웹오류("어느 칸에 무엇을 적을지 = 로 이어 주세요 — 예: 입력 아이디=test01")
-            칸, 값 = 뒤.split("=", 1)
-            _칸찾기(쪽, 칸.strip()).fill(account.채우기(값.strip(), 계정, 실패))
-        elif 앞 in ("기다림", "대기"):
-            try:
-                time.sleep(float(뒤))
-            except ValueError:
-                raise 웹오류(f"몇 초 기다릴지 숫자로 적어 주세요 — {마디}")
+
+def _누르기(것, 이름, 갈래=None):
+    """누른다. 꺼져 있는 단추를 오래 기다리지 않고, 꺼져 있다고 분명히 말한다.
+
+    로그인 단추처럼 앞 칸이 차야 켜지는 것이 있다(유형표 겪은일 2026-09-14).
+    기본 30초를 기다리다 'Timeout' 만 남기면 사람이 까닭을 알 수 없다.
+    """
+    초 = 매체.값(갈래, "단추.기다릴초", 30)
+    try:
+        것.click(timeout=int(초 * 1000))
+    except Exception as e:
+        꺼짐 = False
+        try:
+            꺼짐 = not 것.is_enabled()
+        except Exception:
+            pass
+        if 꺼짐:
+            raise 웹오류(f"'{이름}' 단추가 꺼져 있습니다 — 앞 칸을 채워야 켜지는 화면입니다")
+        raise 웹오류(f"'{이름}' 을(를) 누르지 못했습니다 — {str(e).strip().splitlines()[0]}")
+
+
+보기무늬 = re.compile(r"eye|show|reveal|visib|보기|표시|숨김", re.I)
+
+
+def _칸끝누르기(쪽, 칸이름):
+    """칸 안쪽 오른쪽 끝에 붙은 작은 단추(비밀번호 눈)를 누른다.
+
+    자리(%)로 누르지 않는 까닭: 시안 높이와 브라우저 창 높이가 달라 세로가 그대로 옮겨지지 않는다
+    (유형표 겪은일 2026-09-14 — 38% 로 눌렀더니 빈 곳을 눌렀다).
+
+    누를 것을 고르는 차례:
+      1) 그 칸 위에 겹쳐 있는 작은 단추 중 **이름표가 '보기·눈'** 인 것 (aria-label·title·class)
+      2) 없으면 그 중 맨 왼쪽 것 (지우기 ✕ 는 보통 맨 오른쪽에 붙는다)
+      3) 단추를 하나도 못 찾으면 칸의 오른쪽 끝을 그냥 누른다
+    """
+    상자 = _칸찾기(쪽, 칸이름).bounding_box()
+    if not 상자:
+        raise 웹오류(f"'{칸이름}' 칸이 화면에 보이지 않습니다")
+    가운데y = 상자["y"] + 상자["height"] / 2
+    단추들 = []
+    for i in range(쪽.locator("button, a[role=button], [role=button]").count()):
+        것 = 쪽.locator("button, a[role=button], [role=button]").nth(i)
+        try:
+            b = 것.bounding_box()
+        except Exception:
             continue
-        elif 앞 == "스크롤":
-            쪽.mouse.wheel(0, 800)
-        elif 앞 == "뒤로":
-            쪽.go_back()
-        elif 앞 == "지우기":
-            쪽.keyboard.press("Control+A")
-            쪽.keyboard.press("Delete")
-        else:
-            raise 웹오류(f"모르는 말입니다 — {마디}")
-        쪽.wait_for_timeout(int(기다림 * 1000))
+        if not b or b["width"] > 60 or b["height"] > 60:
+            continue
+        if not (상자["x"] <= b["x"] + b["width"] / 2 <= 상자["x"] + 상자["width"]):
+            continue
+        if abs(b["y"] + b["height"] / 2 - 가운데y) > 상자["height"] / 2 + 4:
+            continue
+        이름 = " ".join(str(것.get_attribute(a) or "") for a in ("aria-label", "title", "class"))
+        단추들.append((b["x"], bool(보기무늬.search(이름)), 것))
+    보기 = [x for x in 단추들 if x[1]]
+    고른것 = (보기 or sorted(단추들))[0][2] if (보기 or 단추들) else None
+    if 고른것 is not None:
+        고른것.click()
+        return
+    쪽.mouse.click(상자["x"] + 상자["width"] - 16, 가운데y)
+
+
+def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
+    """동작 한 마디를 해 본다(앱 쪽 lib/actions.py 와 같은 말). 유형표(lib/매체.py)가 세부를 정한다."""
+    낱말 = 마디.split(None, 1)
+    앞 = 낱말[0]
+    뒤 = 낱말[1].strip() if len(낱말) > 1 else ""
+
+    if 앞 in ("탭", "누르기", "클릭"):
+        것 = _누를것찾기(쪽, 뒤)
+        if 것 is None:
+            raise 웹오류(f"'{뒤}' 를 화면에서 찾지 못했습니다")
+        _누르기(것, 뒤, 갈래)
+    elif 앞 in ("있으면탭", "있으면누르기"):
+        것 = _누를것찾기(쪽, 뒤)
+        if 것 is not None:
+            것.click()
+    elif 앞 in ("입력", "적기"):
+        if "=" not in 뒤:
+            raise 웹오류("어느 칸에 무엇을 적을지 = 로 이어 주세요 — 예: 입력 아이디=test01")
+        칸, 값 = 뒤.split("=", 1)
+        _적기(_칸찾기(쪽, 칸.strip()), account.채우기(값.strip(), 계정, 실패), 갈래)
+    elif 앞 in ("기다림", "대기"):
+        try:
+            time.sleep(float(뒤))
+        except ValueError:
+            raise 웹오류(f"몇 초 기다릴지 숫자로 적어 주세요 — {마디}")
+        return
+    elif 앞 in ("탭칸끝",):
+        _칸끝누르기(쪽, 뒤)
+    elif 앞 in ("탭좌표", "자리탭"):
+        # 글자가 없는 것(비밀번호 눈 아이콘 등)은 자리(가로%,세로%)로 누른다.
+        if not 매체.값(갈래, "좌표.세로퍼센트", True):
+            raise 웹오류(f"웹에서는 자리(%)로 누르지 않습니다 — 창 높이가 시안과 달라 빗나갑니다. "
+                     f"'탭칸끝 <칸 안내글>' 로 적어 주세요 ({마디})")
+        수 = re.findall(r"[0-9.]+", 뒤)
+        if len(수) != 2:
+            raise 웹오류(f"자리를 가로%,세로% 로 적어 주세요 — 예: 탭좌표 86,41 ({마디})")
+        칸크기 = 쪽.viewport_size or {"width": 기본폭, "height": 900}
+        쪽.mouse.click(칸크기["width"] * float(수[0]) / 100,
+                      칸크기["height"] * float(수[1]) / 100)
+    elif 앞 == "스크롤":
+        쪽.mouse.wheel(0, 800)
+    elif 앞 == "뒤로":
+        쪽.go_back()
+    elif 앞 == "지우기":
+        쪽.keyboard.press("Control+A")
+        쪽.keyboard.press("Delete")
+    else:
+        raise 웹오류(f"모르는 말입니다 — {마디}. 쓸 수 있는 말: 탭 · 있으면탭 · 입력 · "
+                 f"기다림 · 스크롤 · 뒤로 · 지우기 · 탭칸끝 · 되풀이")
+    쪽.wait_for_timeout(int(기다림 * 1000))
+
+
+def 동작하기(쪽, 동작, 계정, 실패, 기다림, 갈래=None):
+    """사람이 적은 동작 한 줄을 그대로 해 본다.
+
+    '되풀이 5' 가 나오면 그 뒤에 오는 것들을 5번 되풀이한다(앱 쪽과 같다) —
+    비밀번호를 다섯 번 틀리는 화면처럼 같은 짓을 여러 번 해야 할 때 쓴다.
+    """
+    마디들 = actions.쪼개기(동작)
+    for i, 마디 in enumerate(마디들):
+        낱말 = 마디.split(None, 1)
+        if 낱말[0] in ("되풀이", "반복"):
+            수 = re.sub(r"[^0-9]", "", 낱말[1] if len(낱말) > 1 else "")
+            if not 수 or not (1 <= int(수) <= 20):
+                raise 웹오류("몇 번 되풀이할지 1~20 사이로 적어 주세요 — 예: 되풀이 5")
+            뒤 = 마디들[i + 1:]
+            if not 뒤:
+                raise 웹오류("되풀이할 것을 뒤에 적어 주세요 — 예: 되풀이 5 → 탭 로그인")
+            for _ in range(int(수)):
+                for m in 뒤:
+                    한마디하기(쪽, m, 계정, 실패, 기다림, 갈래)
+            return
+        한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래)
 
 
 def 값이름(사진이름):
@@ -154,8 +282,9 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
     os.makedirs(결과폴더, exist_ok=True)
     폭 = int(숫자(tag, "화면폭", 기본폭))
     기다림 = 숫자(tag, "기다림", 기본기다림)
-    계정 = tag.get("로그인")
+    계정 = account.읽기(tag.get("앱이름", ""))   # 시험 아이디·비번은 apps/앱사전.json 에만 있다
     찍힌것, 실패 = [], []
+    앞장성공 = False        # 앞 화면이 제대로 찍혔나 — 이어 찍을 수 있는지 가른다
 
     with sync_playwright() as 연장:
         브라우저, 어느것 = 브라우저켜기(연장)
@@ -167,11 +296,18 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                 이름 = 이름짓기(tag, 화면)
                 print(f"[{i}/{len(tag['화면'])}] {화면['이름']} → {이름}", flush=True)
                 try:
-                    쪽.goto(주소만들기(tag, 화면), wait_until="load", timeout=30000)
-                    쪽.wait_for_timeout(int(기다림 * 1000))
+                    # '이어서: 예' 인 화면은 앞 화면에서 눌러 둔 상태 위에 이어 찍는다.
+                    # 주소를 다시 열면 적어 둔 글자·로그인 실패 횟수가 도로 지워진다.
+                    # 앞 화면이 실패했으면 이을 상태가 없으니 처음부터 다시 연다.
+                    if 화면.get("이어서") == "예" and 앞장성공:
+                        pass
+                    else:
+                        쪽.goto(주소만들기(tag, 화면), wait_until="load", timeout=30000)
+                        쪽.wait_for_timeout(int(기다림 * 1000))
                     동작 = 화면.get("동작", "-")
                     if 동작 not in ("-", "", "없음"):
-                        동작하기(쪽, 동작, 계정, account.실패화면(화면.get("이름", "")), 기다림)
+                        동작하기(쪽, 동작, 계정, account.실패화면(화면.get("이름", "")), 기다림,
+                              _갈래(tag))
                     값 = webvalue.긁기(쪽, 화면.get("이름", ""))
                     webvalue.쓰기(os.path.join(결과폴더, 값이름(이름)), 값)
                     쪽.screenshot(path=os.path.join(결과폴더, 이름), full_page=True)
@@ -179,7 +315,9 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                     까닭 = str(e).strip().splitlines()[0]
                     print(f"    ✗ 못 찍음: {까닭}", flush=True)
                     실패.append({"화면이름": 화면["이름"], "까닭": 까닭})
+                    앞장성공 = False
                     continue
+                앞장성공 = True
                 한줄 = {"파일": 이름, "값파일": 값이름(이름), "화면번호": 화면["번호"],
                       "화면이름": 화면["이름"], "상태": 화면.get("상태", "default"),
                       "잰것": len(값.get("elements", []))}
