@@ -75,6 +75,19 @@ def 웹인가(작업=None):
     return 유형(작업) in ("web", "mobile-web")
 
 
+def 찍는중안내(작업=None):
+    """찍는 동안 사람이 하지 말아야 할 것 — 유형마다 다르다.
+    웹은 폰을 꽂지 않고 브라우저가 저절로 도는 것이라, 폰 이야기를 하면 사람이 헤맨다."""
+    갈래 = 유형(작업)
+    if 갈래 == "web":
+        return "브라우저 창이 저절로 열리고 닫힙니다. 그 창을 건드리지 마세요."
+    if 갈래 == "mobile-web":
+        return "브라우저 창이 저절로 열리고 닫힙니다. 그 창을 건드리지 마세요."
+    if 갈래 == "pcapp":
+        return "프로그램 창이 저절로 움직입니다. 마우스·키보드를 건드리지 마세요."
+    return "폰을 만지지 마세요."
+
+
 def _e(v):
     return html.escape(str(v if v is not None else ""))
 
@@ -784,7 +797,7 @@ def 화면_조건(알림=""):
         <tr><td class="muted">시험 계정</td><td>{계정말}</td></tr>
       </tbody></table>
       <div class="hint">화면 한 장마다 앱을 껐다 켭니다. 화면 수 × 약 10초쯤 걸립니다.
-        찍는 동안 폰을 만지지 마세요.</div>
+        찍는 동안 {찍는중안내(작업)}</div>
       <form method="post" action="/조건">
         <div class="bar"><a class="btn" href="/초안">← 목록 고치기</a>
           <span class="right"></span>
@@ -952,7 +965,7 @@ def 화면_촬영():
     <div class="card"><h2>{'끝났습니다' if 끝남 else '찍는 중…'}
       <span class="muted">· {_e(폴더.name)}</span></h2>
       <pre class="log">{_e(글)}</pre>
-      <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else '<span class="hint">폰을 만지지 마세요.</span>'}</div>
+      <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else f'<span class="hint">{찍는중안내(작업)}</span>'}</div>
     </div>{보내기}{결과}"""
     return 껍데기("/촬영", 본문, "찍고 이름 붙이는 중")
 
