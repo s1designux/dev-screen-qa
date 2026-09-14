@@ -650,7 +650,7 @@ CSS = '''
 .auto-sum{font-weight:var(--font-weight-bold)}.auto-hint{color:var(--color-text-caption)}
 .auto-group{margin-bottom:var(--spacing-10)}.auto-group summary{cursor:pointer;font-weight:var(--font-weight-bold);margin-bottom:var(--spacing-6)}
 .auto-card{position:relative}.auto-card .auto-no{border-radius:var(--radius-4)}
-.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--sizing-34);min-width:64px;padding:0 var(--spacing-16);font-family:inherit;font-size:var(--font-size-14);font-weight:var(--font-weight-medium);line-height:1;color:var(--color-chip-line-label-default);background:var(--color-chip-line-bg-default);border:var(--border-width-1) solid var(--color-chip-line-border-default);border-radius:var(--radius-full);cursor:pointer;user-select:none}
+.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--sizing-28);padding:0 var(--spacing-16);font-family:inherit;font-size:var(--font-size-12);font-weight:var(--font-weight-medium);line-height:1;color:var(--color-chip-line-label-default);background:var(--color-chip-line-bg-default);border:var(--border-width-1) solid var(--color-chip-line-border-default);border-radius:var(--radius-full);cursor:pointer;user-select:none}
 .auto-card .auto-ex:hover{background:var(--color-chip-line-bg-hover)}
 .auto-card .auto-ex.on{background:var(--color-chip-line-bg-selected);border-color:var(--color-chip-line-border-selected);color:var(--color-chip-line-label-selected)}
 .auto-card .auto-ex.on:hover{background:var(--color-chip-line-bg-hover)}
