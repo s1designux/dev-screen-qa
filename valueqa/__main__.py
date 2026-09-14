@@ -46,7 +46,6 @@ def main(argv=None):
     ap.add_argument("--문턱", type=float, default=0.5, help="짝으로 인정하는 점수 (기본 0.5)")
     ap.add_argument("--정본", help="회사 토큰·컴포넌트 규정도 대조. 'auto' 면 깃허브에서 받아오고, 폴더 경로면 그것을 읽는다")
     ap.add_argument("--대응표", help="프로젝트 대응표 JSON — {\"Button\": [\"btn-primary\"]} (컴포넌트 ↔ 이 프로젝트의 클래스 접두사)")
-    ap.add_argument("--허용차", type=float, default=0, help="토큰과 이만큼 이내로 가까우면 넘어간다 (기본 0 = 정확히 같아야 함)")
     ap.add_argument("--플랫폼", default="PC", help="컴포넌트 규격을 볼 때 PC / Mobile (기본 PC)")
     ap.add_argument("--디자이너", help="시안 자체가 규정 밖인 곳을 디자이너용 목록(Markdown)으로 저장 (--정본 필요)")
     a = ap.parse_args(argv)
@@ -73,7 +72,7 @@ def main(argv=None):
         if a.대응표:
             with open(a.대응표, encoding="utf-8") as f:
                 대응표 = json.load(f)
-        규정 = 규정검사(결과, 정본, 대응표, a.허용차, a.플랫폼)
+        규정 = 규정검사(결과, 정본, 대응표, 0, a.플랫폼)   # 규정은 정확히 같아야 한다 (river 2026-09-14) — 허용차 없음
         n = 토큰셈(정본)
         print("정본 %s — 색 %d · 간격 %d · 크기 %d · 모서리 %d · 글자크기 %d · 컴포넌트 %d"
               % (정본.get("커밋") or "로컬", n["색"], n["간격"], n["크기"], n["모서리"], n["글자크기"], n["컴포넌트"]))
