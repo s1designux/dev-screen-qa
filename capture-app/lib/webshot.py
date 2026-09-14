@@ -40,17 +40,35 @@ def 연장가져오기():
     return sync_playwright
 
 
-def 브라우저켜기(연장):
+def 숨어서찍나():
+    """창을 띄우지 않고 찍을지. 기본은 **보이게** 찍는다.
+
+    사람이 '브라우저 창이 저절로 열리고 닫힙니다' 는 안내를 보고 기다리는데 창이 안 뜨면
+    돌아가는 중인지 멈춘 건지 알 수 없다. 눈에 보여야 잘못 찍힌 화면도 그 자리에서 알아본다.
+    창 없이 돌리고 싶을 때만 CAPTURE_HEADLESS=1 을 준다(예약 실행 등).
+    """
+    return (os.environ.get("CAPTURE_HEADLESS", "") or "").strip().lower() in ("1", "true", "y", "yes")
+
+
+def 브라우저켜기(연장, 보이기=None):
     """깔려 있는 크롬 → 엣지 → 딸려온 것 차례로 열어 본다."""
+    숨김 = 숨어서찍나() if 보이기 is None else (not 보이기)
     마지막탈 = None
     for 이름 in 브라우저차례:
         try:
             if 이름:
-                return 연장.chromium.launch(channel=이름), 이름
-            return 연장.chromium.launch(), "딸려온 크로미움"
+                return 연장.chromium.launch(channel=이름, headless=숨김), 이름
+            return 연장.chromium.launch(headless=숨김), "딸려온 크로미움"
         except Exception as e:          # 안 깔려 있으면 다음 차례로
             마지막탈 = e
     raise 웹오류(f"브라우저를 열지 못했습니다 — {마지막탈}")
+
+
+def _살아있나(브라우저, 쪽):
+    try:
+        return bool(브라우저.is_connected()) and not 쪽.is_closed()
+    except Exception:
+        return False
 
 
 def _갈래(tag):
@@ -288,13 +306,26 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
 
     with sync_playwright() as 연장:
         브라우저, 어느것 = 브라우저켜기(연장)
-        print(f"  브라우저: {어느것} · 폭 {폭}px", flush=True)
+        print(f"  브라우저: {어느것} · 폭 {폭}px"
+              + ("" if 숨어서찍나() else " · 창이 보이게"), flush=True)
         칸 = 브라우저.new_context(viewport={"width": 폭, "height": 900})
         쪽 = 칸.new_page()
         try:
             for i, 화면 in enumerate(tag["화면"], 1):
                 이름 = 이름짓기(tag, 화면)
                 print(f"[{i}/{len(tag['화면'])}] {화면['이름']} → {이름}", flush=True)
+                # 창을 보이게 찍으므로 사람이 실수로 닫을 수 있다. 닫혔으면 다시 열고 이어 간다
+                # (한 장 때문에 남은 장을 다 놓치지 않게).
+                if not _살아있나(브라우저, 쪽):
+                    try:
+                        브라우저.close()
+                    except Exception:
+                        pass
+                    브라우저, _ = 브라우저켜기(연장)
+                    칸 = 브라우저.new_context(viewport={"width": 폭, "height": 900})
+                    쪽 = 칸.new_page()
+                    앞장성공 = False
+                    print("    · 브라우저 창이 닫혀 있어 다시 열었습니다", flush=True)
                 try:
                     # '이어서: 예' 인 화면은 앞 화면에서 눌러 둔 상태 위에 이어 찍는다.
                     # 주소를 다시 열면 적어 둔 글자·로그인 실패 횟수가 도로 지워진다.
