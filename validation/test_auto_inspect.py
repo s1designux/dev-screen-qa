@@ -166,6 +166,21 @@ class AutoFlow(unittest.TestCase):
         with self.s.connect() as c:
             self.assertEqual(len(self.auto.candidates(c, rid)), 3)
 
+    def test_page_carries_alignment_with_capture_trim(self):
+        """나란히 보기가 쓰는 화면 맞춤값 — 엔진이 잘라낸 위쪽 띠를 함께 내려보내야 자리가 맞는다."""
+        with patch('figma_reader.api', return_value={'nodes': {'1:1': {'document': REST_DOC}}}):
+            m = self.auto.materials(self.page, self.run['uuid'])
+        res = self.result()
+        res['autoRunId'] = m['autoRunId']
+        res['alignment'] = {'mode': 'anchor', 's': 0.5, 'tx': 0, 'ty': 27, 'score': .9}
+        res['range'] = {'captureTop': 118, 'captureBottom': 0}
+        self.auto.save_result(m['autoRunId'], res)
+        body = portal.render_page(self.page, 1, store=self.s)
+        self.assertIn('data-as="0.5"', body)
+        self.assertIn('data-aty="27"', body)
+        self.assertIn('data-actop="118"', body)   # 맞춤값은 잘린 그림 기준이라 되돌릴 값이 필요하다
+        self.assertIn('ctop:Number(st.dataset.actop)', body)
+
     def test_engine_change_reruns_and_keeps_old_round(self):
         """검수 규칙(엔진 파일)을 고치면 옛 결과를 그대로 보여 주지 않고 새 회차로 다시 돈다."""
         rid = self.saved()

@@ -524,10 +524,15 @@ def panel_html(view, page_id, person_options='', which='open'):
     r = view['run']
     df = view.get('design_frame') or {}
     al = view.get('alignment') or {}
+    try:
+        ctop = (json.loads(r['range'] or '{}') or {}).get('captureTop') or 0   # 엔진이 잘라낸 위쪽 띠 — 맞춤값이 잘린 그림 기준이라 되돌려 줘야 한다
+    except (TypeError, ValueError, IndexError, KeyError):
+        ctop = 0
     head = (f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" '
             f'data-round="{view["round"]}" data-scale="{view["scale"]}" '
             f'data-dw="{df.get("w") or 0}" data-dh="{df.get("h") or 0}" '
-            f'data-as="{al.get("s") or 0}" data-atx="{al.get("tx") or 0}" data-aty="{al.get("ty") or 0}"></div>')
+            f'data-as="{al.get("s") or 0}" data-atx="{al.get("tx") or 0}" data-aty="{al.get("ty") or 0}" '
+            f'data-actop="{ctop}"></div>')
     def grid(items):
         cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
         return f'<div class="grid">{cards}</div>' if cards else ''
@@ -691,7 +696,7 @@ JS = r'''
   if(dataEl&&svg){
     var items=JSON.parse(dataEl.textContent||'[]'),k=Number(st.dataset.scale)||1,ns='http://www.w3.org/2000/svg';
     window.qaDesignRef={w:Number(st.dataset.dw)||0,h:Number(st.dataset.dh)||0};
-    window.qaAlign={s:Number(st.dataset.as)||0,tx:Number(st.dataset.atx)||0,ty:Number(st.dataset.aty)||0};
+    window.qaAlign={s:Number(st.dataset.as)||0,tx:Number(st.dataset.atx)||0,ty:Number(st.dataset.aty)||0,ctop:Number(st.dataset.actop)||0};
     window.qaDesignBox=window.qaDesignBox||{};
     items.forEach(function(c){
       if(c.dbox){window.qaDesignBox[c.id]=c.dbox;if(c.issue)window.qaDesignBox[c.issue]=c.dbox;}

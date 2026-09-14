@@ -18,6 +18,17 @@
       ],
       "cwd": "capture-app",
       "port": 8767
+    },
+    {
+      "name": "재현세트",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8788"
+      ],
+      "cwd": "validation-image-qa/repro",
+      "port": 8788
     }
   ]
 }

@@ -109,3 +109,30 @@ ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… node portal_parity.js base_x.json p
 node answers_check.js portal_x.json   # 체류시간 정답 생존
 ```
 후보 번호·종류·상태·사유·상자·디자인 노드가 모두 같아야 `PARITY OK`.
+
+## 하단(푸터) 자리 맞추기 재현 세트 (bottom_align)
+
+페이지 상세에서 번호를 누르면 뜨는 **나란히 보기**가 화면 아래쪽에서 시안 조각을 제 자리에서
+잘라 오는지 잰다. 엔진(`engine/ui.html`)이 아니라 포털의 `mvp0/comparison_view.py` 를 잰다.
+
+```bash
+cd validation-image-qa/repro
+python3 bottom_align.py                       # 그림 네 벌 + 핀 목록 + 검사판 + 견줌 그림 다시 만들기
+python3 -m http.server 8788                   # 그냥 열면 브라우저가 그림 화소를 막는다 — 서버로 열 것
+open http://localhost:8788/bottom_align.harness.html
+```
+
+`bottom_align.before_after.png` 는 눈으로 보는 **고치기 전·후 한 장**이다(푸터마다 시안 조각을 견준다).
+
+같은 화면을 시안·개발 두 벌로 그리되 **개발 쪽만 짧게** 만들어, 푸터가 '위에서 몇 px'이 아니라
+'바닥에서 몇 px'에 놓이게 했다. 내용이 같으므로 **정답 자리를 정확히 안다** — 어긋남 6px 이하면 맞음.
+
+| 화면 | 무엇을 보나 |
+|---|---|
+| `same` | 높이가 같을 때(회귀용) |
+| `short` | 개발 쪽이 300px 짧다 — 푸터는 바닥 기준 |
+| `faint` | 거기에 푸터 글자가 옅다 |
+| `rows` | 거기에 비슷한 표 줄이 여럿 — 아래쪽에서 헷갈리기 쉬운 화면 |
+
+성적: 고치기 전 **21/36** → 고친 뒤 **36/36** (2026-09-14).
+실제 화면 8개·핀 66개(TB-WEB-001·APP-WEB-001·BUS-AND-001)는 고치기 전과 **같은 자리**를 집는다(회귀 없음).

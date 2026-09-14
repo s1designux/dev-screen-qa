@@ -48,7 +48,7 @@ JS = r'''
   const t=document.createElement('canvas');t.width=n;t.height=m;const tg=t.getContext('2d');tg.drawImage(c,0,0,n,m);
   const d=tg.getImageData(0,0,n,m).data;for(let i=0;i<d.length;i+=4){if(d[i]<236||d[i+1]<236||d[i+2]<236)return false;}return true;}catch(e){return false;}}
  // ── 밀린 자리 가늠: 두 그림의 '가로줄 무늬'를 견줘, 이 요소가 시안에서 몇 줄 밀렸는지 찾는다 ──
- const PW=320;let profCache=null;
+ const PW=320;let profCache=null,shiftCache=null;
  function profileOf(im){const h=Math.max(1,Math.round(im.naturalHeight*PW/im.naturalWidth));
   const c=document.createElement('canvas');c.width=PW;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});
   g.fillStyle='#fff';g.fillRect(0,0,PW,h);g.drawImage(im,0,0,PW,h);
@@ -62,15 +62,53 @@ JS = r'''
   const ma=sa/n,mb=sb/n;let num=0,da=0,db=0;
   for(let i=0;i<n;i++){const x=a[ao+i]-ma,y=b[bo+i]-mb;num+=x*y;da+=x*x;db+=y*y;}
   return (da<1e-6||db<1e-6)?0:num/Math.sqrt(da*db);}
+ function bestIn(r0,n,lo,hi){   // 시안 무늬에서 '밀림 lo~hi' 만큼만 훑어 가장 닮은 자리
+  const P=profiles();if(!P.d||!P.v)return null;
+  const t0=Math.max(0,Math.ceil(r0+lo)),t1=Math.min(P.d.h-n,Math.floor(r0+hi));
+  let best=null;
+  for(let t=t0;t<=t1;t++){const sc=zncc(P.v.p,r0,P.d.p,t,n);if(!best||sc>best.sc)best={sc:sc,g:t-r0};}
+  return best;}
+ function inkEdges(p,h){   // 잉크가 있는 첫 줄·마지막 줄. 푸터 잔글씨는 아주 옅어서 문턱을 낮게 잡는다.
+  let max=0;for(let i=0;i<h;i++)if(p[i]>max)max=p[i];
+  const thr=max*0.01;let a=-1,b=-1;
+  for(let i=0;i<h;i++)if(p[i]>thr){if(a<0)a=i;b=i;}
+  return{a:a,b:b};}
+ // 화면 한 벌에 한 번만 구하는 '이 화면은 이만큼 밀렸다' 후보들. 낱개 요소가 시안 전체를 헤매지 않게 갈 곳을 미리 좁힌다.
+ // zone: 'top'=위쪽 내용이 기준, 'bottom'=바닥이 기준(두 그림 높이가 다르면 푸터는 '바닥에서 몇 줄'에 있다), 'any'=화면 전체.
+ function pageShifts(){
+  if(shiftCache)return shiftCache;
+  const P=profiles();if(!P.d||!P.v)return[];
+  const out=[],seen=[];
+  function push(g,zone){if(!isFinite(g))return;g=Math.round(g);
+   if(seen.some(o=>Math.abs(o-g)<=2))return;seen.push(g);out.push({g:g,zone:zone});}
+  const al=window.qaAlign;
+  if(al&&al.s)push((al.ty-(al.ctop||0)*al.s)*P.d.k,'any');   // 검수기가 잰 화면 전체 맞춤값(잘라낸 위쪽 띠만큼 되돌려서)
+  const head=bestIn(0,Math.min(Math.max(8,Math.round(P.v.h/2)),P.d.h,P.v.h),-P.d.h,P.d.h);
+  if(head&&head.sc>0.3)push(head.g,'top');                   // 위쪽 절반으로 잰 밀림
+  const fh=Math.max(8,Math.round(P.v.h/3)),fr=Math.max(0,P.v.h-fh);
+  const foot=bestIn(fr,Math.min(P.v.h-fr,P.d.h),-P.d.h,P.d.h);
+  if(foot&&foot.sc>0.3)push(foot.g,'bottom');                // 아래쪽 1/3으로 잰 밀림
+  const ed=inkEdges(P.d.p,P.d.h),ev=inkEdges(P.v.p,P.v.h);
+  if(ed.b>=0&&ev.b>=0)push(ed.b-ev.b,'bottom');              // 바닥(마지막 잉크 줄)끼리 맞춘 밀림 — 글자가 옅어 무늬가 안 잡힐 때의 버팀목
+  push(P.d.h-P.v.h,'bottom');                                // 두 그림의 아래끝끼리 맞춘 밀림(배경이 흰색이 아닐 때의 버팀목)
+  if(ed.a>=0&&ev.a>=0)push(ed.a-ev.a,'top');                 // 머리(첫 잉크 줄)끼리 맞춘 밀림
+  push(0,'any');
+  shiftCache=out;return out;}
  function guessShift(devY,devH){   // 개발 그림의 그 줄이 시안에서 몇 줄(320폭 기준) 밀렸는지. 못 찾으면 null
   const P=profiles();if(!P.d||!P.v)return null;
-  const pad=Math.max(10,Math.round(P.v.h*0.03));
-  const r0=Math.max(0,Math.round(devY*P.v.k)-pad),r1=Math.min(P.v.h,Math.round((devY+devH)*P.v.k)+pad),n=r1-r0;
-  if(n<8||n>P.d.h)return null;
+  const mods=pageShifts();if(!mods.length)return null;
+  const pad=Math.max(10,Math.round(P.v.h*0.04));
+  let r1=Math.min(P.v.h,Math.round((devY+devH)*P.v.k)+pad),r0=Math.max(0,Math.round(devY*P.v.k)-pad);
+  if(r1-r0<12){r1=Math.min(P.v.h,r0+12);r0=Math.max(0,r1-12);}   // 너무 얇은 창은 넓혀서 본다
+  const n=r1-r0;if(n<8||n>P.d.h)return null;
+  const R=Math.max(4,Math.round(P.d.h*0.02));   // 후보 언저리만 다듬는다
   let best=null;
-  for(let t=0;t<=P.d.h-n;t++){const sc=zncc(P.v.p,r0,P.d.p,t,n)-Math.abs(t-r0)/P.d.h*0.12;
-   if(!best||sc>best.sc)best={sc:sc,t:t};}
-  return (best&&best.sc>0.5)?best.t-r0:null;}
+  for(const m of mods){const b=bestIn(r0,n,m.g-R,m.g+R);if(b&&(!best||b.sc>best.sc))best=b;}
+  if(best&&best.sc>0.5)return best.g;
+  // 창이 밋밋해 고를 수 없으면 옮기지 않는다 — 그 자리(위/아래)에 맞는 화면 전체 값을 그대로 쓴다.
+  const zone=(r0+r1)/2>P.v.h*2/3?'bottom':'top';
+  const fall=mods.find(m=>m.zone===zone)||mods[0];
+  return fall?fall.g:null;}
  function fitBox(b,ratio){let w=b.w,h=b.h;if(w/h<ratio)w=h*ratio;else h=w/ratio;return{x:b.x+b.w/2-w/2,y:b.y+b.h/2-h/2,w:w,h:h};}
  function crop(box,target=dialog,dbox){if(!v.naturalWidth||!d.naturalWidth)return false;const x=Math.max(0,box.x),y=Math.max(0,box.y),w=Math.min(v.naturalWidth,box.x+box.w)-x,h=Math.min(v.naturalHeight,box.y+box.h)-y;if(w<3||h<3)return false;
  const scale=d.naturalWidth/v.naturalWidth;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
@@ -100,13 +138,17 @@ JS = r'''
   if(db&&ref&&ref.w){const kd=d.naturalWidth/ref.w;dbox={x:(db[0]-20)*kd,y:(db[1]-20)*kd,w:(db[2]+40)*kd,h:(db[3]+40)*kd};}
   else{const sx=d.naturalWidth/v.naturalWidth,g=guessShift(by,bh);
    if(g!==null){const P=profiles();dbox={x:bx*sx,y:(by*P.v.k+g)/P.d.k,w:bw*sx,h:bh*sx};}   // 밀린 만큼 가늠해서
-   else if(al&&al.s)dbox={x:bx*al.s+al.tx,y:by*al.s+al.ty,w:bw*al.s,h:bh*al.s};}           // 안 되면 화면 전체 맞춤값으로
+   else if(al&&al.s)dbox={x:bx*al.s+al.tx,y:by*al.s+(al.ty-(al.ctop||0)*al.s),w:bw*al.s,h:bh*al.s};}   // 안 되면 화면 전체 맞춤값으로
   if(!crop({x:bx,y:by,w:bw,h:bh},pop,dbox))return;
   const cs=pop.querySelectorAll('canvas'),note=pop.querySelector('.cv-pop-note');
-  const empty=blankCanvas(cs[0])&&blankCanvas(cs[1]);
-  note.textContent=empty?'이 자리는 두 그림 모두 비어 있어요 — 핀 자리와 올린 그림이 어긋났을 수 있어요.':'';
-  note.hidden=!empty;
-  placePop();};
- new ResizeObserver(paint).observe(host);d.addEventListener('load',paint);v.addEventListener('load',paint);setMode('side');
+  const 시안빔=blankCanvas(cs[0]),개발빔=blankCanvas(cs[1]);
+  note.textContent=시안빔&&개발빔?'이 자리는 두 그림 모두 비어 있어요 — 핀 자리와 올린 그림이 어긋났을 수 있어요.'
+   :개발빔?'개발 그림의 이 자리는 비어 있어요 — 핀 자리가 실제 요소와 어긋났을 수 있어요.'
+   :시안빔?'시안의 이 자리는 비어 있어요 — 개발에만 있는 요소이거나, 자리를 못 맞췄을 수 있어요.':'';
+  note.hidden=!note.textContent;
+  placePop();
+  return{dev:{x:bx,y:by,w:bw,h:bh},design:dbox};};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
+ function reload(){profCache=null;shiftCache=null;paint();}   // 그림이 바뀌면 줄무늬도 다시 잰다
+ new ResizeObserver(paint).observe(host);d.addEventListener('load',reload);v.addEventListener('load',reload);setMode('side');
 })();
 '''
