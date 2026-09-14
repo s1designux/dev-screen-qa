@@ -427,14 +427,32 @@ def render_screen(human_key: str, notice=""):
     else:
         rows = '<tr><td colspan="7" class="ctr">검수 페이지 없음</td></tr>'
 
+    # 표 머리의 전체 고르기 — 낱개를 다 켜면 함께 켜지고, 하나라도 끄면 함께 꺼진다.
+    # (S-1 Checkbox 에는 '일부만 골랐다' 상태가 없어 만들어 쓰지 않는다.)
+    pick_all_th = ('<th class="ctr pick"><label class="pickbox"><input type="checkbox" id="pick-all"'
+                   ' aria-label="검수 페이지 전체 선택"></label></th>') if pages else '<th class="ctr pick"></th>'
+    pick_all_js = """<script>
+      (function () {
+        var 전체 = document.getElementById('pick-all');
+        if (!전체) return;
+        var 낱개 = Array.prototype.slice.call(document.querySelectorAll('input[name=page]'));
+        전체.addEventListener('change', function () {
+          낱개.forEach(function (c) { c.checked = 전체.checked; });
+        });
+        낱개.forEach(function (c) {
+          c.addEventListener('change', function () {
+            전체.checked = 낱개.every(function (x) { return x.checked; });
+          });
+        });
+      })();
+    </script>""" if pages else ""
+
     remove_bar = f"""
       <form id="page-remove" class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/remove"
             onsubmit="return document.querySelector('input[name=page]:checked') ?
                       confirm('고른 검수 페이지를 지웁니다. 그 페이지의 지적·차수 기록도 함께 사라지고 되돌릴 수 없습니다. 지울까요?') :
                       (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
-        <span class="lbl">고른 페이지를</span>
         <button type="submit">삭제</button>
-        <span class="hint">되돌릴 수 없습니다. 그 페이지의 지적·차수 기록도 함께 사라집니다.</span>
       </form>""" if pages else ""
 
     removed_html = ""
@@ -487,12 +505,13 @@ def render_screen(human_key: str, notice=""):
       {remove_bar}
       <table>
         <thead><tr>
-          <th class="ctr"></th><th class="ctr">순번</th><th>검수 페이지</th>
+          {pick_all_th}<th class="ctr">순번</th><th>검수 페이지</th>
           <th class="ctr">업로드일</th><th class="ctr">검수일 (차수)</th>
           <th class="ctr">Pass/Fail</th><th class="ctr">미해결 / 전체</th>
         </tr></thead>
         <tbody>{rows}</tbody>
       </table>
+      {pick_all_js}
     </section>
     {removed_html}
   </div>
@@ -1191,10 +1210,12 @@ _LIST_CSS = """
   .rename summary { cursor:pointer; }
   .rename form { display:inline-flex; gap:var(--spacing-6); margin-top:var(--spacing-8); }
   .bulk { display:flex; gap:var(--spacing-8); align-items:center; flex-wrap:wrap; margin:var(--spacing-4) var(--spacing-4) var(--spacing-12); }
+  /* 검수 페이지 지우기 — 단추 하나만 오른쪽 끝에. 되돌릴 수 없다는 말은 누를 때 물어보는 창에서 한다. */
+  #page-remove { justify-content:flex-end; }
   .bulk .lbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .bulk .hint { font-size:var(--font-size-12); color:var(--color-text-helper); }
   td.pick, th.pick { width:32px; padding:0; }
-  td.pick .pickbox { display:flex; align-items:center; justify-content:center;
+  td.pick .pickbox, th.pick .pickbox { display:flex; align-items:center; justify-content:center;
     min-height:38px; padding:0 var(--spacing-6); cursor:default; }
   .dates { line-height:1.7; }
   .rdate { display:inline-block; font-size:var(--font-size-12); color:var(--color-text-tertiary); background:var(--color-bg-subtle); border-radius:var(--radius-4); padding:var(--spacing-2) var(--spacing-6); margin:0 var(--spacing-2); }
@@ -1250,10 +1271,11 @@ _PAGE_CSS = """
   #capture-picker .capture-image{flex:1;min-height:0;display:flex;justify-content:center}
   #capture-picker .capture-pair img{width:100%;height:100%;min-width:0;object-fit:contain}
   #capture-picker .capture-list{overflow:auto;min-height:0;font-size:var(--font-size-12)}
-  #capture-picker .capture-options{display:flex;flex-direction:column;gap:var(--spacing-8);margin-top:var(--spacing-12)}
-  #capture-picker .cap-option{display:flex;align-items:center;gap:var(--spacing-6);padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
+  #capture-picker .capture-options{display:flex;flex-direction:column;gap:var(--spacing-4);margin-top:var(--spacing-12)}
+  #capture-picker .cap-option{display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
   #capture-picker .cap-option:has(input:checked){border-color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
-  #capture-picker input[type=radio]{width:auto;flex:none;margin:0;padding:0}
+  #capture-picker .cap-option:has(input:focus-visible){outline:2px solid var(--color-border-focus);outline-offset:2px}
+  #capture-picker input[type=radio]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;opacity:0;clip-path:inset(50%);overflow:hidden}
   #capture-picker .rank{font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap}
   #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end}
   .app-view #capture-picker{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
