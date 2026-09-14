@@ -18,6 +18,7 @@ from datetime import datetime
 sys.path.insert(0, 여기)
 
 import account  # noqa: E402
+import 계정확인  # noqa: E402
 import actions  # noqa: E402
 import burst  # noqa: E402
 import learn  # noqa: E402
@@ -378,6 +379,16 @@ def main():
     결과폴더 = 붙임말[1] if len(붙임말) > 1 else os.path.join(뿌리, "shots", 폴더이름)
 
     print(f"■ {tag['앱이름']} — 화면 {len(tag['화면'])}개 찍습니다\n")
+
+    # 찍기 전에 시험 계정으로 한 번 들어가 본다. 계정이 틀리면 엉뚱한 화면이 줄줄이 찍힌다.
+    본것 = 계정확인.확인(tag)
+    if 본것["됨"] is False:
+        print(f"{계정확인.막힘표}{'(잠김)' if 본것['잠김'] else ''}: {본것['까닭']}")
+        print("   아이디·비밀번호를 고치고 다시 시작해 주세요.", flush=True)
+        sys.exit(2)
+    if 본것["됨"] is True:
+        print("  시험 계정 확인: 로그인됩니다\n", flush=True)
+
     if tag["플랫폼"].strip().lower() == "web":
         # 웹은 폰을 꽂지 않는다 — 브라우저만 열면 되므로 윈도우 PC에서 그대로 돈다.
         목록 = webshot.찍기(tag, 결과폴더)

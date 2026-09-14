@@ -33,6 +33,7 @@ import 동작점검
 import draft as 초안만들기
 import intake as 접수하기
 import nametag
+import 계정확인
 import 매체
 
 작업파일 = 여기 / "작업.json"
@@ -865,6 +866,52 @@ def _adb(*args):
         return ""
 
 
+def _계정칸(작업, 다시촬영=False, 접기=True):
+    """아이디·비밀번호를 고쳐 넣는 칸 — ③ 조건과 ④ 촬영에서 같은 것을 쓴다."""
+    숨김 = '<input type="hidden" name="다시촬영" value="1">' if 다시촬영 else ""
+    단추 = "고쳐서 다시 촬영 →" if 다시촬영 else "고쳐서 다시 해 보기"
+    return f"""<form method="post" action="/계정" style="margin-top:10px">{숨김}
+      <label class="f">시험 아이디</label>
+      <input type="text" name="시험아이디" class="w-md" autocomplete="off"
+             value="{_e(작업.get('시험아이디',''))}">
+      <label class="f">시험 비밀번호</label>
+      <input type="password" name="시험비밀번호" class="w-md" autocomplete="off"
+             value="{_e(작업.get('시험비밀번호',''))}">
+      <div class="bar"><button class="go" type="submit">{단추}</button></div></form>"""
+
+
+def _계정카드(작업):
+    """찍기 전에 '시험 계정으로 정말 들어가지나' 를 한 번 해 보는 칸 (매체 공통).
+
+    막지는 않는다 — 못 해 보는 매체(앱·PC 설치형)도 있고, 로그인이 없는 화면도 있다.
+    """
+    본것 = 작업.get("계정확인") or {}
+    됨 = 본것.get("됨")
+    계정 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
+          + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
+          if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
+    말 = {True: ("✅", "로그인됩니다", "#12864e"),
+         False: ("⚠️", "로그인이 안 됩니다", "#b42318"),
+         None: ("ℹ️", "미리 해 보지 못했습니다", "#6b7280")}.get(됨) \
+        if 본것 else ("", "아직 해 보지 않았습니다", "#6b7280")
+    표, 글, 색 = 말
+    까닭 = f'<div class="hint" style="margin-top:4px">{_e(본것.get("까닭",""))}</div>' if 본것 else ""
+    고치기 = _계정칸(작업) if 됨 is False else ""
+    return f"""
+    <div class="card"><h2>시험 계정</h2>
+      <table><tbody>
+        <tr><td class="muted" style="width:120px">계정</td><td>{계정}</td></tr>
+        <tr><td class="muted">한 번 해 본 결과</td>
+            <td style="color:{색}">{표} {_e(글)}{까닭}</td></tr>
+      </tbody></table>
+      <div class="hint">찍기 전에 이 계정으로 한 번 들어가 봅니다. 틀린 계정으로 찍으면
+        엉뚱한 화면만 잔뜩 남습니다.</div>
+      <form method="post" action="/계정확인">
+        <div class="bar"><button type="submit">시험 로그인 해 보기</button>
+          <span class="hint" style="margin:0">10초쯤 걸립니다 · 창이 떴다 닫힙니다</span></div>
+      </form>{고치기}</div>"""
+
+
 def 화면_조건(알림=""):
     작업 = 작업읽기()
     if not 작업.get("이름표경로"):
@@ -897,6 +944,7 @@ def 화면_조건(알림=""):
     본문 = f"""
     <div class="card"><h2>폰 상태</h2><table><tbody>{검사}</tbody></table>
       <div class="bar"><a class="btn" href="/조건">다시 확인</a></div></div>
+    {_계정카드(작업)}
     <div class="card"><h2>이렇게 찍습니다</h2>
       <table><tbody>
         <tr><td class="muted" style="width:120px">앱</td><td>{_e(작업.get('앱이름'))} · {_e(앱주소)}</td></tr>
@@ -968,7 +1016,7 @@ def 화면_조건_웹(작업, 알림=""):
     준비카드 = "" if 준비됨 else f"""
     <div class="card"><h2>아직 모자란 것</h2><table><tbody>{검사}</tbody></table>
       <div class="bar"><a class="btn" href="/조건">다시 확인</a></div></div>"""
-    본문 = f"""{준비카드}
+    본문 = f"""{준비카드}{_계정카드(작업)}
     <div class="card"><h2>이렇게 찍습니다</h2>
       <table><tbody>
         <tr><td class="muted" style="width:120px">사이트</td><td>{_e(작업.get('앱이름'))} · {_e(바탕) or '<span class="muted">줄마다 전체 주소</span>'}</td></tr>
@@ -985,6 +1033,19 @@ def 화면_조건_웹(작업, 알림=""):
           <button class="go" type="submit"{'' if 준비됨 else ' disabled'}>전체 촬영 시작 →</button></div>
       </form></div>"""
     return 껍데기("/조건", 본문, "찍기 전에 브라우저와 주소를 확인한다", 알림)
+
+
+def 계정한번(작업):
+    """적어 둔 시험 계정으로 한 번 로그인해 본다(공통 조각 lib/계정확인.py 가 한다)."""
+    본것 = 계정확인.확인({"앱이름": 작업.get("앱이름", ""),
+                    "유형": 유형(작업), "플랫폼": 작업.get("유형", ""),
+                    "기본주소": 작업.get("기본주소", ""),
+                    "화면폭": 작업.get("찍을폭") or 1440,
+                    "로그인": 작업.get("로그인", ""),
+                    "시험아이디": 작업.get("시험아이디", ""),
+                    "시험비밀번호": 작업.get("시험비밀번호", "")})
+    본것["때"] = time.strftime("%H:%M")
+    return 본것
 
 
 # ────────────────────────────────────────────────── ④ 전체 촬영
@@ -1058,6 +1119,19 @@ def 화면_촬영():
     목록파일 = 폴더 / "찍은목록.json"
     끝남 = not _촬영["진행중"] and 목록파일.exists()
 
+    막힘 = ""
+    막힌줄 = [l for l in 글.splitlines() if l.startswith(계정확인.막힘표)]
+    if 막힌줄 and not 목록파일.exists():
+        까닭 = 막힌줄[0].split(":", 1)[-1].strip()
+        잠김 = "(잠김)" in 막힌줄[0]
+        막힘 = (f'<div class="card"><div class="err" style="margin:0 0 10px">'
+              f'<b>시험 계정으로 로그인이 안 돼 촬영을 멈췄습니다.</b><br>{_e(까닭)}</div>'
+              + ('<div class="hint" style="margin-top:0">계정이 잠긴 것 같습니다. '
+                 '잠시 뒤에 다시 해 보세요.</div>' if 잠김 else
+                 '<div class="hint" style="margin-top:0">아이디·비밀번호를 고치면 '
+                 '그 자리에서 다시 찍기 시작합니다.</div>')
+              + _계정칸(작업, 다시촬영=True) + '</div>')
+
     결과 = ""
     if 목록파일.exists():
         목록 = json.loads(목록파일.read_text(encoding="utf-8"))
@@ -1123,6 +1197,7 @@ def 화면_촬영():
             <span class="hint" style="margin:0">보낼 때 포털을 새 창으로 열었습니다.</span></div>
         </div>"""
 
+    끝남 = 끝남 or bool(막힘)          # 로그인이 막혀 멈췄으면 더 기다리지 않는다
     새로고침 = "" if 끝남 else '<meta http-equiv="refresh" content="3">'
     본문 = f"""{새로고침}
     <div class="card"><h2>{'끝났습니다' if 끝남 else '찍는 중…'}
@@ -1130,7 +1205,7 @@ def 화면_촬영():
       {진행바(글, 끝남)}
       <pre class="log">{_e(글)}</pre>
       <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else f'<span class="hint">{찍는중안내(작업)}</span>'}</div>
-    </div>{보내기}{결과}"""
+    </div>{막힘}{보내기}{결과}"""
     return 껍데기("/촬영", 본문, "찍고 이름 붙이는 중")
 
 
@@ -1420,6 +1495,28 @@ class 손님(BaseHTTPRequestHandler):
             작업쓰기(작업)
             촬영시작()
             return self._이동("/촬영")
+
+        if 길 == "/계정확인":
+            작업 = 작업읽기()
+            작업["계정확인"] = 계정한번(작업)
+            작업쓰기(작업)
+            return self._이동("/조건")
+
+        if 길 == "/계정":
+            # 틀린 계정을 고쳐 넣는 곳 — ③ 조건과 ④ 촬영이 같은 칸을 쓴다.
+            작업 = 작업읽기()
+            작업["시험아이디"] = 한개("시험아이디")
+            작업["시험비밀번호"] = 한개("시험비밀번호")
+            작업["로그인"] = "필요" if 작업["시험아이디"] else "없음"
+            앱사전.적어두기(작업.get("앱이름", ""), 작업.get("서비스코드", ""), 작업.get("앱주소", ""),
+                       작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
+                       작업.get("기본주소", ""), 작업.get("찍을폭", ""))
+            작업["계정확인"] = 계정한번(작업)
+            작업쓰기(작업)
+            if 한개("다시촬영") == "1" and 작업["계정확인"].get("됨") is not False:
+                촬영시작()
+                return self._이동("/촬영")
+            return self._이동("/조건")
 
         self.send_response(404)
         self.end_headers()
