@@ -1162,8 +1162,8 @@ _LIST_CSS = """
   .key { font-family:ui-monospace,monospace; color:var(--color-text-tertiary); }
   .ctr { text-align:center; white-space:nowrap; }
   .pf { font-size:var(--font-size-12); font-weight:var(--font-weight-bold); padding:var(--spacing-2) var(--spacing-8); border-radius:var(--radius-6); }
-  .pf.fail { background:var(--color-red-50); color:var(--color-text-danger); }
-  .pf.pass { background:var(--color-action-primary-subtle); color:var(--color-status-success); }
+  .pf.fail { background:var(--color-red-50); color:var(--color-red-500); }
+  .pf.pass { background:var(--color-action-primary-subtle); color:var(--color-action-primary-pressed); }
   .dummy { font-size:var(--font-size-10); color:var(--color-text-helper); border:1px solid var(--color-border-subtle); border-radius:var(--radius-4); padding:var(--spacing-2) var(--spacing-4); margin-left:var(--spacing-4); }
   .num { font-weight:var(--font-weight-bold); color:var(--color-text-danger); }
   .num.zero { color:var(--color-status-success); }
@@ -1214,7 +1214,7 @@ _PAGE_CSS = """
   header .meta { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .key { font-family:ui-monospace,monospace; }
   .pf { font-size:var(--font-size-12); font-weight:var(--font-weight-bold); padding:var(--spacing-2) var(--spacing-8); border-radius:var(--radius-6); }
-  .pf.fail { background:var(--color-red-50); color:var(--color-text-danger); } .pf.pass { background:var(--color-action-primary-subtle); color:var(--color-status-success); }
+  .pf.fail { background:var(--color-red-50); color:var(--color-red-500); } .pf.pass { background:var(--color-action-primary-subtle); color:var(--color-action-primary-pressed); }
   .rounds { justify-self:end; display:flex; align-items:center; gap:var(--spacing-6); }
   .rlbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
   /* 차수 칩 모양은 코어 Chip(s1_components) — 검정 칩은 가이드에 없다 */
@@ -1312,7 +1312,8 @@ _PAGE_CSS = """
   .type { font-size:var(--font-size-12); font-weight:var(--font-weight-bold); padding:var(--spacing-4) var(--spacing-10); border-radius:var(--radius-6); background:var(--color-purple-50); color:var(--color-purple-400); }
   .state { font-size:var(--font-size-12); font-weight:var(--font-weight-bold); padding:var(--spacing-2) var(--spacing-8); border-radius:var(--radius-6); background:var(--color-red-50); color:var(--color-text-danger); }
   .state.done { background:var(--color-action-primary-subtle); color:var(--color-status-success); } .state.mid { background:var(--color-bg-subtle); color:var(--color-text-secondary); }
-  .sev { font-size:var(--font-size-10); font-weight:var(--font-weight-bold); padding:var(--spacing-2) var(--spacing-8); border-radius:var(--radius-6); background:var(--color-orange-50); color:var(--color-orange-450); border:1px solid var(--color-orange-150); }
+  /* 신뢰도는 주의가 아니라 정보다 — 코어 Chip(solid)의 회색을 쓴다 (river 확정 2026-09-14) */
+  .sev { font-size:var(--font-size-12); font-weight:var(--font-weight-medium); padding:var(--spacing-2) var(--spacing-8); border-radius:var(--radius-full); background:var(--chip-solid-default-bg); color:var(--chip-solid-default-text); border:var(--border-width-1) solid var(--chip-solid-default-border); }
   .props { margin:var(--spacing-10) 0 var(--spacing-6); }
   .tag { margin:0 var(--spacing-4) var(--spacing-4) 0; }   /* 모양은 코어 Chip(solid) */
   .loc { font-size:var(--font-size-12); color:var(--color-text-helper); font-family:ui-monospace,monospace; }
@@ -1321,7 +1322,7 @@ _PAGE_CSS = """
   .actor { font-weight:var(--font-weight-bold); color:var(--color-text-primary); }
   .actor.off { color:var(--color-text-helper); font-weight:var(--font-weight-regular); }
   .at { color:var(--color-text-helper); }
-  .note { color:var(--color-orange-450); }
+  .note { color:var(--color-text-state-caution); }
   .passform { display:flex; gap:var(--spacing-6); margin-top:var(--spacing-10); padding-top:var(--spacing-10); border-top:1px dashed var(--color-border-subtle); flex-wrap:wrap; }
   .passform input { flex:1; min-width:110px; }
   .passed { margin-top:var(--spacing-10); padding-top:var(--spacing-8); border-top:1px dashed var(--color-border-subtle); font-size:var(--font-size-12); font-weight:var(--font-weight-bold); color:var(--color-status-success); }

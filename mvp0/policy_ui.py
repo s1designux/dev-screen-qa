@@ -32,7 +32,7 @@ input[type=number],select{max-width:120px}
 
 button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
 ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:var(--spacing-6) 0;border-bottom:1px solid var(--color-border-subtle)}ul.list a{color:var(--color-action-primary-default);text-decoration:none}
-.note{background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-left:4px solid var(--color-orange-450);border-radius:var(--radius-6);padding:var(--spacing-10) var(--spacing-14);font-size:var(--font-size-14);margin:0 0 var(--spacing-16)}
+.note{background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-left:4px solid var(--color-text-state-caution);border-radius:var(--radius-6);padding:var(--spacing-10) var(--spacing-14);font-size:var(--font-size-14);margin:0 0 var(--spacing-16)}
 .hist{font-size:var(--font-size-14);color:var(--color-text-caption)}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bad{color:var(--color-text-danger);font-weight:var(--font-weight-bold)}.good{color:var(--color-status-success)}

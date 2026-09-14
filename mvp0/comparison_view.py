@@ -9,7 +9,7 @@ CSS = '''
 .cv-dialog{width:min(1100px,92vw);max-height:90vh;overflow:auto}
 .cv-pop{pointer-events:auto!important;box-shadow:var(--shadow-raised)}
 .cv-pop-head{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-8);margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-secondary)}
-.cv-pop-note{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-orange-450)}
+.cv-pop-note{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-state-caution)}
 .cv-pop-x{font:inherit;line-height:1;padding:var(--spacing-2) var(--spacing-8);border:1px solid var(--color-border-default);border-radius:var(--radius-6);background:var(--color-surface-default);color:var(--color-text-secondary);cursor:pointer}
 .cv-hover{position:fixed;z-index:1000;pointer-events:none;width:min(520px,calc(100vw - 24px));padding:var(--spacing-12);border:1px solid var(--color-border-default);border-radius:var(--radius-12);background:var(--color-surface-default);box-shadow:var(--shadow-raised)}.cv-hover[hidden]{display:none}.cv-hover .cv-parts{gap:var(--spacing-10)}.cv-hover p{margin:0 0 var(--spacing-6)}.cv-dialog::backdrop{background:var(--color-overlay)}.cv-dialog header{padding:0 0 var(--spacing-12);display:flex;justify-content:space-between}.cv-parts{display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-16)}.cv-parts canvas{width:100%;height:auto;background:var(--color-bg-default);border:1px solid var(--color-border-subtle)}.cv-parts p{font-size:var(--font-size-12)}
 '''
