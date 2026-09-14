@@ -65,7 +65,6 @@
   var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
   var 짝 = {};                                   // 프레임 id → 검수 화면 uuid (사람이 고른 값)
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
-  var 주소 = {};                                 // 검수 화면 uuid → 열 주소
   var 말 = document.getElementById('말');
   var 단추 = document.getElementById('보내기');
   var 갈래칸 = document.getElementById('갈래');
@@ -147,8 +146,7 @@
       body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, frames: 화면들.map(function (f) { return { id: f.id, name: f.이름 }; }) })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (차례 !== 물어본차례) return;
-      선택지 = j.options || []; 짝 = {}; 주소 = {};
-      선택지.forEach(function (o) { 주소[o.page] = o.url; });
+      선택지 = j.options || []; 짝 = {};
       (j.frames || []).forEach(function (f) { if (f.match) 짝[f.id] = f.match.page; });
       그리기();
     }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 그리기(); });
@@ -185,7 +183,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, page: m.page, frame: 프레임 })
       }).then(function (r) { return r.json(); }).then(function (j) {
-        if (j.error) 바꾸기실패.push(j.error); else 바꾼것.push({ name: 프레임.name, url: j.url });
+        if (j.error) 바꾸기실패.push(j.error); else 바꾼것.push({ name: 프레임.name });
         if (m.마지막) 바꾸기끝();
       }).catch(function () { 바꾸기실패.push('포털이 꺼져 있어요.'); if (m.마지막) 바꾸기끝(); });
     }
@@ -211,18 +209,14 @@
     말.textContent = 글;
   }
 
+  // 바꾼 화면을 하나씩 늘어놓지 않는다 — 몇 개 바꿨는지만 말한다(river 2026-09-14).
   function 바꾼말(덧붙임) {
     말.className = 바꾼것.length ? '말 ok' : '말 bad';
     말.innerHTML = (바꾼것.length
-        ? 바꾼것.length + '개 시안을 바꿨어요. ' + 바꾼것.map(function (b) {
-            return '<a data-url="' + b.url + '">' + b.name.replace(/</g, '&lt;') + ' 검수 화면 열기 ↗</a>';
-          }).join(' · ')
+        ? 바꾼것.length + '개 시안을 바꿨어요.'
         : '바꾸지 못했어요 — ' + (바꾸기실패[0] || '알 수 없는 이유'))
       + (바꾸기실패.length && 바꾼것.length ? '<br>못 바꾼 것 ' + 바꾸기실패.length + ': ' + 바꾸기실패[0] : '')
       + (덧붙임 ? '<br>' + 덧붙임 : '');
-    Array.prototype.forEach.call(말.querySelectorAll('a'), function (a) {
-      a.onclick = function () { parent.postMessage({ pluginMessage: { 갈래: '검수열기', 주소: 포털 + a.dataset.url } }, '*'); };
-    });
   }
 
   function 바꾸기끝() {
