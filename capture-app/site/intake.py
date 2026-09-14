@@ -221,11 +221,21 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
                 (page, sid, 다음순서, _페이지이름(s), 메모, w, h))
 
         # 시안의 '지금 값'(색·글꼴·크기 …)도 그림 옆에 함께 남긴다. 검수 때 원본값으로 쓴다.
-        속 = 초안.get(s["화면번호"], {}).get("속") or []
-        if 속:
+        # 틀(프레임 폭·높이)까지 있어야 값 대조가 자리를 맞출 수 있어, 있으면 원본 파일을 그대로 옮긴다.
+        초 = 초안.get(s["화면번호"], {})
+        속 = 초.get("속") or []
+        요소파일 = 초.get("검수요소파일") or ""
+        if 요소파일 and Path(요소파일).exists():
+            (사진자리 / f"{page}_design.json").write_bytes(Path(요소파일).read_bytes())
+        elif 속:
             (사진자리 / f"{page}_design.json").write_text(
                 json.dumps({"화면": s.get("상태", ""), "노드": 노드표.get(s["화면번호"], ""),
                             "요소": 속}, ensure_ascii=False, indent=1), encoding="utf-8")
+
+        # 개발 화면에서 잰 값(*.값.json)도 함께 넣는다 — 이것이 있어야 포털이 수정요청서를 뽑는다.
+        값파일 = 결과폴더 / (s.get("값파일") or "")
+        if s.get("값파일") and 값파일.exists():
+            (사진자리 / f"{page}_dev값.json").write_bytes(값파일.read_bytes())
 
         시안 = 디자인.get(노드표.get(s["화면번호"], ""))
         if 시안:

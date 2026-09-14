@@ -24,13 +24,14 @@ import auto_inspect
 import design_receive
 import policy_ui
 import policy_api
+import fixdoc_http
 import json
 import uuid as uuidmod
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from itertools import groupby
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 
 import db as dbmod
 import queries
@@ -443,11 +444,20 @@ def render_screen(human_key: str, notice=""):
 
     notice_html = f'<div class="notice">{_esc(notice)}</div>' if notice else ""
 
+    # 검수를 시작하기 전에 개발이 먼저 고칠 것 — 값으로 딱 떨어지는 차이는 사람이 눈으로 볼 필요가 없다.
+    주소 = ""
+    try:
+        주소 = (json.loads(s["dev_keys"] or "[]") or [""])[0]
+    except Exception:
+        주소 = ""
+    셈 = fixdoc_http.셈하기(UPLOADS, pages, human_key, 주소) if pages else None
+    warn_html = fixdoc_http.카드(_esc(human_key), 셈) if 셈 is not None else ""
+
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
-<style>{_LIST_CSS}</style></head>
+<style>{_LIST_CSS}{fixdoc_http.CSS}</style></head>
 <body>
   <header class="row">
     <a class="back" href="/">← 목록</a>
@@ -464,6 +474,7 @@ def render_screen(human_key: str, notice=""):
   </header>
   <div class="wrap">
     {notice_html}
+    {warn_html}
     <section class="group">
       <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
       {remove_bar}
@@ -912,6 +923,10 @@ class Handler(BaseHTTPRequestHandler):
                 case_ref=c.execute('SELECT plan_id,id FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
             page = design_plan_http.ui.detail(intake(),case_ref['plan_id'],case_ref['id'],q.get('notice',[''])[0],rnd) if case_ref else render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
+        elif path.startswith("/screen/") and unquote(path).endswith("/수정요청.md"):
+            # 한글 주소는 브라우저가 %xx 로 싸서 보낸다 — 풀어서 견준다.
+            푼길 = unquote(path)
+            self._수정요청(푼길[len("/screen/"):-len("/수정요청.md")])
         elif path.startswith("/screen/"):
             human_key = path[len("/screen/"):]
             page = render_screen(human_key, q.get("notice", [""])[0])
@@ -1028,6 +1043,39 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def _수정요청(self, human_key):
+        """개발·퍼블리셔에게 그대로 넘기는 수정 요청 한 장(Markdown)."""
+        conn = dbmod.connect(REAL_DB)
+        scr = queries.get_screen(conn, human_key)
+        if scr is None:
+            conn.close()
+            self._html(self._nf(f"화면 없음: {human_key}"), 404)
+            return
+        row = scr["row"]
+        pages = queries.pages_of_screen(conn, row["uuid"])
+        conn.close()
+        try:
+            주소 = (json.loads(row["dev_keys"] or "[]") or [""])[0]
+        except Exception:
+            주소 = ""
+        try:
+            글 = fixdoc_http.문서만들기(UPLOADS, pages, human_key, row["name"], 주소)
+        except Exception as e:
+            self._html(f"<p style='font-family:sans-serif;padding:40px'>수정요청서를 만들지 못했습니다 — {_esc(str(e))}</p>", 500)
+            return
+        if not 글:
+            self._html("<p style='font-family:sans-serif;padding:40px'>이 화면에는 잰 값이 없어 "
+                       "수정요청서를 만들 수 없습니다. 촬영기로 다시 보내 주세요.</p>", 404)
+            return
+        data = 글.encode("utf-8")
+        이름 = quote(f"수정요청-{row['name']}.md")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/markdown; charset=utf-8")
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{이름}")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _local_host(self):
         host = self.headers.get('Host', '')

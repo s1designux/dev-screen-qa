@@ -1088,10 +1088,27 @@ def 화면_촬영():
         <div class="card"><h2>검수로 보내기</h2>
           <div class="hint" style="margin-top:0">보낼 사진만 골라 주세요.
             상태마다 검수 페이지 한 장으로 들어갑니다.</div>
-          <form method="post" action="/접수">
+          <form method="post" action="/접수" id="보내기폼">
             <div class="rows" style="margin:10px 0 0">{고를칸}</div>
-            <div class="bar"><button class="go" type="submit">검수로 보내기 →</button></div>
-          </form></div>"""
+            <div class="bar"><button class="go" type="submit">검수로 보낸 후 포털 열기 →</button>
+              <span class="hint" style="margin:0">포털이 꺼져 있으면 먼저 켜 주세요.</span></div>
+          </form>
+          <script>
+          // 보내기와 포털 열기를 한 번에. 새 창은 **누른 그 순간** 열어 둬야 팝업 막기에 안 걸린다.
+          document.getElementById('보내기폼').addEventListener('submit', function (e) {{
+            var 창 = window.open('', '_blank');
+            if (!창) return;                       // 팝업이 막혔으면 예전처럼 폼 그대로 보낸다
+            e.preventDefault();
+            // URLSearchParams 로 보낸다 — 서버가 읽는 모양(urlencoded)이 폼을 그냥 보낼 때와 같아야 한다.
+            fetch('/접수?json=1', {{ method: 'POST', body: new URLSearchParams(new FormData(this)) }})
+              .then(function (r) {{ return r.json(); }})
+              .then(function (d) {{
+                if (d && d.포털주소) {{ 창.location = d.포털주소; }} else {{ 창.close(); }}
+                location.href = '/촬영';
+              }})
+              .catch(function () {{ 창.close(); location.href = '/촬영'; }});
+          }});
+          </script></div>"""
     elif 보냄:
         쪽 = " · ".join(_e(x) for x in 보냄.get("페이지", []))
         보내기 = f"""
@@ -1101,9 +1118,9 @@ def 화면_촬영():
                 <td><b>{_e(보냄.get("화면"))}</b> {_e(보냄.get("화면이름"))}</td></tr>
             <tr><td class="muted">검수 페이지</td><td>{쪽}</td></tr>
           </tbody></table>
-          <div class="bar"><a class="btn go" href="{_e(보냄.get("포털주소"))}" target="_blank">
-            포털에서 열기 →</a>
-            <span class="hint" style="margin:0">포털이 꺼져 있으면 먼저 켜 주세요.</span></div>
+          <div class="bar"><a class="btn" href="{_e(보냄.get("포털주소"))}" target="_blank">
+            포털 다시 열기 →</a>
+            <span class="hint" style="margin:0">보낼 때 포털을 새 창으로 열었습니다.</span></div>
         </div>"""
 
     새로고침 = "" if 끝남 else '<meta http-equiv="refresh" content="3">'
@@ -1380,15 +1397,21 @@ class 손님(BaseHTTPRequestHandler):
             return self._이동("/조건")
 
         if 길 == "/접수":
+            물음 = parse_qs(urlparse(self.path).query)
+            그릇 = 물음.get("json", [""])[0] == "1"     # 단추 하나로 보내고 바로 포털을 여는 길
             작업 = 작업읽기()
             try:
                 작업["접수결과"] = 접수하기.접수(작업.get("결과폴더", ""), 작업,
                                           폼.get("사진", []))
                 작업쓰기(작업)
             except 접수하기.접수오류 as e:
+                if 그릇:
+                    return self._json({"탈": str(e)})
                 return self._html(껍데기("/촬영", "", "검수로 보내기",
                                      f'<div class="err">{_e(str(e))}</div>'
                                      + '<div class="card"><a class="btn" href="/촬영">← 돌아가기</a></div>'))
+            if 그릇:
+                return self._json({"포털주소": 작업["접수결과"].get("포털주소", "")})
             return self._이동("/촬영")
 
         if 길 == "/조건":
@@ -1420,6 +1443,14 @@ class 손님(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("Location", quote(길))   # 한글 주소는 그대로 못 담는다
         self.end_headers()
+
+    def _json(self, 것, code=200):
+        data = json.dumps(것, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def log_message(self, *a):
         pass
