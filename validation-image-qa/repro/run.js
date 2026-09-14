@@ -2,9 +2,9 @@
 // 사용: node run.js [uiHtmlPath] [outPrefix]
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 const here = __dirname;
-const uiPath = process.argv[2] || path.resolve(here, '../../../../../../Users/designgroup_02/dev-screen-qa/plugin-image-qa/ui.html');
+const uiPath = process.argv[2] || path.resolve(here, '../../engine/ui.html');
 const outPrefix = process.argv[3] || 'out';
-const ui = fs.readFileSync(fs.existsSync(uiPath) ? uiPath : '/Users/designgroup_02/dev-screen-qa/plugin-image-qa/ui.html', 'utf8');
+const ui = fs.readFileSync(fs.existsSync(uiPath) ? uiPath : '/Users/designgroup_02/dev-screen-qa/engine/ui.html', 'utf8');
 const el = JSON.parse(fs.readFileSync(path.join(here, process.env.ELEMENTS_JSON || 'elements.json'), 'utf8'));
 const elements = el.rows.map(r => {
   const o = {}; el.cols.forEach((c, i) => o[c] = r[i]);

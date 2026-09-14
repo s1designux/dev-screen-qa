@@ -1,3 +1,5 @@
+// (레거시 · 2026-09-14) 폐기한 피그마 검수기 플러그인의 자체 검사. 현재 작업에서는 돌리지 않는다.
+// 엔진 자체의 검사는 validation-image-qa/repro/selftest.sh 다.
 // 추가 패키지 없이 설치된 Chrome으로 플러그인 UI의 순수 로컬 엔진을 검증한다.
 const fs = require('fs');
 const path = require('path');
@@ -5,10 +7,10 @@ const cp = require('child_process');
 const vm = require('vm');
 
 // Figma 메인 코드의 선택 구분 규칙을 가벼운 가짜 문서로 확인한다.
-const mainCode = fs.readFileSync(path.resolve(__dirname, '../plugin-image-qa/code.js'), 'utf8');
+const mainCode = fs.readFileSync(path.resolve(__dirname, 'code.js'), 'utf8');
 const figmaStub = { showUI() {}, ui: { postMessage() {} }, currentPage: { selection: [] }, on() {} };
 const context = { figma: figmaStub, __html__: '' };
-vm.runInNewContext(mainCode, context, { filename: 'plugin-image-qa/code.js' });
+vm.runInNewContext(mainCode, context, { filename: 'legacy/plugin-image-qa/code.js' });
 const imageNode = { type: 'RECTANGLE', absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 200 }, fills: [{ type: 'IMAGE', visible: true }], exportAsync() {} };
 const designWithImageBackground = { type: 'FRAME', absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 200 }, fills: [{ type: 'IMAGE', visible: true }], children: [{}], exportAsync() {} };
 if (!context.selectableCapture(imageNode) || context.selectableCapture(designWithImageBackground) || !context.selectableFrame(designWithImageBackground)) {
@@ -51,8 +53,8 @@ context.readLiveDesignValues(['t1', 'gone']).then((items) => {
   console.log('✓ 살아 있는 디자인 원본값 읽기(지금 값·지워진 레이어)');
 });
 
-const uiSource = fs.readFileSync(path.resolve(__dirname, '../plugin-image-qa/ui.html'), 'utf8');
-const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../plugin-image-qa/manifest.json'), 'utf8'));
+const uiSource = fs.readFileSync(path.resolve(__dirname, '../../engine/ui.html'), 'utf8');
+const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'manifest.json'), 'utf8'));
 if (manifest.name !== '개발화면 검수기' || !uiSource.includes('class="header-title">개발화면 검수기 1.0Ver') || !uiSource.includes('class="update-time">업데이트 ') || /header\{[^}]*border-bottom/.test(uiSource)) {
   console.error('첫 화면의 검수기 이름 또는 우측 업데이트 표시 규칙이 깨졌습니다.');
   process.exit(1);
@@ -240,7 +242,7 @@ setImmediate(() => {
 });
 
 const chrome = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ui = 'file://' + path.resolve(__dirname, '../plugin-image-qa/ui.html') + '?selftest=1';
+const ui = 'file://' + path.resolve(__dirname, '../../engine/ui.html') + '?selftest=1';
 if (!fs.existsSync(chrome)) {
   console.error('Chrome을 찾지 못했습니다:', chrome);
   process.exit(1);

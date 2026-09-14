@@ -65,7 +65,7 @@ def image_bytes(url):
         raise ValueError('디자인 이미지를 가져오지 못했습니다. 다시 시도해 주세요.') from None
 
 
-SHARED_NS='devScreenQa'  # 검수기 플러그인이 사람이 정한 설정을 두는 공유 칸(plugin-image-qa/code.js SHARED_NS와 같아야 함)
+SHARED_NS='devScreenQa'  # 검수기 플러그인이 사람이 정한 설정을 두는 공유 칸(legacy/plugin-image-qa/code.js SHARED_NS와 같아야 함)
 
 
 def qa_settings(node):

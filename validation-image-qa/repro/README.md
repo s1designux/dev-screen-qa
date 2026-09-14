@@ -1,6 +1,6 @@
 # 실제 화면 재현 세트 (plugin-image-qa 엔진)
 
-플러그인 UI(`plugin-image-qa/ui.html`)의 비교 엔진을 헤드리스 Chrome에서 실제 자료로 돌려
+플러그인 UI(`engine/ui.html`)의 비교 엔진을 헤드리스 Chrome에서 실제 자료로 돌려
 후보 목록(`*.json`)과 번호 오버레이(`*.overlay.png`), 정렬 확인용 겹침(`*.align.png`)을 만듭니다.
 Figma 없이도 엔진 변경이 실제 화면에서 어떤 후보를 내는지 바로 볼 수 있습니다.
 
@@ -21,12 +21,12 @@ Figma 없이도 엔진 변경이 실제 화면에서 어떤 후보를 내는지 
 
 ```bash
 cd validation-image-qa/repro
-DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html findid
-DEV_PNG=dev2_findId_1920x934.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html findid-latest
-ELEMENTS_JSON=elements_login.json DESIGN_PNG=design_login_1920x1080.png DEV_PNG=dev_login_1920x934.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html login
+DESIGN_MAX=4096 node run.js ../../engine/ui.html findid
+DEV_PNG=dev2_findId_1920x934.png DESIGN_MAX=4096 node run.js ../../engine/ui.html findid-latest
+ELEMENTS_JSON=elements_login.json DESIGN_PNG=design_login_1920x1080.png DEV_PNG=dev_login_1920x934.png DESIGN_MAX=4096 node run.js ../../engine/ui.html login
 node make_table_case.js   # 표 목업 PNG·요소 목록 생성(최초 1회)
-ELEMENTS_JSON=elements_table.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html table
-ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html table-noname
+ELEMENTS_JSON=elements_table.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../engine/ui.html table
+ELEMENTS_JSON=elements_table_noname.json DESIGN_PNG=design_table_1200x700.png DEV_PNG=dev_table_1200x700.png DESIGN_MAX=4096 node run.js ../../engine/ui.html table-noname
 ```
 
 `SCREEN_TYPE=common|data`로 화면 종류를 정할 수 있습니다(없으면 프레임 이름으로 추정). 출력의 `(가변 글자 묶음)`은 가변 판정으로 접힌 후보, `{source:가변|고정}`은 판정 근거입니다.
@@ -104,7 +104,7 @@ python3 vlm_read_score.py vlm_read_stay.json answers_stay.json
 포털이 내보내는 엔진(`/engine/ui.html` = 플러그인 ui.html + 포털 손잡이)이 플러그인 재현과 같은 후보를 내는지 잰다.
 
 ```
-ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… DESIGN_MAX=4096 node run.js ../../plugin-image-qa/ui.html base_x
+ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… DESIGN_MAX=4096 node run.js ../../engine/ui.html base_x
 ELEMENTS_JSON=… DESIGN_PNG=… DEV_PNG=… node portal_parity.js base_x.json portal_x
 node answers_check.js portal_x.json   # 체류시간 정답 생존
 ```

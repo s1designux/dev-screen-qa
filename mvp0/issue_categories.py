@@ -1,6 +1,6 @@
 """검수 내용의 표시 분류. 원래 category/이력은 수정하지 않는다.
 
-근거: plugin-image-qa/README.md 후보 분류, CLAUDE.md 8번 시각 차이 범위.
+근거: legacy/plugin-image-qa/README.md 후보 분류, CLAUDE.md 8번 시각 차이 범위.
 플러그인 후보를 포털 이슈로 가져오거나 확정하는 기능은 아니다.
 """
 GROUPS = {

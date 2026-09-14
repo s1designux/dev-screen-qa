@@ -1,7 +1,7 @@
 """포털 자동 검수(후보 찾기) — 페이지 상세를 열면 저장된 후보가 바로 보이게 한다.
 
 원칙(CLAUDE.md 2번): 자동 검수는 '후보'만 만든다. 확정(지적 등록)은 사람이 누른다.
-엔진은 plugin-image-qa/ui.html 한 벌을 그대로 쓴다(복사하지 않는다). 포털은 그 파일을
+엔진은 engine/ui.html 한 벌을 그대로 쓴다(복사하지 않는다). 포털은 그 파일을
 /engine/ui.html 로 내보내며 맨 끝 시작 줄만 포털용 손잡이(harness)로 바꿔 끼운다.
 
 흐름: 페이지 상세 열림 → (그 차수에 결과가 없으면) 브라우저가 숨은 iframe에서 엔진을 돌려
@@ -21,7 +21,8 @@ import issue_categories
 import policy as policymod
 import rule_log
 
-PLUGIN_UI = Path(__file__).resolve().parents[1] / 'plugin-image-qa' / 'ui.html'
+ENGINE_UI = Path(__file__).resolve().parents[1] / 'engine' / 'ui.html'
+PLUGIN_UI = ENGINE_UI  # (옛 이름) 2026-09-14 피그마 플러그인 폐기 — 엔진 원본은 engine/ui.html 한 벌뿐이다
 ENGINE_MARKER = 'if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});'
 
 SCHEMA = '''
@@ -158,7 +159,7 @@ def engine_html():
     """플러그인 ui.html + 포털용 손잡이. 파일을 복사하지 않고 매 요청마다 읽는다(규칙을 고치면 바로 반영)."""
     src = PLUGIN_UI.read_text(encoding='utf-8')
     if ENGINE_MARKER not in src:
-        raise RuntimeError('검수기 시작 줄을 찾지 못했습니다(plugin-image-qa/ui.html).')
+        raise RuntimeError('검수기 시작 줄을 찾지 못했습니다(engine/ui.html).')
     return src.replace(ENGINE_MARKER, HARNESS_JS, 1)
 
 

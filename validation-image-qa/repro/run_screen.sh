@@ -5,7 +5,7 @@
 # FORCE_TY를 주면 겹치기를 그 값으로 고정한다(자동 겹치기가 실패하는 화면의 계측용).
 set -e
 NAME=$1; DESIGN=$2; DEV=$3; FTY=$4
-UI=../../plugin-image-qa/ui.html
+UI=../../engine/ui.html
 EL=elements_${NAME}.json
 [ -f "$EL" ] || { echo "요소 목록이 없습니다: $EL"; exit 1; }
 

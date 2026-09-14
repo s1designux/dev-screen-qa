@@ -1,6 +1,6 @@
 """Figma REST 노드 트리 → 검수기 요소 목록.
 
-plugin-image-qa/code.js 의 collectDesign()과 같은 모양을 만든다(포털에서 같은 엔진을 돌리기 위해).
+legacy/plugin-image-qa/code.js 의 collectDesign()과 같은 모양을 만든다(포털에서 같은 엔진을 돌리기 위해).
 플러그인은 Figma 플러그인 API로, 여기는 REST 응답(JSON)으로 읽는 것만 다르다.
 규칙을 바꿀 때는 양쪽을 같이 고친다.
 """

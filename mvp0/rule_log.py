@@ -7,7 +7,7 @@
 원칙(CLAUDE.md 2번·12번): 여기서 규칙을 자동으로 고치지 않는다. 세기만 한다.
 규칙 발굴·제안은 다음 조각(④⑤)의 몫이고, 이 기록이 그 재료다. 행은 지우지 않는다.
 
-규칙 이름은 검수기(plugin-image-qa/ui.html)의 표에 적힌 id를 그대로 쓴다 —
+규칙 이름은 검수기(engine/ui.html)의 표에 적힌 id를 그대로 쓴다 —
 제외표(manual·tabStrip·designChrome·occluded·tabSelected) / 가변표(manual·pattern·tableHeader·
 menu·role·repeat·button·screen) / 목록표(rowValueMissing). 규칙이 안 걸린 후보는 'none'.
 """
