@@ -9,6 +9,15 @@
       ],
       "cwd": "mvp0",
       "port": 8765
+    },
+    {
+      "name": "촬영준비사이트",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "site/server.py"
+      ],
+      "cwd": "capture-app",
+      "port": 8767
     }
   ]
 }

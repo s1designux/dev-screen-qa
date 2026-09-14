@@ -12,6 +12,35 @@
     function firstFont(v){ return (v||'').split(',')[0].replace(/["']/g,'').trim(); }
     function transparent(c){ return !c || c==='transparent' || c==='rgba(0, 0, 0, 0)'; }
 
+    // 개발·퍼블리싱이 "어디를 고치면 되는지" 알아볼 수 있게, 그 요소를 가리키는 CSS 선택자를 만든다.
+    // 디자인 레이어 이름은 디자이너가 임의로 붙인 것이라 개발 쪽에서 못 알아본다.
+    function cssEsc(s){ return String(s).replace(/[^a-zA-Z0-9_ -￿-]/g, '\\$&'); }
+    function classSel(el){
+      var cn = (el.className && el.className.toString) ? el.className.toString().trim() : '';
+      if (!cn) return '';
+      return cn.split(/\s+/).slice(0,3).map(function(c){ return '.' + cssEsc(c); }).join('');
+    }
+    function nthOf(el){
+      var p = el.parentElement; if (!p) return '';
+      var same = 0, idx = 0;
+      for (var i=0;i<p.children.length;i++){ var ch=p.children[i]; if (ch.tagName===el.tagName){ same++; if (ch===el) idx=same; } }
+      return same > 1 ? (':nth-of-type(' + idx + ')') : '';
+    }
+    function selectorOf(el){
+      if (el.id) return '#' + cssEsc(el.id);
+      var parts = [], cur = el, depth = 0;
+      while (cur && cur.nodeType === 1 && cur !== document.body && depth < 5){
+        if (cur.id) { parts.unshift('#' + cssEsc(cur.id)); break; }
+        var 조각 = cur.tagName.toLowerCase() + classSel(cur);
+        if (조각 === cur.tagName.toLowerCase()) 조각 += nthOf(cur);
+        parts.unshift(조각);
+        // 클래스가 붙은 조상까지 왔으면 거기서 멈춘다 — 너무 긴 선택자는 쓸모가 없다.
+        if (classSel(cur) && parts.length > 1) break;
+        cur = cur.parentElement; depth++;
+      }
+      return parts.join(' > ');
+    }
+
     var all = document.body.getElementsByTagName('*');
     var SKIP = { SCRIPT:1, STYLE:1, META:1, LINK:1, HEAD:1, NOSCRIPT:1, BR:1, HR:1 };
     var raw = [];
@@ -36,6 +65,7 @@
 
       raw.push({
         tag: el.tagName, cls: (el.className&&el.className.toString?el.className.toString():'').slice(0,40),
+        domId: el.id || '', sel: selectorOf(el).slice(0,120),
         text: (el.innerText||'').replace(/\s+/g,' ').trim().slice(0,50),
         isText: isText, rect: rect,
         style: {
@@ -56,12 +86,12 @@
 
     var elements = raw.map(function(o, idx){
       return {
-        id: 'dev-'+idx, role: o.tag, cls: o.cls, text: o.text, isText: o.isText,
+        id: 'dev-'+idx, role: o.tag, cls: o.cls, domId: o.domId, sel: o.sel, text: o.text, isText: o.isText,
         box: { x:r(o.rect.left-minX), y:r(o.rect.top-minY), w:r(o.rect.width), h:r(o.rect.height) },
         style: o.style, contentZone: false
       };
     });
-    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.1' }, elements: elements };
+    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.2' }, elements: elements };
   };
 })();
 

@@ -2,8 +2,9 @@
 // collect-core.js 만 고치면 나머지는 여기서 다 파생됨. (직접 collect.js/북마클릿 수정 금지)
 const fs = require('fs');
 const path = require('path');
-const DIR = '/Users/designgroup_02/dev-screen-qa/plugin-value-qa';
-const EXT = '/Users/designgroup_02/dev-screen-qa/capture-extension';
+// 이 파일이 있는 저장소를 기준으로 찾는다 — 다른 폴더(작업 가지)에 복제해도 그 폴더 안에서 돈다.
+const DIR = __dirname;
+const EXT = path.resolve(__dirname, '..', 'capture-extension');
 
 const core = fs.readFileSync(path.join(DIR, 'collect-core.js'), 'utf8');
 
@@ -55,7 +56,9 @@ fs.writeFileSync(path.join(DIR, 'setup.html'), setup);
 let ui = fs.readFileSync(path.join(DIR, 'ui.html'), 'utf8');
 const re = /var BOOKMARKLET = (?:\/\*BM_START\*\/[\s\S]*?\/\*BM_END\*\/|"(?:[^"\\]|\\.)*");/;
 if (!re.test(ui)) throw new Error('ui.html에서 `var BOOKMARKLET = ...;` 선언을 못 찾았어요. 주입 실패(가드).');
-ui = ui.replace(re, 'var BOOKMARKLET = /*BM_START*/' + JSON.stringify(bm) + '/*BM_END*/;');
+// 함수 치환 — 코어 안에 $& 같은 글자가 있어도 그대로 들어가게(문자열 치환은 그것을 '찾은 자리'로 바꿔 버린다)
+const 주입 = 'var BOOKMARKLET = /*BM_START*/' + JSON.stringify(bm) + '/*BM_END*/;';
+ui = ui.replace(re, function () { return 주입; });
 fs.writeFileSync(path.join(DIR, 'ui.html'), ui);
 
 console.log('생성: collect.js · collect-bookmarklet.txt(' + bm.length + '자) · setup.html · ui.html 주입 · 확장앱 코어 동기화 (원본=collect-core.js)');
