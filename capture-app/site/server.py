@@ -170,8 +170,10 @@ h1 { font-size:var(--font-size-18); margin:0; }
 .card h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-12); }
 label.f { display:block; font-size:var(--font-size-12); color:var(--color-form-control-label-default);
   margin:var(--spacing-10) 0 var(--spacing-4); }
+/* 입력칸·셀렉트·단추는 같은 크기 단계를 쓴다 — S-1 MD(PC) 44, 작은 칸(.s)은 XSM 34.
+   높이를 값으로 잡으므로 위아래 여백은 0 이다(가운데 정렬은 칸이 알아서 한다). */
 input[type=text], input[type=password], select { width:100%; max-width:420px;
-  padding:var(--spacing-8) var(--spacing-12);
+  height:44px; padding:0 var(--spacing-12) 0 var(--spacing-16);
   font-size:var(--font-size-14); color:var(--form-text); border:1px solid var(--form-border);
   border-radius:var(--radius-control-sm); font-family:inherit; background:var(--form-bg); }
 input::placeholder { color:var(--form-placeholder); }
@@ -183,7 +185,7 @@ input[disabled] { background:var(--color-form-control-bg-disabled); color:var(--
   border-color:var(--color-form-control-border-disabled); }
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
-input.s { padding:var(--spacing-6) var(--spacing-8); font-size:var(--font-size-14); }
+input.s { height:34px; padding:0 var(--spacing-8) 0 var(--spacing-12); font-size:var(--font-size-14); }
 /* 찍을 목록 — '동작'은 문장이라 한 줄 칸에 가두면 앞부분만 보인다.
    여러 줄로 풀어 쓰는 칸으로 두고, 적은 만큼 칸이 자란다. */
 textarea.s { width:100%; box-sizing:border-box; padding:var(--spacing-6) var(--spacing-8);
@@ -200,7 +202,7 @@ table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
 .pw input[type=text], .pw input[type=password] { max-width:none; padding-right:var(--spacing-40); }
 .pw .eye { position:absolute; top:50%; right:6px; transform:translateY(-50%);
-  width:28px; height:28px; padding:var(--spacing-2); border:0; background:none;
+  width:28px; height:28px; min-width:0; padding:var(--spacing-2); border:0; background:none;
   border-radius:var(--radius-control-sm);
   color:var(--color-form-control-icon-default); display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .pw .eye:hover { background:var(--color-bg-level-2); }
@@ -209,10 +211,12 @@ table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
 .pw .eye[aria-pressed="true"] .show { display:block; }
 .pw .eye[aria-pressed="true"] .hide { display:none; }
 /* 단추 — S-1 Button (Secondary 기본 · 주요 액션은 Primary) */
-button, .btn { font-size:var(--font-size-14); padding:var(--spacing-10) var(--spacing-20);
+button, .btn { font-size:var(--font-size-14); height:44px; min-width:80px;
+  padding:0 var(--spacing-16);
   border-radius:var(--radius-button-md); border:1px solid var(--button-secondary-default-border);
   background:var(--button-secondary-default-bg); color:var(--button-secondary-default-text);
-  cursor:pointer; text-decoration:none; display:inline-block; font-family:inherit; }
+  cursor:pointer; text-decoration:none; font-family:inherit;
+  display:inline-flex; align-items:center; justify-content:center; }
 button:hover, .btn:hover { background:var(--button-secondary-hover-bg); }
 button.go { background:var(--button-primary-default-bg); color:var(--button-primary-default-text);
   border-color:var(--button-primary-default-bg); font-weight:var(--font-weight-medium); }
