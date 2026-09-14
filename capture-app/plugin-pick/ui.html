@@ -6,7 +6,9 @@
          color:var(--gray-800); font-size:12px;
          min-height:100vh; display:flex; flex-direction:column; }
   .아래 { margin-top:auto; }        /* 단추 묶음은 언제나 맨 아래 */
-  h1 { font-size:13px; margin:0 0 4px; }
+  h1 { font-size:13px; margin:0 0 4px; display:flex; justify-content:space-between;
+       align-items:baseline; gap:8px; }
+  h1 .셈 { font-size:12px; font-weight:400; color:var(--gray-500); }
   .sub { color:var(--gray-500); margin-bottom:10px; line-height:1.6; }
   .list { border:1px solid var(--gray-200); border-radius:4px; max-height:250px; overflow:auto; }
   .row { display:flex; flex-wrap:wrap; gap:4px 8px; padding:7px 10px; border-bottom:1px solid var(--gray-100); align-items:center; }
@@ -44,7 +46,7 @@
   .폭줄.mix { color:var(--orange-500); }
 </style>
 
-<h1>디자인 원본 인식</h1>
+<h1>디자인 원본 인식<span class="셈" id="셈"></span></h1>
 <div class="list" id="목록"><div class="empty">검수할 화면을 선택해 주세요.</div></div>
 <div class="갈래제목">유형</div>
 <div class="갈래" id="갈래">
@@ -69,6 +71,7 @@
   var 단추 = document.getElementById('보내기');
   var 갈래칸 = document.getElementById('갈래');
   var 폭줄 = document.getElementById('폭줄');
+  var 셈 = document.getElementById('셈');
   var 물어본차례 = 0;
   // 유형은 사람이 고른다(짐작하지 않는다). 고르기 전에는 보내기를 누를 수 없다.
   var 갈래 = '';                 // 'web' / 'mobile-web' / 'android' / 'pcapp'
@@ -117,6 +120,7 @@
 
   function 그리기() {
     var el = document.getElementById('목록');
+    셈.textContent = 화면들.length ? 화면들.length + '개' : '';   // 고른 프레임 개수
     if (!화면들.length) {
       el.innerHTML = '<div class="empty">검수할 화면을 선택해 주세요.</div>';
       갈래그리기();
