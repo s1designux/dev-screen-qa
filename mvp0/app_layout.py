@@ -5,17 +5,17 @@ def is_app(platform):
 
 
 CSS = '''
-.app-view .app-workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;flex:1;min-height:0;padding-bottom:16px}
-.app-view .app-workspace>.cols,.app-view .app-workspace>.compare{height:100%;min-height:0;margin:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.app-view .app-workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--spacing-20);flex:1;min-height:0;padding-bottom:var(--spacing-16)}
+.app-view .app-workspace>.cols,.app-view .app-workspace>.compare{height:100%;min-height:0;margin:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--spacing-14)}
 .app-view .app-sidebar{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
 .app-view .app-sidebar .grid{grid-template-columns:minmax(0,1fr)}
 .app-view .app-sidebar .cards,.app-view .app-sidebar .review-scroll{flex:1;min-height:0;overflow-y:auto}
-.app-view .app-sidebar .review-actions{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:20px}
+.app-view .app-sidebar .review-actions{display:flex;flex-direction:column;align-items:stretch;gap:var(--spacing-10);margin-bottom:var(--spacing-20)}
 .app-view .app-sidebar .review-actions button{width:100%}
-.app-view .app-sidebar .review-actions p{flex:none;margin:0 0 4px}
+.app-view .app-sidebar .review-actions p{flex:none;margin:0 0 var(--spacing-4)}
 .app-view .app-sidebar .review-tabs,.app-view .app-sidebar .tabbar{flex-wrap:wrap}
 .app-view .app-sidebar .passform{flex-wrap:wrap}.app-view .app-sidebar .passform input{min-width:0}
-.app-view .app-sidebar .issue{padding:16px;overflow-wrap:anywhere}
+.app-view .app-sidebar .issue{padding:var(--spacing-16);overflow-wrap:anywhere}
 @media(max-width:1000px){
   body.app-view{height:auto;min-height:100%;overflow:auto}
   .app-view main.detail,.app-view .wrap{flex:none;min-height:0}

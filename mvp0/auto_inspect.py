@@ -580,7 +580,7 @@ def range_html(view, person_options=''):
             f'<b>검수 범위</b> <span class="auto-range-sum">{_e(summary)}</span>'
             f'<button type="button" id="auto-range-btn" class="auto-range-btn" title="검수 범위 조정" onclick="autoRangeOpen()">조정</button>'
             + (f' <a class="auto-policy-link" href="/policy/screen/{_e(view["screen_id"])}">이 화면의 규칙</a>' if view.get('screen_id') else '') + '</div>'
-            f'<dialog class="auto-range-editor" id="auto-range-editor">'
+            f'<dialog class="auto-range-editor" id="auto-range-editor"><div class="s1-modal-inset">'
             f'<b class="auto-range-title">검수 범위 조정</b>'
             f'<p class="auto-hint">붉은 선 바깥(위쪽 선 위, 아래쪽 선 아래)은 비교하지 않아요. 상태바·주소창·키보드·하단 단추 줄이 끝나는 곳에 선을 끌어 맞춰 주세요.</p>'
             f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
@@ -591,7 +591,7 @@ def range_html(view, person_options=''):
             f'<select name="actor"><option value="">담당자</option>{person_options}</select>'
             f'<button type="submit" class="primary">이 범위로 다시 검수</button>'
             f'<button type="button" onclick="autoRangeSave(this.form,true)">자동으로 되돌리기</button>'
-            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></dialog>')
+            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></div></dialog>')
 
 
 def card_html(k, numbers, page_id, rnd):
@@ -614,7 +614,7 @@ def card_html(k, numbers, page_id, rnd):
     tags = f'<span class="tag">{_e(kind_lbl)}</span>' + ('<span class="tag val">값 대조</span>' if from_value else '')
     # 본문(무엇이 기준인지 · 지금 개발은 어떤지 · 개발이 볼 자리)은 card_view가 줄을 갈라 그린다.
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" onclick="autoFocus(\'{k["id"]}\')">'
-            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span><span class="state">{_e(STATUS_LABEL[k["status"]])}</span>{conf}<b>{_e(card_view.제목(k))}</b></div>'
+            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}<b>{_e(card_view.제목(k))}</b></div>'
             f'<div class="props">{tags}</div>'
             f'{card_view.body_html(k, page_id)}{foot}</div>')
 
@@ -641,48 +641,46 @@ CSS = '''
 .auto-overlay{pointer-events:none}.auto-overlay .abox,.auto-overlay .abadge rect{pointer-events:auto}
 .auto-overlay .abox{fill:none;stroke-width:3;stroke-dasharray:10 6;cursor:pointer}
 .auto-overlay .abox.dim{opacity:.25}
-.auto-overlay .abadge rect{stroke:#fff;stroke-width:2;cursor:pointer}
-.auto-overlay .abadge text{fill:#fff;font:bold 24px sans-serif;text-anchor:middle;pointer-events:none}
+.auto-overlay .abadge rect{stroke:var(--color-surface-default);stroke-width:2;cursor:pointer}
+.auto-overlay .abadge text{fill:var(--color-surface-default);font:bold 24px sans-serif;text-anchor:middle;pointer-events:none}
 .auto-overlay .abadge.dim{opacity:.35}
-.auto-overlay .abadge.sel rect{stroke:#111;stroke-width:4}
+.auto-overlay .abadge.sel rect{stroke:var(--color-text-primary);stroke-width:4}
 .auto-overlay .abox.sel{stroke-width:6;stroke-dasharray:none}
-.auto-head{display:flex;flex-direction:column;gap:4px;margin:4px 0 10px;font-size:13px}
-.auto-sum{font-weight:700}.auto-hint{color:#64748b}
-.auto-group{margin-bottom:10px}.auto-group summary{cursor:pointer;font-weight:700;margin-bottom:6px}
-.auto-card{position:relative}.auto-card .auto-no{border-radius:4px}
-.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;padding:3px 10px;font:inherit;font-size:12px;
-  line-height:1.5;color:#475569;background:#fff;border:1px solid #CBD5E1;border-radius:999px;cursor:pointer;user-select:none}
-.auto-card .auto-ex:hover{background:#F1F5F9;border-color:#94A3B8;color:#1E293B}
-.auto-card .auto-ex.on{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
-.auto-card .auto-ex.on:hover{background:#1758BE;border-color:#1758BE;color:#fff}
+.auto-head{display:flex;flex-direction:column;gap:var(--spacing-4);margin:var(--spacing-4) 0 var(--spacing-10);font-size:var(--font-size-14)}
+.auto-sum{font-weight:var(--font-weight-bold)}.auto-hint{color:var(--color-text-caption)}
+.auto-group{margin-bottom:var(--spacing-10)}.auto-group summary{cursor:pointer;font-weight:var(--font-weight-bold);margin-bottom:var(--spacing-6)}
+.auto-card{position:relative}.auto-card .auto-no{border-radius:var(--radius-4)}
+.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--sizing-34);min-width:64px;padding:0 var(--spacing-16);font-family:inherit;font-size:var(--font-size-14);font-weight:var(--font-weight-medium);line-height:1;color:var(--color-chip-line-label-default);background:var(--color-chip-line-bg-default);border:var(--border-width-1) solid var(--color-chip-line-border-default);border-radius:var(--radius-full);cursor:pointer;user-select:none}
+.auto-card .auto-ex:hover{background:var(--color-chip-line-bg-hover)}
+.auto-card .auto-ex.on{background:var(--color-chip-line-bg-selected);border-color:var(--color-chip-line-border-selected);color:var(--color-chip-line-label-selected)}
+.auto-card .auto-ex.on:hover{background:var(--color-chip-line-bg-hover)}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
-.auto-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
-.auto-actions select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
-.auto-actions button{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#1f2937;border-radius:6px;cursor:pointer}
-.auto-actions button.primary{background:#ea580c;border-color:#ea580c;color:#fff}
-.auto-msg{color:#475569}
-.auto-range{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:12px}
-.auto-range .auto-range-sum{flex:1;color:#475569}
-.auto-range button,.auto-range-form button{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#1f2937;border-radius:6px;cursor:pointer}
-.auto-range-form button.primary{background:#ea580c;border-color:#ea580c;color:#fff}
-.auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto;padding:16px;border:1px solid #fdba74;border-radius:12px;background:#fff7ed;color:#1f2937}
-.auto-range-editor::backdrop{background:#11182766}
-.auto-range-title{display:block;margin:0 0 8px;font-size:14px}
+.auto-actions{display:flex;gap:var(--spacing-6);margin-top:var(--spacing-6);flex-wrap:wrap}
+
+
+.auto-actions button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
+.auto-msg{color:var(--color-text-tertiary)}
+.auto-range{display:flex;align-items:center;gap:var(--spacing-8);margin:0 0 var(--spacing-8);padding:var(--spacing-6) var(--spacing-10);border:1px solid var(--color-border-subtle);border-radius:var(--radius-8);background:var(--color-bg-subtle);font-size:var(--font-size-12)}
+.auto-range .auto-range-sum{flex:1;color:var(--color-text-tertiary)}
+
+.auto-range-form button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
+.auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto}
+.auto-range-editor::backdrop{background:var(--color-overlay)}
+.auto-range-title{display:block;margin:0 0 var(--spacing-8);font-size:var(--font-size-14)}
 .cv-tools .auto-range-btn{margin-left:auto}
-.auto-range-editor .auto-hint{margin:0 0 8px;font-size:12px;color:#64748b}
+.auto-range-editor .auto-hint{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-caption)}
 .auto-range-stage{position:relative;display:inline-block;max-width:100%;line-height:0;user-select:none;touch-action:none}
-.auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid #cbd5e1}
-.auto-range-line{position:absolute;left:0;right:0;height:0;border-top:2px solid #dc2626;cursor:ns-resize;z-index:2}
+.auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid var(--color-border-default)}
+.auto-range-line{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--color-text-danger);cursor:ns-resize;z-index:2}
 .auto-range-line::after{content:"";position:absolute;left:0;right:0;top:-8px;height:18px}
-.auto-range-shade{position:absolute;left:0;right:0;background:rgba(220,38,38,.18);pointer-events:none;z-index:1}
-.auto-range-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:12px}
-.auto-range-form input{width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px}
-.auto-range-form select{font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
-.auto-wait.inline{position:static;flex-direction:row;justify-content:flex-start;gap:8px;margin:0 0 10px;font-size:13px}
-.auto-wait.inline .auto-spin{width:18px;height:18px;border-width:3px}
-.auto-card .tag.val{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}
-.auto-wait{color:#475569;position:absolute;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-.auto-spin{width:44px;height:44px;flex:none;border:4px solid #dfe6f0;border-top-color:#1D6CEB;border-radius:50%;animation:auto-spin .8s linear infinite}
+.auto-range-shade{position:absolute;left:0;right:0;background:var(--color-status-error);opacity:.18;pointer-events:none;z-index:1}
+.auto-range-form{display:flex;flex-wrap:wrap;gap:var(--spacing-8);align-items:center;margin-top:var(--spacing-8);font-size:var(--font-size-12)}
+.auto-range-form input{width:70px}
+.auto-wait.inline{position:static;flex-direction:row;justify-content:flex-start;gap:var(--spacing-8);margin:0 0 var(--spacing-10);font-size:var(--font-size-14)}
+.auto-wait.inline .auto-spin{width:18px;height:18px;border-width:var(--border-width-2)}
+
+.auto-wait{color:var(--color-text-tertiary);position:absolute;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--spacing-14)}
+.auto-spin{width:44px;height:44px;flex:none;border:4px solid var(--color-border-subtle);border-top-color:var(--color-action-primary-default);border-radius:50%;animation:auto-spin .8s linear infinite}
 @keyframes auto-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.auto-spin{animation-duration:2.4s}}
 '''

@@ -26,7 +26,7 @@ def color_string(paint):
         a = 1
     r, g, b = (c.get('r', 0), c.get('g', 0), c.get('b', 0))
     if a < 1:
-        return f'rgba({to255(r)}, {to255(g)}, {to255(b)}, {round1(a)})'
+        return f'rgba({to255(r)}, {to255(g)}, {to255(b)}, {round1(a)})'   # s1-제외: 잰 값을 적는 자리(화면 꾸밈 아님)
     return '#' + ''.join(f'{to255(v):02X}' for v in (r, g, b))
 
 

@@ -12,34 +12,36 @@ from urllib.parse import parse_qs
 import policy as policymod
 import rule_log
 
+import s1_tokens
+
 CSS = '''
-body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;color:#1E293B;background:#F8FAFC}
-.wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px}
-.sub{color:#64748B;margin:0 0 20px;font-size:14px}
-a.back{color:#1D6CEB;text-decoration:none;font-size:14px}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;font-size:14px}
-th,td{padding:9px 12px;border-bottom:1px solid #E2E8F0;text-align:left;vertical-align:middle}
-th{background:#F1F5F9;font-weight:700;white-space:nowrap}
+body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;color:var(--color-text-primary);background:var(--color-bg-subtle)}
+.wrap{max-width:960px;margin:0 auto;padding:var(--spacing-28) var(--spacing-20) var(--spacing-64)}
+h1{font-size:var(--font-size-20);margin:0 0 var(--spacing-4)}h2{font-size:var(--font-size-16);margin:var(--spacing-28) 0 var(--spacing-8)}
+.sub{color:var(--color-text-caption);margin:0 0 var(--spacing-20);font-size:var(--font-size-14)}
+a.back{color:var(--color-action-primary-default);text-decoration:none;font-size:var(--font-size-14)}
+table{width:100%;border-collapse:collapse;background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-radius:var(--radius-8);overflow:hidden;font-size:var(--font-size-14)}
+th,td{padding:var(--spacing-8) var(--spacing-12);border-bottom:1px solid var(--color-border-subtle);text-align:left;vertical-align:middle}
+th{background:var(--color-bg-subtle);font-weight:var(--font-weight-bold);white-space:nowrap}
 tr:last-child td{border-bottom:0}
-td.k{font-weight:600;white-space:nowrap}td.help{color:#64748B;font-size:13px}
-.src{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid #CBD5E1;color:#64748B;background:#fff;white-space:nowrap}
-.src.here{border-color:#1D6CEB;color:#1D6CEB}.src.default{border-style:dashed}
-form.inline{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
-input[type=number],select{font:inherit;font-size:13px;padding:3px 6px;border:1px solid #CBD5E1;border-radius:6px;background:#fff;max-width:120px}
-button{font:inherit;font-size:13px;padding:4px 10px;border:1px solid #CBD5E1;border-radius:6px;background:#fff;cursor:pointer}
-button.primary{background:#1D6CEB;border-color:#1D6CEB;color:#fff}
-ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:6px 0;border-bottom:1px solid #E2E8F0}ul.list a{color:#1D6CEB;text-decoration:none}
-.note{background:#fff;border:1px solid #E2E8F0;border-left:4px solid #B45309;border-radius:6px;padding:10px 14px;font-size:14px;margin:0 0 18px}
-.hist{font-size:13px;color:#64748B}
+td.k{font-weight:var(--font-weight-bold);white-space:nowrap}td.help{color:var(--color-text-caption);font-size:var(--font-size-14)}
+.src{display:inline-block;font-size:var(--font-size-12);padding:var(--spacing-2) var(--spacing-8);border-radius:var(--radius-full);border:1px solid var(--color-border-default);color:var(--color-text-caption);background:var(--color-surface-default);white-space:nowrap}
+.src.here{border-color:var(--color-action-primary-default);color:var(--color-action-primary-default)}.src.default{border-style:dashed}
+form.inline{display:inline-flex;gap:var(--spacing-6);align-items:center;flex-wrap:wrap}
+input[type=number],select{max-width:120px}
+
+button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
+ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:var(--spacing-6) 0;border-bottom:1px solid var(--color-border-subtle)}ul.list a{color:var(--color-action-primary-default);text-decoration:none}
+.note{background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-left:4px solid var(--color-orange-450);border-radius:var(--radius-6);padding:var(--spacing-10) var(--spacing-14);font-size:var(--font-size-14);margin:0 0 var(--spacing-16)}
+.hist{font-size:var(--font-size-14);color:var(--color-text-caption)}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.bad{color:#B91C1C;font-weight:700}.good{color:#166534}
+.bad{color:var(--color-text-danger);font-weight:var(--font-weight-bold)}.good{color:var(--color-status-success)}
 '''
 
 
 def _shell(title, body, back=('/', '← 목록')):
     return (f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{_e(title)}</title><style>{CSS}</style></head><body><div class="wrap">'
+            f'<title>{_e(title)}</title>{s1_tokens.링크()}<style>{CSS}</style></head><body><div class="wrap">'
             f'<a class="back" href="{_e(back[0])}">{_e(back[1])}</a>{body}</div></body></html>')
 
 
@@ -52,7 +54,7 @@ def _src_tag(scope, here):
 def _value_text(rule, v):
     spec = policymod.CATALOG[rule]
     if v is None:
-        return '<span style="color:#94A3B8">비움</span>'
+        return '<span style="color:var(--color-text-helper)">비움</span>'
     if spec['type'] == 'choice':
         return _e(spec['choices'].get(v, str(v)))
     if spec['type'] == 'bool':

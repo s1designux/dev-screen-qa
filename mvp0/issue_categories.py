@@ -4,13 +4,13 @@
 플러그인 후보를 포털 이슈로 가져오거나 확정하는 기능은 아니다.
 """
 GROUPS = {
-    'text': ('글자 내용·모양', '#2563eb'),
-    'position': ('위치·정렬·크기', '#7c3aed'),
-    'appearance': ('색상·모양', '#db2777'),
-    'structure': ('요소 추가·누락', '#d97706'),
-    'image': ('아이콘·이미지', '#0d9488'),
-    'mixed': ('복합', '#334155'),
-    'other': ('기타', '#6b7280'),
+    'text': ('글자 내용·모양', 'var(--color-action-primary-default)'),
+    'position': ('위치·정렬·크기', 'var(--color-purple-300)'),
+    'appearance': ('색상·모양', 'var(--color-red-350)'),
+    'structure': ('요소 추가·누락', 'var(--color-orange-450)'),
+    'image': ('아이콘·이미지', 'var(--color-green-400)'),
+    'mixed': ('복합', 'var(--color-text-secondary)'),
+    'other': ('기타', 'var(--color-text-caption)'),
 }
 ALIASES = {
     'typography':'text','text':'text','font':'text',

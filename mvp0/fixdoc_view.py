@@ -12,6 +12,8 @@
 import html
 import re
 
+import s1_tokens
+
 _색 = re.compile(r"#[0-9A-Fa-f]{6}\b")
 _코드 = re.compile(r"`([^`]+)`")
 _굵게 = re.compile(r"\*\*(.+?)\*\*")
@@ -251,8 +253,7 @@ ul.chk input{margin-right:var(--spacing-6);vertical-align:-1px}
 
 def 한장(md, 제목, md주소):
     """읽는 화면 한 장. 위 띠에 'PDF 로 저장' 과 '.md 내려받기'."""
-    토큰 = "".join("<link rel=stylesheet href='/assets/css/%s.css'>" % x
-                  for x in ("tokens", "site-base", "component-tokens", "typography"))
+    토큰 = s1_tokens.링크()
     return ("<!doctype html><html lang=ko><head><meta charset=utf-8>"
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
             "<title>%s</title>%s<style>%s</style></head><body>"

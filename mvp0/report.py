@@ -10,6 +10,7 @@ from pathlib import Path
 
 import db as dbmod
 from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES
+import s1_tokens
 
 BASE = Path(__file__).resolve().parent
 OUT = BASE / "report.html"
@@ -63,37 +64,38 @@ def build(db_path=dbmod.DB_PATH, out_path: Path = OUT, show_resolved: bool = Fal
     doc = f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <title>검수결과서 {_esc(screen['human_key'])}</title>
+{s1_tokens.품기()}
 <style>
   @page {{ size: A4 landscape; margin: 10mm; }}
   * {{ box-sizing: border-box; }}
-  body {{ font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color:#1a1a1a; margin:0; padding:10mm; }}
+  body {{ font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color:var(--color-text-primary); margin:0; padding:10mm; }}
   .sheet {{ width: 277mm; }}
-  header {{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #1a1a1a; padding-bottom:8px; }}
-  h1 {{ font-size:20px; margin:0; }}
-  .meta {{ font-size:12px; color:#555; text-align:right; }}
-  .summary {{ display:flex; gap:10px; margin:12px 0; }}
-  .chip {{ border:1px solid #ddd; border-radius:8px; padding:8px 14px; font-size:13px; }}
-  .chip b {{ font-size:20px; display:block; }}
-  .chip.open b {{ color:#d92d20; }}
-  .chip.done b {{ color:#12864e; }}
-  h2 {{ font-size:14px; margin:16px 0 6px; }}
-  table {{ width:100%; border-collapse:collapse; font-size:11px; }}
-  th, td {{ border:1px solid #ddd; padding:5px 7px; vertical-align:top; text-align:left; }}
-  th {{ background:#f4f4f5; font-size:11px; }}
+  header {{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid var(--color-text-primary); padding-bottom:var(--spacing-8); }}
+  h1 {{ font-size:var(--font-size-20); margin:0; }}
+  .meta {{ font-size:var(--font-size-12); color:var(--color-text-tertiary); text-align:right; }}
+  .summary {{ display:flex; gap:var(--spacing-10); margin:var(--spacing-12) 0; }}
+  .chip {{ border:1px solid var(--color-border-default); border-radius:var(--radius-8); padding:var(--spacing-8) var(--spacing-14); font-size:var(--font-size-14); }}
+  .chip b {{ font-size:var(--font-size-20); display:block; }}
+  .chip.open b {{ color:var(--color-text-danger); }}
+  .chip.done b {{ color:var(--color-status-success); }}
+  h2 {{ font-size:var(--font-size-14); margin:var(--spacing-16) 0 var(--spacing-6); }}
+  table {{ width:100%; border-collapse:collapse; font-size:var(--font-size-12); }}
+  th, td {{ border:1px solid var(--color-border-default); padding:var(--spacing-4) var(--spacing-8); vertical-align:top; text-align:left; }}
+  th {{ background:var(--color-bg-subtle); font-size:var(--font-size-12); }}
   .ctr {{ text-align:center; white-space:nowrap; }}
-  .st {{ font-weight:700; white-space:nowrap; }}
-  .key {{ color:#888; font-size:10px; }}
-  .exp {{ color:#12864e; }} .act {{ color:#d92d20; }}
-  tr.sev-critical .st {{ color:#b42318; }}
-  .hidden-note {{ background:#fafafa; border:1px dashed #ccc; border-radius:8px; padding:10px; font-size:12px; color:#555; }}
-  .muted {{ color:#888; font-weight:400; }}
-  footer {{ margin-top:14px; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:6px; }}
+  .st {{ font-weight:var(--font-weight-bold); white-space:nowrap; }}
+  .key {{ color:var(--color-text-helper); font-size:var(--font-size-10); }}
+  .exp {{ color:var(--color-status-success); }} .act {{ color:var(--color-text-danger); }}
+  tr.sev-critical .st {{ color:var(--color-text-danger); }}
+  .hidden-note {{ background:var(--color-bg-default); border:1px dashed var(--color-border-default); border-radius:var(--radius-8); padding:var(--spacing-10); font-size:var(--font-size-12); color:var(--color-text-tertiary); }}
+  .muted {{ color:var(--color-text-helper); font-weight:var(--font-weight-regular); }}
+  footer {{ margin-top:var(--spacing-14); font-size:var(--font-size-10); color:var(--color-text-helper); border-top:1px solid var(--color-border-subtle); padding-top:var(--spacing-6); }}
 </style></head>
 <body><div class="sheet">
   <header>
     <div>
       <h1>검수결과서 — {_esc(screen['name'])}</h1>
-      <div style="font-size:12px;color:#555;margin-top:4px;">
+      <div style="font-size:var(--font-size-12);color:var(--color-text-tertiary);margin-top:var(--spacing-4);">
         {_esc(project['name'])} · 화면키 <b>{_esc(screen['human_key'])}</b> · {_esc(screen['platform'])} · {_esc(variants)}
       </div>
     </div>

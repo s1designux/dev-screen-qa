@@ -61,7 +61,7 @@ _긴이름순 = tuple(sorted(_속성이름, key=len, reverse=True))
 
 
 def _쪼개기(조각):
-    """'배경색 #FFFFFF' → ('배경색', '#FFFFFF'). 모르는 모양이면 (None, 조각)."""
+    """'배경색 var(--color-surface-default)' → ('배경색', 'var(--color-surface-default)'). 모르는 모양이면 (None, 조각)."""
     조각 = (조각 or '').strip()
     for 이름 in _긴이름순:
         if 조각.startswith(이름 + ' '):
@@ -332,27 +332,27 @@ def body_html(k, page_id=None, database=None, uploads=None):
 
 CSS = '''
 /* 제목이 오른쪽 위 '제외' 단추 밑으로 숨지 않게 자리를 비워 둔다 */
-.auto-card .ihead{padding-right:58px}
+.auto-card .ihead{padding-right:var(--spacing-56)}
 .auto-card .ihead b{line-height:1.45;word-break:keep-all}
-.c-body{margin-top:2px;font-size:12px;color:#374151}
-.c-sub{margin:0 0 8px;font-size:12px;font-weight:600;color:#4b5563;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.c-lead{margin:0 0 9px;color:#4b5563;line-height:1.55}
-.c-diff{display:grid;gap:4px 12px;align-items:baseline;margin:0;justify-content:start;
+.c-body{margin-top:var(--spacing-2);font-size:var(--font-size-12);color:var(--color-text-secondary)}
+.c-sub{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);font-weight:var(--font-weight-bold);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-lead{margin:0 0 var(--spacing-8);color:var(--color-text-tertiary);line-height:1.55}
+.c-diff{display:grid;gap:var(--spacing-4) var(--spacing-12);align-items:baseline;margin:0;justify-content:start;
   grid-template-columns:max-content minmax(0,max-content) 10px minmax(0,max-content)}
 .c-diff.one{grid-template-columns:max-content minmax(0,1fr)}
-.c-diff .hd{font-size:10px;font-weight:700;color:#9ca3af;padding-bottom:3px}
-.c-diff .nm{color:#6b7280;white-space:nowrap}
-.c-diff .now{color:#b42318;font-weight:600;word-break:break-all}
-.c-diff .to{color:#cbd5e1;text-align:center}
-.c-diff .ref{color:#111827;font-weight:700;word-break:break-all}
-.c-tok{display:block;font-size:10px;font-weight:600;color:#3730a3;letter-spacing:.01em}
-.c-eye{margin:9px 0 0;color:#6b7280}
-.c-where{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 10px;
-  margin:10px 0 0;padding-top:9px;border-top:1px dashed #eef0f3}
-.c-where dt{color:#9ca3af;font-size:11px;white-space:nowrap}
-.c-where dd{margin:0;color:#4b5563;font-size:11px;min-width:0}
-.c-sel{font-family:ui-monospace,monospace;font-size:11px;color:#1f2937;background:#f5f7fa;
-  border-radius:5px;padding:1px 6px;word-break:break-all}
-.c-comp{font-weight:700;color:#3730a3}
-.c-note{margin-top:8px;color:#9ca3af;font-size:11px}
+.c-diff .hd{font-size:var(--font-size-10);font-weight:var(--font-weight-bold);color:var(--color-text-helper);padding-bottom:var(--spacing-4)}
+.c-diff .nm{color:var(--color-text-caption);white-space:nowrap}
+.c-diff .now{color:var(--color-text-danger);font-weight:var(--font-weight-bold);word-break:break-all}
+.c-diff .to{color:var(--color-border-default);text-align:center}
+.c-diff .ref{color:var(--color-text-primary);font-weight:var(--font-weight-bold);word-break:break-all}
+.c-tok{display:block;font-size:var(--font-size-10);font-weight:var(--font-weight-bold);color:var(--color-purple-400);letter-spacing:.01em}
+.c-eye{margin:var(--spacing-8) 0 0;color:var(--color-text-caption)}
+.c-where{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--spacing-4) var(--spacing-10);
+  margin:var(--spacing-10) 0 0;padding-top:var(--spacing-8);border-top:1px dashed var(--color-border-subtle)}
+.c-where dt{color:var(--color-text-helper);font-size:var(--font-size-12);white-space:nowrap}
+.c-where dd{margin:0;color:var(--color-text-tertiary);font-size:var(--font-size-12);min-width:0}
+.c-sel{font-family:ui-monospace,monospace;font-size:var(--font-size-12);color:var(--color-text-secondary);background:var(--color-bg-subtle);
+  border-radius:var(--radius-4);padding:var(--spacing-2) var(--spacing-6);word-break:break-all}
+.c-comp{font-weight:var(--font-weight-bold);color:var(--color-purple-400)}
+.c-note{margin-top:var(--spacing-8);color:var(--color-text-helper);font-size:var(--font-size-12)}
 '''

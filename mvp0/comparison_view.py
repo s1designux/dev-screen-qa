@@ -1,17 +1,17 @@
 """Read-only image comparison controls shared by draft and inspection views."""
 CSS = '''
-.cv-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:12px;flex-shrink:0}
-.cv-tools button,.cv-dialog button{font:inherit;padding:6px 12px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;color:#374151}
-.cv-tools button[aria-pressed=true]{background:#111827;color:white}.cv-tools label{display:flex;align-items:center;gap:5px;margin:0}.cv-tools input{width:95px!important;padding:0!important}
-.cv-segments{display:inline-flex;gap:2px;padding:3px;background:#e9edf2;border:1px solid #d1d5db;border-radius:9px}.cv-tools .cv-segments button{border:0;border-radius:6px;background:transparent;min-width:70px}.cv-tools .cv-segments button[aria-pressed=true]{background:white;color:#111827;box-shadow:0 1px 3px #11182726}.cv-segments button:focus-visible{outline:2px solid #2563eb;outline-offset:1px}
-.cv-tools [hidden]{display:none!important}.cv-help{color:#657085;font-size:12px}.cv-merged>:first-child{display:none!important}.cv-merged{grid-template-columns:minmax(0,1fr)!important}
+.cv-tools{display:flex;gap:var(--spacing-8);align-items:center;flex-wrap:wrap;margin:0 0 var(--spacing-10);font-size:var(--font-size-12);flex-shrink:0}
+
+.cv-tools button[aria-pressed=true]{background:var(--color-button-bg-primary--default);border-color:var(--color-button-border-primary--default);color:var(--color-button-label-primary--default)}.cv-tools label{display:flex;align-items:center;gap:var(--spacing-4);margin:0}.cv-tools input{width:95px!important;padding:0!important}
+.cv-segments button:focus-visible{outline:2px solid var(--color-action-primary-default);outline-offset:1px}
+.cv-tools [hidden]{display:none!important}.cv-help{color:var(--color-text-caption);font-size:var(--font-size-12)}.cv-merged>:first-child{display:none!important}.cv-merged{grid-template-columns:minmax(0,1fr)!important}
 .cv-glass{position:absolute;inset:0;width:100%;height:100%;z-index:2;touch-action:none;outline-offset:-3px}.cv-glass[hidden]{display:none}
-.cv-dialog{width:min(1100px,92vw);max-height:90vh;overflow:auto;border:1px solid #d1d5db;border-radius:12px;padding:20px;color:#374151;background:white}
-.cv-pop{pointer-events:auto!important;box-shadow:0 12px 40px #0f172a40}
-.cv-pop-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-size:12px;color:#374151}
-.cv-pop-note{margin:0 0 8px;font-size:12px;color:#b45309}
-.cv-pop-x{font:inherit;line-height:1;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer}
-.cv-hover{position:fixed;z-index:1000;pointer-events:none;width:min(520px,calc(100vw - 24px));padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:white;box-shadow:0 8px 32px #0f172a33}.cv-hover[hidden]{display:none}.cv-hover .cv-parts{gap:10px}.cv-hover p{margin:0 0 6px}.cv-dialog::backdrop{background:#11182766}.cv-dialog header{padding:0 0 12px;display:flex;justify-content:space-between}.cv-parts{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cv-parts canvas{width:100%;height:auto;background:#fafafa;border:1px solid #e5e7eb}.cv-parts p{font-size:12px}
+.cv-dialog{width:min(1100px,92vw);max-height:90vh;overflow:auto}
+.cv-pop{pointer-events:auto!important;box-shadow:var(--shadow-raised)}
+.cv-pop-head{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-8);margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-secondary)}
+.cv-pop-note{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-orange-450)}
+.cv-pop-x{font:inherit;line-height:1;padding:var(--spacing-2) var(--spacing-8);border:1px solid var(--color-border-default);border-radius:var(--radius-6);background:var(--color-surface-default);color:var(--color-text-secondary);cursor:pointer}
+.cv-hover{position:fixed;z-index:1000;pointer-events:none;width:min(520px,calc(100vw - 24px));padding:var(--spacing-12);border:1px solid var(--color-border-default);border-radius:var(--radius-12);background:var(--color-surface-default);box-shadow:var(--shadow-raised)}.cv-hover[hidden]{display:none}.cv-hover .cv-parts{gap:var(--spacing-10)}.cv-hover p{margin:0 0 var(--spacing-6)}.cv-dialog::backdrop{background:var(--color-overlay)}.cv-dialog header{padding:0 0 var(--spacing-12);display:flex;justify-content:space-between}.cv-parts{display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-16)}.cv-parts canvas{width:100%;height:auto;background:var(--color-bg-default);border:1px solid var(--color-border-subtle)}.cv-parts p{font-size:var(--font-size-12)}
 '''
 JS = r'''
 (function(){
@@ -23,7 +23,7 @@ JS = r'''
  tools.innerHTML='<div class="cv-segments" role="group" aria-label="비교 보기 방식"><button type="button" data-mode="side" aria-pressed="true">나란히</button><button type="button" data-mode="over" aria-pressed="false">겹쳐보기</button></div><button type="button" data-mode="crop" aria-pressed="false">부분 확대</button><label hidden>디자인 농도 <input aria-label="디자인 농도" type="range" min="0" max="100" value="50"></label><button type="button" data-reset hidden>위치 초기화</button><span class="cv-help" role="status"></span>';
  const workspace=pair.closest('.app-workspace');(workspace||pair).before(tools);
  const glass=document.createElement('canvas');glass.className='cv-glass';glass.hidden=true;glass.tabIndex=0;glass.setAttribute('aria-label','비교 이미지. 겹쳐보기에서 드래그 또는 방향키로 디자인 이동');host.append(glass);
- const dialog=document.createElement('dialog');dialog.className='cv-dialog';dialog.innerHTML='<header><b>부분 확대 비교</b><button type="button">닫기</button></header><p class="cv-help">화면 너비를 기준으로 같은 배율로 표시합니다. 자동으로 요소 위치를 맞춘 결과는 아닙니다.</p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();
+ const dialog=document.createElement('dialog');dialog.className='cv-dialog';dialog.innerHTML='<div class="s1-modal-inset"><header><b>부분 확대 비교</b><button type="button">닫기</button></header><p class="cv-help">화면 너비를 기준으로 같은 배율로 표시합니다. 자동으로 요소 위치를 맞춘 결과는 아닙니다.</p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div></div>';document.body.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();
  const hover=document.createElement('div');hover.className='cv-hover';hover.hidden=true;hover.innerHTML='<div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(hover);
  const pop=document.createElement('div');pop.className='cv-hover cv-pop';pop.hidden=true;pop.innerHTML='<div class="cv-pop-head"><b class="cv-pop-title">비교</b><button type="button" class="cv-pop-x" aria-label="닫기">닫기</button></div><p class="cv-pop-note" hidden></p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(pop);
  pop.querySelector('.cv-pop-x').onclick=()=>{pop.hidden=true;};
@@ -40,7 +40,7 @@ JS = r'''
  const help=tools.querySelector('.cv-help'),slider=tools.querySelector('input');
  function save(){try{localStorage.setItem(key,JSON.stringify({x:dx,y:dy}));}catch(e){}}
  function fit(){const w=host.clientWidth,h=host.clientHeight,s=Math.min(w/v.naturalWidth,h/v.naturalHeight);return {w,h,s,x:(w-v.naturalWidth*s)/2,y:(h-v.naturalHeight*s)/2};}
- function paint(){if(!v.naturalWidth||!d.naturalWidth)return;const f=fit();glass.width=f.w;glass.height=f.h;const c=glass.getContext('2d');if(mode==='over'){c.globalAlpha=Number(slider.value)/100;const scale=v.naturalWidth/d.naturalWidth;c.drawImage(d,f.x+dx*f.s,f.y+dy*f.s,v.naturalWidth*f.s,d.naturalHeight*scale*f.s);}if(mode==='crop'&&start?.end){c.strokeStyle='#2563eb';c.lineWidth=2;c.strokeRect(start.p.x,start.p.y,start.end.x-start.p.x,start.end.y-start.p.y);}}
+ function paint(){if(!v.naturalWidth||!d.naturalWidth)return;const f=fit();glass.width=f.w;glass.height=f.h;const c=glass.getContext('2d');if(mode==='over'){c.globalAlpha=Number(slider.value)/100;const scale=v.naturalWidth/d.naturalWidth;c.drawImage(d,f.x+dx*f.s,f.y+dy*f.s,v.naturalWidth*f.s,d.naturalHeight*scale*f.s);}if(mode==='crop'&&start?.end){c.strokeStyle='var(--color-action-primary-default)';c.lineWidth=2;c.strokeRect(start.p.x,start.p.y,start.end.x-start.p.x,start.end.y-start.p.y);}}
  function setMode(m){mode=m;hover.hidden=true;start=null;pair.classList.toggle('cv-merged',m==='over');glass.hidden=m==='side';glass.style.cursor=m==='crop'?'crosshair':'move';tools.querySelector('label').hidden=m!=='over';tools.querySelector('[data-reset]').hidden=m!=='over';tools.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m||(b.dataset.mode==='side'&&m==='crop'))));help.textContent=m==='over'?'드래그·방향키로 맞추기 · 이 브라우저에 보기 위치만 저장 · 검수 내용은 유지':m==='crop'?'개발 이미지에 마우스를 올리면 해당 부분을 확대합니다.':'번호나 검수 카드를 누르면 해당 부분을 확대합니다.';requestAnimationFrame(paint);}
  tools.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode==='crop'&&mode==='crop'?'side':b.dataset.mode));slider.oninput=paint;tools.querySelector('[data-reset]').onclick=()=>{dx=dy=0;save();paint();};
  function point(e){const r=glass.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
@@ -51,7 +51,7 @@ JS = r'''
  const PW=320;let profCache=null,shiftCache=null;
  function profileOf(im){const h=Math.max(1,Math.round(im.naturalHeight*PW/im.naturalWidth));
   const c=document.createElement('canvas');c.width=PW;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});
-  g.fillStyle='#fff';g.fillRect(0,0,PW,h);g.drawImage(im,0,0,PW,h);
+  g.fillStyle='var(--color-surface-default)';g.fillRect(0,0,PW,h);g.drawImage(im,0,0,PW,h);
   const t=g.getImageData(0,0,PW,h).data,out=new Float32Array(h);
   for(let y=0;y<h;y++){let sum=0;for(let x=0;x<PW;x++){const i=(y*PW+x)*4;sum+=255-(t[i]+t[i+1]+t[i+2])/3;}out[y]=sum;}
   return{p:out,h:h,k:PW/im.naturalWidth};}
@@ -113,7 +113,7 @@ JS = r'''
  function crop(box,target=dialog,dbox){if(!v.naturalWidth||!d.naturalWidth)return false;const x=Math.max(0,box.x),y=Math.max(0,box.y),w=Math.min(v.naturalWidth,box.x+box.w)-x,h=Math.min(v.naturalHeight,box.y+box.h)-y;if(w<3||h<3)return false;
  const scale=d.naturalWidth/v.naturalWidth;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
  const db=dbox?fitBox(dbox,w/h):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
- target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,outW,outH);
+ target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle='var(--color-surface-default)';ctx.fillRect(0,0,outW,outH);
   if(i)ctx.drawImage(v,x,y,w,h,0,0,outW,outH);
   else if(db)ctx.drawImage(d,db.x,db.y,db.w,db.h,0,0,outW,outH);
   else ctx.drawImage(d,(x-dx)*scale,(y-dy)*scale,w*scale,h*scale,0,0,outW,outH);});
