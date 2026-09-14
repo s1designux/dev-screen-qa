@@ -52,6 +52,16 @@ def 글꼴다듬기(f):
     return (f or "").lower().replace('"', "").replace("'", "").replace(" ", "").strip()
 
 
+def 못읽은값(v):
+    """시안에서 값을 하나로 읽지 못한 자리.
+
+    한 덩이 글자 안에 글꼴이 섞여 있으면 피그마는 '혼합'이라고만 알려 준다.
+    그것은 '다르다'가 아니라 '모른다'다 — 모르는 것을 다르다고 적어 보내면
+    개발은 고칠 수가 없다(글꼴을 '혼합'으로 맞출 수는 없으니까). 그래서 그 줄은 건너뛴다.
+    """
+    return v is None or str(v).strip() in ("", "혼합", "mixed", "Mixed", "MIXED")
+
+
 def 모서리줄(d, v):
     """모서리: 한 변을 완전히 감쌀 만큼 크면 '완전 둥금'(원·알약).
     표현값이 20px 이든 999px 이든 50% 이든 같게 본다."""
@@ -96,8 +106,9 @@ def 값견주기(d, v, 밀림있음=False, 폭다름=False):
             if ds.get("fontWeight") is not None and vs.get("fontWeight") is not None:
                 줄들.append({"k": "fontWeight", "label": 이름["fontWeight"], "a": ds["fontWeight"], "b": vs["fontWeight"],
                              "j": 숫자판정("fontWeight", ds["fontWeight"], vs["fontWeight"])})
-            줄들.append({"k": "fontFamily", "label": 이름["fontFamily"], "a": ds["fontFamily"], "b": vs["fontFamily"],
-                         "j": "pass" if 글꼴다듬기(ds["fontFamily"]) == 글꼴다듬기(vs["fontFamily"]) else "warn"})
+            if not 못읽은값(ds.get("fontFamily")):
+                줄들.append({"k": "fontFamily", "label": 이름["fontFamily"], "a": ds["fontFamily"], "b": vs["fontFamily"],
+                             "j": "pass" if 글꼴다듬기(ds["fontFamily"]) == 글꼴다듬기(vs["fontFamily"]) else "warn"})
         else:
             줄들.append({"k": "backgroundColor", "label": 이름["backgroundColor"],
                          "a": ds["backgroundColor"], "b": vs["backgroundColor"],

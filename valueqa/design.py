@@ -91,22 +91,22 @@ def _아이콘속(요소들):
 
 
 def _아이콘틀(요소들):
-    """아이콘을 감싸려고 깔아 둔 껍데기 사각형의 id 모음.
+    """아이콘 그림을 이루는 껍데기 도형의 id 모음.
 
-    피그마 아이콘 부품은 벡터 옆에 같은 크기의 투명/회색 사각형('Bounding box')을 하나 둔다.
-    개발화면에는 그런 것이 없으므로 값 대조에 올리면 헛지적이 된다.
+    피그마 아이콘 부품은 벡터 둘레에 같은 크기의 사각형·원('Bounding box', 'Oval')을 함께 둔다.
+    개발화면은 아이콘을 그림 한 장으로 그리므로 그 껍데기에 짝지을 것이 없다 —
+    값 대조에 올리면 "눈 아이콘 단추를 16px 로 줄이고 회색으로 칠하라" 같은 헛지적이 나간다.
+    아이콘 크기(한 변 48px 이하)이면서 그 안에 아이콘 벡터를 품고 있으면 껍데기로 본다.
     """
-    형제 = {}
-    for e in 요소들:
-        형제.setdefault(e.get("parentId"), []).append(e)
+    아이콘들 = [o for o in 요소들 if o.get("kind") == "icon"]
     틀 = set()
     for e in 요소들:
-        if e.get("kind") != "shape" or e.get("type") != "RECTANGLE":
+        if e.get("kind") != "shape":
             continue
         b = e["box"]
-        for o in 형제.get(e.get("parentId"), []):
-            if o is e or o.get("kind") != "icon":
-                continue
+        if max(b["w"], b["h"]) > 48:          # 큰 카드가 아이콘을 품은 것까지 빼지는 않는다
+            continue
+        for o in 아이콘들:
             ob = o["box"]
             감쌈 = (b["x"] <= ob["x"] + 1 and b["y"] <= ob["y"] + 1
                    and b["x"] + b["w"] >= ob["x"] + ob["w"] - 1

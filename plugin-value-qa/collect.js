@@ -39,7 +39,31 @@
         if (classSel(cur) && parts.length > 1) break;
         cur = cur.parentElement; depth++;
       }
-      return parts.join(' > ');
+      var sel = parts.join(' > ');
+      return 하나로만드는(el, sel);
+    }
+
+    // 같은 선택자에 여러 개가 걸리면 개발자가 어느 것인지 못 찾는다.
+    // (구분선 li 처럼 클래스가 같은 형제가 여럿일 때 늘 이렇게 된다.)
+    // 그래서 딱 하나만 걸릴 때까지 순번을 붙이고, 그래도 안 되면 부모를 한 겹 더 앞세운다.
+    function 하나로만드는(el, sel){
+      function 몇개(q){ try { return document.querySelectorAll(q).length; } catch (e) { return 0; } }
+      if (!sel || 몇개(sel) <= 1) return sel;
+      var 끝 = sel.lastIndexOf(' > ');
+      var 앞 = 끝 < 0 ? '' : sel.slice(0, 끝 + 3);
+      var 마지막 = 끝 < 0 ? sel : sel.slice(끝 + 3);
+      if (!/:nth-of-type\(/.test(마지막)){
+        var 순번 = nthOf(el);
+        if (순번 && 몇개(앞 + 마지막 + 순번) === 1) return 앞 + 마지막 + 순번;
+        if (순번) 마지막 += 순번;
+      }
+      var 위 = el.parentElement;
+      if (위 && 위 !== document.body){
+        var 위조각 = 위.id ? ('#' + cssEsc(위.id)) : (위.tagName.toLowerCase() + classSel(위));
+        var 넓힌 = 위조각 + ' > ' + 마지막;
+        if (몇개(넓힌) === 1) return 넓힌;
+      }
+      return 앞 + 마지막;
     }
 
 
@@ -165,7 +189,7 @@
         style: o.style, contentZone: false
       };
     });
-    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.3' }, elements: elements };
+    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.4' }, elements: elements };
   };
 })();
 
