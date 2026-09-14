@@ -474,8 +474,15 @@ class Auto:
             return None
         try:
             with self.store.connect() as c:
-                if not self.design_of_page(c, page_id):
+                design = self.design_of_page(c, page_id)
+                if not design:
                     return None
+                fr = c.execute('SELECT frame FROM design_elements WHERE design_id=?', (design['id'],)).fetchone()
+                try:
+                    dframe = json.loads(fr['frame']) if fr else {}
+                except (TypeError, ValueError):
+                    dframe = {}
+                design_frame = {'w': dframe.get('width') or design['width'], 'h': dframe.get('height') or design['height']}
                 r = self.run_for(c, run['uuid'], page_id)
                 rng = self.current_range(c, run['uuid'])
                 range_view = {'manual_top': rng['top'] if rng else None, 'manual_bottom': rng['bottom'] if rng else None,
@@ -485,7 +492,8 @@ class Auto:
                 if not r or stale:
                     # 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
-                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view, 'screen_id': run['screen_id']}
+                            'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view,
+                            'screen_id': run['screen_id'], 'design_frame': design_frame}
                 cands = [dict(k) for k in self.candidates(c, r['id'])] if r['status'] == 'done' else []
                 numbers = {}
                 if any(k['issue_id'] for k in cands):
@@ -493,7 +501,12 @@ class Auto:
                     numbers = {row['uuid']: n + 1 for n, row in enumerate(rows)}
         except sqlite3.OperationalError:
             return None  # 옛 DB(접수·자동검수 표 없음)는 자동 검수 없이 그대로 보여준다
-        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view, 'screen_id': run['screen_id'],
+        try:
+            al = json.loads(r['alignment'] or '{}')
+        except (TypeError, ValueError, IndexError):
+            al = {}
+        return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view,
+                'screen_id': run['screen_id'], 'design_frame': design_frame, 'alignment': al,
                 'scale': ((run['coord_ref_w'] or r['capture_w'] or 1) / (r['capture_w'] or run['coord_ref_w'] or 1)) if r['status'] == 'done' else 1}
 
 
@@ -508,7 +521,12 @@ def panel_html(view, page_id, person_options='', which='open'):
         cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
         return f'<div class="grid">{cards}</div>' if cards else '<p class="empty">항목 없음</p>'
     r = view['run']
-    head = f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" data-round="{view["round"]}" data-scale="{view["scale"]}"></div>'
+    df = view.get('design_frame') or {}
+    al = view.get('alignment') or {}
+    head = (f'<div id="auto-state" data-status="{r["status"]}" data-page="{page_id}" data-run="{_e(r["run_id"])}" '
+            f'data-round="{view["round"]}" data-scale="{view["scale"]}" '
+            f'data-dw="{df.get("w") or 0}" data-dh="{df.get("h") or 0}" '
+            f'data-as="{al.get("s") or 0}" data-atx="{al.get("tx") or 0}" data-aty="{al.get("ty") or 0}"></div>')
     def grid(items):
         cards = ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
         return f'<div class="grid">{cards}</div>' if cards else ''
@@ -554,9 +572,10 @@ def range_html(view, person_options=''):
     return (f'<div class="auto-range" id="auto-range" data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
             f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}">'
             f'<b>검수 범위</b> <span class="auto-range-sum">{_e(summary)}</span>'
-            f'<button type="button" onclick="autoRangeOpen()">조정</button>'
+            f'<button type="button" id="auto-range-btn" class="auto-range-btn" title="검수 범위 조정" onclick="autoRangeOpen()">조정</button>'
             + (f' <a class="auto-policy-link" href="/policy/screen/{_e(view["screen_id"])}">이 화면의 규칙</a>' if view.get('screen_id') else '') + '</div>'
-            f'<div class="auto-range-editor" id="auto-range-editor" hidden>'
+            f'<dialog class="auto-range-editor" id="auto-range-editor">'
+            f'<b class="auto-range-title">검수 범위 조정</b>'
             f'<p class="auto-hint">붉은 선 바깥(위쪽 선 위, 아래쪽 선 아래)은 비교하지 않아요. 상태바·주소창·키보드·하단 단추 줄이 끝나는 곳에 선을 끌어 맞춰 주세요.</p>'
             f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
             f'<div class="auto-range-shade" id="auto-range-shade-top"></div><div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
@@ -566,7 +585,7 @@ def range_html(view, person_options=''):
             f'<select name="actor"><option value="">담당자</option>{person_options}</select>'
             f'<button type="submit" class="primary">이 범위로 다시 검수</button>'
             f'<button type="button" onclick="autoRangeSave(this.form,true)">자동으로 되돌리기</button>'
-            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></div>')
+            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></dialog>')
 
 
 def card_html(k, numbers, page_id, rnd):
@@ -597,10 +616,22 @@ def card_html(k, numbers, page_id, rnd):
             f'<div class="loc">{_e(k["detail"])}</div>{dv}{pol_html}<div class="loc">위치 {box}</div>{foot}</div>')
 
 
+def _design_box(k):
+    """후보의 디자인 쪽 자리(시안 좌표). 없으면 None — 그때는 개발 쪽 자리를 그대로 쓴다."""
+    try:
+        b = json.loads(k.get('design_box') or '') if isinstance(k, dict) else ''
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(b, dict) or not b.get('w') or not b.get('h'):
+        return None
+    return [b.get('x') or 0, b.get('y') or 0, b['w'], b['h']]
+
+
 def overlay_json(view):
     return json.dumps([{'id': k['id'], 'no': k['no'], 'status': k['status'], 'registered': bool(k['issue_id']),
                         'color': issue_categories.color(candidate_category(k)),
-                        'box': [k['box_x'] or 0, k['box_y'] or 0, k['box_w'] or 0, k['box_h'] or 0]} for k in view['candidates']], ensure_ascii=False)
+                        'box': [k['box_x'] or 0, k['box_y'] or 0, k['box_w'] or 0, k['box_h'] or 0],
+                        'dbox': _design_box(k), 'issue': k['issue_id']} for k in view['candidates']], ensure_ascii=False)
 
 
 CSS = '''
@@ -631,7 +662,10 @@ CSS = '''
 .auto-range .auto-range-sum{flex:1;color:#475569}
 .auto-range button,.auto-range-form button{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#1f2937;border-radius:6px;cursor:pointer}
 .auto-range-form button.primary{background:#ea580c;border-color:#ea580c;color:#fff}
-.auto-range-editor{margin:0 0 10px;padding:10px;border:1px solid #fdba74;border-radius:8px;background:#fff7ed}
+.auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto;padding:16px;border:1px solid #fdba74;border-radius:12px;background:#fff7ed;color:#1f2937}
+.auto-range-editor::backdrop{background:#11182766}
+.auto-range-title{display:block;margin:0 0 8px;font-size:14px}
+.cv-tools .auto-range-btn{margin-left:auto}
 .auto-range-editor .auto-hint{margin:0 0 8px;font-size:12px;color:#64748b}
 .auto-range-stage{position:relative;display:inline-block;max-width:100%;line-height:0;user-select:none;touch-action:none}
 .auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid #cbd5e1}
@@ -658,7 +692,11 @@ JS = r'''
   var dataEl=document.getElementById('auto-data'),svg=document.querySelector('svg.auto-overlay');
   if(dataEl&&svg){
     var items=JSON.parse(dataEl.textContent||'[]'),k=Number(st.dataset.scale)||1,ns='http://www.w3.org/2000/svg';
+    window.qaDesignRef={w:Number(st.dataset.dw)||0,h:Number(st.dataset.dh)||0};
+    window.qaAlign={s:Number(st.dataset.as)||0,tx:Number(st.dataset.atx)||0,ty:Number(st.dataset.aty)||0};
+    window.qaDesignBox=window.qaDesignBox||{};
     items.forEach(function(c){
+      if(c.dbox){window.qaDesignBox[c.id]=c.dbox;if(c.issue)window.qaDesignBox[c.issue]=c.dbox;}
       var b=c.box.map(function(v){return v*k;}),dim=c.status!=='open'?' dim':'';
       var r=document.createElementNS(ns,'rect');r.setAttribute('x',b[0]);r.setAttribute('y',b[1]);r.setAttribute('width',b[2]);r.setAttribute('height',b[3]);r.setAttribute('rx',4);
       r.setAttribute('class','abox'+dim);r.setAttribute('id','abox-'+c.id);r.style.stroke=c.color;r.onclick=function(){autoFocus(c.id);};svg.appendChild(r);
@@ -693,6 +731,7 @@ function autoFocus(id){
   var b=document.getElementById('abox-'+id),g=document.getElementById('abadge-'+id),c=document.getElementById('cand-'+id);
   if(b)b.classList.add('sel');if(g){g.classList.add('sel');g.parentNode.appendChild(g);}
   if(c){var panel=c.closest('.panel');if(panel&&window.showTab)showTab(panel.id.replace('panel-',''));c.classList.add('hl');var d=c.closest('details');if(d)d.open=true;var box=document.getElementById('cards');if(box)box.scrollTop=c.offsetTop-40;}
+  if(window.qaCompareIssue)window.qaCompareIssue(id);
 }
 function autoStatus(id,status){
   var st=document.getElementById('auto-state');
@@ -703,7 +742,8 @@ function autoStatus(id,status){
 var __rangeEd=null;
 function autoRangeOpen(){
   var box=document.getElementById('auto-range'),ed=document.getElementById('auto-range-editor');if(!box||!ed)return;
-  ed.hidden=false;var img=document.getElementById('auto-range-img'),H=Number(box.dataset.h)||0,form=ed.querySelector('form');
+  if(!ed.open){if(ed.showModal)ed.showModal();else ed.setAttribute('open','');}
+  var img=document.getElementById('auto-range-img'),H=Number(box.dataset.h)||0,form=ed.querySelector('form');
   var top=box.dataset.mtop!==''?Number(box.dataset.mtop):Number(box.dataset.top)||0,bottom=box.dataset.mbottom!==''?Number(box.dataset.mbottom):Number(box.dataset.bottom)||0;
   __rangeEd={box:box,ed:ed,img:img,H:H,form:form,top:top,bottom:bottom};
   function draw(){var e=__rangeEd,k=e.img.clientHeight/(e.H||1);
@@ -722,7 +762,7 @@ function autoRangeOpen(){
   form.bottom.oninput=function(){__rangeEd.bottom=Math.max(0,Number(this.value)||0);draw();};
   window.addEventListener('resize',draw);
 }
-function autoRangeClose(){var ed=document.getElementById('auto-range-editor');if(ed)ed.hidden=true;}
+function autoRangeClose(){var ed=document.getElementById('auto-range-editor');if(!ed)return;if(ed.close)ed.close();else ed.removeAttribute('open');}
 function autoRangeSave(form,reset){
   var st=document.getElementById('auto-state'),e=__rangeEd;if(!st||!e)return false;
   var body=reset?{run:st.dataset.run,top:null,bottom:null,actor:form.actor.value||''}:{run:st.dataset.run,top:e.top,bottom:e.bottom,actor:form.actor.value||''};
@@ -730,6 +770,16 @@ function autoRangeSave(form,reset){
     .then(function(r){return r.json();}).then(function(j){if(j.error){alert(j.error);return;}location.reload();});
   return false;
 }
+// ── '조정' 단추를 비교 보기 줄 오른쪽 끝으로 · 팝업은 어느 탭에서 눌러도 뜨도록 몸통으로 ──
+(function(){
+  function move(){
+    var btn=document.getElementById('auto-range-btn'),tools=document.querySelector('.cv-tools');
+    if(btn&&tools&&btn.parentNode!==tools)tools.appendChild(btn);
+    var ed=document.getElementById('auto-range-editor');
+    if(ed&&ed.parentNode!==document.body)document.body.appendChild(ed);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',move);else move();
+})();
 function autoRegister(form,id){
   var st=document.getElementById('auto-state'),actor=(form.actor.value||'').trim();
   if(!actor){alert('담당자를 골라 주세요.');return false;}
