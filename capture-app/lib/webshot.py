@@ -8,6 +8,7 @@ PC 웹 검수는 그림 대조가 아니라 **값 대조**다(색·글꼴·크�
 그대로 돌아간다. 브라우저는 **이미 깔려 있는 크롬·엣지**를 빌려 쓴다(따로 내려받지 않는다).
 
 쓰는 말은 앱 쪽(lib/actions.py)과 같다: 탭 · 있으면탭 · 입력 · 기다림 · 스크롤 · 뒤로 · 지우기.
+웹에만 있는 말 둘: 탭칸끝(칸 안 오른쪽 끝 단추) · 칸흔들기(칸을 건드려 꺼진 단추를 도로 켠다).
 """
 import os
 import re
@@ -21,7 +22,10 @@ import webvalue
 import 매체
 
 기본폭 = 1440
-기본기다림 = 1.5          # 화면이 가라앉기를 기다리는 초
+기본기다림 = 0.6          # 동작 하나를 하고 화면이 가라앉기를 기다리는 초
+여는기다림 = 1.5          # 주소를 열고 기다릴 **최대** 초 — 조용해지면 그 전에 넘어간다
+찾는짧은초 = 0.4          # 화면에서 무엇을 찾을 때 첫 바퀴에 기다릴 초
+찾는긴초 = 2.0            # 첫 바퀴에 다 못 찾으면 두 바퀴째에 기다릴 초
 브라우저차례 = ("chrome", "msedge", None)   # 깔려 있는 것부터 빌려 쓰고, 없으면 딸려온 것
 
 
@@ -93,39 +97,47 @@ def 주소만들기(tag, 화면):
     return 바탕.rstrip("/") + "/" + 주소.lstrip("/")
 
 
+def _먼저찾기(찾는길들):
+    """여러 갈래로 찾아본다 — **짧게 한 바퀴 돌고**, 다 못 찾았을 때만 길게 한 바퀴 더.
+
+    한 갈래에 2초씩 기다리면 헛걸음 하나에 2초가 그냥 날아간다. 이미 그려진 화면은
+    거의 즉시 잡히므로 첫 바퀴는 짧게 돌고, 늦게 그려지는 화면만 두 바퀴째를 기다린다.
+    (화면 8장 찍는 데 헛걸음으로만 20초 넘게 쓰던 것을 줄인다 — 2026-09-14)
+    """
+    for 초 in (찾는짧은초, 찾는긴초):
+        for 찾기 in 찾는길들:
+            try:
+                것 = 찾기().first
+                것.wait_for(state="visible", timeout=int(초 * 1000))
+                return 것
+            except Exception:
+                continue
+    return None
+
+
 def _칸찾기(쪽, 글자):
     """이름·안내글·라벨 어느 것으로 적어도 그 칸을 찾아 준다."""
-    for 찾기 in (lambda: 쪽.get_by_label(글자, exact=False),
-               lambda: 쪽.get_by_placeholder(글자, exact=False),
-               lambda: 쪽.locator(f'[name="{글자}"], #{글자}')):
-        try:
-            것 = 찾기().first
-            것.wait_for(state="visible", timeout=2000)
-            return 것
-        except Exception:
-            continue
-    raise 웹오류(f"'{글자}' 칸을 화면에서 찾지 못했습니다")
+    것 = _먼저찾기((lambda: 쪽.get_by_placeholder(글자, exact=False),
+                 lambda: 쪽.get_by_label(글자, exact=False),
+                 lambda: 쪽.locator(f'[name="{글자}"], #{글자}')))
+    if 것 is None:
+        raise 웹오류(f"'{글자}' 칸을 화면에서 찾지 못했습니다")
+    return 것
 
 
 def _누를것찾기(쪽, 글자):
     """누를 것을 찾는다 — 단추·링크·글자, 그리고 **적는 칸**까지.
 
     '탭 비밀번호를 입력해 주세요.' 처럼 안내글이 적힌 칸을 눌러 커서만 두는 화면이 있다.
-    칸은 단추도 링크도 아니고 안내글이 글자로도 안 잡혀서, 칸 찾는 길을 뒤에 붙인다.
+    칸은 단추도 링크도 아니고 안내글이 글자로도 안 잡혀서, 칸 찾는 길을 **같은 바퀴에** 붙인다
+    (뒤로 미뤄 두면 단추·링크·글자를 다 헛걸음한 뒤에야 칸을 보느라 8초가 든다).
     """
-    for 찾기 in (lambda: 쪽.get_by_role("button", name=글자, exact=False),
-               lambda: 쪽.get_by_role("link", name=글자, exact=False),
-               lambda: 쪽.get_by_text(글자, exact=False)):
-        try:
-            것 = 찾기().first
-            것.wait_for(state="visible", timeout=2000)
-            return 것
-        except Exception:
-            continue
-    try:
-        return _칸찾기(쪽, 글자)
-    except 웹오류:
-        return None
+    return _먼저찾기((lambda: 쪽.get_by_role("button", name=글자, exact=False),
+                  lambda: 쪽.get_by_role("link", name=글자, exact=False),
+                  lambda: 쪽.get_by_text(글자, exact=False),
+                  lambda: 쪽.get_by_placeholder(글자, exact=False),
+                  lambda: 쪽.get_by_label(글자, exact=False),
+                  lambda: 쪽.locator(f'[name="{글자}"], #{글자}')))
 
 
 def _적기(칸, 값, 갈래=None):
@@ -160,6 +172,33 @@ def _누르기(것, 이름, 갈래=None):
         if 꺼짐:
             raise 웹오류(f"'{이름}' 단추가 꺼져 있습니다 — 앞 칸을 채워야 켜지는 화면입니다")
         raise 웹오류(f"'{이름}' 을(를) 누르지 못했습니다 — {str(e).strip().splitlines()[0]}")
+
+
+def _칸흔들기(쪽, 칸이름, 값="", 계정=None, 실패=False, 갈래=None):
+    """그 칸을 살짝 건드려 **꺼진 단추를 도로 켠다**.
+
+    로그인을 한 번 틀리면 아이디·비밀번호가 칸에 그대로 있는데도 로그인 단추를 다시
+    꺼 버리는 화면이 있다(유형표 겪은일 2026-09-14). 사람은 비밀번호를 한 글자 지웠다
+    다시 적어 단추를 켠다 — 그것을 그대로 한다.
+
+    한 글자 넣었다 곧바로 지우므로 **적혀 있던 값은 그대로**다.
+    칸이 비어 있으면(화면이 값까지 지웠으면) 적어 둔 값을 다시 넣는다.
+    """
+    칸 = _칸찾기(쪽, 칸이름)
+    칸.click()
+    지금 = ""
+    try:
+        지금 = 칸.input_value()
+    except Exception:
+        pass
+    if not 지금:
+        if not 값:
+            raise 웹오류(f"'{칸이름}' 칸이 비어 있습니다 — 무엇을 적을지 = 로 이어 주세요")
+        _적기(칸, account.채우기(값, 계정, 실패), 갈래)
+        return
+    칸.press("End")
+    칸.press("a")
+    칸.press("Backspace")
 
 
 보기무늬 = re.compile(r"eye|show|reveal|visib|보기|표시|숨김", re.I)
@@ -231,6 +270,9 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
         return
     elif 앞 in ("탭칸끝",):
         _칸끝누르기(쪽, 뒤)
+    elif 앞 in ("칸흔들기",):
+        칸, 값 = (뒤.split("=", 1) + [""])[:2]
+        _칸흔들기(쪽, 칸.strip(), 값.strip(), 계정, 실패, 갈래)
     elif 앞 in ("탭좌표", "자리탭"):
         # 글자가 없는 것(비밀번호 눈 아이콘 등)은 자리(가로%,세로%)로 누른다.
         if not 매체.값(갈래, "좌표.세로퍼센트", True):
@@ -251,7 +293,7 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
         쪽.keyboard.press("Delete")
     else:
         raise 웹오류(f"모르는 말입니다 — {마디}. 쓸 수 있는 말: 탭 · 있으면탭 · 입력 · "
-                 f"기다림 · 스크롤 · 뒤로 · 지우기 · 탭칸끝 · 되풀이")
+                 f"기다림 · 스크롤 · 뒤로 · 지우기 · 탭칸끝 · 칸흔들기 · 되풀이")
     쪽.wait_for_timeout(int(기다림 * 1000))
 
 
@@ -276,6 +318,36 @@ def 동작하기(쪽, 동작, 계정, 실패, 기다림, 갈래=None):
                     한마디하기(쪽, m, 계정, 실패, 기다림, 갈래)
             return
         한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래)
+
+
+def 브라우저끄기(브라우저):
+    """다 찍었으면 브라우저를 **바로 끈다**.
+
+    설치된 크롬은 로그인 칸에 글자를 넣고 여러 번 보낸 화면을 찍고 나면, 곱게 닫는 데
+    25초쯤 걸린다(제 비밀번호 관리 기능을 정리하느라 그런다 — 딸려온 크로미움은 0초다).
+    사진·값은 이미 다 저장한 뒤라 기다릴 까닭이 없다. 찍는 데 21초 쓰고 닫는 데 24초를
+    더 쓰던 것을 없앤다(2026-09-14).
+
+    곱게 끄는 길이 막히면 그때만 원래대로 기다린다.
+    """
+    try:
+        브라우저._impl_obj._connection._transport._proc.kill()
+        return
+    except Exception:
+        pass
+    try:
+        브라우저.close()
+    except Exception:
+        pass
+
+
+def _가라앉기(쪽, 최대초):
+    """페이지가 조용해질 때까지만 기다린다 — 정해진 시간을 늘 통째로 버리지 않는다."""
+    try:
+        쪽.wait_for_load_state("networkidle", timeout=int(최대초 * 1000))
+    except Exception:
+        pass
+    쪽.wait_for_timeout(300)
 
 
 def 값이름(사진이름):
@@ -334,7 +406,7 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                         pass
                     else:
                         쪽.goto(주소만들기(tag, 화면), wait_until="load", timeout=30000)
-                        쪽.wait_for_timeout(int(기다림 * 1000))
+                        _가라앉기(쪽, 숫자(tag, "여는기다림", 여는기다림))
                     동작 = 화면.get("동작", "-")
                     if 동작 not in ("-", "", "없음"):
                         동작하기(쪽, 동작, 계정, account.실패화면(화면.get("이름", "")), 기다림,
@@ -358,7 +430,7 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                     한줄["디자인이름"] = 화면["디자인이름"]
                 찍힌것.append(한줄)
         finally:
-            브라우저.close()
+            브라우저끄기(브라우저)
 
     찍힌것.sort(key=lambda x: x["화면번호"])
     return {"앱이름": tag["앱이름"], "플랫폼": tag["플랫폼"],

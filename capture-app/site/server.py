@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
@@ -1117,7 +1117,8 @@ def 화면_촬영():
     로그 = 폴더 / "촬영기록.txt"
     글 = 로그.read_text(encoding="utf-8", errors="replace") if 로그.exists() else "시작하는 중…"
     목록파일 = 폴더 / "찍은목록.json"
-    끝남 = not _촬영["진행중"] and 목록파일.exists()
+    # 목록을 못 남기고 끝났어도 '끝난 것'으로 본다 — 아니면 3초마다 새로고침만 끝없이 돈다.
+    끝남 = not _촬영["진행중"]
 
     막힘 = ""
     막힌줄 = [l for l in 글.splitlines() if l.startswith(계정확인.막힘표)]
@@ -1198,11 +1199,17 @@ def 화면_촬영():
         </div>"""
 
     끝남 = 끝남 or bool(막힘)          # 로그인이 막혀 멈췄으면 더 기다리지 않는다
+    # 다 돌기 전에 멎었으면(목록도 못 남겼으면) 그렇다고 말한다 — '다 됐다'고 하지 않는다.
+    멎음 = (끝남 and not 목록파일.exists() and not 막힘)
+    if 멎음:
+        결과 = ('<div class="card"><div class="err" style="margin:0">'
+              '<b>촬영이 끝까지 가지 못하고 멎었습니다.</b><br>'
+              '아래 기록의 마지막 줄을 보고 다시 시작해 주세요.</div></div>') + 결과
     새로고침 = "" if 끝남 else '<meta http-equiv="refresh" content="3">'
     본문 = f"""{새로고침}
-    <div class="card"><h2>{'끝났습니다' if 끝남 else '찍는 중…'}
+    <div class="card"><h2>{('멎었습니다' if 멎음 else '끝났습니다') if 끝남 else '찍는 중…'}
       <span class="muted">· {_e(폴더.name)}</span></h2>
-      {진행바(글, 끝남)}
+      {진행바(글, 끝남 and not 멎음)}
       <pre class="log">{_e(글)}</pre>
       <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else f'<span class="hint">{찍는중안내(작업)}</span>'}</div>
     </div>{막힘}{보내기}{결과}"""
@@ -1237,6 +1244,9 @@ def 이름표쓰기(작업):
 
 # ────────────────────────────────────────────────── 웹 서버
 class 손님(BaseHTTPRequestHandler):
+    # 브라우저가 '미리 열어 두는' 연결이 아무 말 없이 붙어 있어도 오래 붙잡지 않는다.
+    timeout = 20
+
     def do_GET(self):
         길 = unquote(urlparse(self.path).path)
         q = parse_qs(urlparse(self.path).query)
@@ -1553,7 +1563,17 @@ class 손님(BaseHTTPRequestHandler):
         pass
 
 
-class _여섯(HTTPServer):
+class _한사람씩아닌서버(ThreadingHTTPServer):
+    """손님을 **한 사람씩** 받지 않는다.
+
+    크롬은 사진 여러 장을 한꺼번에 받으려고 연결을 여러 개 열고, 쓰지도 않을 연결을
+    미리 열어 두기도 한다. 한 사람씩만 받는 서버는 그 빈 연결 하나에 붙잡혀 통째로 멈춘다
+    — 촬영이 끝나고 사진이 우르르 걸리는 자리에서 사이트가 먹통이 되던 까닭이다(2026-09-14).
+    """
+    daemon_threads = True
+
+
+class _여섯(_한사람씩아닌서버):
     address_family = socket.AF_INET6      # localhost 가 ::1 로 풀리는 경우 대비
 
 
@@ -1567,7 +1587,7 @@ def main():
         threading.Thread(target=여섯.serve_forever, daemon=True).start()
     except OSError:
         pass
-    HTTPServer((묶을자리, PORT), 손님).serve_forever()
+    _한사람씩아닌서버((묶을자리, PORT), 손님).serve_forever()
 
 
 def _어디서열리나():
