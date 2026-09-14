@@ -1,5 +1,5 @@
 {
-  "name": "촬영 준비로 보내기",
+  "name": "검수 화면 보내기",
   "id": "s1-capture-pick",
   "api": "1.0.0",
   "main": "code.js",

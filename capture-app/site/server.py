@@ -33,7 +33,7 @@ import intake as 접수하기
 import nametag
 
 작업파일 = 여기 / "작업.json"
-PORT = 8767
+PORT = int(os.environ.get("QA_CAPTURE_PORT", "8767"))
 ADB = os.path.expanduser("~/Library/Android/sdk/platform-tools/adb")
 
 _촬영 = {"진행중": False, "폴더": None, "로그": None}
@@ -51,6 +51,20 @@ def 작업읽기():
 
 def 작업쓰기(d):
     작업파일.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+유형이름 = {"web": "PC 웹", "mobile-web": "모바일 웹", "android": "앱", "pcapp": "PC S/W"}
+유형코드 = {"web": "WEB", "mobile-web": "WEB", "android": "AND", "pcapp": "APP"}
+
+
+def 유형(작업=None):
+    """플러그인에서 사람이 고른 네 가지 중 하나. 옛 작업 파일은 앱으로 본다."""
+    return (작업 if 작업 is not None else 작업읽기()).get("유형") or "android"
+
+
+def 웹인가(작업=None):
+    """웹 둘(PC 웹·모바일 웹)은 브라우저 하나로 같은 길을 간다."""
+    return 유형(작업) in ("web", "mobile-web")
 
 
 def _e(v):
@@ -298,7 +312,7 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{CSS}</style></head><body>
-<header><h1>촬영 준비 <span class="muted" style="font-weight:400;font-size:13px">· 앱 개발화면</span></h1>
+<header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:13px">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
 <div class="wrap"><div class="steps">{칩}</div>{알림}{본문}</div>
 <footer>내 PC에서만 열린다(127.0.0.1:{PORT}) · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
@@ -360,7 +374,7 @@ def 화면_디자인(오류=""):
     <div class="card"><h2>Figma에서 골라 보내기</h2>
       <div class="hint" style="margin-top:0">
         <b>1</b> Figma 캔버스에서 찍을 화면들을 <b>드래그로 감싸 고릅니다</b>.<br>
-        <b>2</b> Plugins → Development → <b>촬영 준비로 보내기</b> 를 실행합니다.<br>
+        <b>2</b> Plugins → Development → <b>검수 화면 보내기</b> 를 실행합니다.<br>
         <b>3</b> 목록을 눈으로 확인하고 <b>보내기</b> 를 누르면 아래에 그대로 들어옵니다.
       </div>
       <div class="hint">플러그인을 아직 안 깔았다면 Figma 메뉴
@@ -372,7 +386,8 @@ def 화면_디자인(오류=""):
         고른것 = 작업.get("고른화면", [])
         칸 = ""
         for i, f in enumerate(고른것, 1):
-            넓음 = (f.get("폭") or 0) >= 1400
+            # 폰으로 찍기엔 넓다는 경고 — 웹은 넓은 게 정상이라 붙이지 않는다.
+            넓음 = (f.get("폭") or 0) >= 1400 and not 웹인가(작업)
             칸 += (f'<figure class="pick"><img src="/받은그림/{i:03d}.png" alt="">'
                    f'<figcaption>{_e(f.get("이름",""))}'
                    f'<span class="dim2{" warn" if 넓음 else ""}">{f.get("폭")}×{f.get("높이")}'
@@ -533,6 +548,15 @@ def 화면_초안(알림=""):
     if not 작업.get("초안"):
         return 껍데기("/초안", '<div class="card"><p class="muted">먼저 ① 에서 디자인 화면을 고르세요.</p></div>',
                    "찍을 목록")
+    웹 = 웹인가(작업)
+
+    def 셋째칸(i, r, 이어서):
+        if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다
+            return (f'<td><input class="s" type="text" name="주소_{i}" value="{_e(r.get("주소",""))}" '
+                    f'placeholder="/login" style="width:170px"></td>')
+        return (f'<td><input class="s" type="text" name="누를것_{i}" value="{_e(r["누를것"])}" '
+                f'{"disabled" if 이어서 else ""} style="width:150px"></td>')
+
     행 = ""
     for i, r in enumerate(작업["초안"]):
         이어서 = r.get("이어서") == "예"
@@ -545,8 +569,7 @@ def 화면_초안(알림=""):
           <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}" style="width:64px"></td>
           <td><input class="s" type="text" name="이름_{i}" value="{_e(r['이름'])}"></td>
           <td><input class="s" type="text" name="상태_{i}" value="{_e(r['상태'])}" style="width:160px"></td>
-          <td><input class="s" type="text" name="누를것_{i}" value="{_e(r['누를것'])}"
-                 {'disabled' if 이어서 else ''} style="width:150px"></td>
+          {셋째칸(i, r, 이어서)}
           <td><input class="s" type="text" name="동작_{i}" value="{_e(r.get('동작',''))}"
                  placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">
               {f'<div class="bad">{_e(틀림)}</div>' if 틀림
@@ -558,13 +581,17 @@ def 화면_초안(알림=""):
            f'같은 번호는 사진이 덮어써집니다.</div>' if 겹침 else "")
 
     사전 = 앱사전.읽기()
-    고름목록 = "".join(f'<option value="{_e(k)}">' for k in sorted(사전))
+    # 웹 화면에는 앱 이름이 섞여 나오지 않게, 그 갈래에 맞는 것만 보여 준다.
+    보일사전 = {k: v for k, v in 사전.items()
+             if bool(v.get("기본주소")) == 웹인가(작업)} or (
+                 {} if 웹인가(작업) else 사전)
+    고름목록 = "".join(f'<option value="{_e(k)}">' for k in sorted(보일사전))
     깔린앱 = "".join(f'<option value="{_e(pkg)}">' for pkg in 깔린앱목록())
 
     본문 = f"""{경고}
     <form method="post" action="/초안">
-    <div class="card"><h2>앱 정보</h2>
-      <label class="f">앱 이름</label>
+    <div class="card"><h2>{'사이트 정보' if 웹 else '앱 정보'}</h2>
+      <label class="f">{'사이트 이름' if 웹 else '앱 이름'}</label>
       <div class="bar" style="margin:0">
         <input type="text" name="앱이름" id="앱이름" list="앱들" autocomplete="off"
                class="w-md" value="{_e(작업.get('앱이름',''))}"
@@ -590,19 +617,28 @@ def 화면_초안(알림=""):
       <label class="f">서비스 코드</label>
       <input type="text" name="서비스코드" id="서비스코드" class="w-md"
              value="{_e(작업.get('서비스코드',''))}" disabled>
-      <label class="f">앱 주소</label>
+      {f'''<label class="f">기본 주소</label>
+      <input type="text" name="기본주소" id="기본주소" autocomplete="off"
+             class="w-md" value="{_e(작업.get('기본주소',''))}" placeholder="https://dev.example.com">
+      <label class="f">찍을 폭</label>
+      <input type="text" name="화면폭" id="화면폭" class="w-md"
+             value="{작업.get('찍을폭') or (작업['고른화면'][0]['폭'] if 작업.get('고른화면') else 1440)}">
+      <div class="hint" style="margin-top:4px">시안 폭 그대로 찍습니다. 고치면 고친 폭으로 찍습니다.</div>'''
+        if 웹 else f'''<label class="f">앱 주소</label>
       <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
              class="w-md" value="{_e(작업.get('앱주소',''))}" disabled>
-      <datalist id="깔린앱들">{깔린앱}</datalist>
+      <datalist id="깔린앱들">{깔린앱}</datalist>'''}
 
-      <div class="bar" style="margin-top:10px">
+      {'' if 웹 else '''<div class="bar" style="margin-top:10px">
         <button type="button" id="고치기버튼" onclick="직접고치기()" style="display:none">직접 고치기</button>
-      </div>
+      </div>'''}
 
       <script>
-        var 사전 = {json.dumps(사전, ensure_ascii=False)};
-        var 칸들 = ['서비스코드', '앱주소', '시험아이디', '시험비밀번호'];
-        var 잠글칸 = ['서비스코드', '앱주소'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
+        var 사전 = {json.dumps(보일사전, ensure_ascii=False)};
+        var 웹 = {1 if 웹 else 0};
+        var 칸들 = 웹 ? ['서비스코드', '기본주소', '화면폭', '시험아이디', '시험비밀번호']
+                     : ['서비스코드', '앱주소', '시험아이디', '시험비밀번호'];
+        var 잠글칸 = 웹 ? ['서비스코드'] : ['서비스코드', '앱주소'];   // 시험 계정은 언제나 고쳐 쓸 수 있다
         function 칸(k) {{ return document.getElementById(k); }}
         function 비번보기() {{
           var e = 칸('시험비밀번호'), 단추 = document.getElementById('비번보기버튼');
@@ -616,26 +652,30 @@ def 화면_초안(알림=""):
           var e = document.getElementById('읽은말');
           e.innerHTML = 글; e.style.color = 색 || '#6b7280';
         }}
+        function 고치기단추(보임) {{
+          var b = document.getElementById('고치기버튼');
+          if (b) b.style.display = 보임 ? '' : 'none';
+        }}
         function 잠그기() {{
           잠글칸.forEach(function(k) {{
             칸(k).disabled = false; 칸(k).readOnly = true;
           }});
-          document.getElementById('고치기버튼').style.display = '';
+          고치기단추(true);
         }}
         function 직접고치기() {{
           잠글칸.forEach(function(k) {{
             칸(k).disabled = false; 칸(k).readOnly = false;
           }});
-          document.getElementById('고치기버튼').style.display = 'none';
-          말('직접 적는 중입니다. 저장하면 이 앱을 기억해 둡니다.');
+          고치기단추(false);
+          말('직접 적는 중입니다. 저장하면 기억해 둡니다.');
         }}
         function 읽기() {{
           var 이름 = document.getElementById('앱이름').value.trim();
-          if (!이름) {{ 말('앱 이름을 먼저 적어 주세요.', '#b42318'); return; }}
+          if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', '#b42318'); return; }}
           var 것 = 사전[이름];
           if (!것) {{
             직접고치기();
-            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 앱입니다. 아래 칸을 직접 적어 주세요.', '#b42318');
+            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', '#b42318');
             return;
           }}
           칸들.forEach(function(k) {{
@@ -643,7 +683,7 @@ def 화면_초안(알림=""):
             if (잠글칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
           }});
           잠그기();
-          말('<b>' + 이름 + '</b> 을(를) 찾았습니다. 다르면 <b>직접 고치기</b>를 누르세요.', '#12864e');
+          말('<b>' + 이름 + '</b> 을(를) 찾았습니다.' + (웹 ? ' 다르면 그냥 고쳐 쓰세요.' : ' 다르면 <b>직접 고치기</b>를 누르세요.'), '#12864e');
         }}
         if ({1 if 작업.get("앱주소") else 0}) {{ 잠그기(); }}
         document.querySelector('form[action="/초안"]').addEventListener('submit', function() {{
@@ -653,7 +693,8 @@ def 화면_초안(알림=""):
     </div>
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
       <table><thead><tr><th></th><th>번호</th><th>화면 이름</th><th>상태</th>
-        <th>눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span></th>
+        <th>{'개발 주소 <span class="muted">(기본 주소 뒤에 붙는 부분)</span>'
+             if 웹 else '눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span>'}</th>
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
         <th>화면 묶음</th></tr></thead>
         <tbody>{행}</tbody></table>
@@ -699,6 +740,8 @@ def 화면_조건(알림=""):
     if not 작업.get("이름표경로"):
         return 껍데기("/조건", '<div class="card"><p class="muted">먼저 ② 에서 찍을 목록을 저장하세요.</p></div>',
                    "조건 확인")
+    if 웹인가(작업):
+        return 화면_조건_웹(작업, 알림)
     폰 = 폰목록()
     앱주소 = 작업.get("앱주소", "")
     깔림 = bool(_adb("shell", "pm", "path", 앱주소)) if (폰 and 앱주소) else False
@@ -740,6 +783,78 @@ def 화면_조건(알림=""):
           <button class="go" type="submit"{'' if 준비됨 else ' disabled'}>전체 촬영 시작 →</button></div>
       </form></div>"""
     return 껍데기("/조건", 본문, "찍기 전에 폰 상태를 확인한다", 알림)
+
+
+def 브라우저찾기():
+    """이미 깔려 있는 크롬·엣지를 빌려 쓴다(따로 내려받지 않는다)."""
+    자리 = {
+        "Chrome": ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                   r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                   r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"],
+        "Edge": ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+                 r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                 r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"],
+    }
+    찾은것 = [이름 for 이름, 길들 in 자리.items() if any(os.path.exists(g) for g in 길들)]
+    return 찾은것
+
+
+def 연장있나():
+    """웹을 찍는 연장(Playwright)이 깔려 있는지."""
+    try:
+        import importlib.util
+        return importlib.util.find_spec("playwright") is not None
+    except Exception:
+        return False
+
+
+def 화면_조건_웹(작업, 알림=""):
+    """웹은 폰을 꽂지 않는다 — 브라우저와 주소만 본다."""
+    브라우저 = 브라우저찾기()
+    연장 = 연장있나()
+    바탕 = 작업.get("기본주소", "")
+    주소없는줄 = [r["이름"] for r in 작업.get("초안", []) if not (r.get("주소") or "").strip()]
+    주소됨 = bool(바탕) or not 주소없는줄
+
+    def 줄(제목, 됨, 설명):
+        표 = "✅" if 됨 else "⚠️"
+        return (f'<tr><td style="width:34px">{표}</td><td><b>{_e(제목)}</b><div class="hint" '
+                f'style="margin:2px 0 0">{설명}</div></td></tr>')
+
+    검사 = (줄("브라우저가 있다", bool(브라우저),
+             " · ".join(브라우저) if 브라우저 else "크롬이나 엣지를 깔아 주세요.")
+          + 줄("웹을 찍는 연장이 있다", 연장,
+               "깔려 있습니다." if 연장 else
+               "명령창에서 <b>py -3 -m pip install playwright</b> 를 한 번 실행해 주세요.")
+          + 줄("주소가 다 적혀 있다", 주소됨,
+               _e(바탕) if 바탕 else ("주소가 빈 줄: " + _e(", ".join(주소없는줄))
+                                    if 주소없는줄 else "줄마다 전체 주소를 적었습니다.")))
+
+    계정말 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
+           + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
+           if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
+    준비됨 = bool(브라우저) and 연장 and 주소됨
+    # 다 갖춰졌으면 확인 표를 굳이 보이지 않는다 — 모자란 것이 있을 때만 짚어 준다.
+    준비카드 = "" if 준비됨 else f"""
+    <div class="card"><h2>아직 모자란 것</h2><table><tbody>{검사}</tbody></table>
+      <div class="bar"><a class="btn" href="/조건">다시 확인</a></div></div>"""
+    본문 = f"""{준비카드}
+    <div class="card"><h2>이렇게 찍습니다</h2>
+      <table><tbody>
+        <tr><td class="muted" style="width:120px">사이트</td><td>{_e(작업.get('앱이름'))} · {_e(바탕) or '<span class="muted">줄마다 전체 주소</span>'}</td></tr>
+        <tr><td class="muted">찍을 폭</td><td>{작업.get('찍을폭') or 1440}px <span class="muted">· 시안과 같게</span></td></tr>
+        <tr><td class="muted">찍을 화면</td><td>{len(작업.get('초안',[]))}개</td></tr>
+        <tr><td class="muted">사진 이름</td><td>{_e(작업.get('서비스코드'))}-WEB-번호@상태.png</td></tr>
+        <tr><td class="muted">함께 남기는 것</td><td>값 파일(*.값.json) — 검수는 이 값으로 합니다</td></tr>
+        <tr><td class="muted">시험 계정</td><td>{계정말}</td></tr>
+      </tbody></table>
+      <div class="hint">브라우저가 화면을 하나씩 열어 값을 재고 그림을 남깁니다. 폰은 꽂지 않아도 됩니다.</div>
+      <form method="post" action="/조건">
+        <div class="bar"><a class="btn" href="/초안">← 목록 고치기</a>
+          <span class="right"></span>
+          <button class="go" type="submit"{'' if 준비됨 else ' disabled'}>전체 촬영 시작 →</button></div>
+      </form></div>"""
+    return 껍데기("/조건", 본문, "찍기 전에 브라우저와 주소를 확인한다", 알림)
 
 
 # ────────────────────────────────────────────────── ④ 전체 촬영
@@ -836,14 +951,22 @@ def 화면_촬영():
 
 # ────────────────────────────────────────────────── 이름표 저장
 def 이름표쓰기(작업):
-    줄 = ["# 촬영 준비 사이트가 만든 이름표 — 손으로 고쳐도 된다.",
-         f"앱이름: {작업['앱이름']}", "플랫폼: android",
-         f"앱주소: {작업['앱주소']}", f"서비스코드: {작업['서비스코드']}",
-         f"로그인: {작업.get('로그인','없음') or '없음'}", "", "화면:"]
+    웹 = 웹인가(작업)
+    줄 = ["# 자동 캡쳐 사이트가 만든 이름표 — 손으로 고쳐도 된다.",
+         f"앱이름: {작업['앱이름']}",
+         "플랫폼: web" if 웹 else "플랫폼: android"]
+    if 웹:
+        줄 += [f"기본주소: {작업.get('기본주소','')}",
+              f"화면폭: {작업.get('찍을폭') or 1440}"]
+    else:
+        줄 += [f"앱주소: {작업['앱주소']}"]
+    줄 += [f"서비스코드: {작업['서비스코드']}",
+          f"로그인: {작업.get('로그인','없음') or '없음'}", "", "화면:"]
     for r in 작업["초안"]:
         줄 += [f'  - 번호: "{r["번호"]}"', f'    이름: {r["이름"]}',
-              f'    상태: {r["상태"]}', f'    누를것: {r["누를것"]}',
-              f'    동작: {r.get("동작") or "-"}',
+              f'    상태: {r["상태"]}']
+        줄 += ([f'    주소: {r.get("주소","")}'] if 웹 else [f'    누를것: {r["누를것"]}'])
+        줄 += [f'    동작: {r.get("동작") or "-"}',
               f'    이어서: {r.get("이어서", "아니오")}']
     코드 = re.sub(r"[^A-Za-z0-9_-]", "", 작업["서비스코드"]).lower() or "app"
     경로 = 뿌리 / "apps" / f"{코드}.yaml"
@@ -932,12 +1055,15 @@ class 손님(BaseHTTPRequestHandler):
                      "페이지": []}
         작업["파일주소"] = ""
         작업["온곳"] = "figma-플러그인"
+        작업["유형"] = 꾸러미.get("플랫폼") or "android"
+        작업["찍을폭"] = int(꾸러미.get("찍을폭") or 0)
         작업["고른화면"] = 고른화면
         작업["초안"] = 초안만들기.만들기(고른화면)
         작업.pop("접수결과", None)
         작업.setdefault("앱이름", "")
         작업.setdefault("서비스코드", "")
         작업.setdefault("앱주소", "")
+        작업.setdefault("기본주소", "")
         작업쓰기(작업)
         return len(고른화면)
 
@@ -1009,21 +1135,33 @@ class 손님(BaseHTTPRequestHandler):
 
         if 길 == "/초안":
             작업 = 작업읽기()
+            웹 = 웹인가(작업)
             틀린것, 빈줄 = [], []
             for i, r in enumerate(작업.get("초안", [])):
-                for k in ("번호", "이름", "상태", "누를것"):
+                for k in ("번호", "이름", "상태") + (() if 웹 else ("누를것",)):
                     v = 한개(f"{k}_{i}")
                     if v:
                         r[k] = v
+                if 웹:
+                    r["주소"] = 한개(f"주소_{i}")
                 r["동작"] = 한개(f"동작_{i}")
                 까닭 = 동작말.확인(r["동작"])
+                앞줄 = 작업["초안"][i - 1] if i else None
+                # 앱은 앞 화면에 이어 찍으므로 동작이 비면 같은 사진이 나온다.
+                # 웹은 화면마다 주소가 달라서, 주소까지 같을 때만 같은 사진이 된다.
+                같아짐 = ((앞줄 is not None and (r.get("주소") or "") == (앞줄.get("주소") or ""))
+                       if 웹 else r.get("이어서") == "예")
                 if 까닭:
                     틀린것.append(f"{i+1}번째 줄 — {까닭}")
-                elif r.get("이어서") == "예" and not r["동작"].strip():
+                elif 같아짐 and not r["동작"].strip():
                     빈줄.append(f"{i+1}번째 줄 · {r['이름']}")
             작업["앱이름"] = 한개("앱이름") or "이름없는 앱"
             작업["서비스코드"] = (한개("서비스코드") or "APP").upper()
-            작업["앱주소"] = 한개("앱주소")
+            if 웹:
+                작업["기본주소"] = 한개("기본주소").rstrip("/")
+                작업["찍을폭"] = int(re.sub(r"[^0-9]", "", 한개("화면폭")) or 0) or 1440
+            else:
+                작업["앱주소"] = 한개("앱주소")
             작업["시험아이디"] = 한개("시험아이디")
             작업["시험비밀번호"] = 한개("시험비밀번호")
             # 로그인 여부는 따로 묻지 않는다 — 시험 계정을 적었으면 로그인이 있는 앱이다
@@ -1039,7 +1177,17 @@ class 손님(BaseHTTPRequestHandler):
             if 틀린것:
                 return self._html(화면_초안('<div class="err">동작을 알아듣지 못했습니다.<br>'
                                         + "<br>".join(_e(t) for t in 틀린것) + '</div>'))
-            if not 작업["앱주소"]:
+            if 웹:
+                주소없는줄 = [f'{n}번째 줄 · {r["이름"]}' for n, r in enumerate(작업["초안"], 1)
+                          if not (r.get("주소") or "").strip()]
+                if not 작업["기본주소"] and 주소없는줄:
+                    return self._html(화면_초안('<div class="err">기본 주소가 비었습니다. '
+                                            '사이트 주소(예: https://dev.example.com)를 적거나, '
+                                            '줄마다 전체 주소를 적어 주세요.</div>'))
+                if 주소없는줄 and not 작업["기본주소"]:
+                    return self._html(화면_초안('<div class="err">주소가 빈 줄이 있습니다.<br>'
+                                            + "<br>".join(_e(t) for t in 주소없는줄) + '</div>'))
+            elif not 작업["앱주소"]:
                 return self._html(화면_초안('<div class="err">앱 주소가 비었습니다. '
                                         '안드로이드 앱의 속이름(예: kr.co.s1.samsungbus)을 적어 주세요.</div>'))
             빠진계정 = [n for n, r in enumerate(작업["초안"], 1)
@@ -1053,8 +1201,9 @@ class 손님(BaseHTTPRequestHandler):
                     + ", ".join(f"{n}번째 줄" for n in 빠진계정)
                     + '<div style="margin-top:8px">위 <b>앱 정보</b>에 검수용 시험 계정을 적어 주세요. '
                       '로그인 없이 그냥 찍을 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
-            앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업["앱주소"], 작업["로그인"],
-                       작업["시험아이디"], 작업["시험비밀번호"])
+            앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업.get("앱주소", ""),
+                       작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
+                       작업.get("기본주소", ""), 작업.get("찍을폭", ""))
             작업["이름표경로"] = 이름표쓰기(작업)
             작업쓰기(작업)
             return self._이동("/조건")
@@ -1110,13 +1259,15 @@ class _여섯(HTTPServer):
 
 
 def main():
-    print(f"촬영 준비 사이트 → http://127.0.0.1:{PORT}   (끄려면 Ctrl+C)")
+    # 기본은 내 PC에서만. 같은 망의 다른 PC에서도 열려면 QA_CAPTURE_BIND=0.0.0.0 으로 켠다.
+    묶을자리 = os.environ.get("QA_CAPTURE_BIND", "127.0.0.1")
+    print(f"자동 캡쳐 사이트 → http://127.0.0.1:{PORT}   (끄려면 Ctrl+C)")
     try:                                   # 127.0.0.1 과 ::1 둘 다 받는다(Figma 플러그인용)
         여섯 = _여섯(("::1", PORT), 손님)
         threading.Thread(target=여섯.serve_forever, daemon=True).start()
     except OSError:
         pass
-    HTTPServer(("127.0.0.1", PORT), 손님).serve_forever()
+    HTTPServer((묶을자리, PORT), 손님).serve_forever()
 
 
 if __name__ == "__main__":

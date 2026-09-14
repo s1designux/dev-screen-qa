@@ -266,6 +266,10 @@ figma.ui.onmessage = async function (msg) {
   }
   if (msg.갈래 !== '보내기') return;
   var 고른것 = 줄세우기(펼치기(figma.currentPage.selection.slice()));
+  // 검수 화면이 이미 있는 프레임은 시안만 갈아끼웠으므로 촬영 준비로 또 보내지 않는다.
+  var 건너뛸 = {};
+  (msg.건너뛸 || []).forEach(function (id) { 건너뛸[id] = 1; });
+  고른것 = 고른것.filter(function (n) { return !건너뛸[n.id]; });
   if (!고른것.length) {
     figma.ui.postMessage({ 갈래: '알림', 글: '먼저 캔버스에서 화면을 골라 주세요.' });
     return;
@@ -291,6 +295,8 @@ figma.ui.onmessage = async function (msg) {
       파일이름: figma.root.name,
       파일열쇠: figma.fileKey || '',
       페이지이름: figma.currentPage.name,
+      플랫폼: msg.플랫폼 || 'android',        // 앱이면 android, PC 웹이면 web
+      찍을폭: msg.찍을폭 || 0,                // 웹은 시안 폭 그대로 찍는다
       화면들: 보낼것
     }
   });

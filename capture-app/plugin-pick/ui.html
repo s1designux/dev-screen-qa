@@ -3,7 +3,9 @@
           --gray-800:#353535; --blue-400:#1D6CEB; --red-400:#E50533; --orange-500:#EA580C; }
   * { box-sizing:border-box; }
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; margin:0; padding:14px;
-         color:var(--gray-800); font-size:12px; }
+         color:var(--gray-800); font-size:12px;
+         min-height:100vh; display:flex; flex-direction:column; }
+  .아래 { margin-top:auto; }        /* 단추 묶음은 언제나 맨 아래 */
   h1 { font-size:13px; margin:0 0 4px; }
   .sub { color:var(--gray-500); margin-bottom:10px; line-height:1.6; }
   .list { border:1px solid var(--gray-200); border-radius:4px; max-height:250px; overflow:auto; }
@@ -16,7 +18,7 @@
   .row .where { flex-basis:100%; display:flex; gap:6px; align-items:center; padding-left:26px; color:var(--gray-500); }
   .row .where.hit { color:var(--orange-500); }
   .empty { padding:22px 10px; text-align:center; color:var(--gray-500); }
-  button { width:100%; margin-top:12px; padding:10px; font-size:13px; font-weight:600;
+  button { width:100%; margin-top:8px; padding:10px; font-size:13px; font-weight:600;
            border:none; border-radius:4px; background:var(--blue-400); color:#fff; cursor:pointer;
            font-family:inherit; }
   button:disabled { background:var(--gray-100); color:#C4C4C4; cursor:not-allowed; }
@@ -25,21 +27,38 @@
   button.line:hover { background:var(--gray-50); }
   button.swap { background:var(--orange-500); }
   button.swap:disabled { background:var(--gray-100); color:#C4C4C4; }
-  .말 { margin-top:8px; text-align:center; color:var(--gray-500); min-height:16px; line-height:1.6; }
+  .말 { margin-top:10px; text-align:center; color:var(--gray-500); min-height:16px; line-height:1.6; }
   .말.bad { color:var(--red-400); }
   .말.ok { color:#12864e; }
   .말 a { color:var(--blue-400); cursor:pointer; text-decoration:underline; }
   .hint { margin-top:6px; color:var(--gray-500); font-size:11px; line-height:1.5; }
+  .갈래제목 { margin:12px 0 5px; font-size:12px; font-weight:600; }
+  .갈래 { display:flex; gap:5px; }
+  .갈래 label { flex:1; text-align:center; padding:7px 0; border:1px solid var(--gray-200);
+                border-radius:4px; cursor:pointer; color:var(--gray-500); font-size:11px;
+                white-space:nowrap; }
+  .갈래 input { display:none; }
+  .갈래 label:has(input:checked) { border-color:var(--gray-800); background:var(--gray-50);
+                                   color:var(--gray-800); font-weight:600; }
+  .폭줄 { margin-top:6px; color:var(--gray-500); font-size:11px; min-height:16px; }
+  .폭줄.mix { color:var(--orange-500); }
 </style>
 
-<h1>촬영 준비로 보내기</h1>
-<div class="sub">캔버스에서 찍을 화면을 드래그로 고르세요. 고른 것만 넘어갑니다.<br>이름이 같은 검수 화면이 있으면 <b>검수 시안 바꾸기</b>로 그 시안을 바로 덮어씁니다.</div>
-<div class="list" id="목록"><div class="empty">아직 고른 화면이 없습니다.</div></div>
-<button id="바꾸기" class="swap" disabled hidden>검수 시안 바꾸기</button>
-<button id="보내기" disabled>원본 인식하기</button>
-<button id="사이트" class="line">촬영 준비 사이트 열기 ↗</button>
+<h1>디자인 원본 인식</h1>
+<div class="list" id="목록"><div class="empty">검수할 화면을 선택해 주세요.</div></div>
+<div class="갈래제목">유형</div>
+<div class="갈래" id="갈래">
+  <label><input type="radio" name="갈래" value="web">PC 웹</label>
+  <label><input type="radio" name="갈래" value="mobile-web">모바일 웹</label>
+  <label><input type="radio" name="갈래" value="android">앱</label>
+  <label><input type="radio" name="갈래" value="pcapp">PC S/W</label>
+</div>
+<div class="폭줄" id="폭줄"></div>
 <div class="말" id="말"></div>
-<div class="hint" id="힌트"></div>
+<div class="아래">
+  <button id="보내기" disabled>보내기</button>
+  <button id="사이트" class="line">자동캡쳐 사이트 열기 ↗</button>
+</div>
 
 <script>
   var 포털 = 'http://localhost:8765';       // Figma는 http 주소로 localhost만 허용한다(127.0.0.1은 manifest 오류)          // 검수 포털(내 PC). 꺼져 있으면 '검수 시안 바꾸기'는 조용히 숨긴다.
@@ -48,24 +67,56 @@
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
   var 주소 = {}, 라벨 = {};                      // 검수 화면 uuid → 열 주소 · 이름
   var 말 = document.getElementById('말');
-  var 힌트 = document.getElementById('힌트');
   var 단추 = document.getElementById('보내기');
-  var 바꾸기 = document.getElementById('바꾸기');
+  var 갈래칸 = document.getElementById('갈래');
+  var 폭줄 = document.getElementById('폭줄');
   var 물어본차례 = 0;
+  // 유형은 사람이 고른다(짐작하지 않는다). 고르기 전에는 보내기를 누를 수 없다.
+  var 갈래 = '';                 // 'web' / 'mobile-web' / 'android' / 'pcapp'
+  var 웹인가 = function () { return 갈래 === 'web' || 갈래 === 'mobile-web'; };
 
-  function 바꾸기갱신() {
-    var n = 화면들.filter(function (f) { return 짝[f.id]; }).length;
-    바꾸기.hidden = !선택지.length;
-    바꾸기.disabled = !n;
-    바꾸기.textContent = n ? '검수 시안 바꾸기 (' + n + ')' : '검수 시안 바꾸기';
+  function 갈래그리기(){
+    Array.prototype.forEach.call(갈래칸.querySelectorAll('input'), function (i) {
+      i.checked = (i.value === 갈래);
+    });
+    if (!갈래) {
+      폭줄.className = '폭줄';
+      폭줄.textContent = 화면들.length ? '어떤 화면인지 먼저 골라 주세요.' : '';
+    } else if (!웹인가()) {
+      폭줄.className = '폭줄'; 폭줄.textContent = '폭은 기기·창이 정합니다';
+    } else if (!화면들.length) {
+      폭줄.className = '폭줄'; 폭줄.textContent = '찍을 폭은 고른 시안의 폭을 그대로 씁니다';
+    } else {
+      var 폭들 = [];
+      화면들.forEach(function (f) { if (폭들.indexOf(f.폭) < 0) 폭들.push(f.폭); });
+      if (폭들.length === 1) {
+        폭줄.className = '폭줄';
+        폭줄.textContent = '찍을 폭 ' + 폭들[0] + ' (시안과 같게)';
+      } else {
+        폭줄.className = '폭줄 mix';
+        폭줄.textContent = '시안 폭이 섞여 있어요 (' + 폭들.join('·') + ') — 화면마다 그 폭으로 찍습니다';
+      }
+    }
+    단추그리기();
   }
+
+  function 단추그리기(){
+    단추.disabled = !화면들.length || !갈래;   // 화면과 유형이 둘 다 있어야 보낸다
+  }
+
+  function 대표폭(){
+    return 화면들.length ? 화면들[0].폭 : 0;
+  }
+
+  Array.prototype.forEach.call(갈래칸.querySelectorAll('input'), function (i) {
+    i.onchange = function () { 갈래 = i.value; 갈래그리기(); };
+  });
 
   function 그리기() {
     var el = document.getElementById('목록');
     if (!화면들.length) {
-      el.innerHTML = '<div class="empty">아직 고른 화면이 없습니다.</div>';
-      단추.disabled = true; 단추.textContent = '원본 인식하기';
-      바꾸기갱신();
+      el.innerHTML = '<div class="empty">검수할 화면을 선택해 주세요.</div>';
+      갈래그리기();
       return;
     }
     el.innerHTML = 화면들.map(function (f, i) {
@@ -80,9 +131,7 @@
              '</span><span class="t">' + f.이름.replace(/</g, '&lt;') + '</span><span class="d">' +
              f.폭 + '×' + f.높이 + (넓음 ? ' ⚠︎' : '') + '</span>' + where + '</div>';
     }).join('');
-    단추.disabled = false;
-    단추.textContent = '원본 인식하기';
-    바꾸기갱신();
+    갈래그리기();
   }
 
   function 포털에묻기() {
@@ -97,10 +146,8 @@
       선택지 = j.options || []; 짝 = {}; 주소 = {};
       선택지.forEach(function (o) { 주소[o.page] = o.url; 라벨[o.page] = o.label; });
       (j.frames || []).forEach(function (f) { if (f.match) 짝[f.id] = f.match.page; });
-      var byName = (j.frames || []).filter(function (f) { return f.match && f.match.how === 'name'; }).length;
-      힌트.textContent = byName ? '프레임 이름과 같은 검수 화면이 있어 그 시안을 덮어써요.' : '';
       그리기();
-    }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 힌트.textContent = ''; 그리기(); });
+    }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 그리기(); });
   }
 
   function base64(bytes) {
@@ -109,7 +156,7 @@
     return btoa(s);
   }
 
-  var 바꾼것 = [], 바꾸기실패 = [];
+  var 바꾼것 = [], 바꾸기실패 = [], 남은것 = [];
   onmessage = function (e) {
     var m = e.data.pluginMessage;
     if (!m) return;
@@ -146,45 +193,66 @@
         body: JSON.stringify(m.꾸러미)
       }).then(function (r) {
         if (!r.ok) throw new Error(r.status);
-        말.className = '말 ok';
-        말.textContent = m.꾸러미.화면들.length + '개 보냈습니다. 촬영 준비 사이트에서 이어 하세요.';
-        단추.disabled = false;
+        마무리(m.꾸러미.화면들.length + '개 보냈습니다. 촬영 준비 사이트에서 이어 하세요.', true);
       }).catch(function () {
-        말.className = '말 bad';
-        말.textContent = '촬영 준비 사이트가 꺼져 있습니다. ./site.sh 로 켜고 다시 눌러 주세요.';
-        단추.disabled = false;
+        마무리('촬영 준비 사이트가 꺼져 있습니다. 사이트를 켜고 다시 눌러 주세요.', false);
       });
     }
   };
 
-  function 바꾸기끝() {
-    바꾸기.disabled = false; 단추.disabled = false;
-    if (!바꾼것.length) { 말.className = '말 bad'; 말.textContent = '바꾸지 못했어요 — ' + (바꾸기실패[0] || '알 수 없는 이유'); return; }
-    말.className = '말 ok';
-    말.innerHTML = 바꾼것.length + '개 시안을 바꿨어요. ' + 바꾼것.map(function (b) {
-      return '<a data-url="' + b.url + '">' + b.name.replace(/</g, '&lt;') + ' 검수 화면 열기 ↗</a>';
-    }).join(' · ') + (바꾸기실패.length ? '<br>못 바꾼 것 ' + 바꾸기실패.length + ': ' + 바꾸기실패[0] : '');
+  function 마무리(글, 좋음) {
+    단추그리기();
+    if (바꾼것.length) { 바꾼말(글); return; }      // 시안도 바꿨으면 그것까지 함께 알린다
+    말.className = 좋음 ? '말 ok' : '말 bad';
+    말.textContent = 글;
+  }
+
+  function 바꾼말(덧붙임) {
+    말.className = 바꾼것.length ? '말 ok' : '말 bad';
+    말.innerHTML = (바꾼것.length
+        ? 바꾼것.length + '개 시안을 바꿨어요. ' + 바꾼것.map(function (b) {
+            return '<a data-url="' + b.url + '">' + b.name.replace(/</g, '&lt;') + ' 검수 화면 열기 ↗</a>';
+          }).join(' · ')
+        : '바꾸지 못했어요 — ' + (바꾸기실패[0] || '알 수 없는 이유'))
+      + (바꾸기실패.length && 바꾼것.length ? '<br>못 바꾼 것 ' + 바꾸기실패.length + ': ' + 바꾸기실패[0] : '')
+      + (덧붙임 ? '<br>' + 덧붙임 : '');
     Array.prototype.forEach.call(말.querySelectorAll('a'), function (a) {
       a.onclick = function () { parent.postMessage({ pluginMessage: { 갈래: '검수열기', 주소: 포털 + a.dataset.url } }, '*'); };
     });
+  }
+
+  function 바꾸기끝() {
     포털에묻기();   // 이제 id로 찾히므로 목록을 다시 맞춘다
+    if (남은것.length) { 촬영준비로(); return; }    // 검수 화면이 없던 것만 이어서 촬영 준비로
+    단추그리기();
+    바꾼말('');
+  }
+
+  function 촬영준비로() {
+    말.className = '말'; 말.textContent = '그림 뜨는 중…';
+    parent.postMessage({ pluginMessage: {
+      갈래: '보내기', 플랫폼: 갈래, 찍을폭: 대표폭(),
+      건너뛸: 화면들.filter(function (f) { return 짝[f.id]; }).map(function (f) { return f.id; })
+    } }, '*');
   }
 
   document.getElementById('사이트').onclick = function () {
     parent.postMessage({ pluginMessage: { 갈래: '사이트열기' } }, '*');
   };
 
-  바꾸기.onclick = function () {
-    var 대상 = 화면들.filter(function (f) { return 짝[f.id]; }).map(function (f) { return { id: f.id, page: 짝[f.id] }; });
-    if (!대상.length) return;
-    바꾸기.disabled = true; 단추.disabled = true; 바꾼것 = []; 바꾸기실패 = [];
-    말.className = '말'; 말.textContent = '그림 뜨는 중…';
-    parent.postMessage({ pluginMessage: { 갈래: '검수시안보내기', 대상: 대상 } }, '*');
-  };
-
+  // 단추는 하나다. 줄마다 적힌 대로 갈라 보낸다 —
+  // 검수 화면이 있는 것은 그 시안을 덮어쓰고, 없는 것만 촬영 준비로 보낸다.
   단추.onclick = function () {
     단추.disabled = true;
-    말.className = '말'; 말.textContent = '그림 뜨는 중…';
-    parent.postMessage({ pluginMessage: { 갈래: '보내기' } }, '*');
+    바꾼것 = []; 바꾸기실패 = [];
+    var 바꿀것 = 화면들.filter(function (f) { return 짝[f.id]; })
+                    .map(function (f) { return { id: f.id, page: 짝[f.id] }; });
+    남은것 = 화면들.filter(function (f) { return !짝[f.id]; });
+    if (바꿀것.length) {
+      말.className = '말'; 말.textContent = '그림 뜨는 중…';
+      parent.postMessage({ pluginMessage: { 갈래: '검수시안보내기', 대상: 바꿀것 } }, '*');
+      return;
+    }
+    촬영준비로();
   };
 </script>

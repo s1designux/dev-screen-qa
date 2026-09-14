@@ -166,7 +166,10 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
     첫번호 = 찍힌것[0]["화면번호"]
     화면이름 = (초안.get(첫번호, {}).get("화면묶음")
              or 초안.get(첫번호, {}).get("이름") or 목록.get("앱이름", "화면"))
-    사람키 = f"{작업.get('서비스코드','APP')}-AND-{첫번호}"
+    유형 = 작업.get("유형") or "android"
+    플랫폼 = "web" if 유형 in ("web", "mobile-web") else ("android" if 유형 == "android" else "pcapp")
+    자리표 = {"web": "WEB", "android": "AND", "pcapp": "APP"}[플랫폼]
+    사람키 = f"{작업.get('서비스코드','APP')}-{자리표}-{첫번호}"
 
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
@@ -185,8 +188,9 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
         conn.execute(
             "INSERT INTO screen (uuid, project_id, human_key, name, platform, dev_keys, states, variants)"
             " VALUES (?,?,?,?,?,?,?,?)",
-            (sid, pid, 사람키, 화면이름, "android",
-             json.dumps([작업.get("앱주소", "")], ensure_ascii=False),
+            (sid, pid, 사람키, 화면이름, 플랫폼,
+             # 개발 실행 키 — 앱은 앱 속이름, 웹은 사이트 주소(CLAUDE.md 7번)
+             json.dumps([작업.get("기본주소" if 플랫폼 == "web" else "앱주소", "")], ensure_ascii=False),
              json.dumps([s.get("상태", "default") for s in 찍힌것], ensure_ascii=False),
              json.dumps([목록.get("화면크기", "")], ensure_ascii=False)))
 
