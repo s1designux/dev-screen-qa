@@ -67,7 +67,7 @@ STATUS_LABEL = {'open': '수정필요', 'excluded': '제외', 'variable': '가�
 ENGINE_STATUS = {'confirmed': 'open', 'excluded': 'excluded', 'variable': 'variable'}
 # 후보 종류 → 포털 이슈 분류(issue_categories.ALIASES 키)
 KIND_CATEGORY = {'text': 'text', 'fixed': 'text', 'variable': 'text', 'missing': 'missing', 'area': 'mixed',
-                 'position': 'position', 'icon': 'icon', 'image': 'image', 'shape': 'appearance', 'spacing': 'spacing'}
+                 'position': 'position', 'icon': 'icon', 'image': 'image', 'shape': 'size', 'spacing': 'spacing'}
 
 # 갈래는 **카드에 적힌 말**을 따른다. 요소 종류로 나누면 같은 말이 서로 다른 갈래로 흩어진다.
 # (예: '디자인에 없는 요소'는 요소를 짚었든 자리로만 짚었든 '요소 추가·누락'이다.)
@@ -633,24 +633,24 @@ def group_card_html(ks, numbers, page_id, rnd):
         lbl = issue_categories.label(candidate_category(k))
         if lbl not in 갈래:
             갈래.append(lbl)
-    tags = ''.join(f'<span class="tag">{_e(x)}</span>' for x in 갈래)
+    곁 = list(갈래)
     if any(value_candidates.값후보인가(k) for k in ks):
-        tags += '<span class="tag val">값 대조</span>'
+        곁.append('값 대조')
+    meta = f'<span class="meta">· {_e(" · ".join(곁))}</span>' if 곁 else ''
     몸 = []
     for k in ks:
         n = numbers.get(k['issue_id']) if k['issue_id'] else None
         꼬리 = (f'<div class="passed">✓ 지적 #{n}로 등록됨</div>' if n
                 else ('<div class="passed">✓ 지적으로 등록됨</div>' if k['issue_id'] else ''))
-        몸.append(f'<div class="auto-part st-{k["status"]}" id="cand-{k["id"]}" data-cand="{k["id"]}">'
+        몸.append(f'<div class="auto-part st-{k["status"]}" id="cand-{k["id"]}" data-cand="{k["id"]}" data-type="{_e(issue_categories.label(candidate_category(k)))}">'
                   f'{_ex_button(k, 작게=True)}'
                   f'<span class="auto-part-no" style="background:{issue_categories.color(candidate_category(k))}">{k["no"]}</span>'
                   f'{card_view.body_html(k, page_id)}{꼬리}</div>')
     ids = ','.join(k['id'] for k in ks)
     return (f'<div class="issue auto-card auto-group-card" id="cand-{첫["id"]}" data-cand="{첫["id"]}" '
-            f'data-cands="{ids}" onclick="autoFocus(\'{첫["id"]}\')">'
+            f'data-cands="{ids}" data-types="{_e(",".join(갈래))}" onclick="autoFocus(\'{첫["id"]}\')">'
             f'{전부}<div class="ihead"><span class="pinno auto-no" style="background:{색}">{번호}</span>'
-            f'<b>{_e(이름)}</b></div>'
-            f'<div class="props">{tags}</div>'
+            f'<b>{_e(이름)}</b>{meta}</div>'
             f'<div class="auto-parts">{"".join(몸)}</div></div>')
 
 
@@ -671,11 +671,13 @@ def card_html(k, numbers, page_id, rnd):
               f'onclick="event.stopPropagation();autoStatus(\'{k["id"]}\', '
               f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
     from_value = value_candidates.값후보인가(k)
-    tags = f'<span class="tag">{_e(kind_lbl)}</span>' + ('<span class="tag val">값 대조</span>' if from_value else '')
+    # 성질·출처는 줄을 따로 두지 않고 **제목 옆 작은 글씨**로 붙인다 — 칩 한 줄이 카드만 키웠다(river 2026-09-14).
+    # 낱개 카드는 제목이 곧 성질이라(예: '색상이 다르게 적용됨') 출처만 적는다.
+    곁 = [x for x in (card_view.컴포넌트이름(k, page_id), '값 대조' if from_value else '') if x]
+    meta = f'<span class="meta">· {_e(" · ".join(곁))}</span>' if 곁 else ''
     # 본문(무엇이 기준인지 · 지금 개발은 어떤지 · 개발이 볼 자리)은 card_view가 줄을 갈라 그린다.
-    return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" onclick="autoFocus(\'{k["id"]}\')">'
-            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}<b>{_e(card_view.제목(k))}</b></div>'
-            f'<div class="props">{tags}</div>'
+    return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" data-types="{_e(kind_lbl)}" onclick="autoFocus(\'{k["id"]}\')">'
+            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}<b>{_e(card_view.제목(k))}</b>{meta}</div>'
             f'{card_view.body_html(k, page_id)}{foot}</div>')
 
 
@@ -733,19 +735,23 @@ CSS = '''
 .auto-card .auto-ex.on:hover{background:var(--color-chip-line-bg-hover)}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
 /* 컴포넌트 덩어리 카드 — 안에 차이 묶음이 여럿. 묶음마다 번호와 제외를 따로 둔다. */
-.auto-parts{margin-top:var(--spacing-4)}
-.auto-part{position:relative;padding:var(--spacing-10) 0 var(--spacing-4) var(--spacing-28);
-  border-top:var(--border-width-1) dashed var(--color-border-subtle)}
-.auto-part:first-child{border-top:0;padding-top:var(--spacing-4)}
+.auto-parts{margin-top:var(--spacing-8)}
+/* 차이 묶음은 상자로 싸지 않는다 — 카드 안에 상자가 또 생긴다(river 2026-09-14).
+   안쪽 점선을 없앴으니 가는 선 하나와 넉넉한 여백이면 충분히 갈라 보인다. */
+.auto-part{position:relative;padding:var(--spacing-16) 0 var(--spacing-4) var(--spacing-28)}
+.auto-part + .auto-part{border-top:var(--border-width-1) solid var(--color-border-subtle)}
+.auto-part:first-child{padding-top:var(--spacing-4)}
 .auto-part.st-excluded,.auto-part.st-variable{opacity:.55}
-.auto-part-no{position:absolute;left:0;top:var(--spacing-10);
+.auto-part-no{position:absolute;left:0;top:var(--spacing-16);
   display:inline-flex;align-items:center;justify-content:center;min-width:var(--sizing-20);height:var(--sizing-20);
   padding:0 var(--spacing-4);border-radius:var(--radius-4);
   color:var(--color-text-inverse);font-size:var(--font-size-12);font-weight:var(--font-weight-bold)}
-.auto-part:first-child .auto-part-no{top:var(--spacing-4)}
-.auto-card .auto-ex.small{position:absolute;top:var(--spacing-6);right:0;height:var(--sizing-28);
+
+.auto-card .auto-ex.small{position:absolute;top:var(--spacing-12);right:0;height:var(--sizing-28);
   padding:0 var(--spacing-12);font-size:var(--font-size-12)}
 .auto-group-card .auto-part .c-body{margin-top:0}
+.auto-part:first-child .auto-part-no{top:var(--spacing-4)}
+.auto-part:first-child .auto-ex.small{top:0}
 .auto-actions{display:flex;gap:var(--spacing-6);margin-top:var(--spacing-6);flex-wrap:wrap}
 
 

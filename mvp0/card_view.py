@@ -274,6 +274,11 @@ def 쓸이름(레이어, 꼬리):
     return (꼬리 or 레이어 or '').strip()
 
 
+def 컴포넌트이름(k, page_id=None, database=None, uploads=None):
+    """그 후보가 속한 시안 컴포넌트 이름. 컴포넌트로 만들어 두지 않은 요소면 빈 글자."""
+    return 컴포넌트말(기준요소(k, 요소표(page_id, database, uploads))[1])
+
+
 def body_html(k, page_id=None, database=None, uploads=None):
     줄들, 자리, 안내, 잰것 = 줄뽑기(k)
     표 = 요소표(page_id, database, uploads)
@@ -293,7 +298,7 @@ def body_html(k, page_id=None, database=None, uploads=None):
     if 줄들:
         여럿 = 잰것 or any(r['개발'] for r in 줄들)
         조각.append('<div class="c-diff%s">' % ('' if 여럿 else ' one'))
-        조각.append('<span class="hd">무엇이</span>')
+        조각.append('<span class="hd"></span>')   # 첫 칸 제목은 두지 않는다 — 아래 줄 이름이 스스로 말한다(river 2026-09-14)
         if 여럿:
             조각.append('<span class="hd">지금 개발</span><span class="hd"></span>')
         조각.append('<span class="hd">디자인 기준</span>')
@@ -315,13 +320,13 @@ def body_html(k, page_id=None, database=None, uploads=None):
     칸 = []
     if 자리:
         칸.append(('개발이 볼 자리', '<code class="c-sel">%s</code>' % _e(자리)))
-    if 컴말:
-        칸.append(('디자인 컴포넌트', '<b class="c-comp">%s</b>' % _e(컴말)))
-    x, y = int(_g(k, 'box_x', 0) or 0), int(_g(k, 'box_y', 0) or 0)
-    w, h = int(_g(k, 'box_w', 0) or 0), int(_g(k, 'box_h', 0) or 0)
-    칸.append(('화면 자리', '%s번 핀 · (%d,%d) %d×%d' % (_e(_g(k, 'no', '')), x, y, w, h)))
-    조각.append('<dl class="c-where">' + ''.join(
-        '<dt>%s</dt><dd>%s</dd>' % (_e(a), b) for a, b in 칸) + '</dl>')
+    # '디자인 컴포넌트'는 본문에 줄을 두지 않는다 — 있을 때만 **제목 옆 글씨**로 나간다(river 2026-09-14).
+    # '화면 자리'(핀 번호 · 좌표 · 크기) 줄은 두지 않는다 (river 확정 2026-09-14).
+    # 번호는 카드 왼쪽 위에 이미 크게 붙어 있고, 픽셀 좌표는 개발이 쓰지 않는다 —
+    # 수정요청서는 좌표 대신 선택자와 '아래쪽 가운데' 같은 말로 자리를 가리킨다.
+    if 칸:
+        조각.append('<dl class="c-where">' + ''.join(
+            '<dt>%s</dt><dd>%s</dd>' % (_e(a), b) for a, b in 칸) + '</dl>')
 
     pol = _짐(_g(k, 'policy')) or {}
     if pol.get('reason'):
@@ -347,8 +352,9 @@ CSS = '''
 .c-diff .ref{color:var(--color-text-primary);font-weight:var(--font-weight-bold);word-break:break-all}
 .c-tok{display:block;font-size:var(--font-size-10);font-weight:var(--font-weight-bold);color:var(--color-purple-400);letter-spacing:.01em}
 .c-eye{margin:var(--spacing-8) 0 0;color:var(--color-text-caption)}
+/* 윗선을 두지 않는다 — 차이 묶음을 가르는 판 테두리와 생김새가 같아 헷갈렸다(river 2026-09-14) */
 .c-where{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--spacing-4) var(--spacing-10);
-  margin:var(--spacing-10) 0 0;padding-top:var(--spacing-8);border-top:1px dashed var(--color-border-subtle)}
+  margin:var(--spacing-10) 0 0;padding-top:var(--spacing-8)}
 .c-where dt{color:var(--color-text-helper);font-size:var(--font-size-12);white-space:nowrap}
 .c-where dd{margin:0;color:var(--color-text-tertiary);font-size:var(--font-size-12);min-width:0}
 .c-sel{font-family:ui-monospace,monospace;font-size:var(--font-size-12);color:var(--color-text-secondary);background:var(--color-bg-subtle);

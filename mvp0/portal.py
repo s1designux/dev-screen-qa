@@ -715,7 +715,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             )
         else:
             foot = '<div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>' if s_eff in CLOSED_STATUSES else '<div class="loc">확인·판단 대기 중 · 이력 유지</div>'
-        return f"""<div class="issue {cls}" id="issue-{i['uuid']}" data-issue="{i['uuid']}" onclick="focusPin('{i['uuid']}')">
+        return f"""<div class="issue {cls}" id="issue-{i['uuid']}" data-issue="{i['uuid']}" data-types="{_esc(issue_categories.label(i['category']))}" onclick="focusPin('{i['uuid']}')">
           <div class="ihead">
             <span class="pinno" style="background:{type_color}">{n}</span>
             <span class="state {cls}">{_esc(state_label)}</span>
@@ -768,6 +768,24 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             f'<div class="panel" id="panel-{gi}"{"" if gi == 0 else " hidden"}>'
             f'{body}</div>'
         )
+    # 성질 거르개 — 탭과 같은 줄 오른쪽. 생김새(밑줄 탭 ↔ 알약 칩)가 달라 헷갈리지 않는다.
+    성질 = []
+    for src in ([k for k in (auto_view or {}).get('candidates', []) if k['status'] == 'open'] if auto_view else []):
+        lb = issue_categories.label(auto_inspect.candidate_category(src))
+        if lb not in 성질:
+            성질.append(lb)
+    for i in fix_items:
+        lb = issue_categories.label(i['category'])
+        if lb not in 성질:
+            성질.append(lb)
+    filterbar = ''
+    if len(성질) > 1:
+        칩 = ''.join(f'<button type="button" class="fchip" data-type="{_esc(x)}" onclick="filterType(this)">{_esc(x)}</button>'
+                    for x in 성질)
+        filterbar = ('<span class="fbar"><span class="flbl">성질</span>'
+                     '<button type="button" class="fchip on" data-type="" onclick="filterType(this)">전체</button>'
+                     + 칩 + '</span>')
+
     auto_extra = (f'<script id="auto-data" type="application/json">{auto_inspect.overlay_json(auto_view)}</script>'
                   f'<script>{auto_inspect.JS}</script>') if auto_view else ''
     issues_html = panels
@@ -878,7 +896,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     </div>
 
     {'<aside class="app-sidebar">' if native_app else ''}
-    <div class="tabbar">{tabbar}</div>
+    <div class="tabbar">{tabbar}{filterbar}</div>
     <div class="cards" id="cards">{issues_html}</div>
     {'</aside></div>' if native_app else ''}
   </div>
@@ -1300,6 +1318,16 @@ _PAGE_CSS = """
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:var(--spacing-16); align-items:start; }
   /* 유형 탭 바 (고정 영역) */
   .tabbar { flex-shrink:0; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
+  /* 성질 거르개 — 탭과 같은 줄 오른쪽 끝. 탭은 밑줄, 거르개는 알약이라 섞이지 않는다. */
+  .fbar { margin-left:auto; display:inline-flex; align-items:center; gap:var(--spacing-6); flex-wrap:wrap; align-self:center; }
+  .flbl { font-size:var(--font-size-12); color:var(--color-text-caption); margin-right:var(--spacing-2); }
+  .fchip { height:var(--sizing-28); padding:0 var(--spacing-16); border-radius:var(--radius-full);
+    border:var(--border-width-1) solid var(--color-chip-line-border-default);
+    background:var(--color-chip-line-bg-default); color:var(--color-chip-line-label-default);
+    font-size:var(--font-size-12); font-weight:var(--font-weight-medium); line-height:1; cursor:pointer; }
+  .fchip:hover { background:var(--color-chip-line-bg-hover); }
+  .fchip.on { border-color:var(--color-chip-line-border-selected); color:var(--color-chip-line-label-selected); }
+  .auto-part.off { opacity:.35; }
   .tab .sw { display:inline-block; width:var(--spacing-10); height:var(--spacing-10); border-radius:var(--radius-2); margin-right:var(--spacing-8); }
   .tab .cnt { margin-left:var(--spacing-6); font-size:var(--font-size-12); color:var(--color-text-caption); }
   .tab.on .cnt { color:var(--color-navigation-label-selected); }
@@ -1307,6 +1335,8 @@ _PAGE_CSS = """
   .issue { background:var(--color-surface-default); border:1px solid var(--color-border-subtle); border-radius:var(--radius-12); padding:var(--spacing-16) var(--spacing-16); cursor:pointer; transition:box-shadow .15s, border-color .15s; }
   .issue.hl { border-color:var(--color-status-warning); box-shadow:var(--shadow-raised); }
   .ihead { display:flex; align-items:center; gap:var(--spacing-8); flex-wrap:wrap; }
+  /* 성질·출처는 제목 옆 작은 글씨로 — 칩 한 줄을 두지 않아 카드가 커지지 않는다 */
+  .ihead .meta { font-size:var(--font-size-12); font-weight:var(--font-weight-regular); color:var(--color-text-caption); margin-left:calc(-1 * var(--spacing-4)); }
   .pinno { width:24px; height:24px; border-radius:50%; color:var(--color-surface-default); font-size:var(--font-size-14); font-weight:var(--font-weight-bold); display:inline-flex; align-items:center; justify-content:center; background:var(--color-text-danger); flex-shrink:0; }
   .pinno.done { background:var(--color-status-success); } .pinno.mid { background:var(--color-text-caption); }
   .type { font-size:var(--font-size-12); font-weight:var(--font-weight-bold); padding:var(--spacing-4) var(--spacing-10); border-radius:var(--radius-6); background:var(--color-purple-50); color:var(--color-purple-400); }
@@ -1399,6 +1429,19 @@ function _selPin(uuid){
   bringFront(p);            // 맨 앞으로
 }
 // 유형 탭 전환 (그 그룹 카드만 보이게)
+// ── 성질 거르개: 고른 성질을 품은 카드만 남기고, 카드 안에서도 그 줄만 진하게 ──
+function filterType(btn){
+  var t = btn.getAttribute('data-type') || '';
+  document.querySelectorAll('.fchip').forEach(function(c){ c.classList.toggle('on', c === btn); });
+  document.querySelectorAll('.issue').forEach(function(card){
+    var have = (card.getAttribute('data-types') || '').split(',').filter(Boolean);
+    card.hidden = !!t && have.indexOf(t) < 0;
+  });
+  document.querySelectorAll('.auto-part').forEach(function(part){
+    part.classList.toggle('off', !!t && part.getAttribute('data-type') !== t);
+  });
+  var box = document.getElementById('cards'); if(box){ box.scrollTop = 0; }
+}
 function showTab(gi){
   gi = String(gi);
   document.querySelectorAll('.panel').forEach(function(p){ p.hidden = (p.id !== 'panel-' + gi); });
