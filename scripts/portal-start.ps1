@@ -1,10 +1,16 @@
-﻿# 검수 포털을 켠다. 같은 망의 동료도 들어올 수 있다.
-# 이 창을 닫으면 포털이 꺼진다.
+﻿# 검수 포털과 촬영 준비 사이트를 함께 켠다. 같은 망의 동료도 들어올 수 있다.
+# 이 창을 닫으면 포털이 꺼진다(촬영 준비 사이트는 따로 뜬 창에서 돈다).
 param([Parameter(Mandatory=$true)][string]$Root)
 
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path
 $dir  = Join-Path $Root 'mvp0'
+
+# 촬영 준비 사이트도 같이 켠다. 이미 켜져 있으면 그 창이 스스로 알린다.
+$촬영 = Join-Path $Root '촬영준비-켜기-윈도우.bat'
+if (Test-Path $촬영) {
+    Start-Process -FilePath $촬영 -WorkingDirectory $Root
+}
 
 # 이미 켜져 있으면 또 켜지 않는다 (자동 시작으로 켜진 뒤 두 번 눌렀을 때)
 $busy = (netstat -ano | Select-String ':8765' | Select-String 'LISTENING')

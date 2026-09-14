@@ -2,7 +2,8 @@
 
   ① 디자인 고르기 → ② 찍을 목록 초안 → ③ 조건 확인 → ④ 전체 촬영
 
-파이썬 표준 http.server만 쓴다(추가 설치 0). 내 PC에서만 뜬다(127.0.0.1).
+파이썬 표준 http.server만 쓴다(추가 설치 0). 기본은 내 PC에서만 뜨고,
+QA_CAPTURE_BIND=0.0.0.0 이면 같은 사무실 네트워크의 동료도 들어올 수 있다.
 찍는 일 자체는 기존 lib/runner.py 가 그대로 한다 — 이 사이트는 그 앞의 준비만 맡는다.
 
 실행: ./site.sh   →  http://127.0.0.1:8767
@@ -34,6 +35,9 @@ import nametag
 
 작업파일 = 여기 / "작업.json"
 PORT = int(os.environ.get("QA_CAPTURE_PORT", "8767"))
+# 기본은 내 PC에서만. QA_CAPTURE_BIND=0.0.0.0 이면 같은 망의 동료도 들어올 수 있다.
+BIND = os.environ.get("QA_CAPTURE_BIND", "127.0.0.1")
+공유중 = BIND in ("0.0.0.0", "")
 ADB = os.path.expanduser("~/Library/Android/sdk/platform-tools/adb")
 
 _촬영 = {"진행중": False, "폴더": None, "로그": None}
@@ -315,7 +319,7 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:13px">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
 <div class="wrap"><div class="steps">{칩}</div>{알림}{본문}</div>
-<footer>내 PC에서만 열린다(127.0.0.1:{PORT}) · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
+<footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
 </body></html>"""
 
 
@@ -1260,8 +1264,8 @@ class _여섯(HTTPServer):
 
 def main():
     # 기본은 내 PC에서만. 같은 망의 다른 PC에서도 열려면 QA_CAPTURE_BIND=0.0.0.0 으로 켠다.
-    묶을자리 = os.environ.get("QA_CAPTURE_BIND", "127.0.0.1")
-    보일주소 = 묶을자리 if 묶을자리 not in ("0.0.0.0", "") else _내주소()
+    묶을자리 = BIND or "127.0.0.1"
+    보일주소 = 묶을자리 if not 공유중 else _내주소()
     print(f"자동 캡쳐 사이트 → http://{보일주소}:{PORT}   (끄려면 Ctrl+C)")
     try:                                   # 127.0.0.1 과 ::1 둘 다 받는다(Figma 플러그인용)
         여섯 = _여섯(("::1", PORT), 손님)
@@ -1269,6 +1273,13 @@ def main():
     except OSError:
         pass
     HTTPServer((묶을자리, PORT), 손님).serve_forever()
+
+
+def _어디서열리나():
+    """아래쪽에 적는 한 줄. 동료 공유를 켰는지에 따라 다르다."""
+    if 공유중:
+        return f"같은 사무실 네트워크에서 열린다({_내주소()}:{PORT})"
+    return f"내 PC에서만 열린다(127.0.0.1:{PORT})"
 
 
 def _내주소():
