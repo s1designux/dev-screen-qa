@@ -893,6 +893,43 @@ def 촬영시작():
     threading.Thread(target=돌리기, daemon=True).start()
 
 
+def 진행줄(글):
+    """촬영기록에서 '지금 몇 번째인지'를 읽는다 — `[3/8] 이름 →` 줄과 그 아래 ✗ 를 센다.
+
+    돌아가는 것을 눈으로 볼 수 있게 하려는 것뿐이다(사람이 '멈춘 건가' 하고 기다리지 않게).
+    """
+    지금, 전부, 이름 = 0, 0, ""
+    결과 = []          # 화면마다 True(찍힘)/False(못 찍음)
+    for 줄 in (글 or "").splitlines():
+        m = re.match(r"\s*\[(\d+)/(\d+)\]\s*(.*?)\s*→", 줄)
+        if m:
+            지금, 전부, 이름 = int(m.group(1)), int(m.group(2)), m.group(3)
+            결과.append(True)
+            continue
+        if "✗" in 줄 and 결과:
+            결과[-1] = False
+    return {"지금": 지금, "전부": 전부, "이름": 이름,
+            "찍힘": sum(1 for x in 결과 if x), "못찍음": sum(1 for x in 결과 if not x)}
+
+
+def 진행바(글, 끝남=False):
+    """찍는 동안 '몇 번째 / 몇 개'를 막대와 글로 보여 준다."""
+    r = 진행줄(글)
+    if not r["전부"]:
+        return '<div class="hint" style="margin:8px 0 0">시작하는 중…</div>' if not 끝남 else ""
+    찬만큼 = round(100 * (r["전부"] if 끝남 else max(0, r["찍힘"] + r["못찍음"] - 1)) / r["전부"])
+    센말 = f'찍은 것 {r["찍힘"]}장' + (f' · 못 찍은 것 {r["못찍음"]}장' if r["못찍음"] else "")
+    말 = (f'{r["전부"]}장 다 돌았습니다 · {센말}' if 끝남
+         else f'{r["지금"]} / {r["전부"]}번째 — {_e(r["이름"])} <span class="muted">· {센말}</span>')
+    return f"""
+    <div style="margin:10px 0 0">
+      <div style="height:8px;border-radius:999px;background:#e9e9e9;overflow:hidden">
+        <div style="height:100%;width:{찬만큼}%;background:#1D6CEB;transition:width .3s"></div>
+      </div>
+      <div class="hint" style="margin:6px 0 0">{말}</div>
+    </div>"""
+
+
 def 화면_촬영():
     작업 = 작업읽기()
     폴더 = 작업.get("결과폴더")
@@ -957,6 +994,7 @@ def 화면_촬영():
     본문 = f"""{새로고침}
     <div class="card"><h2>{'끝났습니다' if 끝남 else '찍는 중…'}
       <span class="muted">· {_e(폴더.name)}</span></h2>
+      {진행바(글, 끝남)}
       <pre class="log">{_e(글)}</pre>
       <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else f'<span class="hint">{찍는중안내(작업)}</span>'}</div>
     </div>{보내기}{결과}"""
