@@ -11,6 +11,7 @@
     function num(v){ var f=parseFloat(v); return isNaN(f)?0:r(f); }
     function firstFont(v){ return (v||'').split(',')[0].replace(/["']/g,'').trim(); }
     function transparent(c){ return !c || c==='transparent' || c==='rgba(0, 0, 0, 0)'; }
+    function 픽셀(v){ var f=parseFloat(v); return (v && /px/.test(v) && !isNaN(f)) ? r(f) : null; }
 
     // 개발·퍼블리싱이 "어디를 고치면 되는지" 알아볼 수 있게, 그 요소를 가리키는 CSS 선택자를 만든다.
     // 디자인 레이어 이름은 디자이너가 임의로 붙인 것이라 개발 쪽에서 못 알아본다.
@@ -41,6 +42,72 @@
       return parts.join(' > ');
     }
 
+
+    // ── 가상요소(::before·::after) 도 잰다 ────────────────────────────────
+    // 구분선·밑줄·말머리표는 태그 없이 CSS 로만 그리는 일이 많다. 태그가 없으니 위 훑기에
+    // 잡히지 않아 "디자인엔 있는데 개발엔 없다"는 헛지적이 되곤 했다.
+    // 가상요소는 상자를 직접 물어볼 수 없어서, 부모의 상자와 CSS 값으로 자리를 셈한다.
+    function 가상요소(el, rect, cs, 자리이름){
+      var s = getComputedStyle(el, 자리이름);
+      if (!s) return null;
+      var c = s.content;
+      if (!c || c === 'none' || c === 'normal') return null;
+      if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) return null;
+
+      var w = 픽셀(s.width), h = 픽셀(s.height);
+      if (w === null || h === null || w < 1 || h < 1) return null;   // 크기를 못 읽으면 견줄 수 없다
+
+      var 칠 = !transparent(s.backgroundColor);
+      var 테 = num(s.borderTopWidth)>0 || num(s.borderBottomWidth)>0 || num(s.borderLeftWidth)>0 || num(s.borderRightWidth)>0;
+      var 그림 = s.backgroundImage && s.backgroundImage !== 'none';
+      if (!(칠 || 테 || 그림)) return null;                          // 보이는 칠이 없으면 잴 것이 없다
+
+      // 부모의 테두리·안쪽여백을 걷어낸 '속 상자'
+      var bt=num(cs.borderTopWidth), bl=num(cs.borderLeftWidth), bR=num(cs.borderRightWidth), bb=num(cs.borderBottomWidth);
+      var pt=num(cs.paddingTop), pl=num(cs.paddingLeft), pr=num(cs.paddingRight), pb=num(cs.paddingBottom);
+      var cx = rect.left + bl + pl, cy = rect.top + bt + pt;
+      var cw = rect.width - bl - bR - pl - pr, ch = rect.height - bt - bb - pt - pb;
+      var mt=num(s.marginTop), mr=num(s.marginRight), mb=num(s.marginBottom), ml=num(s.marginLeft);
+      var 앞 = (자리이름 === '::before');
+      var x, y;
+
+      if (s.position === 'absolute' || s.position === 'fixed') {
+        var ax = rect.left + bl, ay = rect.top + bt;                 // 안쪽여백 상자
+        var aw = rect.width - bl - bR, ah = rect.height - bt - bb;
+        var L = 픽셀(s.left), R = 픽셀(s.right), T = 픽셀(s.top), B = 픽셀(s.bottom);
+        x = (L !== null) ? ax + L : (R !== null ? ax + aw - R - w : ax);
+        y = (T !== null) ? ay + T : (B !== null ? ay + ah - B - h : ay);
+      } else {
+        var 가로줄 = /flex|grid/.test(cs.display) && !/column/.test(cs.flexDirection || '');
+        if (가로줄) {
+          x = 앞 ? (cx + ml) : (cx + cw - mr - w);
+          var ai = cs.alignItems || '';
+          y = /center/.test(ai) ? cy + (ch - h)/2 : (/end/.test(ai) ? cy + ch - h - mb : cy + mt);
+        } else if (s.display === 'block' || s.display === 'flex' || s.display === 'grid') {
+          x = cx + ml;                                               // 블록이면 부모 폭에 걸쳐 눕는다
+          y = 앞 ? (cy + mt) : (cy + ch - mb - h);
+        } else {
+          x = 앞 ? (cx + ml) : (cx + cw - mr - w);                   // 인라인이면 글자 앞·뒤
+          y = cy + (ch - h)/2;
+        }
+      }
+
+      return {
+        tag: el.tagName, cls: (el.className&&el.className.toString?el.className.toString():'').slice(0,40),
+        domId: '', sel: (selectorOf(el) + 자리이름).slice(0,120),
+        text: '', isText: false,
+        rect: { left:x, top:y, width:w, height:h, right:x+w, bottom:y+h },
+        style: {
+          color: s.color, backgroundColor: s.backgroundColor,
+          fontSize: num(s.fontSize), fontWeight: num(s.fontWeight), fontFamily: firstFont(s.fontFamily),
+          lineHeight: 0, borderRadius: num(s.borderTopLeftRadius), borderWidth: num(s.borderTopWidth),
+          borderColor: s.borderTopColor, paddingTop: num(s.paddingTop), paddingRight: num(s.paddingRight),
+          paddingBottom: num(s.paddingBottom), paddingLeft: num(s.paddingLeft),
+          textAlign: s.textAlign, opacity: num(s.opacity)
+        }
+      };
+    }
+
     var all = document.body.getElementsByTagName('*');
     var SKIP = { SCRIPT:1, STYLE:1, META:1, LINK:1, HEAD:1, NOSCRIPT:1, BR:1, HR:1 };
     var raw = [];
@@ -48,9 +115,16 @@
       var el = all[i];
       if (SKIP[el.tagName]) continue;
       var rect = el.getBoundingClientRect();
-      if (rect.width < 3 || rect.height < 3) continue;
+      // 1px 짜리 구분선·밑줄도 디자인 요소다 — 3px 그물에 걸려 사라지던 것을 살린다.
+      // 보이는 칠이 없는 것은 아래 '의미있는가' 그물에서 어차피 빠진다.
+      if (rect.width < 1 || rect.height < 1) continue;
       var cs = getComputedStyle(el);
       if (cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0) continue;
+
+      // 부모가 아래 그물에서 빠지더라도 가상요소는 따로 담는다
+      // (구분선을 단 li 는 제 칠도 글자도 없어 빠지지만, 그 ::after 는 엄연한 선이다).
+      var 앞뒤 = [가상요소(el, rect, cs, '::before'), 가상요소(el, rect, cs, '::after')];
+      for (var g=0; g<2; g++){ if (앞뒤[g]) raw.push(앞뒤[g]); }
 
       var ownText = '';
       for (var k=0;k<el.childNodes.length;k++){ var nd=el.childNodes[k]; if(nd.nodeType===3){ ownText += nd.textContent; } }
@@ -91,7 +165,7 @@
         style: o.style, contentZone: false
       };
     });
-    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.2' }, elements: elements };
+    return { meta:{ label:name, source:'web-all', url:location.href, title:document.title, viewportWidth:window.innerWidth, artboardWidth:r(W), artboardHeight:r(H), contentX:r(minX), contentY:r(minY), docW:r(Math.max(document.documentElement.scrollWidth, document.body?document.body.scrollWidth:0)), capturedAt:new Date().toISOString(), toolVersion:'core-1.3' }, elements: elements };
   };
 })();
 
