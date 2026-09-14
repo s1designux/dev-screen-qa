@@ -24,10 +24,16 @@ import tempfile
 import urllib.request
 from datetime import datetime
 
-저장소 = "s1designux/S1-UX-DESIGN-with-AI"
-가지 = "main"
-받는주소 = "https://codeload.github.com/%s/tar.gz/refs/heads/%s" % (저장소, 가지)
-판주소 = "https://api.github.com/repos/%s/commits/%s" % (저장소, 가지)
+import sys as _sys
+_뿌리 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _뿌리 not in _sys.path:
+    _sys.path.insert(0, _뿌리)
+import 설정 as _설정                      # 이 컴퓨터에서만 쓰는 값 (설정.json → 환경변수 → 기본값)
+
+저장소 = _설정.값("정본.저장소")
+가지 = _설정.값("정본.가지")
+받는주소 = "%s/%s/tar.gz/refs/heads/%s" % (_설정.값("정본.받는곳").rstrip("/"), 저장소, 가지)
+판주소 = "%s/repos/%s/commits/%s" % (_설정.값("정본.판보는곳").rstrip("/"), 저장소, 가지)
 
 
 class 정본오류(Exception):
@@ -53,8 +59,21 @@ def 최신판():
 def 받아오기(자리=None, 시간=60):
     """정본을 통째로 받아 임시 폴더에 풀고 그 경로를 돌려준다. 저장소 안에는 두지 않는다.
 
+    인터넷이 막힌 곳(내부망)에서는 설정.json 의 `정본.이미받은자리` 에 미리 내려받아 둔
+    폴더를 적어 두면 인터넷을 쓰지 않고 그 폴더를 그대로 쓴다.
+
     돌려주는 것: {"경로", "커밋", "받은때"}
     """
+    미리받은것 = _설정.자리("정본.이미받은자리")
+    if 미리받은것:
+        if not os.path.isdir(str(미리받은것)):
+            raise 정본오류("설정.json 의 정본.이미받은자리 에 적은 폴더가 없습니다 — %s" % 미리받은것)
+        표시 = os.path.join(str(미리받은것), ".받은때")
+        적힌때 = ""
+        if os.path.exists(표시):
+            with open(표시, encoding="utf-8") as f:
+                적힌때 = f.read().strip()
+        return {"경로": str(미리받은것), "커밋": "내려받아둔판", "받은때": 적힌때 or "(적혀 있지 않음)"}
     커밋 = 최신판()
     자리 = 자리 or 캐시자리()
     목적지 = os.path.join(자리, 커밋 or "main")

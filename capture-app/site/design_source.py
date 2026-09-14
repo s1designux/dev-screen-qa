@@ -20,7 +20,13 @@ class 읽기오류(Exception):
 
 
 def 열쇠():
-    t = os.environ.get("FIGMA_TOKEN", "").strip()
+    import sys
+    from pathlib import Path as _P
+    뿌리 = _P(__file__).resolve().parent.parent.parent
+    if str(뿌리) not in sys.path:
+        sys.path.insert(0, str(뿌리))
+    import 설정 as 설정
+    t = (설정.값("피그마.열쇠") or "").strip()          # 설정.json → 환경변수 FIGMA_TOKEN
     if t:
         return t
     if os.path.exists(열쇠파일):

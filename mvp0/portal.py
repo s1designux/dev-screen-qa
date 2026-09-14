@@ -37,11 +37,16 @@ import queries
 from constants import UNRESOLVED_STATUSES, CLOSED_STATUSES, MAX_ROUNDS
 
 BASE = Path(__file__).resolve().parent
-REAL_DB = Path(os.environ.get("QA_PORTAL_DB", str(BASE / "mvp0-real.db")))   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
-UPLOADS = Path(os.environ.get("QA_PORTAL_UPLOADS", str(BASE / "uploads")))        # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
-PORT = int(os.environ.get("QA_PORTAL_PORT", "8765"))
-# 기본은 이 컴퓨터에서만. QA_PORTAL_SHARE=1 이면 같은 네트워크의 동료도 들어올 수 있다.
-HOST = "0.0.0.0" if os.environ.get("QA_PORTAL_SHARE") == "1" else "127.0.0.1"
+import sys as _sys
+if str(BASE.parent) not in _sys.path:
+    _sys.path.insert(0, str(BASE.parent))
+import 설정 as 설정                                    # 이 컴퓨터에서만 쓰는 값 (설정.json → 환경변수 → 기본값)
+
+REAL_DB = 설정.자리("포털.자료함")   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
+UPLOADS = 설정.자리("포털.그림보관")      # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
+PORT = 설정.값("포털.포트")
+# 기본은 이 컴퓨터에서만. 설정.json 의 포털.동료공유 를 true 로 하면 같은 네트워크의 동료도 들어올 수 있다.
+HOST = "0.0.0.0" if 설정.값("포털.동료공유") else "127.0.0.1"
 
 
 def _is_private_ip(addr):

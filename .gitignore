@@ -96,3 +96,6 @@ validation-image-qa/repro/*.html
 !validation-image-qa/repro/make_chrome_capture.html
 !validation-image-qa/repro/table_mock.html
 validation-image-qa/repro/plugin_panel_*.png
+
+# 이 컴퓨터에서만 쓰는 값 (실제 주소·계정·자리). 예시(설정.예시.json)만 올린다.
+설정.json

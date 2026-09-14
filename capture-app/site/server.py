@@ -34,11 +34,15 @@ import intake as 접수하기
 import nametag
 
 작업파일 = 여기 / "작업.json"
-PORT = int(os.environ.get("QA_CAPTURE_PORT", "8767"))
-# 기본은 내 PC에서만. QA_CAPTURE_BIND=0.0.0.0 이면 같은 망의 동료도 들어올 수 있다.
-BIND = os.environ.get("QA_CAPTURE_BIND", "127.0.0.1")
+
+sys.path.insert(0, str(뿌리.parent))
+import 설정 as 설정                     # 이 컴퓨터에서만 쓰는 값 (설정.json → 환경변수 → 기본값)
+
+PORT = 설정.값("촬영준비.포트")
+# 기본은 내 PC에서만. 설정.json 의 촬영준비.받는자리 를 0.0.0.0 으로 하면 같은 망의 동료도 들어올 수 있다.
+BIND = 설정.값("촬영준비.받는자리")
 공유중 = BIND in ("0.0.0.0", "")
-ADB = os.path.expanduser("~/Library/Android/sdk/platform-tools/adb")
+ADB = str(설정.자리("촬영준비.adb") or "")
 
 _촬영 = {"진행중": False, "폴더": None, "로그": None}
 

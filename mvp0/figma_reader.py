@@ -7,7 +7,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, parse_qs, urlencode
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-TOKEN = os.environ.get('FIGMA_ACCESS_TOKEN', '')
+import sys as _sys
+from pathlib import Path as _P
+_뿌리 = _P(__file__).resolve().parent.parent
+if str(_뿌리) not in _sys.path:
+    _sys.path.insert(0, str(_뿌리))
+import 설정 as _설정
+# 설정.json 의 피그마.열쇠 → 환경변수 FIGMA_TOKEN → 예전 이름 FIGMA_ACCESS_TOKEN
+TOKEN = (_설정.값('피그마.열쇠') or os.environ.get('FIGMA_ACCESS_TOKEN', '')).strip()
 
 
 def parse_link(link):
