@@ -31,6 +31,7 @@ import actions as 동작말
 import appbook as 앱사전
 import 동작점검
 import 동작규칙
+import 시안요소
 import draft as 초안만들기
 import intake as 접수하기
 import nametag
@@ -819,7 +820,7 @@ def 화면_초안(알림=""):
         if not 이어서:
             바탕i = i
         그림자료.append({"그림": f"/받은그림/{Path(r['디자인그림']).name}" if r.get("디자인그림") else "",
-                     "누를것": 동작규칙.누를것들(r.get("속"), 유형(작업)), "바탕": 바탕i,
+                     "누를것": 동작규칙.누를것들(시안요소.전체목록(r), 유형(작업)), "바탕": 바탕i,
                      "이름": r.get("이름", "")})
         자료조건 = r.get("자료조건") or ""
         표시 = ('<span class="ties">↳ 같은 화면</span>' if 이어서
@@ -836,6 +837,7 @@ def 화면_초안(알림=""):
                  placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">{_e(r.get('동작',''))}</textarea>
               {f'<div class="bad">{_e(틀림)}</div>' if 틀림
                 else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}
+              {f'<div class="hint" style="margin-top:var(--spacing-2)">짚은 근거: {_e(r.get("근거"))} — 틀리면 고치세요</div>' if r.get("근거") and (r.get("동작") or "").strip() else ''}
               {f'<div class="data">자료 조건 화면 — "{_e(자료조건)}" 은 눌러서 못 만듭니다. 시험 계정·자료가 그 상태여야 찍힙니다.</div>' if 자료조건 else ''}
               {f'<button type="button" class="pickbtn" onclick="그림고르기({i})">그림에서 고르기</button>' if 그림자료[i]["그림"] else ''}</td>
           <td style="font-size:var(--font-size-12)">{표시}<div class="muted" style="font-size:var(--font-size-10)">{_e(r.get('디자인이름',''))}</div></td>
@@ -1629,7 +1631,10 @@ class 손님(BaseHTTPRequestHandler):
                 if 웹:
                     r["주소"] = 한개(f"주소_{i}")
                 # 동작 칸은 여러 줄로 적을 수 있다 — 줄바꿈은 화살표 앞뒤 공백과 같이 다룬다.
+                이전동작 = " ".join((r.get("동작") or "").split())
                 r["동작"] = " ".join(한개(f"동작_{i}").split())
+                if r["동작"] != 이전동작:
+                    r["근거"] = ""              # 사람이 고쳤으면 엔진이 짚은 근거는 더 이상 맞지 않는다
                 까닭 = 동작말.확인(r["동작"], 유형(작업))
                 앞줄 = 작업["초안"][i - 1] if i else None
                 # 앱은 앞 화면에 이어 찍으므로 동작이 비면 같은 사진이 나온다.

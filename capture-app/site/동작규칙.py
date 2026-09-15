@@ -116,7 +116,7 @@ def _로그인단추(속):
                  r"케이스|case|시|때|후|전|default|기본)$", re.I)
 상태꼬리 = re.compile(r"(팝업|바텀시트|노출|확장|펼침|열림|닫힘|화면|상태|메뉴|영역)+$")
 # 누를 수 있는 컴포넌트 이름 — 이 안에 든 글자만 '누를 것'으로 친다(제목·설명 글자는 빼려고).
-누를컴포넌트 = re.compile(r"BTN|BUTTON|INPUT|FIELD|LINK|SELECT|DROP|TAB|CHIP|CARD|MENU|TOGGLE|CHECK|RADIO|"
+누를컴포넌트 = re.compile(r"BTN|BUTTON|INPUT|FIELD|LINK|SELECT|DROP|COMBO|SEARCH|TAB|CHIP|CARD|MENU|TOGGLE|CHECK|RADIO|"
                      r"단추|버튼|입력|탭", re.I)
 # 자료·계정이 그 상태여야 나오는 화면 — 눌러서는 못 만든다(삼성통근버스 시안 402장 중 4할쯤이 이랬다).
 자료조건무늬 = re.compile(r"미등록|\d+\s*개\s*등록|등록\s*(?:전|없)|없을|없는|있을|길\s*때|초과|종료|운행 전|게스트|SSO|"
@@ -153,8 +153,22 @@ def _누를곳(속):
             if x.get("종류") != "TEXT" and x.get("자리") and 누를컴포넌트.search(x.get("이름") or "")]
 
 
-def _누를글자인가(글, 자리, 누를곳):
-    return bool(자리) and 0 < len(글) <= 30 and "\n" not in 글 and any(_상자안(z, 자리) for z in 누를곳)
+def _누를안(x, 누를곳):
+    """단추·입력칸 컴포넌트 안에 든 요소인가. 조상 이름(사슬)이 있으면 그걸로, 없으면 상자 겹침으로."""
+    사슬 = x.get("사슬") or []          # 플러그인은 가까운 조상 4개까지만 싣는다 — 모자라면 상자 겹침으로 본다
+    if any(누를컴포넌트.search(n or "") for n in list(사슬) + [x.get("이름") or ""]):
+        return True
+    자리 = x.get("자리")
+    return bool(자리) and any(_상자안(z, 자리) for z in 누를곳)
+
+
+def _누를글자인가(글, x, 누를곳):
+    return bool(x.get("자리")) and 0 < len(글) <= 30 and "\n" not in 글 and _누를안(x, 누를곳)
+
+
+def _px(x):
+    """px 상자가 있으면 그것을, 없으면 %자리를(같은 크기 화면끼리는 그대로 견줄 수 있다)."""
+    return x.get("상자") or x.get("자리") or {}
 
 
 def 이름으로누를것(꼬리, 속):
@@ -172,10 +186,107 @@ def 이름으로누를것(꼬리, 속):
         점수 = sum(len(w) for w in 낱말 if w in ng or (len(ng) >= 2 and ng in w))
         if not 점수:
             continue
-        키 = (1 if _누를글자인가(g, x.get("자리"), 누를곳) else 0, 점수, -len(g))
+        키 = (1 if _누를글자인가(g, x, 누를곳) else 0, 점수, -len(g))
         if 최고 is None or 키 > 최고[0]:
             최고 = (키, g)
     return 최고[1] if 최고 else ""
+
+
+def 새로생긴덩어리(바탕, 상태):
+    """상태 화면에만 새로 생긴 덩어리(열린 목록·펼친 메뉴)를 찾고, 그 바로 위에 있는 누를 것을 짚는다.
+
+    돌려주는 것: (동작, 근거) 또는 None.
+    1) 이름+글자가 같은 요소는 바탕에도 있는 것으로 치고, 상태에만 남는 요소를 '새 것'으로 모은다
+       (같은 글자가 바탕보다 더 많이 있으면 남는 만큼이 새 것 — 셀렉박스 값과 열린 목록의 첫 줄이 같아도 된다).
+    2) 새 글자를 가장 많이 품은 상자를 덩어리로 본다.
+    3) 덩어리 머리(윗변)에 아랫변이 닿아 있고 가로로 겹치는 누를 글자 — 셀렉박스·입력칸 — 를 짚는다.
+    팝업처럼 가운데 떠서 위에 아무것도 없는 것은 짚지 않는다(이름 규칙이나 그림에서 고르기로 넘긴다).
+    """
+    if not 바탕 or not 상태:
+        return None
+    # 문턱(-6~40px)은 px 기준이다 — px 상자가 없는 옛 꾸러미(%자리뿐)에는 이 규칙을 쓰지 않는다.
+    if not (바탕[0].get("상자") and 상태[0].get("상자")):
+        return None
+    import collections
+    바탕키 = collections.Counter((x.get("이름") or "", x.get("글자") or "") for x in 바탕)
+    남은 = collections.Counter(바탕키)
+    새것 = []
+    for x in 상태:
+        k = (x.get("이름") or "", x.get("글자") or "")
+        if 남은.get(k, 0) > 0:
+            남은[k] -= 1
+        else:
+            새것.append(x)
+    새글자 = [x for x in 새것 if x.get("종류") == "TEXT" and x.get("글자") and _px(x)]
+    if len(새글자) < 2:
+        return None
+    # 덩어리 — 새 글자를 가장 많이 품은(같으면 더 작은) 상자
+    최고 = None
+    for x in 새것:
+        if x.get("종류") == "TEXT" or not _px(x):
+            continue
+        b = _px(x)
+        품음 = sum(1 for t in 새글자 if _상자안(b, _px(t), 여유=2))
+        if 품음 < max(2, len(새글자) * 0.6):
+            continue
+        키 = (품음, -(b["w"] * b["h"]))
+        if 최고 is None or 키 > 최고[0]:
+            최고 = (키, b)
+    if 최고 is None:
+        return None
+    덩 = 최고[1]
+    # 덩어리 머리 바로 위에 붙은 누를 글자
+    누를곳 = _누를곳(상태)
+    후보 = []
+    for x in _글자들(상태):
+        g = x["글자"].strip()
+        if not _누를글자인가(g, x, 누를곳):
+            continue
+        if not 바탕키.get((x.get("이름") or "", g), 0):     # 누르기 전에도 있던 것이어야 누를 수 있다
+            continue
+        b = _px(x)
+        if _상자안(덩, b, 여유=2):                         # 덩어리 안의 글자는 아니다
+            continue
+        아랫변 = b["y"] + b["h"]
+        틈 = 덩["y"] - 아랫변
+        겹침 = min(덩["x"] + 덩["w"], b["x"] + b["w"]) - max(덩["x"], b["x"])
+        if 겹침 <= 0 or 틈 < -6 or 틈 > 40:
+            continue
+        후보.append(((abs(틈), -겹침), g))
+    if not 후보:
+        # 상태 화면에서 못 찾으면 바탕 화면에서 찾는다 — 입력칸은 글자를 치는 순간 안내 글자가 사라져
+        # 상태 시안에는 '동탄' 같은 새 글자만 남는다. 두 화면의 세로 어긋남(스크롤)은 같은 요소끼리 재어 맞춘다.
+        dy = _세로어긋남(바탕, 상태)
+        if dy is not None:
+            바탕누를곳 = _누를곳(바탕)
+            for x in _글자들(바탕):
+                g = x["글자"].strip()
+                if not _누를글자인가(g, x, 바탕누를곳):
+                    continue
+                b = _px(x)
+                아랫변 = b["y"] + b["h"] + dy
+                틈 = 덩["y"] - 아랫변
+                겹침 = min(덩["x"] + 덩["w"], b["x"] + b["w"]) - max(덩["x"], b["x"])
+                if 겹침 <= 0 or 틈 < -6 or 틈 > 40:
+                    continue
+                후보.append(((abs(틈), -겹침), g))
+    if not 후보:
+        return None
+    후보.sort()
+    g = 후보[0][1]
+    return (f"탭 {g} → 기다림 {기다릴초}", f"오른쪽에 새로 생긴 덩어리(글자 {len(새글자)}개) 바로 위의 '{g}'")
+
+
+def _세로어긋남(바탕, 상태):
+    """두 화면에서 같은 요소(이름+글자가 같고 한 번씩만 나오는 것)의 세로 차이 가운데값(px). 못 재면 None."""
+    import collections, statistics
+    def 한번씩(목록):
+        c = collections.Counter((x.get("이름") or "", x.get("글자") or "") for x in 목록)
+        return {(x.get("이름") or "", x.get("글자") or ""): x for x in 목록
+                if c[(x.get("이름") or "", x.get("글자") or "")] == 1 and x.get("글자")}
+    a, b = 한번씩(바탕), 한번씩(상태)
+    차 = [_px(b[k])["y"] - _px(a[k])["y"] for k in a if k in b and _px(a[k]) and _px(b[k])]
+    return statistics.median(차) if len(차) >= 3 else None
 
 
 def 자료조건인가(이름):
@@ -202,7 +313,7 @@ def 누를것들(속, 유형=None):
     for x in _글자들(속):
         g = x["글자"].strip()
         자 = x.get("자리")
-        if not _누를글자인가(g, 자, 누를곳):
+        if not _누를글자인가(g, x, 누를곳):
             continue
         동작 = f"탭 {g}"
         if 동작 in 본:
@@ -252,7 +363,7 @@ def 실패횟수(꼬리, 누적):
     return 1
 
 
-def 짓기(이름, 속, 바탕속=None, 이미틀림=False, 누적실패=0, 유형=None):
+def 짓기(이름, 속, 바탕속=None, 이미틀림=False, 누적실패=0, 유형=None, 근거=None):
     """화면 하나의 동작 초안. 못 지으면 빈 글자를 돌려준다(사람이 적게).
 
     유형(PC 웹·앱 …)마다 쓸 수 있는 말이 다르다 — 유형표 `lib/매체.py` 가 정한다.
@@ -344,10 +455,18 @@ def 짓기(이름, 속, 바탕속=None, 이미틀림=False, 누적실패=0, 유�
     # 6) 눌러서 뜨는 것(팝업·메뉴·바텀시트…) — 이름에 든 낱말과 같은 글자를 시안에서 찾아 누른다.
     #    '버스시간표 다운로드 팝업 노출' → 시안 단추 '버스 시간표 다운로드'(띄어쓰기는 무시).
     if 누름꼬리.search(꼬리):
-        # 누르는 것은 **바탕 화면**에 있다(팝업 제목이 같은 말을 달고 있어도 그건 누른 뒤에 뜨는 글자다).
-        글자 = 이름으로누를것(꼬리, 바탕속) if 바탕속 else ""
-        글자 = 글자 or 이름으로누를것(꼬리, 속)
+        # 누르는 것은 **바탕 화면**에 있다 — 상태 화면에만 있는 글자('최근 검색' 같은 열린 판의 제목)는
+        # 누른 뒤에야 생기는 것이라 여기서 고르지 않는다(바탕이 없을 때만 자기 화면에서 찾는다).
+        글자 = 이름으로누를것(꼬리, 바탕속 if 바탕속 else 속)
         if 글자:
             return f"탭 {글자} → 기다림 {기다릴초}"
+
+    # 7) 이름으로 못 지었으면 시안 두 장을 견준다 — 새로 생긴 덩어리(열린 목록) 바로 위의 것을 누른 것으로 짚는다.
+    #    짚은 것이지 확정이 아니다 — 근거를 같이 돌려주어 화면에 보이고, 사람이 고친다.
+    짚음 = 새로생긴덩어리(바탕속, 속) if 바탕속 else None
+    if 짚음:
+        if isinstance(근거, dict):
+            근거["근거"] = 짚음[1]
+        return 짚음[0]
 
     return ""
