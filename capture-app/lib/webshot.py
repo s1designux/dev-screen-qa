@@ -121,7 +121,9 @@ def _칸찾기(쪽, 글자):
                  lambda: 쪽.get_by_label(글자, exact=False),
                  lambda: 쪽.locator(f'[name="{글자}"], #{글자}')))
     if 것 is None:
-        raise 웹오류(f"'{글자}' 칸을 화면에서 찾지 못했습니다")
+        것 = _비슷한것찾기(쪽, 글자, "칸")
+    if 것 is None:
+        raise 웹오류(f"'{글자}' 칸을 화면에서 찾지 못했습니다(닮은 안내글도 없음)")
     return 것
 
 
@@ -242,6 +244,96 @@ def _칸끝누르기(쪽, 칸이름):
     쪽.mouse.click(상자["x"] + 상자["width"] - 16, 가운데y)
 
 
+# ── 시안 글자와 개발 글자가 조금 다를 때 ──────────────────────────────
+# 시안은 '삼성전자 기흥·화성', 개발은 '삼성전자(기흥/화성)' — 같은 단추인데 글자가 살짝 다르다(2026-09-15 실측).
+# 못 찾았다고 멈추면 그 뒤 화면까지 다 못 찍으므로, 화면에 보이는 것 가운데 **가장 닮은 것**을 누르고
+# 그 사실을 기록에 남긴다(글자 차이 자체는 검수에서 다룰 일이다). 닮음이 문턱 아래면 누르지 않는다.
+닮음문턱 = 0.72
+
+_후보긁기 = """
+(종류) => {
+  const 보임 = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const 누를것 = 'button, a, [role=button], [role=link], [role=option], [role=tab], [role=menuitem], label, summary, li, span, p, h1, h2, h3, h4, td, th, div';
+  const 칸 = 'input, textarea, select, [contenteditable]';
+  const 목록 = [];
+  document.querySelectorAll(종류 === '칸' ? 칸 : 칸 + ', ' + 누를것).forEach(e => {
+    if (!보임(e)) { 목록.push({ 글: '', 칸단추: false }); return; }   // 자리를 비워 두어 번호가 어긋나지 않게
+    let 글 = '';
+    if (e.matches(칸)) 글 = e.getAttribute('placeholder') || e.getAttribute('aria-label') || e.value || '';
+    else {
+      // 자기 안에 글자를 품은 가장 작은 덩어리만 — 큰 상자가 안쪽 글자를 통째로 가로채지 않게
+      const 직접 = Array.from(e.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim();
+      글 = 직접 || ((e.children.length <= 2 && (e.innerText || '').length <= 40) ? (e.innerText || '').trim() : '');
+      if (!글) 글 = e.getAttribute('aria-label') || e.getAttribute('title') || '';
+    }
+    글 = (글 || '').replace(/\s+/g, ' ').trim();
+    const 칸단추 = e.matches(칸) || e.matches('button, a, [role=button], [role=link], [role=option], [role=tab], [role=menuitem]');
+    목록.push({ 글: (글 && 글.length <= 60) ? 글 : '', 칸단추: 칸단추 });
+  });
+  return 목록;
+}
+"""
+_표시하기 = """
+([종류, 번호]) => {
+  const 칸 = 'input, textarea, select, [contenteditable]';
+  const 누를것 = 'button, a, [role=button], [role=link], [role=option], [role=tab], [role=menuitem], label, summary, li, span, p, h1, h2, h3, h4, td, th, div';
+  const 것 = document.querySelectorAll(종류 === '칸' ? 칸 : 칸 + ', ' + 누를것)[번호];
+  document.querySelectorAll('[data-capture-pick]').forEach(e => e.removeAttribute('data-capture-pick'));
+  if (것) 것.setAttribute('data-capture-pick', '1');
+  return !!것;
+}
+"""
+
+
+def _닮음(a, b):
+    import difflib
+    def 다듬기(t):
+        return re.sub(r"[\s\(\)\[\]·/,.\-_:;'\"‘’“”!?]", "", t or "").lower()
+    x, y = 다듬기(a), 다듬기(b)
+    if not x or not y:
+        return 0.0
+    if x == y:
+        return 1.0
+    if x in y or y in x:
+        return max(len(x), len(y)) and min(len(x), len(y)) / max(len(x), len(y)) * 0.5 + 0.5
+    return difflib.SequenceMatcher(None, x, y).ratio()
+
+
+def _비슷한것찾기(쪽, 글자, 종류="누를것"):
+    """정확히 그 글자가 없을 때, 화면에 보이는 것 중 가장 닮은 것을 찾아 준다. 문턱 아래면 None.
+
+    닮은 정도가 같으면 **칸·단추**를 글자 덩어리보다 먼저 쓴다(숨은 라벨·목록 줄을 집지 않게).
+    고른 것이 실제로 보이지 않으면 다음으로 닮은 것을 이어서 본다.
+    """
+    try:
+        후보 = 쪽.evaluate(_후보긁기, 종류) or []
+    except Exception:
+        return None
+    순위 = []
+    for i, 것 in enumerate(후보):
+        글 = 것.get("글") if isinstance(것, dict) else 것
+        if not 글:
+            continue
+        r = _닮음(글자, 글)
+        if r >= 닮음문턱:
+            앞자리 = 1 if (isinstance(것, dict) and 것.get("칸단추")) else 0
+            순위.append((-round(r, 2), -앞자리, i, 글, r))
+    순위.sort()
+    for _, _, i, 글, r in 순위[:5]:
+        try:
+            if not 쪽.evaluate(_표시하기, [종류, i]):
+                continue
+            것 = 쪽.locator("[data-capture-pick]").first
+            것.wait_for(state="visible", timeout=int(찾는짧은초 * 1000))
+        except Exception:
+            continue
+        print(f"    · 시안 글자 '{글자}' 가 화면에 없어 가장 닮은 '{글}' 을(를) 썼습니다 (닮음 {r:.0%}) "
+              f"— 글자가 다른 것은 검수에서 다룹니다", flush=True)
+        return 것
+    return None
+
+
 def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
     """동작 한 마디를 해 본다(앱 쪽 lib/actions.py 와 같은 말). 유형표(lib/매체.py)가 세부를 정한다."""
     낱말 = 마디.split(None, 1)
@@ -251,7 +343,9 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
     if 앞 in ("탭", "누르기", "클릭"):
         것 = _누를것찾기(쪽, 뒤)
         if 것 is None:
-            raise 웹오류(f"'{뒤}' 를 화면에서 찾지 못했습니다")
+            것 = _비슷한것찾기(쪽, 뒤)
+        if 것 is None:
+            raise 웹오류(f"'{뒤}' 를 화면에서 찾지 못했습니다(닮은 글자도 없음)")
         _누르기(것, 뒤, 갈래)
     elif 앞 in ("있으면탭", "있으면누르기"):
         것 = _누를것찾기(쪽, 뒤)
