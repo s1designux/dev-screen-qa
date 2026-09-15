@@ -74,12 +74,19 @@ def 그림(종류):
     return '<div class="scr">' + 속 + '</div>'
 
 
+만드는색 = {"그냥 있음": "m0", "한 번 누름": "m1", "값 넣음": "m1", "안 되는 값": "m2",
+          "데이터에 달림": "m2", "시간에 달림": "m3", "기기가 띄움": "m4", "되돌릴 수 없음": "m2"}
+
+
 def 걸음카드(s, 차례, 첫장):
     메모 = f'<div class="memo">{E(s["무엇"])}</div>' if s.get("무엇") else ""
+    법 = E(s.get("만드는법"))
+    법표 = f'<div class="made {만드는색.get(법, "m0")}">{법}</div>' if 법 else ""
     return f"""<div class="fr {'root' if 첫장 else ''}">
       <div class="head"><span class="seq">{차례}</span><span class="role">{E(s['걸음'])}</span></div>
       <div class="nm">{E(s.get('이름예'))}</div>
       {그림(s.get('그림'))}
+      {법표}
       <div class="act"><b>동작</b> {E(s.get('동작') or '-')}</div>
       {메모}
     </div>"""
@@ -149,12 +156,27 @@ def 유형블록(t, n):
     f"<tr><td class='k'>{E(w['말'])}</td><td>{E(w['짓는동작'])}</td></tr>"
     for w in 자료["상태낱말"])
 
-유형들 = "\n".join(유형블록(t, i + 4) for i, t in enumerate(자료["유형"]))
+유형들 = "\n".join(유형블록(t, i + 5) for i, t in enumerate(자료["유형"]))
 굳색표 = {"굳음": "ok", "반쯤": "warn", "예상": "bad"}
 유형줄 = "".join(
     f"<div><b>{E(t['이름'])}</b><span>{E(t.get('별명'))}</span>"
     f"<span class='tag {굳색표.get(t.get('굳기'), 'warn')}'>{E(t.get('굳기'))}</span></div>"
     for t in 자료["유형"])
+
+축 = 자료.get("나누는축", {})
+찍기색 = {"쉬움": "ok", "보통": "warn", "어려움": "bad", "못 찍을 수 있음": "bad"}
+축표 = "".join(
+    f"<tr><td class='k'>{E(c['축'])}</td><td>{E(c['나누면'])}</td>"
+    f"<td class='ok2'>{E(c['좋은점'])}</td><td class='bad2'>{E(c['아쉬운점'])}</td>"
+    f"<td><span class='tag {'ok' if '쓰고' in c['지금'] else ''}'>{E(c['지금'])}</span></td></tr>"
+    for c in 축.get("후보", []))
+갈아 = "".join(f"<li>{E(x)}</li>" for x in 축.get("갈아탈때", []))
+
+법표줄 = "".join(
+    f"<tr><td class='k'><span class='made {만드는색.get(m['이름'], 'm0')}'>{E(m['이름'])}</span></td>"
+    f"<td>{E(m['뜻'])}</td><td><span class='tag {찍기색.get(m['찍기'], '')}'>{E(m['찍기'])}</span></td>"
+    f"<td class='dim'>{E(m['촬영기'])}</td></tr>"
+    for m in 자료.get("만드는법", []))
 
 알 = 자료.get("유형알아가는법", {})
 알걸음 = "".join(
@@ -215,6 +237,15 @@ HTML = f"""<!doctype html>
   .tag.warn{{border-color:var(--warn);color:var(--warn)}}
   .tag.bad{{border-color:var(--bad);color:var(--bad)}}
   .none{{color:var(--dim);font-size:13px;margin:2px 0 6px}}
+  td.ok2{{color:var(--ok);font-size:13px}}
+  td.bad2{{color:var(--warn);font-size:13px}}
+  .made{{display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;margin:6px 0 0;white-space:nowrap}}
+  .made.m0{{background:#EEF1F5;color:#5A6472}}
+  .made.m1{{background:#E7F0FF;color:#1D4FA8}}
+  .made.m2{{background:#FFF3E0;color:#9A5B00}}
+  .made.m3{{background:#FDE8E8;color:#A32020}}
+  .made.m4{{background:#2B3038;color:#fff}}
+  td .made{{margin:0}}
   .types{{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 28px}}
   .types div{{flex:1 1 150px;border:1px solid var(--line);border-radius:8px;padding:10px 13px;background:var(--bg)}}
   .types b{{display:block;font-size:14px}}
@@ -289,7 +320,18 @@ HTML = f"""<!doctype html>
 
 <div class="types">{유형줄}</div>
 
-<h2><span class="n">1.</span> 유형은 이렇게 굳어진다</h2>
+<h2><span class="n">1.</span> 무엇을 기준으로 나눌 것인가</h2>
+<p class="note"><b>{E(축.get('한줄'))}</b></p>
+<table><tr><th>축</th><th>나누면</th><th>좋은 점</th><th>아쉬운 점</th><th>지금</th></tr>{축표}</table>
+<p class="note"><b>고른 것</b> — {E(축.get('고른것'))}</p>
+<h4>이럴 때 축을 다시 본다</h4>
+<ul>{갈아}</ul>
+
+<h3>둘째 축 — 상태를 만드는 법</h3>
+<p class="note dim">아래 이름표는 유형과 상관없이 걸음마다 붙습니다. 뒤쪽 유형 그림의 걸음 카드에도 같은 색으로 보입니다.</p>
+<table><tr><th>이름표</th><th>뜻</th><th>찍기</th><th>촬영기는 어떻게 하나</th></tr>{법표줄}</table>
+
+<h2><span class="n">2.</span> 유형은 이렇게 굳어진다</h2>
 <p class="note"><b>{E(알.get('한줄'))}</b></p>
 {알걸음}
 <p class="hand"><b>문턱</b> {E(알.get('문턱'))}</p>
@@ -300,11 +342,11 @@ HTML = f"""<!doctype html>
 <h3>유형이 바뀐 자취</h3>
 <table class="exp"><tr><th>언제</th><th>무엇</th><th>왜</th></tr>{자취}</table>
 
-<h2><span class="n">2.</span> 흐름 짜는 법 — 어느 유형에나 먼저</h2>
+<h2><span class="n">3.</span> 흐름 짜는 법 — 어느 유형에나 먼저</h2>
 <p class="note"><b>{E(흐름['한줄'])}</b></p>
 {흐름걸음}
 
-<h2><span class="n">3.</span> 어느 화면에나 해당하는 것</h2>
+<h2><span class="n">4.</span> 어느 화면에나 해당하는 것</h2>
 {규칙}
 
 <h3>이름 적는 법</h3>
@@ -316,7 +358,7 @@ HTML = f"""<!doctype html>
 
 {유형들}
 
-<h2><span class="n">{len(자료['유형'])+4}.</span> 아직 못 정한 것</h2>
+<h2><span class="n">{len(자료['유형'])+5}.</span> 아직 못 정한 것</h2>
 <p class="lead">사례가 더 들어오면 여기서 규칙으로 올라갑니다.</p>
 <ul>{미정}</ul>
 
