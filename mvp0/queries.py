@@ -188,6 +188,7 @@ def pages_of_screen(conn, screen_uuid, include_removed=False):
     """
     ph = ",".join("?" for _ in UNRESOLVED_STATUSES)
     removable = has_column(conn, "inspection_page", "removed_at")
+    키있음 = has_column(conn, "inspection_page", "human_key")
     where = "" if (include_removed or not removable) else " AND removed_at IS NULL"
     pages = conn.execute(
         f"SELECT * FROM inspection_page WHERE screen_id=?{where} ORDER BY seq", (screen_uuid,)
@@ -204,6 +205,8 @@ def pages_of_screen(conn, screen_uuid, include_removed=False):
         dates = page_dates(conn, p["uuid"])
         out.append({
             "uuid": p["uuid"], "seq": p["seq"], "name": p["name"], "note": p["note"],
+            # 스토리보드 ID = 화면 한 장마다 (묶음 screen.human_key 아님)
+            "human_key": (p["human_key"] if 키있음 else None),
             "pass_fail": _page_pass_fail(conn, p["uuid"]),
             "total": total, "unresolved": unresolved,
             "dates": dates,

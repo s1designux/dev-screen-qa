@@ -67,7 +67,9 @@ def _대조(uploads, pages, human_key, 주소, store=None):
         with open(개발길, encoding="utf-8") as f:
             개발 = json.load(f)
         결과 = 후보뽑기(시안, 개발)
-        메모 = {"화면키": "%s-%02d" % (human_key, n), "화면이름": p["name"], "주소": 주소}
+        # 스토리보드 ID는 그 화면 한 장에 붙는다(river 2026-09-15). 아직 안 적었으면 묶음키+순번으로 대신한다.
+        메모 = {"화면키": (p.get("human_key") or "%s-%02d" % (human_key, n)),
+                "화면이름": p["name"], "주소": 주소}
         if 본:
             from valueqa.rules import 규정검사
             메모["규정"] = 규정검사(결과, 본, None, 0, "PC")

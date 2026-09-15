@@ -27,6 +27,7 @@ import policy_ui
 import policy_api
 import fixdoc_http
 import fixdoc_view
+import page_group
 import page_move
 
 import json
@@ -196,7 +197,8 @@ def _save_upload(page_uuid, side, data, size, rnd=1):
 def _migrate(conn):
     """빠진 칼럼만 조용히 채운다. 기존 데이터는 건드리지 않는다."""
     have = {r["name"] for r in conn.execute("PRAGMA table_info(inspection_page)")}
-    for col in ("removed_at", "removed_by", "removed_note"):
+    # human_key = 그 화면 한 장의 스토리보드 ID (묶음이 아니라 장마다 붙는다, river 2026-09-15)
+    for col in ("removed_at", "removed_by", "removed_note", "human_key"):
         if col not in have:
             conn.execute(f"ALTER TABLE inspection_page ADD COLUMN {col} TEXT")
     conn.commit()
@@ -257,6 +259,34 @@ def _purge_removed_pages(screen_uuid):
         (screen_uuid,))]
     conn.close()
     return _delete_pages(ids)
+
+
+def _set_page_keys(screen_uuid, form):
+    """검수 페이지마다의 스토리보드 ID를 저장한다 (river 확정 2026-09-15).
+
+    화면 한 장 = 스토리보드 ID 한 개. 묶음(screen.human_key)이 아니라 여기가 사람이 읽는 번호다.
+    비우면 빈 값으로 둔다(자동으로 번호를 지어 넣지 않는다 — CLAUDE.md 2번-2).
+    """
+    conn = dbmod.connect(REAL_DB)
+    _migrate(conn)
+    mine = {r["uuid"] for r in conn.execute(
+        "SELECT uuid FROM inspection_page WHERE screen_id=?", (screen_uuid,))}
+    값 = {}
+    for 이름, vals in form.items():
+        if not 이름.startswith("key_"):
+            continue
+        u = 이름[len("key_"):]
+        if u in mine:
+            값[u] = (vals[0] or "").strip()
+    # 같은 번호를 여러 장이 쓰는 것은 정상이다 — 한 화면의 상태 여러 장이 사양서에선 한 화면이다.
+    # 같은 ID 끼리는 목록에서 한 뭉치로 묶여 보인다 (page_group).
+    n = 0
+    for u, v in 값.items():
+        n += conn.execute("UPDATE inspection_page SET human_key=? WHERE uuid=?",
+                          (v or None, u)).rowcount
+    conn.commit()
+    conn.close()
+    return n, ""
 
 
 def _rename_screen(screen_uuid, name):
@@ -342,7 +372,6 @@ def render_list(unresolved_only: bool, round_filter):
             href = r.get('route_href') or f"/screen/{r['route_key']}"
             trs += f"""<tr data-href="{_esc(href)}" onclick="location.href=this.dataset.href">
               <td class="name"><a style="color:inherit;text-decoration:none" href="{_esc(href)}">{_esc(r['name'])}</a></td>
-              <td class="key">{_esc(r['human_key'] or '미정')}</td>
               <td>{_esc(r['platform'])}</td>
               <td class="ctr">{r['page_count']}개</td>
               <td class="ctr">{_esc(r.get('preparation') or '준비됨')}</td>
@@ -354,7 +383,7 @@ def render_list(unresolved_only: bool, round_filter):
           <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span></h2>
           <table>
             <thead><tr>
-              <th>화면명</th><th>스토리보드 ID</th><th>플랫폼</th>
+              <th>화면명</th><th>플랫폼</th>
               <th class="ctr">검수 페이지</th><th class="ctr">촬영·짝 확인</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
             </tr></thead>
             <tbody>{trs}</tbody>
@@ -412,27 +441,43 @@ def render_screen(human_key: str, notice=""):
         return "".join(cells) or '<span class="rdate">—</span>'
 
     if pages:
+        # 스토리보드 ID 가 같은 장끼리 한 뭉치로 갈라 보인다 (river 2026-09-15, page_group).
+        # 자동으로 ID 를 지어 붙이지 않는다 — 사람이 적은 ID 이름만 읽고 묶는다.
         rows = ""
-        for n, p in enumerate(pages, 1):
-            dummy = ('<span class="dummy">더미</span>'
-                     if (p["note"] or "").startswith("[더미]") else "")
-            un = p["unresolved"]
-            uncls = "num zero" if un == 0 else "num"
-            href = f"/screen/{_esc(human_key)}/page/{p['uuid']}"
-            up = _esc(p["uploaded_at"] or "—")
-            rows += f"""<tr onclick="location.href='{href}'">
-              <td class="ctr pick" onclick="event.stopPropagation()"><label class="pickbox"><input
-                   type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
-                   aria-label="{_esc(p['name'])} 선택"></label></td>
-              <td class="ctr">{n}</td>
-              <td class="name">{_esc(p['name'])} {dummy}</td>
-              <td class="ctr">{up}</td>
-              <td class="ctr dates">{dates_cell(p)}</td>
-              <td class="ctr">{_pf_badge(p['pass_fail'])}</td>
-              <td class="ctr"><span class="{uncls}">{un}</span> / {p['total']}</td>
-            </tr>"""
+        n = 0
+        for gi, (뭉치id, 뭉치이름, 뭉치장들) in enumerate(page_group.묶기(pages)):
+            없음 = not 뭉치id
+            rows += (f'<tr class="grp{" none" if 없음 else ""}">'
+                     f'<td class="ctr pick"><label class="pickbox"><input type="checkbox"'
+                     f' class="pick-grp" data-grp="{gi}"'
+                     f' aria-label="{_esc(뭉치id or "아직 ID 없음")} 뭉치 전체 선택"></label></td>'
+                     f'<td colspan="7"><span class="gid">{_esc(뭉치id or "아직 ID 없음")}</span>'
+                     f'<span class="gname">{_esc("" if 없음 else 뭉치이름)}</span>'
+                     f'<span class="gcnt">· {len(뭉치장들)}장</span></td></tr>')
+            for p in 뭉치장들:
+                n += 1
+                dummy = ('<span class="dummy">더미</span>'
+                         if (p["note"] or "").startswith("[더미]") else "")
+                un = p["unresolved"]
+                uncls = "num zero" if un == 0 else "num"
+                href = f"/screen/{_esc(human_key)}/page/{p['uuid']}"
+                up = _esc(p["uploaded_at"] or "—")
+                rows += f"""<tr onclick="location.href='{href}'">
+                  <td class="ctr pick" onclick="event.stopPropagation()"><label class="pickbox"><input
+                       type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
+                       data-grp="{gi}" aria-label="{_esc(p['name'])} 선택"></label></td>
+                  <td class="ctr">{n}</td>
+                  <td class="ctr skey" onclick="event.stopPropagation()"><input class="skey-in"
+                       name="key_{p['uuid']}" form="page-keys" value="{_esc(p['human_key'] or '')}"
+                       placeholder="—" aria-label="{_esc(p['name'])} 스토리보드 ID"></td>
+                  <td class="name">{_esc(p['name'])} {dummy}</td>
+                  <td class="ctr">{up}</td>
+                  <td class="ctr dates">{dates_cell(p)}</td>
+                  <td class="ctr">{_pf_badge(p['pass_fail'])}</td>
+                  <td class="ctr"><span class="{uncls}">{un}</span> / {p['total']}</td>
+                </tr>"""
     else:
-        rows = '<tr><td colspan="7" class="ctr">검수 페이지 없음</td></tr>'
+        rows = '<tr><td colspan="8" class="ctr">검수 페이지 없음</td></tr>'
 
     # 표 머리의 전체 고르기 — 낱개를 다 켜면 함께 켜지고, 하나라도 끄면 함께 꺼진다.
     # (S-1 Checkbox 에는 '일부만 골랐다' 상태가 없어 만들어 쓰지 않는다.)
@@ -466,6 +511,13 @@ def render_screen(human_key: str, notice=""):
         <button type="submit">삭제</button>
       </form>""" if pages else ""
 
+    # 스토리보드 ID는 화면 한 장마다 붙는다 (river 2026-09-15). 표 안에서 고쳐 한 번에 저장한다.
+    keys_bar = f"""
+      <form id="page-keys" class="bulk keys" method="post" action="/screen/{_esc(human_key)}/pages/keys">
+        <span class="lbl">스토리보드 ID는 화면 한 장마다 적습니다. 비워 두면 '—' 로 남습니다.</span>
+        <button type="submit">ID 저장</button>
+      </form>""" if pages else ""
+
     removed_html = ""
     if removed:
         # 예전 '목록에서 빼기'로 숨겨둔 페이지. 이제는 숨기지 않고 지우므로, 남은 것만 한 번에 정리한다.
@@ -493,7 +545,7 @@ def render_screen(human_key: str, notice=""):
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
-{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}</style></head>
+{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}{page_group.CSS}</style></head>
 <body>
   <header class="row">
     <a class="back" href="/">← 목록</a>
@@ -505,7 +557,7 @@ def render_screen(human_key: str, notice=""):
         <button type="submit">저장</button>
       </form>
     </details>
-    <span class="sub2"><span class="key">{_esc(s['human_key'] or '미정')}</span> · {_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
+    <span class="sub2">{_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
     <a class="btn" href="/report/{_esc(human_key)}" target="_blank">화면 전체 A4</a>
   </header>
   <div class="wrap">
@@ -517,18 +569,20 @@ def render_screen(human_key: str, notice=""):
       {move_bar}
       <table>
         <thead><tr>
-          {pick_all_th}<th class="ctr">순번</th><th>검수 페이지</th>
+          {pick_all_th}<th class="ctr">순번</th><th class="ctr">스토리보드 ID</th><th>검수 페이지</th>
           <th class="ctr">업로드일</th><th class="ctr">검수일 (차수)</th>
           <th class="ctr">Pass/Fail</th><th class="ctr">미해결 / 전체</th>
         </tr></thead>
         <tbody>{rows}</tbody>
       </table>
+      {keys_bar}
       {pick_all_js}
     </section>
     {removed_html}
   </div>
   {move_dlg}
   <script>{page_move.JS}</script>
+  <script>{page_group.JS}</script>
   <footer>업로드일 = 개발화면이 올라온 날 · 검수일 = 그 차수에 검수 기록이 남은 날 (최대 {MAX_ROUNDS}차) ·
   화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
@@ -906,7 +960,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     <div class="head-left">
       <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
       <h1>{_esc(page['name'])}</h1>
-      <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(s["human_key"] or "미정")}</span></span>
+      <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(page.get("human_key") or "ID 미정")}</span></span>
     </div>
     {navigation or '<span></span>'}
     {round_sel or '<span class="rounds"><span class="pf">미검수</span></span>'}
@@ -1075,6 +1129,21 @@ class Handler(BaseHTTPRequestHandler):
                 conn.close()
             self.send_response(303)
             self.send_header("Location", f"/screen/{quote(갈곳)}?notice={quote(notice)}")
+            self.end_headers()
+            return
+        if path.startswith("/screen/") and path.endswith("/pages/keys"):
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            key = path[len("/screen/"):-len("/pages/keys")]
+            conn = dbmod.connect(REAL_DB)
+            scr = queries.get_screen(conn, unquote(key))
+            conn.close()
+            if scr is None:
+                self._html(self._nf(f"화면 없음: {key}"), 404)
+                return
+            n, 탈 = _set_page_keys(scr["row"]["uuid"], form)
+            notice = 탈 or f"스토리보드 ID {n}장을 저장했습니다."
+            self.send_response(303)
+            self.send_header("Location", f"/screen/{key}?notice={quote(notice)}")
             self.end_headers()
             return
         if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/purge", "/rename")):
@@ -1258,6 +1327,13 @@ _LIST_CSS = """
   td.pick, th.pick { width:32px; padding:0; }
   td.pick .pickbox, th.pick .pickbox { display:flex; align-items:center; justify-content:center;
     min-height:38px; padding:0 var(--spacing-6); cursor:default; }
+  /* 스토리보드 ID — 화면 한 장마다. 표 안에서 바로 고쳐 쓴다. */
+  td.skey, th.skey { width:172px; }
+  .skey-in { width:164px; font-family:ui-monospace,monospace; font-size:var(--font-size-12);
+    text-align:left; padding:var(--spacing-4) var(--spacing-6); border:1px solid var(--color-border-subtle);
+    border-radius:var(--radius-4); background:var(--color-surface-default); color:var(--color-text-primary); }
+  .skey-in:focus { outline:2px solid var(--color-border-focus); outline-offset:-1px; }
+  #page-keys { justify-content:flex-end; }
   .dates { line-height:1.7; }
   .rdate { display:inline-block; font-size:var(--font-size-12); color:var(--color-text-tertiary); background:var(--color-bg-subtle); border-radius:var(--radius-4); padding:var(--spacing-2) var(--spacing-6); margin:0 var(--spacing-2); }
   .rdate b { color:var(--color-text-primary); font-weight:var(--font-weight-bold); margin-right:var(--spacing-4); }

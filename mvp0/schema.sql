@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS inspection_page (
     uuid        TEXT PRIMARY KEY,
     screen_id   TEXT NOT NULL REFERENCES screen(uuid),
     seq         INTEGER,               -- 단계 순서
+    -- 스토리보드 ID는 '화면 한 장'마다 붙는다 (river 확정 2026-09-15).
+    -- 묶음(screen.human_key)이 아니라 여기가 사람이 읽는 화면 번호다. 참조는 uuid (7번).
+    human_key   TEXT,
     name        TEXT,
     note        TEXT,
     -- 실제 이미지(로컬 저장 파일명, 없으면 NULL → 자리표시)
