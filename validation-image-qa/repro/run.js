@@ -62,7 +62,9 @@ if (process.env.ANCHOR_MODE === 'spread') {
   patched = patched.slice(0, start) + spread + patched.slice(end);
 }
 // FORCE_TX/FORCE_TY: 정렬을 고정한다(자동 판정의 '천장'을 재는 계측용. 실제 운영 방안 아님).
-if (process.env.FORCE_TY !== undefined) {
+// 빈 값은 '안 준 것'으로 본다 — 셸에서 FORCE_TY="" 로 넘기면 예전엔 ty=0 고정이 켜져
+// 화면 전체가 정렬 없이 비교되고 있었다(엔진의 정렬을 전혀 재지 못했다).
+if (process.env.FORCE_TY !== undefined && process.env.FORCE_TY !== '') {
   patched = patched.replace('function comparePair(p,d,cap,img){',
     'function comparePair(p,d,cap,img){\n  var __origAlign=alignFor;alignFor=function(){return {mode:"forced",s:1,tx:' +
     Number(process.env.FORCE_TX || 0) + ',ty:' + Number(process.env.FORCE_TY) + ',score:1,anchors:99};};');
@@ -98,8 +100,13 @@ async function __run(){
   var ov=canvasFor(cap.width,cap.height),ox=ov.getContext("2d");ox.drawImage(cap,0,0);
   cands.forEach(function(c){var col=c.kind==="spacing"?"#CA8A04":"#EA580C";ox.strokeStyle=col;ox.lineWidth=3;ox.strokeRect(c.rawBox.x,c.rawBox.y,c.rawBox.w,c.rawBox.h);ox.fillStyle=col;ox.beginPath();ox.arc(c.rawBox.x-6,c.rawBox.y-6,14,0,7);ox.fill();ox.fillStyle="#fff";ox.font="bold 15px sans-serif";ox.textAlign="center";ox.textBaseline="middle";ox.fillText(String(c.no),c.rawBox.x-6,c.rawBox.y-6);});
   // 정렬된 디자인을 개발 이미지 좌표계로 반투명 겹침
-  var ovl=canvasFor(cap.width,cap.height),lx=ovl.getContext("2d");lx.drawImage(cap,0,0);if(trimUsed){lx.fillStyle="rgba(107,114,128,.55)";lx.fillRect(0,0,cap.width,trimUsed);}lx.globalAlpha=.45;lx.setTransform(1/model.s,0,0,1/model.s,-model.tx/model.s,-model.ty/model.s+trimUsed);lx.drawImage(dc,0,0);lx.setTransform(1,0,0,1,0,0);
-  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,range:pairResult.range,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
+  var ovl=canvasFor(cap.width,cap.height),lx=ovl.getContext("2d");lx.drawImage(cap,0,0);if(trimUsed){lx.fillStyle="rgba(107,114,128,.55)";lx.fillRect(0,0,cap.width,trimUsed);}lx.globalAlpha=.45;
+  // 구간별로 따로 맞춘 화면은 구간마다 제 자리에 얹는다(한 번에 얹으면 실제 비교와 다른 그림이 나온다)
+  (model.bands&&model.bands.length?model.bands:[{y0:0,y1:dc.height,ty:model.ty}]).forEach(function(z){
+    lx.save();lx.beginPath();lx.rect(0,(z.y0-model.ty)/model.s+trimUsed,cap.width,(z.y1-z.y0)/model.s);lx.clip();
+    lx.setTransform(1/model.s,0,0,1/model.s,-model.tx/model.s,-z.ty/model.s+trimUsed);lx.drawImage(dc,0,0);lx.restore();});
+  lx.setTransform(1,0,0,1,0,0);
+  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,bands:model.bands||null,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,range:pairResult.range,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
   document.body.innerHTML='<pre id="reproOut">'+JSON.stringify(out).replace(/</g,"&lt;")+'</pre><img id="reproOverlay" src="'+ov.toDataURL("image/png")+'"><img id="reproAlign" src="'+ovl.toDataURL("image/png")+'">';
   document.title="REPRO DONE";
 }

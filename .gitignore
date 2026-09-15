@@ -99,3 +99,7 @@ validation-image-qa/repro/plugin_panel_*.png
 
 # 이 컴퓨터에서만 쓰는 값 (실제 주소·계정·자리). 예시(설정.예시.json)만 올린다.
 설정.json
+
+# 삼성통근버스 홈 화면 재현 자료 (회사 화면 — 커밋하지 않는다)
+validation-image-qa/repro/design_home*.png
+validation-image-qa/repro/dev_home*.png
