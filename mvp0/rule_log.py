@@ -101,6 +101,15 @@ def record(c, candidate_row, to_status, actor='', action='status', note=''):
     return outcome
 
 
+# 어느 화면의 판정인지는 **페이지를 따라** 본다.
+# rule_verdict.screen_id 는 '판정하던 그때의 화면'이라 append-only 로 굳어 있고(고치지 않는다),
+# 검수 페이지를 다른 화면으로 옮기면(page_move.py) 지금 화면은 페이지가 알고 있다.
+# 페이지를 못 적은 옛 행만 그때 적힌 화면으로 되짚는다.
+_SCREEN_COND = ("(page_id IN (SELECT uuid FROM inspection_page WHERE screen_id=?)"
+                " OR (page_id='' AND screen_id=?))")
+_SCREEN_WHERE = 'WHERE ' + _SCREEN_COND
+
+
 # ── 읽기: 규칙별 성적 ────────────────────────────────────────────
 def stats(c, screen_id=None):
     """규칙마다 [나온 후보 수, 사람이 그대로 둔 수(agree), 사람이 뒤집은 수(overturn)].
@@ -115,7 +124,7 @@ def stats(c, screen_id=None):
     for k in c.execute(f'SELECT k.policy, k.id FROM auto_candidate k{where}', args):
         rule, _ = rule_of(k)
         fired[rule] = fired.get(rule, 0) + 1
-    vw, vargs = ('WHERE screen_id=?', [screen_id]) if screen_id else ('', [])
+    vw, vargs = (_SCREEN_WHERE, [screen_id, screen_id]) if screen_id else ('', [])
     judged = {}
     for r in c.execute(f'SELECT rule, outcome, COUNT(*) n FROM rule_verdict {vw} GROUP BY rule, outcome', vargs):
         judged.setdefault(r['rule'], {})[r['outcome']] = r['n']
@@ -132,7 +141,7 @@ def stats(c, screen_id=None):
 def recent(c, screen_id=None, rule=None, limit=50):
     q, args, conds = 'SELECT * FROM rule_verdict', [], []
     if screen_id:
-        conds.append('screen_id=?'); args.append(screen_id)
+        conds.append(_SCREEN_COND); args += [screen_id, screen_id]
     if rule:
         conds.append('rule=?'); args.append(rule)
     if conds:

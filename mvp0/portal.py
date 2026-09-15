@@ -27,6 +27,7 @@ import policy_ui
 import policy_api
 import fixdoc_http
 import fixdoc_view
+import page_move
 
 import json
 import uuid as uuidmod
@@ -396,6 +397,12 @@ def render_screen(human_key: str, notice=""):
                if p["removed_at"]]
     agg = queries.screen_pass_fail(conn, s["uuid"])
     persons = queries.list_persons(conn, active_only=True)
+    # 검수 페이지를 다른 화면으로 나누기·합치기 (CLAUDE.md 21번 0-3) — 옮길 곳 후보와 다음 번호 제안.
+    page_move.표만들기(conn)
+    다른화면 = conn.execute(
+        "SELECT uuid, human_key, name FROM screen WHERE uuid<>? AND project_id=? ORDER BY human_key",
+        (s["uuid"], s["project_id"])).fetchall()
+    키제안값 = page_move.키제안(conn, s["human_key"] or "")
     conn.close()
 
     def dates_cell(p):
@@ -447,6 +454,10 @@ def render_screen(human_key: str, notice=""):
       })();
     </script>""" if pages else ""
 
+    # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
+    move_bar = page_move.막대() if pages else ""
+    move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
+
     remove_bar = f"""
       <form id="page-remove" class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/remove"
             onsubmit="return document.querySelector('input[name=page]:checked') ?
@@ -482,7 +493,7 @@ def render_screen(human_key: str, notice=""):
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
-{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}</style></head>
+{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}</style></head>
 <body>
   <header class="row">
     <a class="back" href="/">← 목록</a>
@@ -503,6 +514,7 @@ def render_screen(human_key: str, notice=""):
     <section class="group">
       <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
       {remove_bar}
+      {move_bar}
       <table>
         <thead><tr>
           {pick_all_th}<th class="ctr">순번</th><th>검수 페이지</th>
@@ -515,6 +527,8 @@ def render_screen(human_key: str, notice=""):
     </section>
     {removed_html}
   </div>
+  {move_dlg}
+  <script>{page_move.JS}</script>
   <footer>업로드일 = 개발화면이 올라온 날 · 검수일 = 그 차수에 검수 기록이 남은 날 (최대 {MAX_ROUNDS}차) ·
   화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
@@ -1036,6 +1050,33 @@ class Handler(BaseHTTPRequestHandler):
         if policy_ui.post(self, intake(), path):
             return
         length = int(self.headers.get("Content-Length", 0))
+        if path.startswith("/screen/") and path.endswith("/pages/move"):
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            key = unquote(path[len("/screen/"):-len("/pages/move")])
+            conn = dbmod.connect(REAL_DB)
+            try:
+                got = page_move.옮기기(
+                    conn, form.get("page", []),
+                    to_screen=(form.get("to_screen", [""])[0]
+                               if form.get("dest", ["new"])[0] == "exist" else None),
+                    new_key=form.get("new_key", [""])[0],
+                    new_name=form.get("new_name", [""])[0],
+                    actor=form.get("actor", [""])[0].strip(),
+                    note=form.get("note", [""])[0].strip())
+                갈곳 = got["human_key"] or got["screen"]
+                notice = f"검수 페이지 {got['moved']}장을 '{got['name']}'(으)로 옮겼습니다."
+            except ValueError as ex:                 # 사람에게 그대로 보여 줄 안내
+                conn.rollback()
+                갈곳, notice = key, str(ex)
+            except Exception as ex:                  # 뜻밖의 일도 화면에 말해 준다(조용히 끊기지 않게)
+                conn.rollback()
+                갈곳, notice = key, f"옮기지 못했습니다 — {ex}"
+            finally:
+                conn.close()
+            self.send_response(303)
+            self.send_header("Location", f"/screen/{quote(갈곳)}?notice={quote(notice)}")
+            self.end_headers()
+            return
         if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/purge", "/rename")):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             action = path.rsplit("/", 1)[1]
