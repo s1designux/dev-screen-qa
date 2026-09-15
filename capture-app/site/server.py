@@ -30,6 +30,7 @@ import design_source as 디자인
 import actions as 동작말
 import appbook as 앱사전
 import 동작점검
+import 동작규칙
 import draft as 초안만들기
 import intake as 접수하기
 import nametag
@@ -276,6 +277,25 @@ code { background:var(--color-bg-level-2); padding:var(--spacing-2) var(--spacin
 tr.tie td { background:var(--color-bg-level-1); }
 .ties { color:var(--color-text-helper); font-size:var(--font-size-12); }
 .bad { color:var(--color-text-state-error); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
+/* 그림 위에서 고르기 — 시안 두 장을 나란히 놓고 누를 자리를 클릭한다 */
+.pickbtn { margin-top:var(--spacing-4); font-size:var(--font-size-12); padding:2px 8px; height:auto; }
+.data { color:var(--color-text-state-warning, var(--color-text-body-tertiary)); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
+tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
+.pickq { font-size:var(--font-size-14); margin-bottom:var(--spacing-8); display:flex; align-items:center; gap:var(--spacing-8); }
+.figs { display:flex; gap:var(--spacing-12); align-items:flex-start; }
+.fig { flex:1; min-width:0; }
+.figt { font-size:var(--font-size-12); color:var(--color-text-helper); margin-bottom:var(--spacing-4);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.figbox { position:relative; border:1px solid var(--color-border-subtle); background:#fff; }
+.figbox img { display:block; width:100%; height:auto; }
+.figarrow { align-self:center; color:var(--color-text-helper); font-size:20px; }
+.hot { position:absolute; box-sizing:border-box; padding:0; margin:0; min-width:8px; min-height:8px;
+  border:1.5px dashed var(--color-border-default); border-radius:4px; background:transparent; cursor:pointer; }
+.hot:hover { border-style:solid; border-color:var(--color-border-focus); background:rgba(29,108,235,.10); }
+.hot.on { border:2px solid var(--color-border-focus); background:rgba(29,108,235,.18); }
+.hot span { display:none; position:absolute; left:0; top:100%; background:var(--color-surface-default);
+  border:1px solid var(--color-border-default); font-size:var(--font-size-12); padding:2px 6px; white-space:nowrap; z-index:2; color:var(--color-text-primary); }
+.hot:hover span { display:block; }
 .picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
   gap:var(--spacing-12); margin-top:var(--spacing-12); }
 .picks figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-default);
@@ -792,8 +812,16 @@ def 화면_초안(알림=""):
                 f'{"disabled" if 이어서 else ""}></td>')
 
     행 = ""
+    그림자료 = []          # 줄마다 시안 그림 주소와 '누를 수 있는 것' — 그림 위에서 고르기용
+    바탕i = 0
     for i, r in enumerate(작업["초안"]):
         이어서 = r.get("이어서") == "예"
+        if not 이어서:
+            바탕i = i
+        그림자료.append({"그림": f"/받은그림/{Path(r['디자인그림']).name}" if r.get("디자인그림") else "",
+                     "누를것": 동작규칙.누를것들(r.get("속"), 유형(작업)), "바탕": 바탕i,
+                     "이름": r.get("이름", "")})
+        자료조건 = r.get("자료조건") or ""
         표시 = ('<span class="ties">↳ 같은 화면</span>' if 이어서
               else f'<b>{_e(r.get("화면묶음",""))}</b>')
         틀림 = 동작말.확인(r.get("동작", ""), 유형(작업))
@@ -807,9 +835,14 @@ def 화면_초안(알림=""):
           <td><textarea class="s act" name="동작_{i}" rows="2" wrap="soft"
                  placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">{_e(r.get('동작',''))}</textarea>
               {f'<div class="bad">{_e(틀림)}</div>' if 틀림
-                else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}</td>
+                else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}
+              {f'<div class="data">자료 조건 화면 — "{_e(자료조건)}" 은 눌러서 못 만듭니다. 시험 계정·자료가 그 상태여야 찍힙니다.</div>' if 자료조건 else ''}
+              {f'<button type="button" class="pickbtn" onclick="그림고르기({i})">그림에서 고르기</button>' if 그림자료[i]["그림"] else ''}</td>
           <td style="font-size:var(--font-size-12)">{표시}<div class="muted" style="font-size:var(--font-size-10)">{_e(r.get('디자인이름',''))}</div></td>
-        </tr>"""
+        </tr>
+        <tr class="pickrow" id="pick_{i}" hidden><td colspan="7"><div class="pickpanel" id="pickpanel_{i}"></div></td></tr>"""
+    # 시안 글자가 <script> 안에 들어가므로 '</' 만 막아 둔다(닫는 꼬리표로 오해받지 않게).
+    그림자료글 = json.dumps(그림자료, ensure_ascii=False).replace("</", "<\\/")
     겹침 = 초안만들기.겹친번호(작업["초안"])
     경고 = (f'<div class="err">번호가 겹칩니다 — {", ".join(겹침)}. '
            f'같은 번호는 사진이 덮어써집니다.</div>' if 겹침 else "")
@@ -957,6 +990,57 @@ def 화면_초안(알림=""):
           칸들.forEach(function (t) {{ 맞추기(t); t.addEventListener('input', function () {{ 맞추기(t); }}); }});
           window.addEventListener('resize', function () {{ 칸들.forEach(맞추기); }});
         }})();
+      </script>
+      <script>
+        /* 그림 위에서 고르기 — "이 화면이 나오려면 어디를 누르나요?" 에 클릭으로 답한다.
+           점선 칸은 시안 속 단추·입력칸 글자(서버 동작규칙.누를것들). 누른 차례대로 '탭 A → 탭 B → 기다림 1.2' 가 된다. */
+        var 그림자료 = {그림자료글};
+        var 고른 = {{}};
+        function 동작칸(i) {{ return document.getElementsByName('동작_' + i)[0]; }}
+        function 마디들(글) {{ return (글 || '').split(/\\s*(?:→|->|;|\\n)\\s*/).map(function (s) {{ return s.trim(); }}).filter(Boolean); }}
+        function 글자막기(s) {{ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }}
+        function 그림그리기(i, 자료, 제목) {{
+          if (!자료 || !자료.그림) return '';
+          var 점 = 자료.누를것.map(function (h) {{
+            var z = h.자리;
+            return '<button type="button" class="hot" data-act="' + 글자막기(h.동작) + '"' +
+              ' style="left:' + z.x + '%;top:' + z.y + '%;width:' + z.w + '%;height:' + z.h + '%"' +
+              ' onclick="누름(' + i + ',this)"><span>' + 글자막기(h.글자) + '</span></button>';
+          }}).join('');
+          return '<div class="fig"><div class="figt">' + 글자막기(제목) + '</div><div class="figbox"><img src="' + 자료.그림 + '" alt="">' + 점 + '</div></div>';
+        }}
+        function 표시(i) {{
+          var 든것 = 마디들(동작칸(i).value);
+          document.querySelectorAll('#pickpanel_' + i + ' .hot').forEach(function (b) {{
+            b.classList.toggle('on', 든것.indexOf(b.getAttribute('data-act')) >= 0);
+          }});
+        }}
+        function 그림고르기(i) {{
+          var 줄 = document.getElementById('pick_' + i), 판 = document.getElementById('pickpanel_' + i);
+          if (!줄.hidden) {{ 줄.hidden = true; return; }}
+          var 나 = 그림자료[i], 바탕 = 그림자료[나.바탕];
+          var 물음 = (나.바탕 === i) ? '이 화면에서 누를 것을 차례로 누르세요'
+                   : '오른쪽 화면이 나오려면 왼쪽 화면 <b>어디</b>를 누르나요? — 점선 칸을 차례로 누르세요';
+          판.innerHTML = '<div class="pickq">' + 물음 +
+            '<span class="right"><button type="button" class="btn" onclick="지움(' + i + ')">지우기</button> ' +
+            '<button type="button" class="btn" onclick="그림고르기(' + i + ')">닫기</button></span></div>' +
+            '<div class="figs">' + (나.바탕 === i ? 그림그리기(i, 나, '이 화면')
+              : 그림그리기(i, 바탕, '기본 화면 · ' + 바탕.이름) + '<div class="figarrow">→</div>' + 그림그리기(i, 나, '만들 화면 · ' + 나.이름)) + '</div>';
+          줄.hidden = false;
+          고른[i] = 마디들(동작칸(i).value).filter(function (m) {{ return m.indexOf('기다림') !== 0; }});
+          표시(i);
+        }}
+        function 누름(i, b) {{
+          var 동작 = b.getAttribute('data-act');
+          고른[i] = 고른[i] || [];
+          var at = 고른[i].indexOf(동작);
+          if (at >= 0) 고른[i].splice(at, 1); else 고른[i].push(동작);
+          var 칸 = 동작칸(i);
+          칸.value = 고른[i].length ? 고른[i].join(' → ') + ' → 기다림 1.2' : '';
+          칸.dispatchEvent(new Event('input'));
+          표시(i);
+        }}
+        function 지움(i) {{ 고른[i] = []; var 칸 = 동작칸(i); 칸.value = ''; 칸.dispatchEvent(new Event('input')); 표시(i); }}
       </script>
       <div class="bar"><a class="btn" href="/">← 다시 고르기</a>
         <span class="right"></span>
