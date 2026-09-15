@@ -67,7 +67,7 @@ def 지문(시안길, 개발길):
     for p in (시안길, 개발길):
         h.update(p.read_bytes())
     # 끝의 판 번호는 '카드에 담는 모양'이 바뀔 때 올린다 — 옛 회차는 남고, 사람이 내린 판정은 이어받는다.
-    return 'value2:' + h.hexdigest()[:12]
+    return 'value3:' + h.hexdigest()[:12]
 
 
 def 대조(시안길, 개발길):
@@ -135,7 +135,11 @@ def 줄들(c):
 
 
 def _잣대(결과, run):
-    """개발 값(웹 좌표) → 개발 그림(촬영본) 좌표로 옮기는 배율·기준점."""
+    """개발 값(웹 좌표) → 개발 그림(촬영본) 좌표로 옮기는 배율·기준점.
+
+    잰 값의 자리는 '판(아트보드)' 기준이고 촬영본은 '내용'만 담는다.
+    contentX/Y 는 판 위에서 내용이 놓인 자리를 음수로 적어 둔 값이라 **더해야** 0에 맞는다.
+    (예: contentX=-960 이면 판의 x=960 이 촬영본의 x=0)"""
     m = (결과.get('meta') or {}).get('개발') or {}
     폭 = m.get('docW') or m.get('artboardWidth') or m.get('viewportWidth') or 0
     k = ((run['dev_img_w'] or 폭) / 폭) if 폭 else 1
@@ -143,10 +147,17 @@ def _잣대(결과, run):
 
 
 def _상자(c, k, dx, dy):
-    b = c.get('devBox') or c.get('box') or {}
+    """후보를 개발 그림 위 어디에 그릴지.
+
+    개발에서 잰 상자(devBox)만 판 기준이라 contentX/Y 로 옮긴다.
+    '디자인에 있는데 개발에 없음' 후보는 잴 개발 요소가 없어 시안 상자를 쓰는데,
+    그건 이미 시안 프레임 기준이라 개발 보정을 먹이면 화면 밖으로 나간다."""
+    dev = c.get('devBox')
+    b = dev or c.get('box') or {}
     if not b:
         return None, None, None, None
-    return ((b['x'] - dx) * k, (b['y'] - dy) * k, b['w'] * k, b['h'] * k)
+    ox, oy = (dx, dy) if dev else (0, 0)
+    return ((b['x'] + ox) * k, (b['y'] + oy) * k, b['w'] * k, b['h'] * k)
 
 
 # ── 저장 ────────────────────────────────────────────────────────
