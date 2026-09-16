@@ -70,6 +70,25 @@ def 보기(제안: str, 엔진: Path) -> dict:
         본것["막는 것"].append("승인 뒤에 잰 공식 성적이 없다")
         return 본것
 
+    # 여러 번 쟀으면 **지금 적용하려는 검수기로 잰 것**을 고른다.
+    # 규칙을 끄고 재 본 반대 시험 같은 것이 마지막 줄이라고 해서 그것으로 판정하면 안 된다.
+    지금엔진 = 지문(엔진)
+
+    def 그판으로잰것(e):
+        p = 측정방 / e["측정번호"] / "측정.json"
+        if not p.exists():
+            return False
+        try:
+            return (json.loads(p.read_text(encoding="utf-8")).get("엔진") or {}).get("지문") == 지금엔진
+        except json.JSONDecodeError:
+            return False
+
+    맞는것 = [e for e in 측정사건 if 그판으로잰것(e)]
+    if not 맞는것:
+        본것["막는 것"].append("지금 검수기로 잰 공식 성적이 없다 — 다시 재야 한다")
+        return 본것
+    측정사건 = 맞는것
+
     측정번호 = 측정사건[-1]["측정번호"]
     잰것파일 = 측정방 / 측정번호 / "측정.json"
     if not 잰것파일.exists():
@@ -104,7 +123,6 @@ def 보기(제안: str, 엔진: Path) -> dict:
     else:
         본것["확인한 것"].append(f"독립 검토 통과 ({통과한검토[-1]['때']})")
 
-    지금엔진 = 지문(엔진)
     잰엔진 = (잰것.get("엔진") or {}).get("지문")
     if 지금엔진 != 잰엔진:
         본것["막는 것"].append("측정한 뒤 검수기가 바뀌었다 — 다시 재야 한다")

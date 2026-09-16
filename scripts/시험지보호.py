@@ -31,12 +31,20 @@ def 막을것인가(입력: dict) -> str | None:
         # 문서를 쓰는 일이 통째로 막힌다.
         낱말 = r"""['"]?[^\s;|&'"]*시험지/[^\s;|&'"]*"""
         꼴들 = [r">>?\s*" + 낱말,
-              r"\b(rm|mv|cp|tee|truncate|shred)\b[^\n;|&]*?" + 낱말,
+              r"\b(rm|tee|truncate|shred)\b[^\n;|&]*?" + 낱말,
               r"\bsed\b[^\n;|&]*?-i[^\n;|&]*?" + 낱말]
         for 꼴 in 꼴들:
             찾은것 = re.search(꼴, 명령)
             if 찾은것 and 열린자리 not in 찾은것.group(0):
                 return 찾은것.group(0).strip()
+        # 옮기기·복사는 **받는 자리**만 본다 — 시험지에서 꺼내 오는 것(읽기)까지 막으면
+        # 시험지를 쓰는 일 자체가 안 된다.
+        for 도막 in re.split(r"[;|&\n]", 명령):
+            낱말들 = 도막.split()
+            if len(낱말들) >= 3 and 낱말들[0] in ("cp", "mv"):
+                받는자리 = 낱말들[-1]
+                if 막는자리 in 받는자리 and 열린자리 not in 받는자리:
+                    return 도막.strip()
     return None
 
 
