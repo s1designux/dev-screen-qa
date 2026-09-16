@@ -543,6 +543,14 @@ function liveBand(H,boxes){
   });
   return bottom-top>H*.2?{y0:top,y1:bottom}:{y0:0,y1:H};
 }
+// 근거가 얇은가 — 기준 요소가 셋 미만이거나, 모두 한 줄 언저리에 몰려 있으면
+// 함께 틀려도 서로를 걸러 주지 못한다(같은 줄의 둘은 서로를 검증하지 않는다).
+function thinAnchors(g,H){
+  if(!g||g.length<3)return true;
+  var lo=Infinity,hi=-Infinity;
+  g.forEach(function(v){if(v.dy<lo)lo=v.dy;if(v.dy>hi)hi=v.dy;});
+  return !(hi-lo>H*.15);
+}
 function verticalRescue(designImg,captureImg,s,tx,ty,space,liveBoxes){
   var H=designImg.height,capH=captureImg.height*s;              // 캡처가 디자인 좌표에서 차지하는 세로 길이
   var live=liveBand(H,liveBoxes),LH=live.y1-live.y0;
@@ -556,9 +564,10 @@ function verticalRescue(designImg,captureImg,s,tx,ty,space,liveBoxes){
   }
   var base=at(ty),bt=null,bs=base;
   for(var t=ty-span;t<=ty+span;t+=step){var v=at(t);if(v>bs){bs=v;bt=t;}}
-  if(bt==null)return null;
+  if(bt==null)return{ty:ty,fit:base,moved:false};
   for(var f=bt-step;f<=bt+step;f+=2){var w=at(f);if(w>bs){bs=w;bt=f;}}
-  return (base<0||bs>base+.05)?bt:null;                          // 지금 자리가 아예 못 덮거나, 새 자리가 눈에 띄게 나을 때만
+  // 지금 자리가 아예 못 덮거나, 새 자리가 눈에 띄게 나을 때만 옮긴다
+  return (base<0||bs>base+.05)?{ty:bt,fit:bs,moved:true}:{ty:ty,fit:base,moved:false};
 }
 function anchorAlignment(design,designImg,captureImg,opts){
   var s=designImg.width/captureImg.width;
@@ -616,8 +625,10 @@ function anchorAlignment(design,designImg,captureImg,opts){
   // 크기·가로는 그대로 두고(캡처 폭이 정답이다) 세로만 윤곽으로 다시 훑어, 눈에 띄게 더 잘 겹치면 그리로 옮긴다.
   if(!space)space=makeSpace(designImg,200);
   var vt=verticalRescue(designImg,captureImg,s,tx,ty,space,(opts&&opts.excludeBoxes||[]).map(function(b){return{y:b.y*(designImg.width/design.width),h:b.h*(designImg.width/design.width)};}));
-  if(vt!=null)ty=vt;
-  var out={s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length};
+  if(vt&&vt.moved)ty=vt.ty;
+  // fit: 검수하는 구간에서 시안과 캡처의 윤곽이 실제로 얼마나 겹치는지(자신감 점수와 달리 밀림을 잡아낸다)
+  var out={s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length,
+           fit:vt?vt.fit:null,rescued:!!(vt&&vt.moved),thin:thinAnchors(g,designImg.height)};
   var bands=bandAlignment(design,designImg,captureImg,votes,out,tol);if(bands)out.bands=bands;
   return out;
 }
