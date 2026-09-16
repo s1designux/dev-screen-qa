@@ -48,10 +48,42 @@ def 한화면(시안길, 개발길):
     return ㅈ, len(짝), 가운뎃값(비), 가운뎃값(가로벌)
 
 
+def 회차자():
+    """후보를 잰 촬영본과 지금 쓰는 좌표 기준이 **비를 지키는지**.
+
+    가로·세로 배율이 갈리면 그림이 찌그러진 것이고, 그런 자리는 핀이 요소에서 벗어난다.
+    """
+    import sqlite3
+    길 = os.path.join(뿌리, 설정.자리('포털.자료함'))
+    if not os.path.exists(길):
+        return []
+    c = sqlite3.connect(길)
+    c.row_factory = sqlite3.Row
+    try:
+        rows = c.execute("""SELECT r.capture_w cw, r.capture_h ch, ir.coord_ref_w rw, ir.coord_ref_h rh, COUNT(*) n
+                            FROM auto_run r JOIN inspection_run ir ON ir.uuid=r.run_id
+                            WHERE r.capture_w AND ir.coord_ref_w GROUP BY 1,2,3,4""").fetchall()
+    except sqlite3.OperationalError:
+        return []                                   # 옛 자료함
+    finally:
+        c.close()
+    말 = []
+    for r in rows:
+        가로 = r['rw'] / r['cw']
+        세로 = (r['rh'] / r['ch']) if (r['rh'] and r['ch']) else 가로
+        if abs(가로 - 세로) > 문턱:
+            말.append('촬영본 %sx%s ↔ 좌표 기준 %sx%s — 가로 %.3f 배 · 세로 %.3f 배로 갈립니다 (회차 %d개)'
+                      % (r['cw'], r['ch'], r['rw'], r['rh'], 가로, 세로, r['n']))
+    return 말
+
+
 def main():
     문제 = 자모듈.점검()
     for x in 문제:
         print('✗ 자 자체검사 —', x)
+    for x in 회차자():
+        print('✗ 회차 자 —', x)
+        문제.append(x)
     보관 = os.path.join(뿌리, 설정.자리('포털.그림보관'))
     짚은것 = 0
     본것 = 0

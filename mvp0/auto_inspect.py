@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import card_view
 import figma_elements
 import figma_reader
@@ -478,9 +479,11 @@ class Auto:
                 raise ValueError('제외·가변으로 둔 후보는 먼저 되돌린 뒤 등록해 주세요.')
             page = c.execute('SELECT * FROM inspection_page WHERE uuid=?', (k['page_id'],)).fetchone()
             run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (k['run_id'],)).fetchone()
-            sx = (run['coord_ref_w'] or k['capture_w'] or 1) / (k['capture_w'] or run['coord_ref_w'] or 1)
-            sy = (run['coord_ref_h'] or k['capture_h'] or 1) / (k['capture_h'] or run['coord_ref_h'] or 1)
-            box = [int(round((k['box_x'] or 0) * sx)), int(round((k['box_y'] or 0) * sy)), int(round((k['box_w'] or 0) * sx)), int(round((k['box_h'] or 0) * sy))]
+            # 후보를 잰 촬영본 → 지금 화면이 쓰는 좌표 기준 (자.py)
+            ㅈ = 자모듈.그림자(run['coord_ref_w'], k['capture_w'])
+            b = ㅈ.개발그림_화면({'x': k['box_x'] or 0, 'y': k['box_y'] or 0,
+                             'w': k['box_w'] or 0, 'h': k['box_h'] or 0})
+            box = [int(round(b['x'])), int(round(b['y'])), int(round(b['w'])), int(round(b['h']))]
             node_ids = json.loads(k['design_node_ids'] or '[]')
             anchor = node_ids[0] if node_ids else f'{box[0]},{box[1]},{box[2]},{box[3]}'
             dedup = f"{k['page_id']}|{anchor}|{k['kind']}|auto"
@@ -553,7 +556,7 @@ class Auto:
             al = {}
         return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view,
                 'screen_id': run['screen_id'], 'design_frame': design_frame, 'alignment': al,
-                'scale': ((run['coord_ref_w'] or r['capture_w'] or 1) / (r['capture_w'] or run['coord_ref_w'] or 1)) if r['status'] == 'done' else 1}
+                'scale': (1.0 / 자모듈.그림자(run['coord_ref_w'], r['capture_w']).개발그림배) if r['status'] == 'done' else 1}
 
 
 def _e(v):
