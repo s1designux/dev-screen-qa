@@ -279,7 +279,22 @@ def 컴포넌트이름(k, page_id=None, database=None, uploads=None):
     return 컴포넌트말(기준요소(k, 요소표(page_id, database, uploads))[1])
 
 
-def body_html(k, page_id=None, database=None, uploads=None):
+def 곁말들(k, page_id=None, database=None, uploads=None):
+    """제목 옆에 붙일 작은 말 — [컴포넌트, 요소 이름]. 같은 말이면 한 번만.
+
+    요소 이름은 예전에 본문 첫 줄로 따로 내려가 **두 줄**이 됐다(‘W/Footer · 값 대조’ 밑에 ‘m_footer’).
+    나눌 까닭이 없어 한 줄로 합친다(river 2026-09-16).
+    """
+    요소, 컴 = 기준요소(k, 요소표(page_id, database, uploads))
+    컴말 = 컴포넌트말(컴)
+    이름 = 쓸이름((요소 or {}).get('name'), 이름꼬리(k))
+    if 이름 and 컴말.startswith(이름):
+        이름 = ''
+    return [x for x in (컴말, 이름[:60]) if x]
+
+
+def body_html(k, page_id=None, database=None, uploads=None, 이름빼기=False):
+    """이름빼기=True 면 요소 이름 줄을 그리지 않는다 — 부르는 쪽이 제목 옆에 이미 적었을 때."""
     줄들, 자리, 안내, 잰것 = 줄뽑기(k)
     표 = 요소표(page_id, database, uploads)
     요소, 컴 = 기준요소(k, 표)
@@ -288,8 +303,8 @@ def body_html(k, page_id=None, database=None, uploads=None):
     조각 = ['<div class="c-body">']
 
     이름 = 쓸이름((요소 or {}).get('name'), 이름꼬리(k))
-    if 이름 and 컴말.startswith(이름):
-        이름 = ''                                    # 아래 '디자인 컴포넌트' 줄과 같은 말이면 한 번만
+    if 이름빼기 or (이름 and 컴말.startswith(이름)):
+        이름 = ''                                    # 제목 옆에 이미 적었거나, 컴포넌트와 같은 말이면 한 번만
     if 이름:
         조각.append('<div class="c-sub">%s</div>' % _e(이름[:60]))
     if 안내:

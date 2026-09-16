@@ -16,7 +16,6 @@ from datetime import datetime
 from pathlib import Path
 
 import card_view
-import card_group
 import figma_elements
 import figma_reader
 import issue_categories
@@ -596,62 +595,11 @@ def range_html(view, person_options=''):
 
 
 def _cards(items, view, page_id):
-    """후보를 컴포넌트 덩어리로 묶어 카드를 그린다. 혼자면 지금까지와 같은 카드 한 장."""
-    나온것 = []
-    for _key, ks in card_group.묶기(items):
-        if len(ks) == 1:
-            나온것.append(card_html(ks[0], view['issue_numbers'], page_id, view['round']))
-        else:
-            나온것.append(group_card_html(ks, view['issue_numbers'], page_id, view['round']))
-    return ''.join(나온것)
+    """후보 하나 = 카드 한 장. 한 컴포넌트에서 여럿 나와도 묶지 않는다(river 2026-09-16 — 묶으니 보기 불편).
 
-
-def _ex_button(k, 작게=False):
-    """'제외' 단추 하나. 누르면 제외 칸으로, 다시 누르면 수정필요로 돌아온다."""
-    if k['issue_id']:
-        return ''
-    off = k['status'] != 'open'
-    작 = ' small' if 작게 else ''
-    return (f'<button type="button" class="auto-ex{작}{" on" if off else ""}" '
-            f'onclick="event.stopPropagation();autoStatus(\'{k["id"]}\', '
-            f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
-
-
-def group_card_html(ks, numbers, page_id, rnd):
-    """컴포넌트 하나 = 카드 한 장. 안에 차이 묶음이 여럿이고, 묶음마다 제외를 따로 누른다."""
-    첫 = ks[0]
-    색 = issue_categories.color(candidate_category(첫))
-    번호 = ', '.join(str(k['no']) for k in ks)
-    이름 = card_view.컴포넌트말(card_view.기준요소(첫, card_view.요소표(page_id))[1]) or card_view.제목(첫)
-    남은 = [k['id'] for k in ks if not k['issue_id'] and k['status'] == 'open']
-    # 따옴표 하나로 넘긴다 — 큰따옴표를 쓰면 onclick 속성이 거기서 끊긴다
-    전부 = (f'<button type="button" class="auto-ex" '
-            f'onclick="event.stopPropagation();autoStatusAll(\'{",".join(남은)}\')">전부 제외</button>'
-            ) if len(남은) > 1 else ''
-    갈래 = []
-    for k in ks:
-        lbl = issue_categories.label(candidate_category(k))
-        if lbl not in 갈래:
-            갈래.append(lbl)
-    곁 = list(갈래)
-    if any(value_candidates.값후보인가(k) for k in ks):
-        곁.append('값 대조')
-    meta = f'<span class="meta">· {_e(" · ".join(곁))}</span>' if 곁 else ''
-    몸 = []
-    for k in ks:
-        n = numbers.get(k['issue_id']) if k['issue_id'] else None
-        꼬리 = (f'<div class="passed">✓ 지적 #{n}로 등록됨</div>' if n
-                else ('<div class="passed">✓ 지적으로 등록됨</div>' if k['issue_id'] else ''))
-        몸.append(f'<div class="auto-part st-{k["status"]}" id="cand-{k["id"]}" data-cand="{k["id"]}" data-type="{_e(issue_categories.label(candidate_category(k)))}">'
-                  f'{_ex_button(k, 작게=True)}'
-                  f'<span class="auto-part-no" style="background:{issue_categories.color(candidate_category(k))}">{k["no"]}</span>'
-                  f'{card_view.body_html(k, page_id)}{꼬리}</div>')
-    ids = ','.join(k['id'] for k in ks)
-    return (f'<div class="issue auto-card auto-group-card" id="cand-{첫["id"]}" data-cand="{첫["id"]}" '
-            f'data-cands="{ids}" data-types="{_e(",".join(갈래))}" onclick="autoFocus(\'{첫["id"]}\')">'
-            f'{전부}<div class="ihead"><span class="pinno auto-no" style="background:{색}">{번호}</span>'
-            f'<b>{_e(이름)}</b>{meta}</div>'
-            f'<div class="auto-parts">{"".join(몸)}</div></div>')
+    묶어 보여 주던 것을 되돌린 것이라 자료는 손대지 않는다 — 제외·되돌림은 예전처럼 낱낱에 걸린다.
+    """
+    return ''.join(card_html(k, view['issue_numbers'], page_id, view['round']) for k in items)
 
 
 def card_html(k, numbers, page_id, rnd):
@@ -673,12 +621,13 @@ def card_html(k, numbers, page_id, rnd):
     from_value = value_candidates.값후보인가(k)
     # 성질·출처는 줄을 따로 두지 않고 **제목 옆 작은 글씨**로 붙인다 — 칩 한 줄이 카드만 키웠다(river 2026-09-14).
     # 낱개 카드는 제목이 곧 성질이라(예: '색상이 다르게 적용됨') 출처만 적는다.
-    곁 = [x for x in (card_view.컴포넌트이름(k, page_id), '값 대조' if from_value else '') if x]
+    # 컴포넌트·요소 이름·출처를 한 줄에 모은다 — 요소 이름만 아래로 내려가 두 줄이 되던 것을 합쳤다(river 2026-09-16).
+    곁 = card_view.곁말들(k, page_id) + (['값 대조'] if from_value else [])
     meta = f'<span class="meta">· {_e(" · ".join(곁))}</span>' if 곁 else ''
     # 본문(무엇이 기준인지 · 지금 개발은 어떤지 · 개발이 볼 자리)은 card_view가 줄을 갈라 그린다.
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" data-types="{_e(kind_lbl)}" onclick="autoFocus(\'{k["id"]}\')">'
             f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}<b>{_e(card_view.제목(k))}</b>{meta}</div>'
-            f'{card_view.body_html(k, page_id)}{foot}</div>')
+            f'{card_view.body_html(k, page_id, 이름빼기=True)}{foot}</div>')
 
 
 def _design_box(k):
@@ -693,24 +642,14 @@ def _design_box(k):
 
 
 def overlay_json(view):
-    """개발 화면 위에 그릴 것. **컴포넌트 덩어리마다 핀 하나** — 버튼 하나에 핀 셋이 겹치지 않게."""
+    """개발 화면 위에 그릴 것. **후보마다 핀 하나** — 카드와 핀이 일대일이다(river 2026-09-16)."""
     나온것 = []
-    for _key, ks in card_group.묶기(view['candidates']):
-        첫 = ks[0]
-        d상자 = [b for b in (_design_box(k) for k in ks) if b]
-        if len(d상자) > 1:
-            x0 = min(b[0] for b in d상자); y0 = min(b[1] for b in d상자)
-            x1 = max(b[0] + b[2] for b in d상자); y1 = max(b[1] + b[3] for b in d상자)
-            dbox = [x0, y0, x1 - x0, y1 - y0]
-        else:
-            dbox = d상자[0] if d상자 else None
-        나온것.append({'id': 첫['id'], 'ids': [k['id'] for k in ks],
-                     'no': ', '.join(str(k['no']) for k in ks),
-                     'status': 'open' if any(k['status'] == 'open' for k in ks) else 첫['status'],
-                     'registered': bool(첫['issue_id']),
-                     'color': issue_categories.color(candidate_category(첫)),
-                     'box': card_group.합친상자(ks),
-                     'dbox': dbox, 'issue': 첫['issue_id']})
+    for k in view['candidates']:
+        나온것.append({'id': k['id'], 'ids': [k['id']], 'no': k['no'],
+                     'status': k['status'], 'registered': bool(k['issue_id']),
+                     'color': issue_categories.color(candidate_category(k)),
+                     'box': [k['box_x'] or 0, k['box_y'] or 0, k['box_w'] or 0, k['box_h'] or 0],
+                     'dbox': _design_box(k), 'issue': k['issue_id']})
     return json.dumps(나온것, ensure_ascii=False)
 
 
@@ -727,31 +666,11 @@ CSS = '''
 .auto-sum{font-weight:var(--font-weight-bold)}.auto-hint{color:var(--color-text-caption)}
 .auto-group{margin-bottom:var(--spacing-10)}.auto-group summary{cursor:pointer;font-weight:var(--font-weight-bold);margin-bottom:var(--spacing-6)}
 .auto-card{position:relative}.auto-card .auto-no{border-radius:var(--radius-4)}
-/* 덩어리 카드의 번호는 여럿(2, 3, 4)이라 네모가 글자 길이를 따라간다 */
-.auto-group-card .auto-no{width:auto;min-width:var(--sizing-24);height:var(--sizing-24);padding:0 var(--spacing-8);white-space:nowrap}
 .auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--sizing-28);padding:0 var(--spacing-16);font-family:inherit;font-size:var(--font-size-12);font-weight:var(--font-weight-medium);line-height:1;color:var(--color-chip-line-label-default);background:var(--color-chip-line-bg-default);border:var(--border-width-1) solid var(--color-chip-line-border-default);border-radius:var(--radius-full);cursor:pointer;user-select:none}
 .auto-card .auto-ex:hover{background:var(--color-chip-line-bg-hover)}
 .auto-card .auto-ex.on{background:var(--color-chip-line-bg-selected);border-color:var(--color-chip-line-border-selected);color:var(--color-chip-line-label-selected)}
 .auto-card .auto-ex.on:hover{background:var(--color-chip-line-bg-hover)}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
-/* 컴포넌트 덩어리 카드 — 안에 차이 묶음이 여럿. 묶음마다 번호와 제외를 따로 둔다. */
-.auto-parts{margin-top:var(--spacing-8)}
-/* 차이 묶음은 상자로 싸지 않는다 — 카드 안에 상자가 또 생긴다(river 2026-09-14).
-   안쪽 점선을 없앴으니 가는 선 하나와 넉넉한 여백이면 충분히 갈라 보인다. */
-.auto-part{position:relative;padding:var(--spacing-16) 0 var(--spacing-4) var(--spacing-28)}
-.auto-part + .auto-part{border-top:var(--border-width-1) solid var(--color-border-subtle)}
-.auto-part:first-child{padding-top:var(--spacing-4)}
-.auto-part.st-excluded,.auto-part.st-variable{opacity:.55}
-.auto-part-no{position:absolute;left:0;top:var(--spacing-16);
-  display:inline-flex;align-items:center;justify-content:center;min-width:var(--sizing-20);height:var(--sizing-20);
-  padding:0 var(--spacing-4);border-radius:var(--radius-4);
-  color:var(--color-text-inverse);font-size:var(--font-size-12);font-weight:var(--font-weight-bold)}
-
-.auto-card .auto-ex.small{position:absolute;top:var(--spacing-12);right:0;height:var(--sizing-28);
-  padding:0 var(--spacing-12);font-size:var(--font-size-12)}
-.auto-group-card .auto-part .c-body{margin-top:0}
-.auto-part:first-child .auto-part-no{top:var(--spacing-4)}
-.auto-part:first-child .auto-ex.small{top:0}
 .auto-actions{display:flex;gap:var(--spacing-6);margin-top:var(--spacing-6);flex-wrap:wrap}
 
 
@@ -830,23 +749,13 @@ JS = r'''
 function autoFocus(id){
   document.querySelectorAll('.auto-overlay .sel').forEach(function(e){e.classList.remove('sel');});
   document.querySelectorAll('.auto-card.hl').forEach(function(e){e.classList.remove('hl');});
-  var pin=(window.qaPinOf&&window.qaPinOf[id])||id;      // 덩어리로 묶인 핀 찾기
+  var pin=(window.qaPinOf&&window.qaPinOf[id])||id;
   var b=document.getElementById('abox-'+pin),g=document.getElementById('abadge-'+pin);
   var c=document.getElementById('cand-'+id);
   if(c&&!c.classList.contains('auto-card'))c=c.closest('.auto-card')||c;
   if(b)b.classList.add('sel');if(g){g.classList.add('sel');g.parentNode.appendChild(g);}
   if(c){var panel=c.closest('.panel');if(panel&&window.showTab)showTab(panel.id.replace('panel-',''));c.classList.add('hl');var d=c.closest('details');if(d)d.open=true;var box=document.getElementById('cards');if(box)box.scrollTop=c.offsetTop-40;}
   if(window.qaCompareIssue)window.qaCompareIssue(id);
-}
-function autoStatusAll(ids){
-  if(typeof ids==='string')ids=ids.split(',').filter(Boolean);
-  var st=document.getElementById('auto-state');
-  var next=function(i){
-    if(i>=ids.length){location.reload();return;}
-    fetch('/auto/'+st.dataset.page+'/candidate/'+ids[i]+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'excluded'})})
-      .then(function(r){return r.json();}).then(function(j){if(j.error){alert(j.error);location.reload();return;}next(i+1);});
-  };
-  next(0);
 }
 function autoStatus(id,status){
   var st=document.getElementById('auto-state');

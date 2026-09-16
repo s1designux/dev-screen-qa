@@ -1466,7 +1466,6 @@ _PAGE_CSS = """
     font-size:var(--font-size-12); font-weight:var(--font-weight-medium); line-height:1; cursor:pointer; }
   .fchip:hover { background:var(--color-chip-line-bg-hover); }
   .fchip.on { border-color:var(--color-chip-line-border-selected); color:var(--color-chip-line-label-selected); }
-  .auto-part.off { opacity:.35; }
   .tab .sw { display:inline-block; width:var(--spacing-10); height:var(--spacing-10); border-radius:var(--radius-2); margin-right:var(--spacing-8); }
   .tab .cnt { margin-left:var(--spacing-6); font-size:var(--font-size-12); color:var(--color-text-caption); }
   .tab.on .cnt { color:var(--color-navigation-label-selected); }
@@ -1568,16 +1567,13 @@ function _selPin(uuid){
   bringFront(p);            // 맨 앞으로
 }
 // 유형 탭 전환 (그 그룹 카드만 보이게)
-// ── 성질 거르개: 고른 성질을 품은 카드만 남기고, 카드 안에서도 그 줄만 진하게 ──
+// ── 성질 거르개: 고른 성질의 카드만 남긴다 ──
 function filterType(btn){
   var t = btn.getAttribute('data-type') || '';
   document.querySelectorAll('.fchip').forEach(function(c){ c.classList.toggle('on', c === btn); });
   document.querySelectorAll('.issue').forEach(function(card){
     var have = (card.getAttribute('data-types') || '').split(',').filter(Boolean);
     card.hidden = !!t && have.indexOf(t) < 0;
-  });
-  document.querySelectorAll('.auto-part').forEach(function(part){
-    part.classList.toggle('off', !!t && part.getAttribute('data-type') !== t);
   });
   var box = document.getElementById('cards'); if(box){ box.scrollTop = 0; }
 }
