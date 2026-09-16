@@ -1392,7 +1392,7 @@ _PAGE_CSS = """
   #capture-picker .capture-pair img{width:100%;height:100%;min-width:0;object-fit:contain}
   #capture-picker .capture-list{overflow:auto;min-height:0;font-size:var(--font-size-12)}
   #capture-picker .capture-options{display:flex;flex-direction:column;gap:var(--spacing-4);margin-top:var(--spacing-12)}
-  #capture-picker .cap-option{display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
+  #capture-picker .cap-option{position:relative;display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
   #capture-picker .cap-option:has(input:checked){border-color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
   #capture-picker .cap-option:has(input:focus-visible){outline:2px solid var(--color-border-focus);outline-offset:2px}
   #capture-picker input[type=radio]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;opacity:0;clip-path:inset(50%);overflow:hidden}
