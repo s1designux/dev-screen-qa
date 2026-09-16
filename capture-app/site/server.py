@@ -318,6 +318,20 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .hot span { display:none; position:absolute; left:0; top:100%; background:var(--color-surface-default);
   border:1px solid var(--color-border-default); font-size:var(--font-size-12); padding:2px 6px; white-space:nowrap; z-index:2; color:var(--color-text-primary); }
 .hot:hover span { display:block; }
+.hot.box { border-color:var(--color-green-450, #2a7); border-style:dashed; }
+.hot.box:hover { background:rgba(34,153,119,.12); }
+.hot.box.on { border:2px solid var(--color-green-450, #2a7); background:rgba(34,153,119,.20); }
+.fix { font-size:var(--font-size-12); margin-top:var(--spacing-2);
+  color:var(--color-text-body-secondary); display:flex; align-items:center; gap:var(--spacing-6);
+  flex-wrap:wrap; }
+.fix .pickbtn { margin-top:0; }
+.vals { margin-top:var(--spacing-10); }
+.valt { font-size:var(--font-size-12); color:var(--color-text-helper); margin-bottom:var(--spacing-4); }
+.valrow { display:flex; align-items:center; gap:var(--spacing-8); margin-bottom:var(--spacing-4);
+  font-size:var(--font-size-12); }
+.valrow span { min-width:160px; color:var(--color-text-body-secondary);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.valrow input { flex:0 0 200px; font-size:var(--font-size-12); padding:2px 6px; }
 .picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
   gap:var(--spacing-12); margin-top:var(--spacing-12); }
 .picks figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-default);
@@ -867,7 +881,18 @@ def 화면_초안(알림=""):
         자료조건 = r.get("자료조건") or ""
         표시 = ('<span class="ties">↳ 같은 화면</span>' if 이어서
               else f'<b>{_e(r.get("화면묶음",""))}</b>')
+        칸이름들 = [h["글자"] for h in 그림자료[i]["누를것"] if h.get("칸")]
         틀림 = 동작말.확인(r.get("동작", ""), 유형(작업))
+        # 틀리게 썼으면 혼내지 말고 고친 문장을 내민다 — 받아들일지는 사람이 누른다
+        제안 = 동작말.고쳐보기(r.get("동작", ""), 유형(작업), 칸이름들) if 틀림 else ""
+        고침칸 = ""
+        if 틀림 and 제안:
+            고침칸 = (f'<div class="fix">이렇게 쓰신 거죠? <code>{_e(제안)}</code> '
+                   f'<button type="button" class="pickbtn" data-fix="{_e(제안)}" '
+                   f'onclick="고침({i},this)">이대로 바꾸기</button></div>')
+        elif 틀림 and 칸이름들:
+            고침칸 = ('<div class="hint" style="margin-top:var(--spacing-2)">이 화면의 적는 칸: '
+                   + " · ".join(f"<code>{_e(c)}</code>" for c in 칸이름들[:4]) + '</div>')
         빈동작 = 이어서 and not (r.get("동작", "") or "").strip()
         행 += f"""<tr id="줄{i+1}" class="{'tie' if 이어서 else ''}">
           <td class="muted">{i+1}</td>
@@ -877,8 +902,9 @@ def 화면_초안(알림=""):
           {셋째칸(i, r, 이어서)}
           <td><textarea class="s act" name="동작_{i}" rows="2" wrap="soft"
                  placeholder="{_e(r.get('힌트','') or '예: 입력 아이디=test01 → 탭 로그인')}">{_e(r.get('동작',''))}</textarea>
-              {f'<div class="bad">{_e(틀림)}</div>' if 틀림
-                else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}
+              <div class="fixbox" id="fixbox_{i}">{(f'<div class="bad">이 말은 못 알아듣습니다</div>{고침칸}' if 제안
+                    else f'<div class="bad">{_e(틀림)}</div>{고침칸}') if 틀림
+                else ('<div class="bad">비면 앞 장과 똑같은 사진이 찍힙니다</div>' if 빈동작 else '')}</div>
               {f'<div class="hint" style="margin-top:var(--spacing-2)">짚은 근거: {_e(r.get("근거"))} — 틀리면 고치세요</div>' if r.get("근거") and (r.get("동작") or "").strip() else ''}
               {f'<div class="data">자료 조건 화면 — "{_e(자료조건)}" 은 눌러서 못 만듭니다. 시험 계정·자료가 그 상태여야 찍힙니다.</div>' if 자료조건 else ''}
               {f'<button type="button" class="pickbtn" onclick="그림고르기({i})">그림에서 고르기</button>' if 그림자료[i]["그림"] else ''}</td>
@@ -1052,17 +1078,50 @@ def 화면_초안(알림=""):
           if (!자료 || !자료.그림) return '';
           var 점 = 자료.누를것.map(function (h) {{
             var z = h.자리;
-            return '<button type="button" class="hot" data-act="' + 글자막기(h.동작) + '"' +
+            return '<button type="button" class="hot' + (h.칸 ? ' box' : '') + '"' +
+              ' data-act="' + 글자막기(h.동작) + '" data-val="' + 글자막기(h.값제안 || '') + '"' +
               ' style="left:' + z.x + '%;top:' + z.y + '%;width:' + z.w + '%;height:' + z.h + '%"' +
-              ' onclick="누름(' + i + ',this)"><span>' + 글자막기(h.글자) + '</span></button>';
+              ' onclick="누름(' + i + ',this)"><span>' + (h.칸 ? '적는 칸 · ' : '') + 글자막기(h.글자) + '</span></button>';
           }}).join('');
           return '<div class="fig"><div class="figt">' + 글자막기(제목) + '</div><div class="figbox"><img src="' + 자료.그림 + '" alt="">' + 점 + '</div></div>';
         }}
         function 표시(i) {{
           var 든것 = 마디들(동작칸(i).value);
           document.querySelectorAll('#pickpanel_' + i + ' .hot').forEach(function (b) {{
-            b.classList.toggle('on', 든것.indexOf(b.getAttribute('data-act')) >= 0);
+            var a = b.getAttribute('data-act');
+            b.classList.toggle('on', 든것.some(function (m) {{
+              return a.slice(-1) === '=' ? m.indexOf(a) === 0 : m === a;
+            }}));
           }});
+        }}
+        /* 적는 칸을 고르면 "무슨 글자를 넣을까요?" 만 물어본다 — 문장은 도구가 짓는다 */
+        function 값칸그리기(i) {{
+          var 통 = document.getElementById('vals_' + i);
+          if (!통) return;
+          var 줄 = [];
+          (고른[i] || []).forEach(function (m, idx) {{
+            if (m.indexOf('입력 ') !== 0) return;
+            var 칸이름 = m.slice(3).split('=')[0], 값 = m.slice(3).split('=').slice(1).join('=');
+            줄.push('<label class="valrow"><span>' + 글자막기(칸이름) + '</span>' +
+              '<input type="text" value="' + 글자막기(값) + '" placeholder="예: 1234" ' +
+              'oninput="값바꿈(' + i + ',' + idx + ',this)"></label>');
+          }});
+          통.innerHTML = 줄.length
+            ? '<div class="valt">적는 칸에 넣을 글자</div>' + 줄.join('') +
+              '<div class="hint" style="margin:var(--spacing-4) 0 0">아이디·비밀번호는 ' +
+              '<code>&lt;아이디&gt;</code> · <code>&lt;비번&gt;</code> 라고 두면 앱 정보에 적어 둔 시험 계정이 들어갑니다.</div>'
+            : '';
+        }}
+        function 값바꿈(i, idx, el) {{
+          var m = 고른[i][idx];
+          고른[i][idx] = '입력 ' + m.slice(3).split('=')[0] + '=' + el.value;
+          쓰기(i);
+        }}
+        function 쓰기(i) {{
+          var 칸 = 동작칸(i);
+          칸.value = 고른[i].length ? 고른[i].join(' → ') + ' → 기다림 1.2' : '';
+          칸.dispatchEvent(new Event('input'));
+          표시(i);
         }}
         function 그림고르기(i) {{
           var 줄 = document.getElementById('pick_' + i), 판 = document.getElementById('pickpanel_' + i);
@@ -1079,22 +1138,34 @@ def 화면_초안(알림=""):
             '<button type="button" class="btn" onclick="그림고르기(' + i + ')">닫기</button></span></div>' +
             '<div class="figs">' + (!왼 ? 그림그리기(i, 나, '이 화면')
               : 그림그리기(i, 왼, (앞 ? '앞 화면 · ' : '기본 화면 · ') + 왼.이름) + '<div class="figarrow">→</div>' +
-                그림그리기(i, 나, (앞 ? '들어갈 화면 · ' : '만들 화면 · ') + 나.이름)) + '</div>';
+                그림그리기(i, 나, (앞 ? '들어갈 화면 · ' : '만들 화면 · ') + 나.이름)) + '</div>' +
+            '<div class="vals" id="vals_' + i + '"></div>';
           줄.hidden = false;
           고른[i] = 마디들(동작칸(i).value).filter(function (m) {{ return m.indexOf('기다림') !== 0; }});
           표시(i);
+          값칸그리기(i);
         }}
         function 누름(i, b) {{
-          var 동작 = b.getAttribute('data-act');
+          var 동작 = b.getAttribute('data-act'), 칸인가 = 동작.slice(-1) === '=';
           고른[i] = 고른[i] || [];
-          var at = 고른[i].indexOf(동작);
-          if (at >= 0) 고른[i].splice(at, 1); else 고른[i].push(동작);
-          var 칸 = 동작칸(i);
-          칸.value = 고른[i].length ? 고른[i].join(' → ') + ' → 기다림 1.2' : '';
-          칸.dispatchEvent(new Event('input'));
-          표시(i);
+          var at = -1;
+          고른[i].forEach(function (m, k) {{
+            if (at < 0 && (칸인가 ? m.indexOf(동작) === 0 : m === 동작)) at = k;
+          }});
+          if (at >= 0) 고른[i].splice(at, 1);
+          else 고른[i].push(칸인가 ? 동작 + (b.getAttribute('data-val') || '') : 동작);
+          쓰기(i);
+          값칸그리기(i);
         }}
-        function 지움(i) {{ 고른[i] = []; var 칸 = 동작칸(i); 칸.value = ''; 칸.dispatchEvent(new Event('input')); 표시(i); }}
+        function 지움(i) {{ 고른[i] = []; 쓰기(i); 값칸그리기(i); }}
+        /* 틀리게 쓴 줄을 고친 문장으로 바꿔 준다 */
+        function 고침(i, b) {{
+          var 칸 = 동작칸(i);
+          칸.value = b.getAttribute('data-fix');
+          칸.dispatchEvent(new Event('input'));
+          var 통 = document.getElementById('fixbox_' + i);
+          if (통) 통.innerHTML = '<div class="hint" style="margin:var(--spacing-2) 0 0">바꿨습니다</div>';
+        }}
       </script>
       <div class="bar"><a class="btn" href="/">← 다시 고르기</a>
         <span class="right"></span>

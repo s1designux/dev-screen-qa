@@ -302,6 +302,44 @@ def 자료조건인가(이름):
     return m.group(0) if m else ""
 
 
+가림글자 = re.compile(r"[•*·●∙\s]{3,}")
+# 칸의 안내 글자는 '…입력해 주세요' 처럼 **끝이 그 모양**이다.
+# '입력하신 번호로 인증 번호를 보냈어요.' 같은 알림 글은 앞머리만 닮았을 뿐 칸이 아니다.
+안내끝 = re.compile(r"(입력|기입|주세요|하세요|해 주|적어 주)\s*[.!…]*$")
+시계글자 = re.compile(r"^\d{1,2}\s*:\s*\d{2}$")      # 남은 시간 표시 — 칸 안에 있어도 적는 자리가 아니다
+
+
+def _값제안(칸글):
+    """그 칸에 넣을 만한 첫 글자 — 아이디·비밀번호는 표식으로, 나머지는 시험값 표에서."""
+    for 이름, 값 in 시험값.items():
+        if 이름 != "기본" and 이름 in 칸글:
+            return 값
+    return ""
+
+
+def _칸글자인가(글, x, 칸곳):
+    """이 글자가 **적어 넣는 칸**의 안내 글자인가 — 누르는 것이 아니라 값을 적는 자리다.
+
+    둘 중 하나면 칸으로 본다: ① 입력 컴포넌트(INPUT·FIELD…) 안에 들어 있다
+    ② 안내 모양('…를 입력해 주세요')이거나 늘 쓰는 칸 이름(아이디·인증번호…)이다.
+    단추 글자가 칸으로 잘못 잡히지 않게, ②는 안내 모양일 때만 받는다.
+    """
+    if 시계글자.match(글.strip()):
+        return False
+    사슬 = list(x.get("사슬") or []) + [x.get("이름") or ""]
+    if any(칸무늬.search(n or "") for n in 사슬):
+        return True
+    자리 = x.get("자리")
+    if 자리 and any(_상자안(z, 자리) for z in 칸곳):
+        return True
+    return bool(안내끝.search(글.strip())) and any(k in 글 for k in 칸낱말)
+
+
+def _칸곳(속):
+    return [x.get("자리") for x in 속 or []
+            if x.get("종류") != "TEXT" and x.get("자리") and 칸무늬.search(x.get("이름") or "")]
+
+
 def 누를것들(속, 유형=None, 넓게=False):
     """그림 위에서 고르게 할 '누를 수 있는 것' — [{글자, 자리(%), 동작}].
 
@@ -312,6 +350,7 @@ def 누를것들(속, 유형=None, 넓게=False):
     글자 없는 작은 단추는 앱에서만 자리로 누른다(웹은 세로%로 누르지 않는다 — 유형표 `좌표.세로퍼센트`).
     """
     누를곳 = _누를곳(속)
+    칸곳 = _칸곳(속)
     나온, 본 = [], set()
     for x in _글자들(속):
         g = x["글자"].strip()
@@ -319,11 +358,15 @@ def 누를것들(속, 유형=None, 넓게=False):
         받음 = (bool(자) and 0 < len(g) <= 30 and "\n" not in g) if 넓게 else _누를글자인가(g, x, 누를곳)
         if not 받음:
             continue
-        동작 = f"탭 {g}"
+        if 가림글자.fullmatch(g):        # '••••••••' 같은 가림표는 개발 화면에서 찾을 수 없다
+            continue
+        칸 = _칸글자인가(g, x, 칸곳)
+        동작 = (f"입력 {g}=" if 칸 else f"탭 {g}")
         if 동작 in 본:
             continue
         본.add(동작)
-        나온.append({"글자": g, "자리": 자, "동작": 동작})
+        나온.append({"글자": g, "자리": 자, "동작": 동작, "칸": 칸,
+                   "값제안": _값제안(g) if 칸 else ""})
     if 매체.값(유형, "좌표.세로퍼센트", True):
         for x in 속 or []:
             자 = x.get("자리")
