@@ -142,9 +142,12 @@ def 웹으로(쪽, tag, 기다림=0.6):
         return 계정확인.쪽에서(쪽, 유형, 것["아이디"], 것["비밀번호"], 주소=들어갈주소)
     try:
         쪽.goto(들어갈주소, wait_until="load", timeout=30000)
-        쪽.wait_for_timeout(1200)
+        try:            # 로그인 칸이 뜨면 바로 — 늘 1.2초를 버리지 않는다
+            쪽.wait_for_selector('input[type="password"]', timeout=1200)
+        except Exception:
+            pass
         webshot.동작하기(쪽, 글, 것, False, 기다림, 유형)
-        쪽.wait_for_timeout(int(계정확인.기다릴초 * 1000))
+        계정확인.들어갈때까지(쪽)
     except Exception as e:
         return 계정확인.안됨(str(e).strip().splitlines()[0][:120])
     return 계정확인.판정(쪽)
