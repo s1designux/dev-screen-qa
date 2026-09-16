@@ -33,6 +33,8 @@ import 동작점검
 import 동작규칙
 import 시안요소
 import draft as 초안만들기
+import 주소기억
+import 메뉴훑기
 import intake as 접수하기
 import nametag
 import 계정확인
@@ -849,6 +851,21 @@ def 화면_디자인(오류=""):
     return 껍데기("/", 본문, "찍을 화면을 디자인 원본에서 고른다", 알림)
 
 
+def _메뉴띠말(것):
+    """'읽고 있는 티' 한 줄 — 무엇을 몇 개째 읽고 있는지 그대로 보인다."""
+    if 것.get("까닭"):
+        return f"메뉴를 읽지 못했습니다 — {것['까닭']}"
+    if 것.get("진행중"):
+        지금, 전부 = 것.get("지금", 0), 것.get("전부", 0)
+        읽는것 = 것.get("읽는것") or ""
+        셈 = f" · {지금}/{전부}" if 전부 else ""
+        return f"{것.get('말') or '메뉴를 읽는 중'}{셈}" + (f" — {읽는것}" if 읽는것 else "")
+    if 것.get("메뉴"):
+        때 = 것.get("때") or ""
+        return f"메뉴 {len(것['메뉴'])}개를 읽어 두었습니다" + (f" · {때}" if 때 else "")
+    return "메뉴는 아직 읽지 않았습니다"
+
+
 # ────────────────────────────────────────────────── ② 찍을 목록 초안
 def 화면_초안(알림=""):
     작업 = 작업읽기()
@@ -858,9 +875,11 @@ def 화면_초안(알림=""):
     웹 = 웹인가(작업)
 
     def 셋째칸(i, r, 이어서):
-        if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다
-            return (f'<td><input class="s" type="text" name="주소_{i}" value="{_e(r.get("주소",""))}" '
-                    f'placeholder="/login"></td>')
+        if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다(메뉴를 훑어 두면 저절로 채워진다)
+            return (f'<td><input class="s" type="text" name="주소_{i}" id="주소_{i}" '
+                    f'list="메뉴들" value="{_e(r.get("주소",""))}" placeholder="/login" '
+                    f'autocomplete="off">'
+                    f'<div class="hint" id="닮음_{i}"></div></td>')
         return (f'<td><input class="s" type="text" name="누를것_{i}" value="{_e(r["누를것"])}" '
                 f'{"disabled" if 이어서 else ""}></td>')
 
@@ -928,6 +947,17 @@ def 화면_초안(알림=""):
     자리코드 = "WEB" if 웹 else "AND"
     고름목록 = "".join(f'<option value="{_e(k)}">' for k in sorted(보일사전))
     깔린앱 = "".join(f'<option value="{_e(pkg)}">' for pkg in 깔린앱목록())
+
+    # 웹이면 들어오자마자 사이트 메뉴를 훑어 둔다 — 아무것도 누르지 않아도 주소가 채워지게.
+    # 계정·주소가 비어 있으면 돌지 않는다(로그인을 잘못 여러 번 해 잠기지 않게).
+    메뉴띠 = ""
+    if 웹:
+        메뉴훑기.자동시작(작업)
+        메뉴상태 = 메뉴훑기.상태()
+        메뉴띠 = ('<div class="card" id="메뉴띠" style="padding:var(--spacing-8) var(--spacing-12)">'
+               '<span id="메뉴말" class="muted">' + _e(_메뉴띠말(메뉴상태)) + '</span>'
+               ' <button type="button" class="pickbtn" onclick="메뉴다시()">다시 읽기</button>'
+               '</div>')
 
     # 로그인 화면을 안 찍고 홈·메뉴만 찍을 때 지나는 길 — 앱은 적어 둬야 하고, 웹은 저절로 들어간다.
     들머리칸 = "" if 웹 else (
@@ -1056,6 +1086,7 @@ def 화면_초안(알림=""):
         }});
       </script>
     </div>
+    {메뉴띠}
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
       <table class="list">
         <colgroup><col style="width:30px"><col style="width:72px"><col style="width:18%">
@@ -1066,6 +1097,62 @@ def 화면_초안(알림=""):
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
         <th>화면 묶음</th></tr></thead>
         <tbody>{행}</tbody></table>
+      <datalist id="메뉴들"></datalist>
+      <script>
+        /* 사이트 메뉴를 읽는 동안, 읽는 대로 주소 칸을 채운다.
+           사람이 적고 있는 칸과 이미 적힌 칸은 건드리지 않는다. */
+        (function () {{
+          var 웹 = {1 if 웹 else 0};
+          if (!웹) return;
+          function 그리기(것) {{
+            var 말 = document.getElementById('메뉴말');
+            if (말) 말.textContent = 것.말줄 || '';
+            var 목록 = document.getElementById('메뉴들');
+            if (목록 && 것.메뉴) {{
+              목록.innerHTML = 것.메뉴.map(function (m) {{
+                return '<option value="' + m.주소길 + '">' + m.이름 + '</option>';
+              }}).join('');
+            }}
+            Object.keys(것.짝 || {{}}).forEach(function (i) {{
+              var 칸 = document.getElementById('주소_' + i);
+              var 표 = document.getElementById('닮음_' + i);
+              var 하나 = 것.짝[i];
+              if (!칸 || !표) return;
+              if (하나.확정) {{
+                if (!칸.value && document.activeElement !== 칸) {{
+                  칸.value = 하나.주소;
+                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름
+                    + ' · 닮음 ' + 하나.닮음 + '%. 다르면 고치세요';
+                }} else if (칸.value === 하나.주소) {{
+                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름 + ' · 닮음 ' + 하나.닮음 + '%';
+                }}
+                return;
+              }}
+              /* 애매한 것은 넣지 않는다 — 가장 닮은 것만 내밀고 사람이 누른다. */
+              if (칸.value) return;
+              표.innerHTML = '어느 메뉴인지 애매합니다. 가장 닮은 것은 <b>' + 하나.메뉴이름
+                + '</b> (' + 하나.닮음 + '%) '
+                + '<button type="button" class="pickbtn" data-주소="' + 하나.주소
+                + '" data-줄="' + i + '">이걸로</button>';
+              var 단추 = 표.querySelector('button');
+              if (단추) 단추.onclick = function () {{
+                칸.value = 단추.getAttribute('data-주소');
+                표.textContent = '눌러서 넣었습니다 — ' + 하나.메뉴이름;
+              }};
+            }});
+          }}
+          function 한번() {{
+            fetch('/메뉴훑기/상태').then(function (r) {{ return r.json(); }}).then(function (것) {{
+              그리기(것);
+              if (것.진행중) setTimeout(한번, 1200);
+            }}).catch(function () {{}});
+          }}
+          window.메뉴다시 = function () {{
+            fetch('/메뉴훑기', {{method: 'POST'}}).then(function () {{ setTimeout(한번, 300); }});
+          }};
+          한번();
+        }})();
+      </script>
       <script>
         /* 동작 칸은 적은 글만큼 스스로 자란다 — 긴 문장도 잘리지 않게. */
         (function () {{
@@ -1612,6 +1699,10 @@ class 손님(BaseHTTPRequestHandler):
             return self._html(화면_디자인(q.get("오류", [""])[0]))
         if 길 == "/초안":
             return self._html(화면_초안())
+        if 길 == "/메뉴훑기/상태":
+            것 = 메뉴훑기.상태()
+            것["말줄"] = _메뉴띠말(것)
+            return self._json(것)
         if 길 == "/조건":
             return self._html(화면_조건())
         if 길 == "/촬영":
@@ -1683,6 +1774,8 @@ class 손님(BaseHTTPRequestHandler):
         작업["찍을폭"] = int(꾸러미.get("찍을폭") or 0)
         작업["고른화면"] = 고른화면
         작업["초안"] = 초안만들기.만들기(고른화면, 작업.get("유형"))
+        # 전에 한 번 적어 둔 개발 주소는 다시 적지 않는다 — 빈 칸만 기억으로 채운다.
+        주소기억.채우기(작업.get("앱이름", ""), 작업["초안"])
         작업.pop("접수결과", None)
         작업.setdefault("앱이름", "")
         작업.setdefault("서비스코드", "")
@@ -1751,6 +1844,7 @@ class 손님(BaseHTTPRequestHandler):
             작업["고른페이지"] = 이페이지
             작업["고른화면"] = 골라진
             작업["초안"] = 초안만들기.만들기(골라진, 작업.get("유형"))
+            주소기억.채우기(작업.get("앱이름", ""), 작업["초안"])
             작업.setdefault("앱이름", "")
             작업.setdefault("서비스코드", "")
             작업.setdefault("앱주소", "")
@@ -1794,6 +1888,10 @@ class 손님(BaseHTTPRequestHandler):
             작업["시험아이디"] = 한개("시험아이디")
             작업["시험비밀번호"] = 한개("시험비밀번호")
             작업["들어가는길"] = 한개("들어가는길")     # 로그인 화면을 안 찍을 때 지나는 길(앱)
+            if 웹:
+                # 이름을 이제 적었을 수도 있다 — 빈 칸을 한 번 더 채우고, 적힌 주소는 기억에 쌓는다.
+                주소기억.채우기(작업["앱이름"], 작업["초안"])
+                주소기억.적어두기(작업["앱이름"], 작업["초안"])
             # 로그인 여부는 따로 묻지 않는다 — 시험 계정을 적었으면 로그인이 있는 앱이다
             작업["로그인"] = "필요" if 작업["시험아이디"] else "없음"
             작업쓰기(작업)
@@ -1868,6 +1966,11 @@ class 손님(BaseHTTPRequestHandler):
             작업쓰기(작업)
             촬영시작()
             return self._이동("/촬영")
+
+        if 길 == "/메뉴훑기":
+            # '다시 읽기' — 기억을 무시하고 사이트를 한 번 더 훑는다.
+            메뉴훑기.자동시작(작업읽기(), 다시=True)
+            return self._json({"시작": True})
 
         if 길 == "/계정확인":
             작업 = 작업읽기()
