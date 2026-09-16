@@ -17,6 +17,7 @@ from datetime import datetime
 
 import account
 import actions
+import 커서
 import nametag
 import webvalue
 import 매체
@@ -145,6 +146,7 @@ def _누를것찾기(쪽, 글자):
 def _적기(칸, 값, 갈래=None):
     """칸에 글자를 넣는다. 웹은 **한 글자씩** 친다 — 자판을 뗄 때(keyup)만 단추를 켜는 화면이 있어서다.
     한 번에 밀어 넣으면(fill) 자판 신호가 나지 않아 로그인 단추가 꺼진 채로 남는다(유형표 겪은일 2026-09-14)."""
+    커서.것으로(칸)
     칸.click()
     칸.fill("")
     if not 매체.값(갈래, "입력.한글자씩", False):
@@ -163,6 +165,7 @@ def _누르기(것, 이름, 갈래=None):
     기본 30초를 기다리다 'Timeout' 만 남기면 사람이 까닭을 알 수 없다.
     """
     초 = 매체.값(갈래, "단추.기다릴초", 30)
+    커서.것으로(것)
     try:
         것.click(timeout=int(초 * 1000))
     except Exception as e:
@@ -187,6 +190,7 @@ def _칸흔들기(쪽, 칸이름, 값="", 계정=None, 실패=False, 갈래=None
     칸이 비어 있으면(화면이 값까지 지웠으면) 적어 둔 값을 다시 넣는다.
     """
     칸 = _칸찾기(쪽, 칸이름)
+    커서.것으로(칸)
     칸.click()
     지금 = ""
     try:
@@ -239,8 +243,10 @@ def _칸끝누르기(쪽, 칸이름):
     보기 = [x for x in 단추들 if x[1]]
     고른것 = (보기 or sorted(단추들))[0][2] if (보기 or 단추들) else None
     if 고른것 is not None:
+        커서.것으로(고른것)
         고른것.click()
         return
+    커서.자리로(쪽, 상자["x"] + 상자["width"] - 16, 가운데y)
     쪽.mouse.click(상자["x"] + 상자["width"] - 16, 가운데y)
 
 
@@ -350,6 +356,7 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
     elif 앞 in ("있으면탭", "있으면누르기"):
         것 = _누를것찾기(쪽, 뒤)
         if 것 is not None:
+            커서.것으로(것)
             것.click()
     elif 앞 in ("입력", "적기"):
         if "=" not in 뒤:
@@ -376,8 +383,10 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
         if len(수) != 2:
             raise 웹오류(f"자리를 가로%,세로% 로 적어 주세요 — 예: 탭좌표 86,41 ({마디})")
         칸크기 = 쪽.viewport_size or {"width": 기본폭, "height": 900}
-        쪽.mouse.click(칸크기["width"] * float(수[0]) / 100,
-                      칸크기["height"] * float(수[1]) / 100)
+        x = 칸크기["width"] * float(수[0]) / 100
+        y = 칸크기["height"] * float(수[1]) / 100
+        커서.자리로(쪽, x, y)
+        쪽.mouse.click(x, y)
     elif 앞 == "스크롤":
         쪽.mouse.wheel(0, 800)
     elif 앞 == "뒤로":
@@ -505,6 +514,7 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                     if 동작 not in ("-", "", "없음"):
                         동작하기(쪽, 동작, 계정, account.실패화면(화면.get("이름", "")), 기다림,
                               _갈래(tag))
+                    커서.치우기(쪽)      # 화살표는 사람 눈에만 — 값·사진에는 들어가지 않는다
                     값 = webvalue.긁기(쪽, 화면.get("이름", ""))
                     webvalue.쓰기(os.path.join(결과폴더, 값이름(이름)), 값)
                     쪽.screenshot(path=os.path.join(결과폴더, 이름), full_page=True)
