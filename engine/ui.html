@@ -867,6 +867,67 @@ function menuLabelIds(design,children,groups,repeats){
   });
   return out;
 }
+// ── 항목 이름 가려내기: 되풀이되는 줄 안이라도 '사양으로 정해진 이름'은 접지 않는다 ─────
+// 왜 (P21): 표 행·목록 줄·카드는 통째로 가변으로 접는다 — 표 본문 값은 개발 데이터라 달라도 정상이기 때문.
+// 그런데 같은 자리에 **사양으로 정해진 항목 이름**(약관 이름·설정 항목 이름)이 오는 화면이 있다.
+// 이런 글자는 개발이 마음대로 바꿀 수 없으므로, 접어 버리면 진짜 낱말 빠짐이 사람 눈에 안 온다.
+// 가르는 자 — 화면 이름·좌표·특정 낱말을 코드에 박지 않는다:
+//  ① 줄마다 **같은 자리**에 오는 글자를 세로로 모은다(줄마다 글자 개수가 같고 가로 자리가 겹칠 때만).
+//  ② 그 자리 값 중 하나라도 숫자·날짜·금액·이름 꼴이면 자료 자리다 → 지금처럼 접는다.
+//  ③ 값이 너무 짧으면(평균 6자 미만) 보지 않는다 — '배차중/운행중' 같은 한 글자 꼬리가 우연히 맞는다.
+//  ④ 값들이 앞뒤로 같은 토막을 넉넉히 나눠 가지면(공통 앞머리+꼬리말이 평균 길이의 30% 이상) 사양 문구로 본다.
+//     자료 자리는 줄마다 제각각이라 공통 토막이 거의 없다.
+function commonAffixLen(vals){
+  var pre=vals[0],suf=vals[0];
+  for(var i=1;i<vals.length;i++){
+    var v=vals[i],n=0;
+    while(n<pre.length&&n<v.length&&pre.charAt(n)===v.charAt(n))n++;pre=pre.slice(0,n);
+    var m=0;
+    while(m<suf.length&&m<v.length&&suf.charAt(suf.length-1-m)===v.charAt(v.length-1-m))m++;suf=suf.slice(suf.length-m);
+  }
+  var shortest=vals.reduce(function(a,v){return Math.min(a,v.length);},Infinity);
+  return Math.min(pre.length+suf.length,shortest); // 앞머리와 꼬리가 같은 글자를 두 번 세지 않게
+}
+var SPEC_LABEL_MIN_LEN=6,SPEC_LABEL_AFFIX_RATIO=.3;
+function specLabelSlot(vals){
+  // 한 자리(칸)의 값들이 '사양으로 정해진 항목 이름'인가. 맞으면 왜 그렇게 봤는지를 돌려준다.
+  if(vals.length<3)return null;
+  if(vals.some(function(v){return !v||VAR_PATTERN_RE.test(v);}))return null;
+  var avg=vals.reduce(function(a,v){return a+v.length;},0)/vals.length;
+  if(avg<SPEC_LABEL_MIN_LEN)return null;
+  var affix=commonAffixLen(vals),ratio=affix/avg;
+  if(ratio<SPEC_LABEL_AFFIX_RATIO)return null;
+  return{affix:affix,ratio:ratio};
+}
+function specLabelIds(design,children,rows,headers){
+  // 반복 행 묶음마다 세로로 같은 자리를 모아 보고, 항목 이름 자리면 그 글자들에 이름표를 단다.
+  var out={};
+  (rows||[]).forEach(function(g){
+    if(g.length<3)return;
+    var sorted=g.slice().sort(function(a,b){return a.box.y-b.box.y||a.box.x-b.box.x;});
+    var perRow=sorted.map(function(k){
+      var ts=textsUnder(k,children).filter(function(t){return String(t.text||"").trim();});
+      ts.sort(function(a,b){var dy=(a.box.y-k.box.y)-(b.box.y-k.box.y);return Math.abs(dy)>3?dy:(a.box.x-k.box.x)-(b.box.x-k.box.x);});
+      return ts;
+    });
+    // 컬럼 제목 줄은 이미 따로 고정으로 보므로 여기서는 빼고 본문 줄만 견준다.
+    perRow=perRow.filter(function(ts){return !(ts.length&&headers&&ts.every(function(t){return headers[t.id];}));});
+    if(perRow.length<3)return;
+    var n=perRow[0].length;
+    if(!n||perRow.some(function(ts){return ts.length!==n;}))return; // 줄마다 글자 수가 다르면 자리를 못 맞춘다 — 손대지 않는다
+    for(var j=0;j<n;j++){
+      var cell=perRow.map(function(ts,i){return{t:ts[j],row:sorted[i]};});
+      var rel=cell.map(function(c){return c.t.box.x-c.row.box.x;});
+      var spread=Math.max.apply(null,rel)-Math.min.apply(null,rel);
+      if(spread>Math.max(8,sorted[0].box.w*.15))continue; // 같은 칸이 아니다
+      var vals=cell.map(function(c){return String(c.t.text).trim();});
+      var got=specLabelSlot(vals);
+      if(!got)continue;
+      cell.forEach(function(c){out[c.t.id]={rows:perRow.length,ratio:got.ratio};});
+    }
+  });
+  return out;
+}
 function buttonLikeIds(design,children){
   // 이름이 없어도 알 수 있는 버튼: 채움·테두리가 있는 작은 상자 안에 글자 하나가 가운데 놓인 것. 버튼 문구는 고정이다.
   children=children||childMap(design);var out={};
@@ -1084,6 +1145,9 @@ var POLICY_TEXT_RULES=[
   {id:"role",title:"컴포넌트 역할 이름",textOnly:true,test:function(e){
     var role=roleKind(e);if(!role)return null;
     return{variable:role.kind==="variable",reason:(role.kind==="variable"?"데이터 자리":"고정 문구 자리")+" ("+role.name+")"};}},
+  {id:"specLabel",title:"되풀이되는 줄 안의 항목 이름은 고정",textOnly:true,test:function(e,x){
+    var s=x.specLabels[e.id];if(!s)return null;
+    return{variable:false,reason:"되풀이되는 줄의 항목 이름("+s.rows+"줄이 같은 말투를 나눠 씀)"};}},
   {id:"repeat",title:"표 본문·반복되는 행 안은 가변",test:function(e,x){
     if(!x.repeats[e.id])return null;
     return{variable:true,reason:e.kind==="text"?"반복되는 행·카드 안의 글자 ("+x.repeats[e.id]+"개 반복)":"반복되는 행·카드 안의 요소 ("+x.repeats[e.id]+"개 반복, 데이터에 따라 자리·내용이 바뀜)"};}},
@@ -1098,6 +1162,7 @@ function buildTextPolicy(design){
   var children=childMap(design),all=sameShapeSiblings(design,children),rows=repeatedRowGroups(all,children),repeats=repeatedRowIds(design,children,rows);
   var x={st:screenTypeOf(design),manual:(design.policy&&design.policy.variable)||{},repeats:repeats,
     headers:tableHeaderIds(design,children,rows),menus:menuLabelIds(design,children,all,repeats),buttons:buttonLikeIds(design,children)};
+  x.specLabels=specLabelIds(design,children,rows,x.headers);
   var map={};
   (design.elements||[]).forEach(function(e){
     for(var i=0;i<POLICY_TEXT_RULES.length;i++){
@@ -2996,6 +3061,27 @@ async function runSelfTest(){
   check("맨 윗줄에도 값이 들어 있으면 컬럼 제목이 아님",gp2.ht0.source!=="tableHeader"&&gp2.ht1.source!=="tableHeader");
   var mp=buildTextPolicy(tabsDesign);
   check("가로로 나란한 메뉴·탭 이름은 고정",[mp.t0x,mp.t1x,mp.t2x,mp.t3x].every(function(x){return x.variable===false&&x.source==="menu";}));
+  // ── 되풀이되는 줄 안의 항목 이름(P21): 자료 자리와 사양 문구를 가른다
+  function listDesign(texts){
+    var els=[{id:"list",type:"FRAME",kind:"shape",parentId:null,box:{x:20,y:40,w:400,h:160},values:{}}];
+    texts.forEach(function(t,i){
+      var y=40+i*40;
+      els.push({id:"l"+i,type:"FRAME",kind:"shape",parentId:"list",box:{x:20,y:y,w:400,h:30},values:{}});
+      els.push({id:"l"+i+"b",type:"INSTANCE",kind:"shape",parentId:"l"+i,box:{x:24,y:y+6,w:18,h:18},values:{fill:"#FFFFFF"}});
+      els.push({id:"l"+i+"t",kind:"text",parentId:"l"+i,text:t,box:{x:50,y:y+7,w:300,h:16},values:{color:"#222222"}});
+    });
+    return{name:"차량 운행 목록",width:440,height:240,elements:els};
+  }
+  var sp=buildTextPolicy(listDesign(["회원 이용약관 동의(필수)","개인정보 수집 및 이용 동의(필수)","위치기반 서비스 이용 동의(필수)"]));
+  check("되풀이되는 줄이라도 같은 말투를 나눠 쓰는 항목 이름은 고정",[sp.l0t,sp.l1t,sp.l2t].every(function(x){return x.variable===false&&x.source==="specLabel";}));
+  var sp2=buildTextPolicy(listDesign(["김철수 사원 서울 본사","라마바","사아자 대리"]));
+  check("줄마다 제각각인 자료 자리는 그대로 가변",[sp2.l0t,sp2.l1t,sp2.l2t].every(function(x){return x.variable&&x.source!=="specLabel";}));
+  var sp3=buildTextPolicy(listDesign(["2026.01.01 등록 완료","2026.01.02 등록 완료","2026.01.03 등록 완료"]));
+  check("날짜·숫자 꼴이 섞인 자리는 꼬리말이 같아도 자료 자리",[sp3.l0t,sp3.l1t,sp3.l2t].every(function(x){return x.variable&&x.source!=="specLabel";}));
+  var sp4=buildTextPolicy(listDesign(["배차중","운행중","대기중"]));
+  check("짧은 값은 꼬리 한 글자가 같아도 항목 이름으로 보지 않음",[sp4.l0t,sp4.l1t,sp4.l2t].every(function(x){return x.source!=="specLabel";}));
+  check("공통 앞머리·꼬리말 길이 재기(같은 글자를 두 번 세지 않음)",commonAffixLen(["회원 이용약관 동의(필수)","개인정보 수집 및 이용 동의(필수)","위치기반 서비스 이용 동의(필수)"])===7&&commonAffixLen(["같은 말","같은 말","같은 말"])===4&&commonAffixLen(["가나다","라마바","사아자"])===0);
+  check("표 본문 값은 P21 뒤에도 그대로 가변",[gp.r1t0,gp.r2t0,gp.r3t0].every(function(x){return x.variable&&x.source!=="specLabel";}));
   function chromeDesign(barTexts){
     var els=[{id:"bar",type:"FRAME",kind:"shape",parentId:null,box:{x:0,y:0,w:1000,h:80},values:{fill:"#EEEEEE"}},
       {id:"task",type:"RECTANGLE",kind:"image",parentId:null,box:{x:0,y:920,w:1000,h:80},values:{}},
