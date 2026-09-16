@@ -234,6 +234,19 @@ th, td { padding:var(--spacing-8) var(--spacing-10); border-bottom:1px solid var
   text-align:left; vertical-align:middle; }
 th { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); font-weight:var(--font-weight-medium); }
 .muted { color:var(--color-text-helper); }
+/* 알림 띠 — 스크롤해도 화면 맨 위에 붙어 있다(찍을 목록이 길면 위로 밀려 안 보였다, river 2026-09-16).
+   오른쪽 위 ✕ 로 닫는다. 닫아도 줄마다 붙는 빨간 글은 그대로 남는다. */
+.alertbar { position:sticky; top:var(--spacing-8); z-index:30; margin:0 0 var(--spacing-14);
+  padding:0; background:none; }
+.alertbar .err, .alertbar .ok { margin:0; padding-right:var(--spacing-40);
+  box-shadow:0 6px 16px -8px rgba(0,0,0,.28); }
+.alertbar .jump { color:inherit; text-decoration:underline; text-underline-offset:2px; }
+.alertdo { margin-top:var(--spacing-10); }
+tr { scroll-margin-top:140px; }   /* 알림 띠에 가리지 않게 — 줄로 뛰었을 때 */
+.alertx { position:absolute; top:var(--spacing-8); right:var(--spacing-8); border:0; background:none;
+  cursor:pointer; font-size:var(--font-size-16); line-height:1;
+  color:var(--color-text-state-error); padding:var(--spacing-4) var(--spacing-8); border-radius:var(--radius-8); }
+.alertx:hover { background:var(--color-red-100); }
 .err { background:var(--color-red-50); color:var(--color-text-state-error);
   border:1px solid var(--color-red-100); border-radius:var(--radius-8);
   padding:var(--spacing-10) var(--spacing-12);
@@ -494,6 +507,25 @@ def _무리(이름):
     return 조각[0]
 
 
+def _그대로단추(글="이대로 진행"):
+    """알림 띠 안에서 누르는 '그대로 진행'.
+
+    목록이 길면 맨 아래 단추가 한참 밑에 있어 못 찾는다(river 2026-09-16) — 띠 안에 같은 단추를 둔다.
+    `form=` 로 ② 찍을 목록 폼을 가리켜, 띠가 폼 바깥에 있어도 적어 둔 값 그대로 넘어간다.
+    """
+    return (f'<div class="alertdo"><button class="go" type="submit" name="그래도" value="1"'
+            f' form="초안폼">{글} →</button></div>')
+
+
+def _알림띠(알림):
+    """알림을 화면 맨 위에 붙는 띠로 감싼다 — 스크롤해도 따라오고, ✕ 로 닫는다."""
+    if not 알림:
+        return ""
+    return ('<div class="alertbar" id="alertbar" role="alert">' + 알림
+            + '<button type="button" class="alertx" aria-label="알림 닫기" title="닫기"'
+              ' onclick="document.getElementById(\'alertbar\').remove()">&#10005;</button></div>')
+
+
 def 껍데기(지금, 본문, 부제="", 알림=""):
     작업 = 작업읽기()
     칩 = ""
@@ -507,7 +539,7 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
 <title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head><body>
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
-<div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{알림}{본문}</div>
+<div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
 </body></html>"""
 
@@ -819,15 +851,19 @@ def 화면_초안(알림=""):
         이어서 = r.get("이어서") == "예"
         if not 이어서:
             바탕i = i
+        # 왼쪽에 놓을 화면. 같은 묶음이면 그 묶음의 바탕 화면, **묶음의 첫 장이면 바로 앞 줄**이다
+        # (river 확정 2026-09-16: '회원 가입' 첫 장은 앞 화면인 로그인의 `회원가입` 을 눌러 들어간다 —
+        #  자기 화면만 띄우면 누를 것이 아예 없다). 목록 맨 첫 줄만 왼쪽이 없다.
+        왼쪽 = 바탕i if 이어서 else (i - 1 if i > 0 else -1)
         그림자료.append({"그림": f"/받은그림/{Path(r['디자인그림']).name}" if r.get("디자인그림") else "",
-                     "누를것": 동작규칙.누를것들(시안요소.전체목록(r), 유형(작업)), "바탕": 바탕i,
-                     "이름": r.get("이름", "")})
+                     "누를것": 동작규칙.누를것들(시안요소.전체목록(r), 유형(작업), 넓게=True),
+                     "왼쪽": 왼쪽, "앞화면": not 이어서, "이름": r.get("이름", "")})
         자료조건 = r.get("자료조건") or ""
         표시 = ('<span class="ties">↳ 같은 화면</span>' if 이어서
               else f'<b>{_e(r.get("화면묶음",""))}</b>')
         틀림 = 동작말.확인(r.get("동작", ""), 유형(작업))
         빈동작 = 이어서 and not (r.get("동작", "") or "").strip()
-        행 += f"""<tr class="{'tie' if 이어서 else ''}">
+        행 += f"""<tr id="줄{i+1}" class="{'tie' if 이어서 else ''}">
           <td class="muted">{i+1}</td>
           <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}"></td>
           <td><textarea class="s act" name="이름_{i}" rows="2" wrap="soft">{_e(r['이름'])}</textarea></td>
@@ -862,7 +898,7 @@ def 화면_초안(알림=""):
     깔린앱 = "".join(f'<option value="{_e(pkg)}">' for pkg in 깔린앱목록())
 
     본문 = f"""{경고}
-    <form method="post" action="/초안">
+    <form method="post" action="/초안" id="초안폼">
     <div class="card"><h2>{'사이트 정보' if 웹 else '앱 정보'}
       <span class="muted">· {_e(유형이름.get(유형(작업), '앱'))} <span style="font-weight:400">— 플러그인에서 고른 유형</span></span></h2>
       <label class="f">{'사이트 이름' if 웹 else '앱 이름'}</label>
@@ -995,7 +1031,8 @@ def 화면_초안(알림=""):
       </script>
       <script>
         /* 그림 위에서 고르기 — "이 화면이 나오려면 어디를 누르나요?" 에 클릭으로 답한다.
-           점선 칸은 시안 속 단추·입력칸 글자(서버 동작규칙.누를것들). 누른 차례대로 '탭 A → 탭 B → 기다림 1.2' 가 된다. */
+           점선 칸은 시안 속 짧은 글자 전부(서버 동작규칙.누를것들 넓게). 누른 차례대로 '탭 A → 탭 B → 기다림 1.2' 가 된다.
+           왼쪽에 놓이는 것: 같은 묶음이면 그 묶음의 바탕 화면, 묶음의 첫 장이면 바로 앞 줄의 화면. */
         var 그림자료 = {그림자료글};
         var 고른 = {{}};
         function 동작칸(i) {{ return document.getElementsByName('동작_' + i)[0]; }}
@@ -1020,14 +1057,19 @@ def 화면_초안(알림=""):
         function 그림고르기(i) {{
           var 줄 = document.getElementById('pick_' + i), 판 = document.getElementById('pickpanel_' + i);
           if (!줄.hidden) {{ 줄.hidden = true; return; }}
-          var 나 = 그림자료[i], 바탕 = 그림자료[나.바탕];
-          var 물음 = (나.바탕 === i) ? '이 화면에서 누를 것을 차례로 누르세요'
-                   : '오른쪽 화면이 나오려면 왼쪽 화면 <b>어디</b>를 누르나요? — 점선 칸을 차례로 누르세요';
+          var 나 = 그림자료[i];
+          var 왼 = (나.왼쪽 >= 0 && 나.왼쪽 !== i) ? 그림자료[나.왼쪽] : null;
+          if (왼 && !왼.그림) 왼 = null;
+          var 앞 = 왼 && 나.앞화면;
+          var 물음 = !왼 ? '이 화면에서 누를 것을 차례로 누르세요'
+                   : (앞 ? '이 화면으로 들어가려면 <b>앞 화면</b> 어디를 누르나요? — 점선 칸을 차례로 누르세요'
+                         : '오른쪽 화면이 나오려면 왼쪽 화면 <b>어디</b>를 누르나요? — 점선 칸을 차례로 누르세요');
           판.innerHTML = '<div class="pickq">' + 물음 +
             '<span class="right"><button type="button" class="btn" onclick="지움(' + i + ')">지우기</button> ' +
             '<button type="button" class="btn" onclick="그림고르기(' + i + ')">닫기</button></span></div>' +
-            '<div class="figs">' + (나.바탕 === i ? 그림그리기(i, 나, '이 화면')
-              : 그림그리기(i, 바탕, '기본 화면 · ' + 바탕.이름) + '<div class="figarrow">→</div>' + 그림그리기(i, 나, '만들 화면 · ' + 나.이름)) + '</div>';
+            '<div class="figs">' + (!왼 ? 그림그리기(i, 나, '이 화면')
+              : 그림그리기(i, 왼, (앞 ? '앞 화면 · ' : '기본 화면 · ') + 왼.이름) + '<div class="figarrow">→</div>' +
+                그림그리기(i, 나, (앞 ? '들어갈 화면 · ' : '만들 화면 · ') + 나.이름)) + '</div>';
           줄.hidden = false;
           고른[i] = 마디들(동작칸(i).value).filter(function (m) {{ return m.indexOf('기다림') !== 0; }});
           표시(i);
@@ -1644,7 +1686,7 @@ class 손님(BaseHTTPRequestHandler):
                 if 까닭:
                     틀린것.append(f"{i+1}번째 줄 — {까닭}")
                 elif 같아짐 and not r["동작"].strip():
-                    빈줄.append(f"{i+1}번째 줄 · {r['이름']}")
+                    빈줄.append((i + 1, f"{i+1}번째 줄 · {r['이름']}"))
             작업["앱이름"] = 한개("앱이름") or "이름없는 앱"
             작업["서비스코드"] = re.sub(r"[^A-Za-z0-9_-]", "", 한개("서비스코드")).upper()
             if 웹:
@@ -1662,9 +1704,10 @@ class 손님(BaseHTTPRequestHandler):
                 return self._html(화면_초안(
                     '<div class="err">아래 줄은 <b>동작이 비어 있어</b> 앞 장과 '
                     '똑같은 사진이 찍힙니다.<br>'
-                    + "<br>".join(_e(t) for t in 빈줄)
+                    + "<br>".join(f'<a class="jump" href="#줄{n}">{_e(t)}</a>' for n, t in 빈줄)
                     + '<div style="margin-top:var(--spacing-8)">그 상태를 만드는 동작을 적어 주세요. '
-                      '일부러 같은 화면을 두 번 찍는 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
+                      '일부러 같은 화면을 두 번 찍는 것이면 아래 단추를 누르세요.</div>'
+                    + _그대로단추() + '</div>'))
             if 틀린것:
                 return self._html(화면_초안('<div class="err">동작을 알아듣지 못했습니다.<br>'
                                         + "<br>".join(_e(t) for t in 틀린것) + '</div>'))
@@ -1694,7 +1737,8 @@ class 손님(BaseHTTPRequestHandler):
                     '<b>시험 아이디·비밀번호</b>가 비어 있습니다 — '
                     + ", ".join(f"{n}번째 줄" for n in 빠진계정)
                     + '<div style="margin-top:var(--spacing-8)">위 <b>앱 정보</b>에 검수용 시험 계정을 적어 주세요. '
-                      '로그인 없이 그냥 찍을 것이면 <b>그대로 진행</b>을 누르세요.</div></div>'))
+                      '로그인 없이 그냥 찍을 것이면 아래 단추를 누르세요.</div>'
+                    + _그대로단추() + '</div>'))
             앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업.get("앱주소", ""),
                        작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
                        작업.get("기본주소", ""), 작업.get("찍을폭", ""))
