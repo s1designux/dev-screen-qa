@@ -683,7 +683,8 @@ CSS = '''
 .auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto}
 .auto-range-editor::backdrop{background:var(--color-overlay)}
 .auto-range-title{display:block;margin:0 0 var(--spacing-8);font-size:var(--font-size-14)}
-.cv-tools .auto-range-btn{margin-left:auto}
+.cv-tools .auto-range-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}   /* 가운데 단추들이 한가운데 오도록 '조정'은 오른쪽에 따로 붙인다 */
+@media (max-width:760px){.cv-tools .auto-range-btn{position:static;transform:none;margin-left:auto}}
 .auto-range-editor .auto-hint{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-caption)}
 .auto-range-stage{position:relative;display:inline-block;max-width:100%;line-height:0;user-select:none;touch-action:none}
 .auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid var(--color-border-default)}
