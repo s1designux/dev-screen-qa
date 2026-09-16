@@ -1,6 +1,7 @@
 (function(){
  const p=document.getElementById('capture-picker');if(!p)return;
- const choices=[...p.querySelectorAll('input[name=capture]')];
+ // 예전 촬영(접어 둔 것)은 순위를 매기지 않는다 — 고르는 것은 마지막 촬영 사진이다.
+ const choices=[...p.querySelectorAll('input[name=capture]')].filter(x=>!x.closest('label').classList.contains('cap-old'));
  const preview=p.querySelector('#plan-capture-preview'), note=p.querySelector('.recommendation-status');
  let chosen=choices.find(x=>x.checked), automatic=null, userSelected=false;
  function show(input){if(input)preview.src=input.dataset.src;}

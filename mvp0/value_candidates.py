@@ -35,6 +35,7 @@ except Exception:                                   # valueqa 가 없으면 조�
     준비됨 = False
 
 import 설정 as _설정
+import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 
 출처 = 'value'                                       # 규칙 성적표(rule_log)에서 한 줄로 세어진다
 KIND = 'value'                                      # 후보 종류 — 그림 검수의 종류와 섞이지 않게
@@ -68,7 +69,7 @@ def 지문(시안길, 개발길):
     for p in (시안길, 개발길):
         h.update(p.read_bytes())
     # 끝의 판 번호는 '카드에 담는 모양'이 바뀔 때 올린다 — 옛 회차는 남고, 사람이 내린 판정은 이어받는다.
-    return 'value5:' + h.hexdigest()[:12]
+    return 'value6:' + h.hexdigest()[:12]
 
 
 def 대조(시안길, 개발길):
@@ -136,29 +137,25 @@ def 줄들(c):
 
 
 def _잣대(결과, run):
-    """개발 값(웹 좌표) → 개발 그림(촬영본) 좌표로 옮기는 배율·기준점.
-
-    잰 값의 자리는 '판(아트보드)' 기준이고 촬영본은 '내용'만 담는다.
-    contentX/Y 는 판 위에서 내용이 놓인 자리를 음수로 적어 둔 값이라 **더해야** 0에 맞는다.
-    (예: contentX=-960 이면 판의 x=960 이 촬영본의 x=0)"""
+    """이 화면의 자(尺). 좌표를 바꾸는 셈은 `자.py` 한 곳에만 있다."""
     m = (결과.get('meta') or {}).get('개발') or {}
-    폭 = m.get('docW') or m.get('artboardWidth') or m.get('viewportWidth') or 0
-    k = ((run['dev_img_w'] or 폭) / 폭) if 폭 else 1
-    return k, m.get('contentX') or 0, m.get('contentY') or 0
+    시안폭 = ((결과.get('meta') or {}).get('시안') or {}).get('artboardWidth')
+    return 자모듈.개발잰값에서(m, 시안폭=시안폭, 개발그림폭=run['dev_img_w'])
 
 
-def _상자(c, k, dx, dy):
-    """후보를 개발 그림 위 어디에 그릴지.
+def _상자(c, ㅈ):
+    """후보를 개발 그림(촬영본) 위 어디에 그릴지.
 
-    개발에서 잰 상자(devBox)만 판 기준이라 contentX/Y 로 옮긴다.
+    개발에서 잰 상자(devBox)는 '판' 기준이라 화면 기준으로 먼저 옮긴다.
     '디자인에 있는데 개발에 없음' 후보는 잴 개발 요소가 없어 시안 상자를 쓰는데,
-    그건 이미 시안 프레임 기준이라 개발 보정을 먹이면 화면 밖으로 나간다."""
+    그건 이미 화면 기준이라 그대로 촬영본 자로만 옮긴다."""
     dev = c.get('devBox')
     b = dev or c.get('box') or {}
     if not b:
         return None, None, None, None
-    ox, oy = (dx, dy) if dev else (0, 0)
-    return ((b['x'] + ox) * k, (b['y'] + oy) * k, b['w'] * k, b['h'] * k)
+    화면 = ㅈ.잰값_화면(b) if dev else b
+    그림 = ㅈ.화면_개발그림(화면)
+    return 그림['x'], 그림['y'], 그림['w'], 그림['h']
 
 
 # ── 저장 ────────────────────────────────────────────────────────
@@ -181,7 +178,7 @@ def 챙기기(store, page_id, run, 길):
                 if p.get('키'):
                     옛것[p['키']] = x
         결과 = 대조(시안길, 개발길)
-        배율, dx, dy = _잣대(결과, run)
+        ㅈ = _잣대(결과, run)
         새회차 = uid()
         # 개발 관행 표가 접은 것도 회차에 함께 남긴다 — 어느 규칙이 몇 건을 접었는지 되짚을 수 있게(2번-3).
         접음 = {}
@@ -197,7 +194,7 @@ def 챙기기(store, page_id, run, 길):
             앞 = 옛것.get(이름표)
             상태 = 앞['status'] if 앞 else 'open'
             지적 = 앞['issue_id'] if 앞 else None
-            x, y, w, h = _상자(k, 배율, dx, dy)
+            x, y, w, h = _상자(k, ㅈ)
             새후보 = uid()
             c.execute('INSERT INTO auto_candidate VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                       (새후보, 새회차, n, KIND, 라벨(k), 자세히(k),

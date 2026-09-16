@@ -21,6 +21,7 @@ import issue_categories
 import app_layout
 import card_view
 import comparison_view
+import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import auto_inspect
 import design_receive
 import policy_ui
@@ -596,28 +597,37 @@ def _capture_picker(store, linked, page, sel_run, human_key=''):
     접수함에 연결된 페이지는 /intake/<batch>/capture 로, 촬영기가 바로 넣은 페이지는 /screen/…/page/…/capture 로 보낸다."""
     ui = intake_http.ui
     current = sel_run['dev_img'] if sel_run else None
-    rows = []
+    rows = []   # (순서, 값, 파일, 이름, 예전 촬영인가)
     if linked:
         for cap in store.captures_of_batch(linked['batch_id']):
             name = f"{cap['screen_name']} · {cap['state_name']}" + (' (보류)' if cap['status'] == 'held' else ' (제외)' if cap['status'] == 'excluded' else '')
-            rows.append((cap['seq'], cap['id'], cap['filename'], name))
+            rows.append((cap['seq'], cap['id'], cap['filename'], name, False))
         action = f'/intake/{linked["batch_id"]}/capture'
         controls = ui.hidden('item', linked['id']) + ui.hidden('revision', linked['revision'])
     else:
-        for i, cap in enumerate(design_receive.Receiver(store).sibling_captures(page['uuid'])):
-            rows.append((i, cap['filename'], cap['filename'], f"{cap['page_name']} · {cap['round']}차"))
+        # 같은 화면을 여러 번 찍으면 같은 상태가 여러 장 쌓인다 — 마지막 촬영만 펼쳐 두고 예전 것은 접는다.
+        caps_all = design_receive.Receiver(store).sibling_captures(page['uuid'])
+        last_shot = caps_all[0]['shot_at'] if caps_all else ''
+        for i, cap in enumerate(caps_all):
+            old_shot = cap['shot_at'] != last_shot and cap['filename'] != current
+            rows.append((i, cap['filename'], cap['filename'], f"{cap['page_name']} · {cap['round']}차", old_shot))
         action = f"/screen/{_esc(human_key)}/page/{_esc(page['uuid'])}/capture"
         controls = ''
     caps = rows
     options = ''
-    for seq, value, filename, name in sorted(rows, key=lambda x: (x[2] != current, x[0])):
-        options += (f'<label class="cap-option"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
-                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">비교 중</span><span>{_esc(name)}</span></label>')
+    for seq, value, filename, name, old_shot in sorted(rows, key=lambda x: (x[2] != current, x[4], x[0])):
+        options += (f'<label class="cap-option{" cap-old" if old_shot else ""}"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
+                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">{"예전에 찍은 사진" if old_shot else "비교 중"}</span><span>{_esc(name)}</span></label>')
+    옛것 = sum(1 for r in rows if r[4])
+    접기 = ' hide-old' if 옛것 else ''
+    if 옛것:
+        options += (f'<label class="cap-more"><input type="checkbox" onchange="this.closest(\'.capture-list\').querySelector(\'.capture-options\').classList.toggle(\'hide-old\', !this.checked)">'
+                    f'<span>예전에 찍은 사진도 보기 ({옛것}장)</span></label>')
     pic = f'<img id="plan-capture-preview" src="/uploads/{_esc(current)}" alt="선택한 개발 캡처">' if current else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
     design = f'<img class="design-original" src="/uploads/{_esc(page["design_img"])}" alt="디자인 원본">' if page.get('design_img') else '<span class="ph">디자인 없음</span>'
     comparison = (f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image">{design}</div></section>'
                   f'<section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div>'
-                  f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options">{options}</div></aside></div>')
+                  f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options{접기}">{options}</div></aside></div>')
     return (f'<dialog id="capture-picker"><div class="s1-modal-inset"><div class="dialog-head"><h2>개발 화면 바꾸기</h2><button type="button" onclick="document.getElementById(\'capture-picker\').close()">닫기</button></div>'
             f'<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
             + ui.form(action, controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
@@ -858,6 +868,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             f'{body}</div>'
         )
     # 성질 거르개 — 탭과 같은 줄 오른쪽. 생김새(밑줄 탭 ↔ 알약 칩)가 달라 헷갈리지 않는다.
+    # 이름표('성질')는 붙이지 않는다 — 칩만으로 뜻이 통하고, 좁은 자리에서 줄이 넘어간다(river 2026-09-16).
     성질 = []
     for src in ([k for k in (auto_view or {}).get('candidates', []) if k['status'] == 'open'] if auto_view else []):
         lb = issue_categories.label(auto_inspect.candidate_category(src))
@@ -871,7 +882,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     if len(성질) > 1:
         칩 = ''.join(f'<button type="button" class="fchip" data-type="{_esc(x)}" onclick="filterType(this)">{_esc(x)}</button>'
                     for x in 성질)
-        filterbar = ('<span class="fbar"><span class="flbl">성질</span>'
+        filterbar = ('<span class="fbar">'
                      '<button type="button" class="fchip on" data-type="" onclick="filterType(this)">전체</button>'
                      + 칩 + '</span>')
 
@@ -990,7 +1001,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     {'</aside></div>' if native_app else ''}
   </div>
   {design_dialog}
-  <script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>{auto_extra}
+  <script>{자모듈.JS()}</script><script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>{auto_extra}
 </body></html>"""
 
 
@@ -1396,6 +1407,8 @@ _PAGE_CSS = """
   #capture-picker .cap-option:has(input:checked){border-color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
   #capture-picker .cap-option:has(input:focus-visible){outline:2px solid var(--color-border-focus);outline-offset:2px}
   #capture-picker input[type=radio]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;opacity:0;clip-path:inset(50%);overflow:hidden}
+  #capture-picker .capture-options.hide-old .cap-old{display:none}
+  #capture-picker .cap-more{display:flex;align-items:center;gap:var(--spacing-6);padding:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);cursor:pointer}
   #capture-picker .rank{font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap}
   #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end}
   .app-view #capture-picker{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
@@ -1459,10 +1472,11 @@ _PAGE_CSS = """
   .cards { flex:1; min-height:0; overflow-y:auto; position:relative; padding:0 var(--spacing-10) var(--spacing-32) 0; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:var(--spacing-16); align-items:start; }
   /* 유형 탭 바 (고정 영역) */
-  .tabbar { flex-shrink:0; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
+  .tabbar { flex-shrink:0; flex-wrap:wrap; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
   /* 성질 거르개 — 탭과 같은 줄 오른쪽 끝. 탭은 밑줄, 거르개는 알약이라 섞이지 않는다. */
-  .fbar { margin-left:auto; display:inline-flex; align-items:center; gap:var(--spacing-6); flex-wrap:wrap; align-self:center; }
-  .flbl { font-size:var(--font-size-12); color:var(--color-text-caption); margin-right:var(--spacing-2); }
+  /* 칩이 두 줄로 넘어가도 답답하지 않게 위아래 숨을 둔다(river 2026-09-16) */
+  .fbar { flex:1 1 100%; display:flex; justify-content:flex-start; align-items:center; gap:var(--spacing-6); row-gap:var(--spacing-8);
+    flex-wrap:wrap; padding-block:var(--spacing-6); }
   .fchip { height:var(--sizing-28); padding:0 var(--spacing-16); border-radius:var(--radius-full);
     border:var(--border-width-1) solid var(--color-chip-line-border-default);
     background:var(--color-chip-line-bg-default); color:var(--color-chip-line-label-default);

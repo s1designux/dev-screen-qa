@@ -50,19 +50,22 @@ def _신뢰도(짝점수, 어긋난줄수):
 def 후보뽑기(시안, 개발, 문턱=0.5):
     M = 짝맞추기(시안, 개발, 문턱)
     fig, devEls, 짝 = M["fig"], M["devEls"], M["pairs"]
+    # 개발 요소를 **시안과 같은 자** 위에 옮겨 둔 상자(자.py). 자리를 따지는 셈은 모두 이것으로 한다.
+    화면상자 = M["화면상자"]
+    # 판(아트보드) 기준 자리도 함께 지닌다 — 촬영본 위에 번호 핀을 찍을 때는 그쪽을 쓴다.
+    화면요소 = [dict(d, box=b, 판상자=d["box"]) for d, b in zip(devEls, 화면상자)]
 
     쓴시안 = {p["fi"] for p in 짝}
     쓴개발 = {p["di"] for p in 짝}
     짝지은시안상자 = [fig[p["fi"]]["box"] for p in 짝]
-    짝지은개발상자 = [devEls[p["di"]]["box"] for p in 짝]
-    남은개발 = [d for di, d in enumerate(devEls) if di not in 쓴개발]
+    짝지은개발상자 = [화면상자[p["di"]] for p in 짝]
+    남은개발 = [화면요소[di] for di in range(len(devEls)) if di not in 쓴개발]
 
     # 구조 차이(개발에만 있음 / 시안에만 있음)는 **개발 관행 표**(valueqa/개발관행.py)를 거쳐 걸러진다.
     # 표에 걸린 것은 버리지 않고 '접은것'으로 세어 둔다 — 어느 규칙이 몇 건을 접었는지 되짚을 수 있게.
     접은것 = []
 
-    맥락 = {"옮김": M.get("옮김") or (0.0, 0.0),
-           "시안아래끝": max([f["box"]["y"] + f["box"]["h"] for f in fig]
+    맥락 = {"시안아래끝": max([f["box"]["y"] + f["box"]["h"] for f in fig]
                         + [시안["meta"].get("artboardHeight") or 0])}
 
     def 추리기(것들, 갈래, 짝상자):
@@ -79,12 +82,13 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
     더있음 = 추리기(남은개발, "더있음", 짝지은개발상자)
     빠짐 = 추리기([f for fi, f in enumerate(fig) if fi not in 쓴시안], "빠짐", 짝지은시안상자)
 
-    폭다름 = bool(시안["meta"].get("artboardWidth") and 개발["meta"].get("artboardWidth")
-                and abs(시안["meta"]["artboardWidth"] - 개발["meta"]["artboardWidth"]) > 4)
+    ㅈ = M["자"]
+    폭다름 = abs(ㅈ.시안폭 - ㅈ.화면폭) > 4          # 시안 한 판과 개발 화면의 가로가 다른가
 
     후보, 주의, 밀림, 일치수 = [], [], [], 0
     for p in 짝:
-        f, d = fig[p["fi"]], devEls[p["di"]]
+        # d 는 **시안과 같은 자** 위로 옮겨 둔 개발 요소다 — 너비·높이를 그대로 견줄 수 있다.
+        f, d = fig[p["fi"]], 화면요소[p["di"]]
         if f.get("안보임"):
             continue                      # 안 보이는 껍데기는 값도 견주지 않는다(짝은 그대로 둔다)
         내려감 = d["box"]["y"] - f["box"]["y"]
@@ -97,7 +101,7 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
             "시안id": f.get("id"), "개발id": d.get("id"),
             "이름": 짧은시안이름(f),
             "개발자리": _개발자리(d),
-            "box": f["box"], "devBox": d["box"],
+            "box": f["box"], "devBox": d.get("판상자") or d["box"],
             "짝점수": p["s"],
             "신뢰도": _신뢰도(p["s"], len(어긋난줄)),
             "상태": 결과["status"],
@@ -115,7 +119,8 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
 
     for d in 더있음:
         후보.append({"갈래": "더있음", "시안id": None, "개발id": d.get("id"),
-                     "이름": 짧은개발이름(d), "개발자리": _개발자리(d), "box": None, "devBox": d["box"],
+                     "이름": 짧은개발이름(d), "개발자리": _개발자리(d), "box": None,
+                     "devBox": d.get("판상자") or d["box"],
                      "짝점수": None, "신뢰도": 0.5, "상태": "fail",
                      "다른곳": [{"속성": "구조", "시안": "없음", "개발": "있음"}], "rows": []})
     for f in 빠짐:

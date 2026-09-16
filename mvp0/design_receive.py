@@ -170,14 +170,21 @@ class Receiver:
 
     # ── 촬영기가 바로 넣은 페이지(접수함 연결 없음)의 개발 화면 바꾸기 ─────────
     def sibling_captures(self, page_id):
-        """같은 화면 묶음(같은 촬영 때 찍은 상태들)의 개발 사진. 팝업에서 고를 후보."""
+        """같은 화면 묶음(같은 촬영 때 찍은 상태들)의 개발 사진. 팝업에서 고를 후보.
+
+        지운 페이지의 사진은 빼고, 최근에 찍은 것부터 준다(shot_at = 그 촬영 때의 시각).
+        같은 화면을 여러 번 찍으면 같은 상태가 여러 장 쌓이는데, 고르는 쪽(팝업)이
+        최근 촬영만 먼저 보이고 예전 것은 접어 둔다."""
         with self.store.connect() as c:
             sid = c.execute('SELECT screen_id FROM inspection_page WHERE uuid=?', (page_id,)).fetchone()
             if not sid:
                 return []
-            return c.execute('''SELECT r.uuid run_id, r.page_id, p.name page_name, r.round, r.dev_img filename, r.dev_img_w width, r.dev_img_h height
+            지운것 = ' AND p.removed_at IS NULL' if any(r[1] == 'removed_at' for r in c.execute('PRAGMA table_info(inspection_page)')) else ''
+            return c.execute(f'''SELECT r.uuid run_id, r.page_id, p.name page_name, r.round, r.dev_img filename,
+                                       r.dev_img_w width, r.dev_img_h height, r.created_at shot_at
                                 FROM inspection_run r JOIN inspection_page p ON p.uuid=r.page_id
-                                WHERE p.screen_id=? AND r.dev_img IS NOT NULL ORDER BY p.seq, r.round''', (sid['screen_id'],)).fetchall()
+                                WHERE p.screen_id=? AND r.dev_img IS NOT NULL{지운것}
+                                ORDER BY r.created_at DESC, p.seq, r.round''', (sid['screen_id'],)).fetchall()
 
     def replace_capture(self, page_id, filename):
         """이 페이지의 최신 차수 개발 이미지를 같은 화면 묶음의 다른 사진으로 바꾼다(지적이 없을 때만). 파일은 지우지 않고 이력을 남긴다."""
