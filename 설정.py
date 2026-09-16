@@ -23,6 +23,7 @@ from pathlib import Path
 #   · 환경변수 이름이 빈 글자면 환경변수로는 못 바꾼다.
 #   · 자리(경로) 값은 뿌리 폴더 기준 상대경로로 적어도 된다.
 표 = {
+    "자료.뿌리":         ("QA_DATA_ROOT",       ""),
     "포털.포트":         ("QA_PORTAL_PORT",     8765),
     "포털.자료함":       ("QA_PORTAL_DB",       "mvp0/mvp0-real.db"),
     "포털.그림보관":     ("QA_PORTAL_UPLOADS",  "mvp0/uploads"),
