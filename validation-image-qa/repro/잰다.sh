@@ -16,3 +16,4 @@ run ${P}_home1   home1_elements.json        design_home1_1920x1938.png  dev_home
 run ${P}_home2   home2_elements.json        design_home2_1920x1080.png  dev_home2_1920x1730.png  ""
 run ${P}_home3   home3_elements.json        design_home3_1920x1495.png  dev_home3_1920x1730.png  ""
 run ${P}_home4   home4_elements.json        design_home4_1920x1080.png  dev_home4_1920x1730.png  ""
+run ${P}_appkbd  elements_appkbd.json       design_appkbd_360x812.png   dev_appkbd_1080x2340.png ""

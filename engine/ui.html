@@ -530,6 +530,36 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b,win){
   return{tx:px-bx,ty:py-by,q:clamp(1-bestSad/(cnt*255),0,1)};
 }
 function median(list){var a=list.slice().sort(function(x,y){return x-y;});return a[Math.floor(a.length/2)];}
+// 표로 고른 세로 자리가 그림과 겉도는지 본다. 크기·가로는 그대로 두고 세로만 훑어,
+// 눈에 띄게(+0.05) 더 잘 겹치는 자리가 있으면 그 자리를 돌려준다. 없으면 null(표를 그대로 믿는다).
+// 검수하는 자리(위·아래로 떼어낸 띠를 뺀 구간)만 놓고 세로 밀림을 다시 본다.
+// 빈 곳끼리 겹쳐 점수가 뜨는 것을 막으려고, 캡처가 그 구간을 충분히 덮는 자리만 센다.
+function liveBand(H,boxes){
+  var top=0,bottom=H;
+  (boxes||[]).forEach(function(b){
+    if(!b||!isFinite(b.y)||!isFinite(b.h))return;
+    if(b.y<=Math.max(2,H*.02))top=Math.max(top,b.y+b.h);
+    else if(b.y+b.h>=H-Math.max(2,H*.02))bottom=Math.min(bottom,b.y);
+  });
+  return bottom-top>H*.2?{y0:top,y1:bottom}:{y0:0,y1:H};
+}
+function verticalRescue(designImg,captureImg,s,tx,ty,space,liveBoxes){
+  var H=designImg.height,capH=captureImg.height*s;              // 캡처가 디자인 좌표에서 차지하는 세로 길이
+  var live=liveBand(H,liveBoxes),LH=live.y1-live.y0;
+  var span=H*.5,step=Math.max(6,Math.round(H/50)),need=Math.min(capH,LH)*.8;
+  function at(t){
+    var y0=Math.max(live.y0,t),y1=Math.min(live.y1,t+capH);
+    if(y1-y0<need)return -1;                                    // 검수하는 자리를 캡처가 제대로 덮지 못하는 자리는 세지 않는다
+    var e=renderCaptureEdge(captureImg,space.w,space.h,s*space.q,tx*space.q,t*space.q);
+    var v=edgeScoreBand(space.edge,e,space.w,Math.round(y0*space.q),Math.min(space.h,Math.round(y1*space.q)));
+    return v==null?-1:v;
+  }
+  var base=at(ty),bt=null,bs=base;
+  for(var t=ty-span;t<=ty+span;t+=step){var v=at(t);if(v>bs){bs=v;bt=t;}}
+  if(bt==null)return null;
+  for(var f=bt-step;f<=bt+step;f+=2){var w=at(f);if(w>bs){bs=w;bt=f;}}
+  return (base<0||bs>base+.05)?bt:null;                          // 지금 자리가 아예 못 덮거나, 새 자리가 눈에 띄게 나을 때만
+}
 function anchorAlignment(design,designImg,captureImg,opts){
   var s=designImg.width/captureImg.width;
   var half=Math.max(1,Math.ceil(designImg.width/640));
@@ -562,9 +592,9 @@ function anchorAlignment(design,designImg,captureImg,opts){
   // 표가 엇비슷한 무리가 여럿이면(캡처에 없는 아래쪽 요소들이 엉뚱한 자리에 붙어 표를 모으는 일 — 키보드에 가린 앱 화면),
   // 그림 전체의 윤곽이 실제로 얼마나 겹치는지 재서 고른다. 표만 믿으면 화면 절반이 통째로 밀린다.
   // 표가 3개 이상이고 2등과 2.5표 넘게 벌어졌으면 표를 그대로 믿는다(웹 화면의 평소 모습).
-  var clear=best.group.length>=3&&(pool.length<2||best.weight>=pool[1].weight+2.5);
+  var clear=best.group.length>=3&&(pool.length<2||best.weight>=pool[1].weight+2.5),space=null;
   if(!clear){
-    var space=makeSpace(designImg,200),guide={group:[],tx:0,ty:0,weight:0,qsum:0,guide:true};
+    space=makeSpace(designImg,200);var guide={group:[],tx:0,ty:0,weight:0,qsum:0,guide:true};
     function fit(o){if(o.fit==null)o.fit=scoreModel(space,captureImg,s,o.tx,o.ty);return o.fit;}
     var pick=best,bestFit=fit(best);
     pool.slice(1,6).forEach(function(o){if(o.weight<best.weight-2.5)return;var f=fit(o);if(f>bestFit+.02){bestFit=f;pick=o;}});
@@ -582,6 +612,11 @@ function anchorAlignment(design,designImg,captureImg,opts){
     });
     if(fine.length){tx=median(fine.map(function(v){return v.tx;}));ty=median(fine.map(function(v){return v.ty;}));}
   }
+  // 표 두어 개가 나란히 엉뚱한 자리에 붙는 일이 있다 — 앱 로그인 화면에서 화면 절반이 통째로 밀렸다(river 2026-09-16).
+  // 크기·가로는 그대로 두고(캡처 폭이 정답이다) 세로만 윤곽으로 다시 훑어, 눈에 띄게 더 잘 겹치면 그리로 옮긴다.
+  if(!space)space=makeSpace(designImg,200);
+  var vt=verticalRescue(designImg,captureImg,s,tx,ty,space,(opts&&opts.excludeBoxes||[]).map(function(b){return{y:b.y*(designImg.width/design.width),h:b.h*(designImg.width/design.width)};}));
+  if(vt!=null)ty=vt;
   var out={s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length};
   var bands=bandAlignment(design,designImg,captureImg,votes,out,tol);if(bands)out.bands=bands;
   return out;

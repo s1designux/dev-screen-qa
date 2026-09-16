@@ -30,6 +30,7 @@ import fixdoc_http
 import fixdoc_view
 import page_group
 import page_move
+import result_doc
 
 import json
 import uuid as uuidmod
@@ -361,6 +362,10 @@ def render_list(unresolved_only: bool, round_filter):
         + chip("미해결만", qs(True), unresolved_only)
     )
 
+    conn = dbmod.connect(REAL_DB)
+    프로젝트키 = {r["name"]: r["uuid"] for r in conn.execute("SELECT uuid,name FROM project")}
+    conn.close()
+
     groups_html = ""
     if not rows:
         groups_html = '<p class="empty">조건에 맞는 화면이 없습니다.</p>'
@@ -379,9 +384,13 @@ def render_list(unresolved_only: bool, round_filter):
               <td class="ctr">{_pf_badge(r['pass_fail'])}</td>
               <td class="ctr"><span class="{unres_cls}">{unres}</span> / {r['total']}</td>
             </tr>"""
+        키 = 프로젝트키.get(project)
+        결과서 = (f'<span class="docs">검수결과서 '
+                f'<a class="chip" href="/result/{_esc(키)}?scope=open" target="_blank">수정필요만</a>'
+                f'<a class="chip" href="/result/{_esc(키)}?scope=all" target="_blank">전체</a></span>') if 키 else ''
         groups_html += f"""
         <section class="group">
-          <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span></h2>
+          <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span>{결과서}</h2>
           <table>
             <thead><tr>
               <th>화면명</th><th>플랫폼</th>
@@ -1083,8 +1092,16 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+        elif path.startswith("/result/"):
+            # 프로젝트 하나의 검수결과서(가로 A4 · 인쇄창에서 PDF 저장)
+            html_doc = result_doc.build(path.split("/")[2], q.get("scope", ["open"])[0], db_path=REAL_DB)
+            if html_doc is None:
+                self.send_response(404)
+                self.end_headers()
+            else:
+                self._html(html_doc)
         elif path.startswith("/report/"):
-            # A4 반출은 park(나중 조각). report.py는 손대지 않음.
+            # 화면 한 개 A4 반출은 park(나중 조각). report.py는 손대지 않음.
             self._html("<p style='font-family:sans-serif;padding:var(--spacing-40)'>화면 전체 A4 반출은 다음 조각입니다. "
                        "<a href='javascript:history.back()'>← 뒤로</a></p>")
         else:
@@ -1316,6 +1333,8 @@ _LIST_CSS = """
   .group { background:var(--color-surface-default); border:1px solid var(--color-border-subtle); border-radius:var(--radius-12); padding:var(--spacing-6) var(--spacing-14) var(--spacing-14); margin-bottom:var(--spacing-16); }
   h2 { font-size:var(--font-size-14); margin:var(--spacing-14) var(--spacing-4) var(--spacing-8); }
   .muted { color:var(--color-text-helper); font-weight:var(--font-weight-regular); }
+  .docs { float:right; font-size:var(--font-size-12); color:var(--color-text-caption); font-weight:var(--font-weight-regular); }
+  .docs .chip { margin-left:var(--spacing-6); margin-right:0; }
   tbody tr { cursor:pointer; }   /* 표 모양은 코어 Table(s1_components) */
   .name { font-weight:var(--font-weight-bold); }
   .key { font-family:ui-monospace,monospace; color:var(--color-text-tertiary); }

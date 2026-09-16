@@ -6,7 +6,8 @@ const uiPath = process.argv[2] || path.resolve(here, '../../engine/ui.html');
 const outPrefix = process.argv[3] || 'out';
 const ui = fs.readFileSync(fs.existsSync(uiPath) ? uiPath : '/Users/designgroup_02/dev-screen-qa/engine/ui.html', 'utf8');
 const el = JSON.parse(fs.readFileSync(path.join(here, process.env.ELEMENTS_JSON || 'elements.json'), 'utf8'));
-const elements = el.rows.map(r => {
+// 포털 자료를 그대로 쓰는 길 — elements 파일에 native 배열이 있으면 그대로 쓴다(값을 다시 짜맞추지 않는다).
+const elements = el.native ? el.native : el.rows.map(r => {
   const o = {}; el.cols.forEach((c, i) => o[c] = r[i]);
   const e = { id: o.id, name: o.name || o.id, type: o.type, kind: o.kind, depth: o.depth, parentId: o.parentId, parentType: null, box: { x: o.x, y: o.y, w: o.w, h: o.h }, text: o.text || '' };
   if (o.chain) e.chain = o.chain; if (o.propRef) e.propRef = o.propRef; // 역할 판단용(있을 때만)
