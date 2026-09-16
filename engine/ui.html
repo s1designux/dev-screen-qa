@@ -1355,6 +1355,43 @@ function occludedIds(design,children,dd,W,H,lg){
   });
   return out;
 }
+function unpaintedIds(design,children,dd,W,H,lg){
+  // 시안 그림에 **아무 자국도 남기지 않는 상자**. 간격을 띄우려고 오토레이아웃 대신 깔아 둔
+  // 껍데기 프레임(투명하거나, 흰 바탕 위의 흰 칠)이 여기 걸린다. 화면에 없는 것이니 검수 대상이 아니다.
+  // 레이어 값만으로는 못 가른다 — 그림자만으로 보이는 진짜 흰 카드가 있기 때문이다. 그래서 그림을 직접 본다.
+  // 네 변을 따로 보고, 변을 가로질러 훑은 색이 튄 폭의 **가운뎃값**으로 그 변에 자국이 있는지 정한다.
+  //  · 가운뎃값 — 글자 한 줄이 변을 스쳐 가는 것만으로 '그려졌다'가 되지 않게.
+  //  · 변 대부분(잴 수 있는 변 -1, 최소 2)에 자국이 있어야 그려진 상자다 — 한 변만 있는 것은
+  //    그 상자가 그린 것이 아니라 바로 옆 요소의 선이다(실측: 흰 간격 프레임 위의 구분선).
+  // 안에 든 글자·아이콘은 저마다 따로 보므로 껍데기만 빠진다(자식에게 물려주지 않는다).
+  var out={},d=dd.data,thick=Math.max(3,Math.round(3*lg)),GAP=8;
+  function at(x,y){var i=((Math.min(Math.max(Math.round(y),0),H-1))*W+(Math.min(Math.max(Math.round(x),0),W-1)))*4;return[d[i],d[i+1],d[i+2]];}
+  function side(fix,from,to,vertical){
+    var vals=[];
+    for(var i=1;i<12;i++){
+      var mid=from+(to-from)*(i/12),lo=[255,255,255],hi=[0,0,0];
+      for(var k=-thick;k<=thick;k++){var c=vertical?at(mid,fix+k):at(fix+k,mid);
+        for(var j=0;j<3;j++){if(c[j]<lo[j])lo[j]=c[j];if(c[j]>hi[j])hi[j]=c[j];}}
+      vals.push(Math.max(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2]));
+    }
+    vals.sort(function(a,b){return a-b;});
+    return vals[vals.length>>1];
+  }
+  (design.elements||[]).forEach(function(e){
+    if(e.kind!=="shape"||!isVisibleShape(e))return;
+    var b=e.box;if(!b||b.w<4||b.h<4)return;
+    var x0=b.x*lg,y0=b.y*lg,x1=(b.x+b.w)*lg,y1=(b.y+b.h)*lg;
+    var sides=[[y0,x0,x1,true],[y1,x0,x1,true],[x0,y0,y1,false],[x1,y0,y1,false]],able=0,marked=0;
+    sides.forEach(function(s){
+      var fix=s[0],vertical=s[3];
+      if(fix<1||fix>(vertical?H-2:W-2))return;      // 화면 밖으로 걸친 변은 잴 수가 없다
+      able++;if(side(fix,s[1],s[2],vertical)>=GAP)marked++;
+    });
+    if(!able||marked>=Math.max(2,able-1))return;
+    out[e.id]="시안 그림에 자국이 없는 껍데기(간격용 프레임)라서";
+  });
+  return out;
+}
 function isVisibleShape(e){var v=e.values||{};return !!(v.fill||v.stroke)||e.kind==="image"||e.kind==="icon";}
 function isContainerType(e){return /^(FRAME|COMPONENT|INSTANCE|GROUP|SECTION)$/.test(e.type);}
 function topLevelElements(design){var byId={};(design.elements||[]).forEach(function(e){byId[e.id]=e;});return(design.elements||[]).filter(function(e){return !e.parentId||!byId[e.parentId];});}
@@ -1743,6 +1780,8 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   var policyMap=design.policyMap=buildTextPolicy(design);
   // 그림에 안 보이는 것은 검수 대상이 아니다 — 디자인 그림을 봐야 알 수 있어 여기서 합친다.
   (function(occ){policyMap.excludedRule=policyMap.excludedRule||{};Object.keys(occ).forEach(function(id){if(!policyMap.excluded[id]){policyMap.excluded[id]=occ[id];policyMap.excludedRule[id]="occluded";}});})(occludedIds(design,childMap(design),ddF,W,H,lg));
+  // 그림에 자국을 남기지 않는 껍데기(간격용 프레임)도 같은 자리에서 제외로 내린다.
+  (function(un){Object.keys(un).forEach(function(id){if(!policyMap.excluded[id]){policyMap.excluded[id]=un[id];policyMap.excludedRule[id]="unpainted";}});})(unpaintedIds(design,childMap(design),ddF,W,H,lg));
   var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId,tabSelected:policyMap.tabSelected||{}};
   ctx.cEd=dilateEdges(ctx.cE,W,H,Math.max(1,Math.round(1*lg)));
   var units=collectUnits(design),sectionInfo=buildSections(design,units),sections=sectionInfo.sections,notices=[];

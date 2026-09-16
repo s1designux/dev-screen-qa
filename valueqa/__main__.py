@@ -12,25 +12,39 @@
 """
 import argparse
 import json
+import os
 import sys
 
 from .candidates import 후보뽑기
 from .design import 시안값으로
 
 
-def 시안읽기(경로):
+def 시안그림(경로):
+    """시안 값 파일 옆에 나란히 놓인 시안 그림(.png). 없으면 None.
+
+    '그림에 아무것도 안 그려지는 껍데기'를 가려내는 데 쓴다(valueqa/design.py 안그려진것).
+    """
+    for 끝 in (".png", ".PNG"):
+        길 = os.path.splitext(경로)[0] + 끝
+        if os.path.exists(길):
+            return 길
+    return None
+
+
+def 시안읽기(경로, 그림=None):
     with open(경로, encoding="utf-8") as f:
         d = json.load(f)
+    그림 = 그림 or 시안그림(경로)
     if isinstance(d, dict) and isinstance(d.get("elements"), list) and d.get("meta", {}).get("artboardWidth"):
         return d                                   # 이미 값 대조 모양
     if isinstance(d, dict) and isinstance(d.get("검수요소"), list):
-        return 시안값으로(d["검수요소"], d.get("틀") or d)
+        return 시안값으로(d["검수요소"], d.get("틀") or d, 그림)
     if isinstance(d, dict) and isinstance(d.get("요소"), list):
-        return 시안값으로(d["요소"], d.get("틀") or d)   # 촬영 준비 사이트가 갈무리해 둔 판(요소/틀)
+        return 시안값으로(d["요소"], d.get("틀") or d, 그림)   # 촬영 준비 사이트가 갈무리해 둔 판(요소/틀)
     if isinstance(d, dict) and isinstance(d.get("elements"), list):
-        return 시안값으로(d["elements"], d)          # 프레임 꾸러미(elements + width/height)
+        return 시안값으로(d["elements"], d, 그림)    # 프레임 꾸러미(elements + width/height)
     if isinstance(d, list):
-        return 시안값으로(d)
+        return 시안값으로(d, None, 그림)
     raise SystemExit("시안 파일 모양을 알아볼 수 없습니다: %s" % 경로)
 
 

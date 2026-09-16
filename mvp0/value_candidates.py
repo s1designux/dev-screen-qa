@@ -67,7 +67,7 @@ def 지문(시안길, 개발길):
     for p in (시안길, 개발길):
         h.update(p.read_bytes())
     # 끝의 판 번호는 '카드에 담는 모양'이 바뀔 때 올린다 — 옛 회차는 남고, 사람이 내린 판정은 이어받는다.
-    return 'value3:' + h.hexdigest()[:12]
+    return 'value4:' + h.hexdigest()[:12]
 
 
 def 대조(시안길, 개발길):

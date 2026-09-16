@@ -73,8 +73,11 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
               if ((d["style"].get("backgroundColor") and d["style"]["backgroundColor"] != "rgba(0, 0, 0, 0)")
                   or d["style"].get("borderWidth", 0) > 0)
               and not _안에들어있나(d["box"], 짝지은개발상자)]
+    # 시안 그림에 아무 자국도 남기지 않는 껍데기(간격용 투명·흰 프레임)는 후보로 올리지 않는다.
+    # 화면에서는 안 보이는 것이라 개발이 그것을 만들 일도, 고칠 일도 없다 (river 2026-09-16).
     빠짐 = [f for fi, f in enumerate(fig)
-            if fi not in 쓴시안 and not _안에들어있나(f["box"], 짝지은시안상자)]
+            if fi not in 쓴시안 and not f.get("안보임")
+            and not _안에들어있나(f["box"], 짝지은시안상자)]
 
     폭다름 = bool(시안["meta"].get("artboardWidth") and 개발["meta"].get("artboardWidth")
                 and abs(시안["meta"]["artboardWidth"] - 개발["meta"]["artboardWidth"]) > 4)
@@ -82,6 +85,8 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
     후보, 주의, 밀림, 일치수 = [], [], [], 0
     for p in 짝:
         f, d = fig[p["fi"]], devEls[p["di"]]
+        if f.get("안보임"):
+            continue                      # 안 보이는 껍데기는 값도 견주지 않는다(짝은 그대로 둔다)
         내려감 = d["box"]["y"] - f["box"]["y"]
         밀림있음 = 내려감 > 6 and any(x["box"]["y"] < d["box"]["y"] for x in 남은개발)
         결과 = 값견주기(f, d, 밀림있음, 폭다름)

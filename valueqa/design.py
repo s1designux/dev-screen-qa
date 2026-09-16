@@ -32,8 +32,11 @@ def 색바꾸기(c, 기본=None):
     if m:
         v = m.group(1)
         return "rgb(%d, %d, %d)" % (int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16))
-    m = re.match(r"^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", c)
+    m = re.match(r"^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?", c)
     if m:
+        # 투명도 0 으로 칠한 것은 '칠이 없는 것'이다. 그대로 색으로 읽으면 안 보이는 칠이 값이 되어 헛지적이 된다.
+        if m.group(4) is not None and float(m.group(4)) <= 0.01:
+            return 기본
         return "rgb(%s, %s, %s)" % (m.group(1), m.group(2), m.group(3))
     return 기본
 
@@ -117,7 +120,83 @@ def _아이콘틀(요소들):
     return 틀
 
 
-def 시안값으로(검수요소, 프레임=None):
+# ── 시안 그림에서 '아무것도 안 그려지는 상자' 가려내기 ────────────────────
+# 왜 (river 2026-09-16): 디자이너가 간격을 띄우려고 오토레이아웃 대신 깔아 둔 껍데기 프레임은
+# 화면에서는 안 보인다(투명하거나, 흰 바탕 위의 흰 칠이거나). 레이어 값만 보면 흰 카드와 구분이 안 된다 —
+# 그림자만으로 보이는 진짜 카드가 있기 때문이다. 그래서 **시안 그림을 직접 보고** 정한다:
+# 상자 둘레의 안쪽·바깥쪽 픽셀이 똑같으면 그 상자는 화면에 아무 자국도 남기지 않은 것이다.
+# 안에 든 것(글자·아이콘)은 따로 견주므로 껍데기만 빠진다.
+문턱 = 8          # 0~255 · 이보다 작은 색 차이는 '자국이 없다'로 본다 (가장 흐린 1px 구분선도 20 넘게 나온다)
+
+
+def 안그려진것(그림길, 요소들, 틀폭):
+    """시안 그림에 아무 자국도 남기지 않는 상자들의 id 모음. 그림이 없거나 못 읽으면 빈 모음."""
+    try:
+        from PIL import Image
+    except Exception:
+        return set()                                # 그림 도구가 없으면 이 규칙은 조용히 쉰다
+    try:
+        im = Image.open(그림길).convert("RGB")
+    except Exception:
+        return set()
+    W, H = im.size
+    if not 틀폭 or not W:
+        return set()
+    배 = W / float(틀폭)
+    px = im.load()
+    두께 = max(3, int(round(3 * 배)))                # 경계를 가로지르며 훑을 폭(양쪽)
+
+    def 점(x, y):
+        return px[min(max(int(round(x)), 0), W - 1), min(max(int(round(y)), 0), H - 1)]
+
+    def 한변(고정, 시작값, 끝값, 세로냐):
+        """그 변을 따라 11군데에서 경계를 가로질러 훑고, 색이 튄 폭의 **가운뎃값**을 돌려준다.
+
+        가운뎃값을 쓰는 까닭: 글자 한 줄이 변을 스쳐 지나가는 것만으로 '그려졌다'가 되면 안 된다.
+        테두리선·칠 경계는 변 **전체**에 고르게 나타나므로 가운뎃값이 높다.
+        """
+        벌 = []
+        for i in range(1, 12):
+            t = i / 12.0
+            가운데 = 시작값 + (끝값 - 시작값) * t
+            lo = [255, 255, 255]
+            hi = [0, 0, 0]
+            for k in range(-두께, 두께 + 1):
+                c = 점(가운데, 고정 + k) if 세로냐 else 점(고정 + k, 가운데)
+                for j in range(3):
+                    lo[j] = min(lo[j], c[j])
+                    hi[j] = max(hi[j], c[j])
+            벌.append(max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]))
+        벌.sort()
+        return 벌[len(벌) // 2]
+
+    out = set()
+    for e in 요소들:
+        if e.get("kind") != "shape":
+            continue                                # 글자·아이콘·그림은 이 규칙이 보지 않는다
+        b = e["box"]
+        if b["w"] < 4 or b["h"] < 4:
+            continue
+        x0, y0 = b["x"] * 배, b["y"] * 배
+        x1, y1 = (b["x"] + b["w"]) * 배, (b["y"] + b["h"]) * 배
+        변들 = ((y0, x0, x1, True), (y1, x0, x1, True), (x0, y0, y1, False), (x1, y0, y1, False))
+        잴수있는 = 자국있는 = 0
+        for 고정, 가, 나, 세로냐 in 변들:
+            바깥 = 고정 < 1 or (고정 > H - 2 if 세로냐 else 고정 > W - 2)
+            if 바깥:
+                continue                            # 화면 밖으로 걸친 변은 잴 수가 없다 — 세지 않는다
+            잴수있는 += 1
+            if 한변(고정, 가, 나, 세로냐) >= 문턱:
+                자국있는 += 1
+        if not 잴수있는:
+            continue
+        if 자국있는 >= max(2, 잴수있는 - 1):
+            continue                                # 변 대부분에 자국이 남았다 = 실제로 그려진 상자
+        out.add(e["id"])
+    return out
+
+
+def 시안값으로(검수요소, 프레임=None, 그림=None):
     """검수요소 목록 → {meta, elements} (값 대조가 읽는 모양)."""
     프레임 = 프레임 or {}
     W = float(프레임.get("width") or 프레임.get("폭") or 0)
@@ -129,6 +208,7 @@ def 시안값으로(검수요소, 프레임=None):
 
     속글자 = _모아쓴글자(검수요소)
     아이콘틀 = _아이콘틀(검수요소) | _아이콘속(검수요소)
+    안보임 = 안그려진것(그림, 검수요소, W) if 그림 else set()
     날것 = []
     for e in 검수요소:
         v = e.get("values") or {}
@@ -164,6 +244,9 @@ def 시안값으로(검수요소, 프레임=None):
             # 글자도 칠도 보이는 테두리도 없는 껍데기는 뺀다.
             if not 칠 and not (선 and 선굵기 > 0):
                 continue
+            # 레이어 투명도를 0 으로 내려 둔 것도 화면에 없는 것이다.
+            if v.get("opacity") == 0:
+                continue
             둥글기 = v.get("radius")
             if e.get("type") == "ELLIPSE" and not 둥글기:
                 둥글기 = min(bb["w"], bb["h"]) / 2
@@ -184,6 +267,10 @@ def 시안값으로(검수요소, 프레임=None):
             "isText": 글자냐, "text": 글, "box": dict(bb), "style": style,
             "contentZone": 이름.startswith("content/"),
         }
+        # 시안 그림에 아무 자국도 남기지 않는 껍데기(간격용 프레임 등)는 이름표만 붙여 둔다.
+        # 목록에서 빼지는 않는다 — 짝맞춤과 '큰 상자 안은 덮어 준다'는 셈이 함께 흔들리기 때문(실측).
+        if e["id"] in 안보임:
+            요소["안보임"] = True
         # 피그마 컴포넌트 인스턴스면 정체(세트 이름·변형 속성)를 함께 싣는다 — 규정 대조가 짝 건너 개발 요소에 옮겨 붙인다.
         if e.get("component"):
             c = e["component"]
