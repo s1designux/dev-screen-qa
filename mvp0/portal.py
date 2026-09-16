@@ -548,7 +548,7 @@ def render_screen(human_key: str, notice=""):
 {_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}{page_group.CSS}</style></head>
 <body>
   <header class="row">
-    <a class="back" href="/">← 목록</a>
+    <a class="s1-btn back" href="/">전체목록 보기</a>
     <h1>{_esc(s['name'])}</h1>
     <details class="rename">
       <summary>화면명 고치기</summary>
@@ -958,7 +958,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <body class="{'app-view' if native_app else 'web-view'}">
   <header>
     <div class="head-left">
-      <a class="back" href="{_esc(parent_href)}">← 검수 페이지 목록</a>
+      <a class="s1-btn back" href="{_esc(parent_href)}">그룹목록 보기</a>
       <h1>{_esc(page['name'])}</h1>
       <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(page.get("human_key") or "ID 미정")}</span></span>
     </div>
@@ -1293,7 +1293,6 @@ _LIST_CSS = """
   header { background:var(--color-surface-default); border-bottom:1px solid var(--color-border-subtle); padding:var(--spacing-16) var(--spacing-28); }
   header.row { display:flex; align-items:center; gap:var(--spacing-14); flex-wrap:wrap; padding:var(--spacing-14) var(--spacing-28); }
   h1 { font-size:var(--font-size-18); margin:0; }
-  .back { text-decoration:none; color:var(--color-text-caption); font-size:var(--font-size-14); }
   .sub { font-size:var(--font-size-12); color:var(--color-text-caption); margin-top:var(--spacing-4); }
   .sub2 { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .btn { margin-left:auto; }   /* 모양은 코어 Button(s1_components) */
@@ -1365,7 +1364,6 @@ _PAGE_CSS = """
   .head-left h1, .head-left .meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .page-navigation {justify-self:center;display:flex;align-items:center;gap:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap;}
   /* 쪽 이동 모양은 코어 Pagination(s1_components) */
-  header .back { text-decoration:none; color:var(--color-text-caption); font-size:var(--font-size-14); }
   header h1 { font-size:var(--font-size-16); margin:0; }
   header .meta { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .key { font-family:ui-monospace,monospace; }
