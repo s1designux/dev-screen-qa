@@ -400,6 +400,24 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .rows label:hover { background:var(--color-bg-level-1); }
 .rows .nm { flex:1; min-width:0; word-break:keep-all; }
 .bar { display:flex; gap:var(--spacing-10); align-items:center; margin-top:var(--spacing-16); }
+/* 적는 칸 밑에 내미는 '닮은 것' 판 — 목록 화살표 대신 적는 대로 따라 나온다. */
+.sugwrap { position:relative; flex:1 1 auto; min-width:0; }
+.sugwrap input[type=text] { width:100%; }
+.sug { position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20;
+  background:var(--form-bg); border:1px solid var(--color-border-default);
+  border-radius:var(--radius-control-sm); box-shadow:0 6px 16px -8px rgba(0,0,0,.28);
+  overflow:hidden; }
+.sugrow { padding:var(--spacing-8) var(--spacing-12); font-size:var(--font-size-14); cursor:pointer; }
+.sugrow + .sugrow { border-top:1px solid var(--color-border-subtle); }
+.sugrow:hover, .sugrow.on { background:var(--color-bg-level-1); }
+
+/* 칸 한 줄은 두 칸이든 단추가 붙든 오른쪽 끝이 늘 같은 자리에서 끝난다. */
+.form { max-width:460px; }
+.form input[type=text], .form input[type=password], .form select, .form .pw { max-width:none; }
+.form .bar > input { flex:1 1 auto; min-width:0; }
+/* 짧은 값 두 개를 한 줄에 — 좁아지면 저절로 아래로 내려간다. */
+.two { display:flex; gap:var(--spacing-16); flex-wrap:wrap; align-items:flex-start; }
+.two > div { flex:1 1 0; min-width:140px; }
 .bar .right { margin-left:auto; }
 pre.log { background:var(--color-gray-dark-0); color:var(--color-gray-dark-800);
   font-size:var(--font-size-12); padding:var(--spacing-14); border-radius:var(--radius-10);
@@ -945,19 +963,46 @@ def 화면_초안(알림=""):
     제안출처 = ("적힌것" if (작업.get("서비스코드") or "").strip()
             else "기억" if (사전.get(작업.get("앱이름", "")) or {}).get("서비스코드") else "짐작")
     자리코드 = "WEB" if 웹 else "AND"
-    고름목록 = "".join(f'<option value="{_e(k)}">' for k in sorted(보일사전))
     깔린앱 = "".join(f'<option value="{_e(pkg)}">' for pkg in 깔린앱목록())
 
     # 웹이면 들어오자마자 사이트 메뉴를 훑어 둔다 — 아무것도 누르지 않아도 주소가 채워지게.
     # 계정·주소가 비어 있으면 돌지 않는다(로그인을 잘못 여러 번 해 잠기지 않게).
-    메뉴띠 = ""
+    메뉴상태 = {}
     if 웹:
         메뉴훑기.자동시작(작업)
         메뉴상태 = 메뉴훑기.상태()
-        메뉴띠 = ('<div class="card" id="메뉴띠" style="padding:var(--spacing-8) var(--spacing-12)">'
-               '<span id="메뉴말" class="muted">' + _e(_메뉴띠말(메뉴상태)) + '</span>'
-               ' <button type="button" class="pickbtn" onclick="메뉴다시()">다시 읽기</button>'
-               '</div>')
+
+    # 사이트·앱 정보 칸. 서비스 코드와 찍을 폭은 짧은 값이라 한 줄에 나란히 놓는다.
+    코드칸 = (
+        '<label class="f">서비스 코드</label>'
+        '<input type="text" name="서비스코드" id="서비스코드" class="w-md" autocomplete="off"'
+        f' value="{_e(제안코드)}" placeholder="예: UV" oninput="이름미리()">')
+    이름힌트 = ""
+    if 웹:
+        폭 = 작업.get("찍을폭") or (작업["고른화면"][0]["폭"] if 작업.get("고른화면") else 1440)
+        정보칸 = (
+            '<div class="two">'
+            f'<div>{코드칸}</div>'
+            '<div><label class="f">찍을 폭</label>'
+            f'<input type="text" name="화면폭" id="화면폭" class="w-sm" value="{폭}"></div>'
+            '</div>'
+            + 이름힌트
+            + '<label class="f">기본 주소</label>'
+            '<div class="bar" style="margin:0">'
+            '<input type="text" name="기본주소" id="기본주소" autocomplete="off"'
+            f' class="w-md" value="{_e(작업.get("기본주소",""))}" placeholder="https://dev.example.com"'
+            ' aria-describedby="메뉴말">'
+            '<button type="button" class="go" id="IA단추" onclick="메뉴다시()" style="white-space:nowrap"'
+            f'{" disabled" if 메뉴상태.get("진행중") else ""}>'
+            f'{"읽는 중" if 메뉴상태.get("진행중") else "IA 읽어오기"}</button>'
+            '</div>'
+            f'<div class="helper" id="메뉴말" role="status">{_e(_메뉴띠말(메뉴상태))}</div>')
+    else:
+        정보칸 = (코드칸 + 이름힌트
+               + '<label class="f">앱 주소</label>'
+               '<input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"'
+               f' class="w-md" value="{_e(작업.get("앱주소",""))}">'
+               f'<datalist id="깔린앱들">{깔린앱}</datalist>')
 
     # 로그인 화면을 안 찍고 홈·메뉴만 찍을 때 지나는 길 — 앱은 적어 둬야 하고, 웹은 저절로 들어간다.
     들머리칸 = "" if 웹 else (
@@ -972,47 +1017,40 @@ def 화면_초안(알림=""):
     <form method="post" action="/초안" id="초안폼">
     <div class="card"><h2>{'사이트 정보' if 웹 else '앱 정보'}
       <span class="muted">· {_e(유형이름.get(유형(작업), '앱'))} <span style="font-weight:400">— 플러그인에서 고른 유형</span></span></h2>
+      <div class="form">
       <label class="f">{'사이트 이름' if 웹 else '앱 이름'}</label>
       <div class="bar" style="margin:0">
-        <input type="text" name="앱이름" id="앱이름" list="앱들" autocomplete="off"
-               class="w-md" value="{_e(작업.get('앱이름',''))}" aria-describedby="읽은말"
-               onkeydown="if(event.key==='Enter'){{event.preventDefault();읽기();}}">
+        <div class="sugwrap">
+          <input type="text" name="앱이름" id="앱이름" autocomplete="off"
+                 class="w-md" value="{_e(작업.get('앱이름',''))}" aria-describedby="읽은말"
+                 role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="이름제안">
+          <div class="sug" id="이름제안" role="listbox" hidden></div>
+        </div>
         <button type="button" class="go" onclick="읽기()" style="white-space:nowrap">읽기</button>
       </div>
-      <datalist id="앱들">{고름목록}</datalist>
       <div class="helper" id="읽은말" role="status" hidden></div>
 
       <div id="계정칸">
-        <label class="f">시험 아이디</label>
-        <input type="text" name="시험아이디" id="시험아이디" class="w-md" autocomplete="off"
-               value="{_e(작업.get('시험아이디',''))}">
-        <label class="f">시험 비밀번호</label>
-        <div class="pw">
-          <input type="password" name="시험비밀번호" id="시험비밀번호" autocomplete="new-password"
-                 value="{_e(작업.get('시험비밀번호',''))}">
-          <button type="button" class="eye" id="비번보기버튼" onclick="비번보기()"
-                  aria-pressed="false" aria-label="비밀번호 보기" aria-controls="시험비밀번호">{눈아이콘}</button>
+        <div class="two">
+          <div>
+            <label class="f">시험 아이디</label>
+            <input type="text" name="시험아이디" id="시험아이디" class="w-md" autocomplete="off"
+                   value="{_e(작업.get('시험아이디',''))}">
+          </div>
+          <div>
+            <label class="f">시험 비밀번호</label>
+            <div class="pw">
+              <input type="password" name="시험비밀번호" id="시험비밀번호" autocomplete="new-password"
+                     value="{_e(작업.get('시험비밀번호',''))}">
+              <button type="button" class="eye" id="비번보기버튼" onclick="비번보기()"
+                      aria-pressed="false" aria-label="비밀번호 보기" aria-controls="시험비밀번호">{눈아이콘}</button>
+            </div>
+          </div>
         </div>
         {들머리칸}
       </div>
 
-      <label class="f">서비스 코드</label>
-      <input type="text" name="서비스코드" id="서비스코드" class="w-md" autocomplete="off"
-             value="{_e(제안코드)}" placeholder="예: UV" oninput="이름미리()">
-      <div class="hint">화면 이름은 <b><span id="이름미리보기">{_e(제안코드 or '코드')}-{자리코드}-001</span></b> 처럼 붙습니다 —
-        가운데 <b>{자리코드}</b>는 플러그인에서 고른 유형({_e(유형이름.get(유형(작업), '앱'))})이 정합니다.
-        앞 글자는 {'전에 쓰던 것을 그대로 제안했습니다' if 제안출처 == '기억' else '이름·주소를 보고 제안한 것입니다'} — 다르면 그냥 고쳐 쓰세요.</div>
-      {f'''<label class="f">기본 주소</label>
-      <input type="text" name="기본주소" id="기본주소" autocomplete="off"
-             class="w-md" value="{_e(작업.get('기본주소',''))}" placeholder="https://dev.example.com">
-      <label class="f">찍을 폭</label>
-      <input type="text" name="화면폭" id="화면폭" class="w-md"
-             value="{작업.get('찍을폭') or (작업['고른화면'][0]['폭'] if 작업.get('고른화면') else 1440)}">
-      <div class="hint" style="margin-top:var(--spacing-4)">시안 폭 그대로 찍습니다. 고치면 고친 폭으로 찍습니다.</div>'''
-        if 웹 else f'''<label class="f">앱 주소</label>
-      <input type="text" name="앱주소" id="앱주소" list="깔린앱들" autocomplete="off"
-             class="w-md" value="{_e(작업.get('앱주소',''))}">
-      <datalist id="깔린앱들">{깔린앱}</datalist>'''}
+      {정보칸}
 
       <script>
         var 사전 = {json.dumps(보일사전, ensure_ascii=False)};
@@ -1084,9 +1122,73 @@ def 화면_초안(알림=""):
           var e = 칸(k);
           if (e) e.addEventListener('blur', 코드제안);
         }});
+
+        /* 적는 대로 전에 쓴 것 중 닮은 것을 밑에 내민다 — 고르면 그 자리에서 읽는다.
+           목록에서 고르는 칸이 아니라 적는 칸이다. 안 고르고 그냥 적어도 된다. */
+        (function () {{
+          var 칸이름 = document.getElementById('앱이름');
+          var 판 = document.getElementById('이름제안');
+          var 이름들 = Object.keys(사전);
+          var 고른줄 = -1;
+          function 민글(t) {{ return (t || '').toLowerCase().replace(/\s+/g, ''); }}
+          function 주소(k) {{ var 것 = 사전[k] || {{}}; return 것.기본주소 || 것.앱주소 || ''; }}
+          function 닮은것(q) {{
+            var g = 민글(q);
+            if (!g) return [];
+            var 앞 = [], 속 = [];
+            이름들.forEach(function (k) {{
+              var n = 민글(k), a = 민글(주소(k));
+              if (n.indexOf(g) === 0) 앞.push(k);
+              else if (n.indexOf(g) > 0 || a.indexOf(g) >= 0) 속.push(k);
+            }});
+            return 앞.concat(속).slice(0, 6);
+          }}
+          function 닫기() {{
+            판.hidden = true; 판.innerHTML = ''; 고른줄 = -1;
+            칸이름.setAttribute('aria-expanded', 'false');
+          }}
+          function 넣기(k) {{ 칸이름.value = k; 닫기(); 읽기(); }}
+          function 칠하기() {{
+            [].forEach.call(판.children, function (e, i) {{
+              e.classList.toggle('on', i === 고른줄);
+            }});
+          }}
+          function 그리기() {{
+            var 것들 = 닮은것(칸이름.value);
+            if (!것들.length) return 닫기();
+            판.innerHTML = 것들.map(function (k) {{
+              return '<div class="sugrow" role="option" data-이름="' + k + '">' + k
+                + (주소(k) ? '<span class="muted"> · ' + 주소(k) + '</span>' : '') + '</div>';
+            }}).join('');
+            [].forEach.call(판.children, function (e) {{
+              e.addEventListener('mousedown', function (ev) {{
+                ev.preventDefault(); 넣기(e.getAttribute('data-이름'));
+              }});
+            }});
+            고른줄 = -1; 판.hidden = false;
+            칸이름.setAttribute('aria-expanded', 'true');
+          }}
+          칸이름.addEventListener('input', 그리기);
+          칸이름.addEventListener('focus', 그리기);
+          칸이름.addEventListener('blur', function () {{ setTimeout(닫기, 120); }});
+          칸이름.addEventListener('keydown', function (e) {{
+            var 열림 = !판.hidden && 판.children.length;
+            if (e.key === 'ArrowDown' && 열림) {{
+              e.preventDefault(); 고른줄 = (고른줄 + 1) % 판.children.length; 칠하기();
+            }} else if (e.key === 'ArrowUp' && 열림) {{
+              e.preventDefault(); 고른줄 = (고른줄 - 1 + 판.children.length) % 판.children.length; 칠하기();
+            }} else if (e.key === 'Enter') {{
+              e.preventDefault();
+              if (열림 && 고른줄 >= 0) 넣기(판.children[고른줄].getAttribute('data-이름'));
+              else {{ 닫기(); 읽기(); }}
+            }} else if (e.key === 'Escape') {{
+              닫기();
+            }}
+          }});
+        }})();
       </script>
+      </div>
     </div>
-    {메뉴띠}
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
       <table class="list">
         <colgroup><col style="width:30px"><col style="width:72px"><col style="width:18%">
@@ -1106,7 +1208,15 @@ def 화면_초안(알림=""):
           if (!웹) return;
           function 그리기(것) {{
             var 말 = document.getElementById('메뉴말');
-            if (말) 말.textContent = 것.말줄 || '';
+            if (말) {{
+              말.textContent = 것.말줄 || '';
+              말.className = 'helper' + (것.까닭 ? ' is-error' : '');
+            }}
+            var 단추 = document.getElementById('IA단추');
+            if (단추) {{
+              단추.disabled = !!것.진행중;
+              단추.textContent = 것.진행중 ? '읽는 중' : 'IA 읽어오기';
+            }}
             var 목록 = document.getElementById('메뉴들');
             if (목록 && 것.메뉴) {{
               목록.innerHTML = 것.메뉴.map(function (m) {{
