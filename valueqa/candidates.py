@@ -10,6 +10,7 @@
 """
 from .match import 짝맞추기
 from .compare import 값견주기
+from .개발관행 import 걸림 as 관행걸림
 
 
 def 짧은시안이름(f):
@@ -21,18 +22,6 @@ def 짧은개발이름(d):
     if d.get("text"):
         return d["text"]
     return "(%s %s×%s)" % ("글자" if d.get("isText") else "상자", d["box"]["w"], d["box"]["h"])
-
-
-def _안에들어있나(box, 상자들):
-    for b in 상자들:
-        if b is box:
-            continue
-        if (box["x"] >= b["x"] - 2 and box["y"] >= b["y"] - 2
-                and box["x"] + box["w"] <= b["x"] + b["w"] + 2
-                and box["y"] + box["h"] <= b["y"] + b["h"] + 2
-                and b["w"] * b["h"] > box["w"] * box["h"]):
-            return True
-    return False
 
 
 def _개발자리(d):
@@ -68,16 +57,27 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
     짝지은개발상자 = [devEls[p["di"]]["box"] for p in 짝]
     남은개발 = [d for di, d in enumerate(devEls) if di not in 쓴개발]
 
-    # 개발에만 있는 것: 배경이나 테두리가 있어 '눈에 보이는' 것만. 이미 짝지은 상자 안에 든 것은 뺀다.
-    더있음 = [d for d in 남은개발
-              if ((d["style"].get("backgroundColor") and d["style"]["backgroundColor"] != "rgba(0, 0, 0, 0)")
-                  or d["style"].get("borderWidth", 0) > 0)
-              and not _안에들어있나(d["box"], 짝지은개발상자)]
-    # 시안 그림에 아무 자국도 남기지 않는 껍데기(간격용 투명·흰 프레임)는 후보로 올리지 않는다.
-    # 화면에서는 안 보이는 것이라 개발이 그것을 만들 일도, 고칠 일도 없다 (river 2026-09-16).
-    빠짐 = [f for fi, f in enumerate(fig)
-            if fi not in 쓴시안 and not f.get("안보임")
-            and not _안에들어있나(f["box"], 짝지은시안상자)]
+    # 구조 차이(개발에만 있음 / 시안에만 있음)는 **개발 관행 표**(valueqa/개발관행.py)를 거쳐 걸러진다.
+    # 표에 걸린 것은 버리지 않고 '접은것'으로 세어 둔다 — 어느 규칙이 몇 건을 접었는지 되짚을 수 있게.
+    접은것 = []
+
+    맥락 = {"옮김": M.get("옮김") or (0.0, 0.0),
+           "시안아래끝": max([f["box"]["y"] + f["box"]["h"] for f in fig]
+                        + [시안["meta"].get("artboardHeight") or 0])}
+
+    def 추리기(것들, 갈래, 짝상자):
+        남길 = []
+        for e in 것들:
+            규칙 = 관행걸림(e, 갈래, 짝상자, 맥락)
+            if 규칙:
+                접은것.append({"갈래": 갈래, "규칙": 규칙, "이름": (e.get("name") or e.get("text") or "")[:40],
+                             "box": dict(e["box"])})
+            else:
+                남길.append(e)
+        return 남길
+
+    더있음 = 추리기(남은개발, "더있음", 짝지은개발상자)
+    빠짐 = 추리기([f for fi, f in enumerate(fig) if fi not in 쓴시안], "빠짐", 짝지은시안상자)
 
     폭다름 = bool(시안["meta"].get("artboardWidth") and 개발["meta"].get("artboardWidth")
                 and abs(시안["meta"]["artboardWidth"] - 개발["meta"]["artboardWidth"]) > 4)
@@ -128,9 +128,10 @@ def 후보뽑기(시안, 개발, 문턱=0.5):
         "후보": 후보,
         "주의": 주의,
         "밀림": 밀림,
+        "접은것": 접은것,
         "셈": {"후보": len(후보), "값다름": len(후보) - len(더있음) - len(빠짐),
               "더있음": len(더있음), "빠짐": len(빠짐),
-              "주의": len(주의), "밀림": len(밀림), "일치": 일치수,
+              "주의": len(주의), "밀림": len(밀림), "일치": 일치수, "접음": len(접은것),
               "짝": len(짝), "시안요소": len(fig), "개발요소": len(devEls)},
         "폭다름": 폭다름,
         "meta": {"시안": 시안.get("meta", {}), "개발": 개발.get("meta", {})},

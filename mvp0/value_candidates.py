@@ -30,6 +30,7 @@ try:
     from valueqa.__main__ import 시안읽기
     from valueqa.candidates import 후보뽑기
     from valueqa.fixdoc import _css값
+    from valueqa import 개발관행
 except Exception:                                   # valueqa 가 없으면 조용히 꺼져 있는다
     준비됨 = False
 
@@ -67,7 +68,7 @@ def 지문(시안길, 개발길):
     for p in (시안길, 개발길):
         h.update(p.read_bytes())
     # 끝의 판 번호는 '카드에 담는 모양'이 바뀔 때 올린다 — 옛 회차는 남고, 사람이 내린 판정은 이어받는다.
-    return 'value4:' + h.hexdigest()[:12]
+    return 'value5:' + h.hexdigest()[:12]
 
 
 def 대조(시안길, 개발길):
@@ -182,10 +183,15 @@ def 챙기기(store, page_id, run, 길):
         결과 = 대조(시안길, 개발길)
         배율, dx, dy = _잣대(결과, run)
         새회차 = uid()
-        c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,finished_at,capture_w,capture_h,design_id,source)'
-                  ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+        # 개발 관행 표가 접은 것도 회차에 함께 남긴다 — 어느 규칙이 몇 건을 접었는지 되짚을 수 있게(2번-3).
+        접음 = {}
+        for x in 결과.get('접은것') or []:
+            접음[x['규칙']] = 접음.get(x['규칙'], 0) + 1
+        알림 = [{'규칙': k, '이름': 개발관행.제목.get(k, k), '건수': v} for k, v in sorted(접음.items(), key=lambda kv: -kv[1])]
+        c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,finished_at,capture_w,capture_h,design_id,source,notices)'
+                  ' VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
                   (새회차, page_id, run['uuid'], 'done', 판, now(), now(),
-                   run['dev_img_w'], run['dev_img_h'], '', 출처))
+                   run['dev_img_w'], run['dev_img_h'], '', 출처, json.dumps(알림, ensure_ascii=False)))
         for n, k in enumerate(결과.get('후보') or [], 1):
             이름표 = 키(k)
             앞 = 옛것.get(이름표)
