@@ -208,7 +208,8 @@ textarea.s { width:100%; box-sizing:border-box; padding:var(--spacing-6) var(--s
 textarea.s:focus { outline:none; border-color:var(--color-border-focus); box-shadow:0 0 0 2px var(--color-blue-50); }
 textarea.s::placeholder { color:var(--form-placeholder); }
 table.list td { vertical-align:top; }
-table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
+table.list input.s, table.list select.s { width:100%; max-width:none; box-sizing:border-box; }
+table.list select.s + input.s { margin-top:var(--spacing-4); }
 /* 비밀번호 칸 — 눈 아이콘을 칸 안 오른쪽에 둔다(S-1 Input · Password 정본).
    숨김 중에는 eye_hide, 보이는 중에는 eye_show. 아이콘 색은 어느 상태에서나 하나다. */
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
@@ -894,7 +895,8 @@ def 화면_초안(알림=""):
 
     def 셋째칸(i, r, 이어서):
         if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다(메뉴를 훑어 두면 저절로 채워진다)
-            return (f'<td><input class="s" type="text" name="주소_{i}" id="주소_{i}" '
+            return (f'<td><select class="s" id="주소고르기_{i}" hidden></select>'
+                    f'<input class="s" type="text" name="주소_{i}" id="주소_{i}" '
                     f'list="메뉴들" value="{_e(r.get("주소",""))}" placeholder="/login" '
                     f'autocomplete="off">'
                     f'<div class="hint" id="닮음_{i}"></div></td>')
@@ -1192,7 +1194,7 @@ def 화면_초안(알림=""):
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
       <table class="list">
         <colgroup><col style="width:30px"><col style="width:72px"><col style="width:18%">
-          <col style="width:15%"><col style="width:12%"><col><col style="width:120px"></colgroup>
+          <col style="width:13%"><col style="width:20%"><col><col style="width:120px"></colgroup>
         <thead><tr><th></th><th>번호</th><th>화면 이름</th><th>상태</th>
         <th>{'개발 주소 <span class="muted">(기본 주소 뒤에 붙는 부분)</span>'
              if 웹 else '눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span>'}</th>
@@ -1206,6 +1208,7 @@ def 화면_초안(알림=""):
         (function () {{
           var 웹 = {1 if 웹 else 0};
           if (!웹) return;
+          var 짝기억 = {{}}, 자동넣음 = {{}}, 자동채움 = {{}}, 붙임 = {{}}, 훑는중 = false;
           function 그리기(것) {{
             var 말 = document.getElementById('메뉴말');
             if (말) {{
@@ -1223,33 +1226,92 @@ def 화면_초안(알림=""):
                 return '<option value="' + m.주소길 + '">' + m.이름 + '</option>';
               }}).join('');
             }}
+            훑는중 = !!것.진행중;
             Object.keys(것.짝 || {{}}).forEach(function (i) {{
               var 칸 = document.getElementById('주소_' + i);
-              var 표 = document.getElementById('닮음_' + i);
-              var 하나 = 것.짝[i];
-              if (!칸 || !표) return;
-              if (하나.확정) {{
-                if (!칸.value && document.activeElement !== 칸) {{
-                  칸.value = 하나.주소;
-                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름
-                    + ' · 닮음 ' + 하나.닮음 + '%. 다르면 고치세요';
-                }} else if (칸.value === 하나.주소) {{
-                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름 + ' · 닮음 ' + 하나.닮음 + '%';
-                }}
-                return;
+              if (!칸) return;
+              짝기억[i] = 것.짝[i];
+              /* 가장 닮은 것을 미리 골라 둔다 — 빈 칸에 한 번만, 바꾸면 다시 고르지 않는다(사람이 이긴다). */
+              if (것.짝[i].주소 && !칸.value && !자동넣음[i] && document.activeElement !== 칸) {{
+                자동넣음[i] = true; 자동채움[i] = true;
+                칸.value = 것.짝[i].주소;
               }}
-              /* 애매한 것은 넣지 않는다 — 가장 닮은 것만 내밀고 사람이 누른다. */
-              if (칸.value) return;
-              표.innerHTML = '어느 메뉴인지 애매합니다. 가장 닮은 것은 <b>' + 하나.메뉴이름
-                + '</b> (' + 하나.닮음 + '%) '
-                + '<button type="button" class="pickbtn" data-주소="' + 하나.주소
-                + '" data-줄="' + i + '">이걸로</button>';
-              var 단추 = 표.querySelector('button');
-              if (단추) 단추.onclick = function () {{
-                칸.value = 단추.getAttribute('data-주소');
-                표.textContent = '눌러서 넣었습니다 — ' + 하나.메뉴이름;
-              }};
+              고르개(i, 것.메뉴 || []);
             }});
+          }}
+          function 옵션(값, 글) {{
+            return '<option value="' + 값.replace(/"/g, '&quot;') + '">' + 글 + '</option>';
+          }}
+          /* 개발 주소는 고르는 칸이다 — 닮은 것이 맨 위에, 그 밑에 사이트의 모든 메뉴, 맨 끝에 직접 적기. */
+          function 고르개(i, 메뉴들) {{
+            var 고 = document.getElementById('주소고르기_' + i);
+            var 칸 = document.getElementById('주소_' + i);
+            if (!고 || !칸 || !메뉴들.length) return;
+            var 하나 = 짝기억[i] || {{}};
+            var 추천 = (하나.후보 && 하나.후보.length) ? 하나.후보 : [];
+            var 뽑힘 = {{}};
+            추천.forEach(function (c) {{ 뽑힘[c.주소] = 1; }});
+            var 글 = 옵션('', '— 고르세요 —');
+            if (추천.length) {{
+              글 += '<optgroup label="닮은 것">' + 추천.map(function (c) {{
+                return 옵션(c.주소, c.메뉴이름 + ' (' + c.닮음 + '%)');
+              }}).join('') + '</optgroup>';
+            }}
+            글 += '<optgroup label="모든 메뉴">' + 메뉴들.filter(function (m) {{
+              return !뽑힘[m.주소길];
+            }}).map(function (m) {{ return 옵션(m.주소길, m.이름); }}).join('') + '</optgroup>';
+            글 += 옵션('__직접__', '직접 적기');
+            고.innerHTML = 글;
+            고.hidden = false;
+            if (!붙임[i]) {{
+              붙임[i] = true;
+              고.addEventListener('change', function () {{
+                자동채움[i] = false; 자동넣음[i] = true;
+                if (고.value === '__직접__') {{
+                  칸.hidden = false; 칸.value = ''; 칸.focus();
+                }} else {{
+                  칸.hidden = true; 칸.value = 고.value;
+                }}
+                안내(i);
+              }});
+              칸.addEventListener('input', function () {{ 자동채움[i] = false; 안내(i); }});
+            }}
+            맞추기(i);
+          }}
+          /* 칸에 이미 들어 있는 값에 고르개를 맞춘다 — 메뉴에 없는 값이면 직접 적기로 연다. */
+          function 맞추기(i) {{
+            var 고 = document.getElementById('주소고르기_' + i);
+            var 칸 = document.getElementById('주소_' + i);
+            var 값 = (칸.value || '').trim();
+            var 있나 = [].some.call(고.options, function (o) {{ return o.value && o.value === 값; }});
+            if (!값) {{ 고.value = ''; 칸.hidden = true; }}
+            else if (있나) {{ 고.value = 값; 칸.hidden = true; }}
+            else if (훑는중) {{
+              /* 아직 다 못 읽은 목록으로 '직접 적기'라고 단정하지 않는다 — 다 읽으면 다시 맞춘다. */
+              고.value = ''; 칸.hidden = false; 표비우기(i); return;
+            }} else {{ 고.value = '__직접__'; 칸.hidden = false; }}
+            안내(i);
+          }}
+          function 표비우기(i) {{
+            var 표 = document.getElementById('닮음_' + i);
+            if (표) 표.textContent = '';
+          }}
+          function 안내(i) {{
+            var 고 = document.getElementById('주소고르기_' + i);
+            var 표 = document.getElementById('닮음_' + i);
+            var 하나 = 짝기억[i] || {{}};
+            if (!고 || !표) return;
+            var 값 = 고.value, 닮은것 = null;
+            (하나.후보 || []).forEach(function (c) {{ if (c.주소 === 값) 닮은것 = c; }});
+            if (값 === '__직접__') 표.textContent = '주소를 직접 적으세요';
+            else if (!값) 표.textContent = '어느 메뉴인지 애매합니다 — 골라 주세요';
+            else if (닮은것) {{
+              표.textContent = 자동채움[i]
+                ? (하나.확정 ? '자동으로 골랐습니다 · 닮음 ' + 닮은것.닮음 + '%'
+                            : '가장 닮은 것입니다 · 닮음 ' + 닮은것.닮음 + '% — 맞는지 보세요')
+                : '닮음 ' + 닮은것.닮음 + '%';
+            }}
+            else 표.textContent = '';
           }}
           function 한번() {{
             fetch('/메뉴훑기/상태').then(function (r) {{ return r.json(); }}).then(function (것) {{
