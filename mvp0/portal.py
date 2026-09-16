@@ -385,9 +385,8 @@ def render_list(unresolved_only: bool, round_filter):
               <td class="ctr"><span class="{unres_cls}">{unres}</span> / {r['total']}</td>
             </tr>"""
         키 = 프로젝트키.get(project)
-        결과서 = (f'<span class="docs">검수결과서 '
-                f'<a class="chip" href="/result/{_esc(키)}?scope=open" target="_blank">수정필요만</a>'
-                f'<a class="chip" href="/result/{_esc(키)}?scope=all" target="_blank">전체</a></span>') if 키 else ''
+        결과서 = (f'<span class="docs">'
+                f'<a class="chip" href="/result/{_esc(키)}?scope=all" target="_blank">개발화면검수서</a></span>') if 키 else ''
         groups_html += f"""
         <section class="group">
           <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span>{결과서}</h2>

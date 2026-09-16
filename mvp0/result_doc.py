@@ -199,6 +199,7 @@ def 표지(project, scope, 화면수, 쪽수, 지적수):
     오늘 = datetime.now().strftime('%Y-%m-%d')
     갈래 = '수정필요만 모은 중간 공유본' if scope == 'open' else '모든 페이지를 담은 최종본'
     return (f'<section class="sheet cover"><div class="brand"></div>'
+            f'<p class="wip">(추후 스타일 수정 예정)</p>'
             f'<h1>개발화면 검수결과서</h1>'
             f'<p class="sub">{_e(project["name"])}</p>'
             f'<dl class="facts"><dt>만든 날</dt><dd>{오늘}</dd>'
@@ -314,9 +315,10 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 .cover .facts dt{color:var(--color-text-caption)}
 .cover .facts dd{margin:0}
 .cover .org{margin:0;font-size:var(--font-size-14);color:var(--color-text-caption)}
+.cover .wip{position:absolute;left:0;right:0;top:50%;margin:0;transform:translateY(-50%);
+ text-align:center;font-size:var(--font-size-16);color:var(--color-text-caption)}
 
-.divider{display:flex;flex-direction:column;justify-content:center;
- border-left:8mm solid var(--color-action-primary-default)}
+.divider{display:flex;flex-direction:column;justify-content:center}
 .divider .key{margin:0 0 var(--spacing-8);font-size:var(--font-size-14);color:var(--color-text-caption)}
 .divider h2{margin:0 0 var(--spacing-10);font-size:38px;font-weight:var(--font-weight-bold)}
 .divider .sub{margin:0;font-size:var(--font-size-16);color:var(--color-text-secondary)}
