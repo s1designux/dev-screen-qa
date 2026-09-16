@@ -1,0 +1,535 @@
+{
+  "잰때": "2026-09-16 12:37:57",
+  "자료뿌리": "/Users/designgroup_02/dev-screen-qa",
+  "정본후보": {
+    "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db",
+    "크기": 8712192,
+    "마지막수정": "2026-09-16 12:37",
+    "지문": "e198b6d5f6022f431d36c6317e9fd406940a2c1fd791e5dafb9b78d37563f31c",
+    "행수": {
+      "screen": 5,
+      "inspection_page": 61,
+      "inspection_run": 62,
+      "design_elements": 199,
+      "inspection_issue": 18,
+      "issue_history": 22,
+      "auto_candidate": 1058,
+      "auto_candidate_event": 9,
+      "auto_range": 0,
+      "rule_verdict": 1,
+      "policy_rule": 0,
+      "intake_event": 0,
+      "page_design_event": 199,
+      "page_capture_event": 3,
+      "page_move_event": 12
+    },
+    "읽기": "됨",
+    "되살리기": {
+      "무결성": "ok",
+      "표읽기": 15,
+      "판정": "되살아남"
+    }
+  },
+  "그림": {
+    "그림방": "/Users/designgroup_02/dev-screen-qa/mvp0/uploads",
+    "그림파일": 469,
+    "가리킨것": 301,
+    "빠진것수": 0,
+    "빠진것": [],
+    "안가리킨것수": 168,
+    "안가리킨것": [
+      "04a111f192c14878be32ac7a0100f090.png",
+      "06b6ce214185442fb65cab152558f186.png",
+      "06fb5f224fc746a886584aaf03918501_dev.png",
+      "08aff43882384af68d331abb7b5947c6_dev.png",
+      "0d055eaa5bdd4defb6f0c00fc91f6432_dev.png",
+      "0fcb0b76b6224f6b8e9cdad8605c0155_design.json",
+      "0fcb0b76b6224f6b8e9cdad8605c0155_dev값.json",
+      "0fe6beb051c840d0b400074801f5550e_dev.png",
+      "108b35e942e1489db10a72e990209e25_dev.png",
+      "10908eac841a4b13830d719698caf36a.png",
+      "109322d9319b48f19962ede85b9f3e17_dev.png",
+      "1124c4ed1b28463e9ef38198a02ec5ea_design.json",
+      "158acefaa6d24a3d86dfee75a005689d_dev.png",
+      "15968e20ead84e6598e3db76f9cff17f_dev.png",
+      "15b24e3dce7d4a619e9c47fd42e6238f_design.png",
+      "15e5155ef9db4ea2aa0a9023693a7635_dev.png",
+      "15e845b78cfc4af4aa0cd67bb145509e.png",
+      "183e4f5a51214bfa97f455689cef6f6a_dev.png",
+      "1a9943d78dc742828c9accf1e1db591a_dev.png",
+      "1b02872be9024ecd995af5aab9b48832_dev.png"
+    ]
+  },
+  "사본": [
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-demo.db",
+      "크기": 0,
+      "마지막수정": "2026-09-02 09:01",
+      "지문": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "행수": {},
+      "읽기": "빈 파일",
+      "되살리기": {
+        "무결성": null,
+        "표읽기": null,
+        "판정": "빈 파일 — 되살릴 것 없음"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-intake-preview.db",
+      "크기": 233472,
+      "마지막수정": "2026-09-09 16:26",
+      "지문": "dcc25e8ce506bcea1a23ebb07a1c031f69e8f2147ef8ea7ea06fb3a8904e0635",
+      "행수": {
+        "screen": 2,
+        "inspection_page": 4,
+        "inspection_run": 5,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "intake_event": 13
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 6,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {
+        "intake_event": 13
+      }
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0.db",
+      "크기": 90112,
+      "마지막수정": "2026-07-18 11:38",
+      "지문": "fd7273632ef50e9a6b46c3947f45291dcc6434154794e398c7910a2c61e149e5",
+      "행수": {
+        "screen": 1,
+        "inspection_page": 1,
+        "inspection_run": 2,
+        "inspection_issue": 4,
+        "issue_history": 11
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 5,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {
+        "inspection_issue": 4,
+        "issue_history": 11
+      }
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0-real.db",
+      "크기": 0,
+      "마지막수정": "2026-07-21 13:00",
+      "지문": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "행수": {},
+      "읽기": "빈 파일",
+      "되살리기": {
+        "무결성": null,
+        "표읽기": null,
+        "판정": "빈 파일 — 되살릴 것 없음"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-20260909",
+      "크기": 98304,
+      "마지막수정": "2026-07-21 13:53",
+      "지문": "c93108017898000a1a9d28fbb8d10327c8f78fbd54ebff65f08f1aa9e6ad007a",
+      "행수": {
+        "screen": 1,
+        "inspection_page": 3,
+        "inspection_run": 4,
+        "inspection_issue": 18,
+        "issue_history": 22
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 5,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-20260910",
+      "크기": 196608,
+      "마지막수정": "2026-09-10 09:11",
+      "지문": "64c03d4d33ea6c24ea948fb62341da12d5dca8d1a5ea17c17d3092ecab7c1ff6",
+      "행수": {
+        "screen": 1,
+        "inspection_page": 3,
+        "inspection_run": 4,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "intake_event": 0
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 6,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-20260914",
+      "크기": 2375680,
+      "마지막수정": "2026-09-14 09:37",
+      "지문": "d42d6ecf0e3042151196b5cf247322446216f29aa390e1c9670cfebfcfceeb76",
+      "행수": {
+        "screen": 2,
+        "inspection_page": 29,
+        "inspection_run": 30,
+        "design_elements": 57,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 51,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 57,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 14,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-20260915",
+      "크기": 5156864,
+      "마지막수정": "2026-09-15 08:37",
+      "지문": "5283fbaabd4009bbe7f226242cb60d6b621caf6a974d09c734992ecb8918e8c6",
+      "행수": {
+        "screen": 3,
+        "inspection_page": 37,
+        "inspection_run": 38,
+        "design_elements": 135,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 119,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 135,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 14,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-20260916",
+      "크기": 6344704,
+      "마지막수정": "2026-09-15 11:44",
+      "지문": "9e4c90a905e27283db4b7ff8a9c99508ef782f50c31e0be3303e45657662594a",
+      "행수": {
+        "screen": 5,
+        "inspection_page": 49,
+        "inspection_run": 50,
+        "design_elements": 147,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 634,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 147,
+        "page_capture_event": 1,
+        "page_move_event": 12
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 15,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-값후보전-20260914-1603",
+      "크기": 3723264,
+      "마지막수정": "2026-09-14 16:03",
+      "지문": "b0b90906fb1a9c9c2489345efb8f718d0d868d19dbd81bb1c7b26a6d30934f6e",
+      "행수": {
+        "screen": 3,
+        "inspection_page": 35,
+        "inspection_run": 36,
+        "design_elements": 97,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 51,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 97,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 14,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-범위조정전-20260910-1610",
+      "크기": 1167360,
+      "마지막수정": "2026-09-10 16:10",
+      "지문": "bb11250961327a459a28ca23a4a830b502c591027211d32e4b4d3b6eba428374",
+      "행수": {
+        "screen": 2,
+        "inspection_page": 30,
+        "inspection_run": 31,
+        "design_elements": 25,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 85,
+        "auto_candidate_event": 0,
+        "auto_range": 0,
+        "intake_event": 0,
+        "page_design_event": 25,
+        "page_capture_event": 0
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 12,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {
+        "auto_candidate": 85
+      }
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-지우기전-20260910-0911",
+      "크기": 196608,
+      "마지막수정": "2026-09-10 09:11",
+      "지문": "e5769f57d5fcfbe14e0d5bc3ec82be8271ac4de4a019a3e86799e875b4b8e48d",
+      "행수": {
+        "screen": 2,
+        "inspection_page": 8,
+        "inspection_run": 9,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "intake_event": 0
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 6,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-카드정리전-20260914-1622",
+      "크기": 3751936,
+      "마지막수정": "2026-09-14 16:22",
+      "지문": "75c0515e78ab09767d52de2085805e14dbcd3a8bccc9f1036eb6126ca27aa0a1",
+      "행수": {
+        "screen": 3,
+        "inspection_page": 35,
+        "inspection_run": 36,
+        "design_elements": 97,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 57,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 97,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 14,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-페이지ID전-20260915-1110",
+      "크기": 6258688,
+      "마지막수정": "2026-09-15 11:10",
+      "지문": "d43dde282e3d2e78e9dc0e6950942e69c83e42353b251fad8478d90e1defbb87",
+      "행수": {
+        "screen": 5,
+        "inspection_page": 49,
+        "inspection_run": 50,
+        "design_elements": 147,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 518,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 147,
+        "page_capture_event": 1,
+        "page_move_event": 12
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 15,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa/mvp0/mvp0-real.db.bak-화면분리전-20260915-1058",
+      "크기": 6066176,
+      "마지막수정": "2026-09-15 10:58",
+      "지문": "dd594abbda4acefb8230b98ff5f6e57d67162967a3564797b83f27c319b46638",
+      "행수": {
+        "screen": 4,
+        "inspection_page": 49,
+        "inspection_run": 50,
+        "design_elements": 147,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 252,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 147,
+        "page_capture_event": 1,
+        "page_move_event": 0
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 15,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa-백업/20260914-0933/mvp0-real.db",
+      "크기": 2359296,
+      "마지막수정": "2026-09-14 09:33",
+      "지문": "a849a7725c40ae9b4600102e98c9f2a67ce90e758a286b06b354daa2e7802123",
+      "행수": {
+        "screen": 2,
+        "inspection_page": 29,
+        "inspection_run": 30,
+        "design_elements": 57,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 51,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 57,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 13,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa-백업/20260914-1830/mvp0-real.db",
+      "크기": 4304896,
+      "마지막수정": "2026-09-14 18:30",
+      "지문": "a54bc7d7f2fef6c8ad4414c253f84aed47e8c08e19cf57a460b0dc627e8412eb",
+      "행수": {
+        "screen": 3,
+        "inspection_page": 37,
+        "inspection_run": 38,
+        "design_elements": 111,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 117,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 111,
+        "page_capture_event": 1
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 14,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    },
+    {
+      "자리": "/Users/designgroup_02/dev-screen-qa-백업/20260915-1830/mvp0-real.db",
+      "크기": 6344704,
+      "마지막수정": "2026-09-15 18:30",
+      "지문": "c05319405dea8615710cbfd0de7d56531d30d50d9060963d3af6b9980c1ac7ae",
+      "행수": {
+        "screen": 5,
+        "inspection_page": 49,
+        "inspection_run": 50,
+        "design_elements": 147,
+        "inspection_issue": 18,
+        "issue_history": 22,
+        "auto_candidate": 634,
+        "auto_candidate_event": 8,
+        "auto_range": 0,
+        "rule_verdict": 0,
+        "policy_rule": 0,
+        "intake_event": 0,
+        "page_design_event": 147,
+        "page_capture_event": 1,
+        "page_move_event": 12
+      },
+      "읽기": "됨",
+      "되살리기": {
+        "무결성": "ok",
+        "표읽기": 15,
+        "판정": "되살아남"
+      },
+      "정본에없는것": {}
+    }
+  ],
+  "포털시험": {
+    "되살린것": "/Users/designgroup_02/dev-screen-qa-백업/20260915-1830/mvp0-real.db",
+    "본것": {
+      "화면 목록": 200,
+      "화면": 200,
+      "페이지 상세": 200,
+      "그림": 200
+    },
+    "판정": "되살아나고 열림",
+    "그림크기": 38303,
+    "포털이 남긴 말": ""
+  }
+}

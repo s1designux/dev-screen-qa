@@ -94,7 +94,7 @@ def _뽑기(글, 말):
     return ""
 
 
-def _판정(쪽):
+def 판정(쪽):
     """로그인 화면을 벗어났으면 됐다. 남아 있으면 화면에 뜬 말로 까닭을 가른다."""
     try:
         남았나 = 쪽.locator('input[type="password"]').first.is_visible(timeout=1500)
@@ -116,6 +116,38 @@ def _판정(쪽):
     return 안됨("로그인 화면에 그대로 머물렀습니다. 아이디·비밀번호를 확인해 주세요.")
 
 
+def 쪽에서(쪽, 유형, 아이디, 비밀번호, 주소=None):
+    """**이미 열려 있는 창**에서 한 번 로그인한다. 찍지 않는다.
+
+    미리 해 보는 것(아래 `_브라우저로`)과 찍기 전에 지나는 들어가는 길(`lib/들어가는길.py`)이
+    같은 길을 쓰게 하려고 한 곳에 두었다 — 한쪽만 고쳐져 어긋나지 않게.
+    """
+    import webshot            # 글자 넣고 누르는 법은 '찍는 손' 것을 그대로 빌려 쓴다
+    try:
+        if 주소:
+            쪽.goto(주소, wait_until="load", timeout=30000)
+            쪽.wait_for_timeout(1200)
+        아이디칸 = _칸(쪽, 매체.로그인칸말["아이디"])
+        비번칸 = _칸(쪽, 매체.로그인칸말["비밀번호"], 비번칸=True)
+        if 아이디칸 is None or 비번칸 is None:
+            return 못해봄("이 화면에서 아이디·비밀번호 칸을 찾지 못했습니다. "
+                      "로그인 화면이 아닐 수 있어 그냥 넘어갑니다.")
+        webshot._적기(아이디칸, 아이디, 유형)
+        webshot._적기(비번칸, 비밀번호, 유형)
+        단추 = _단추(쪽, 매체.로그인칸말["단추"])
+        if 단추 is None:
+            비번칸.press("Enter")
+        else:
+            try:
+                webshot._누르기(단추, "로그인", 유형)
+            except Exception as e:
+                return 안됨(str(e).strip().splitlines()[0][:120])
+        쪽.wait_for_timeout(int(기다릴초 * 1000))
+        return 판정(쪽)
+    except Exception as e:
+        return 못해봄(f"로그인해 보다 막혔습니다 — {str(e).strip().splitlines()[0][:120]}")
+
+
 def _브라우저로(tag, 유형, 아이디, 비밀번호):
     import webshot            # 브라우저 켜는 법은 '찍는 손' 것을 그대로 빌려 쓴다
 
@@ -133,27 +165,7 @@ def _브라우저로(tag, 유형, 아이디, 비밀번호):
         칸 = 브라우저.new_context(viewport={"width": 폭, "height": 900})
         쪽 = 칸.new_page()
         try:
-            쪽.goto(주소, wait_until="load", timeout=30000)
-            쪽.wait_for_timeout(1200)
-            아이디칸 = _칸(쪽, 매체.로그인칸말["아이디"])
-            비번칸 = _칸(쪽, 매체.로그인칸말["비밀번호"], 비번칸=True)
-            if 아이디칸 is None or 비번칸 is None:
-                return 못해봄("이 화면에서 아이디·비밀번호 칸을 찾지 못했습니다. "
-                          "로그인 화면이 아닐 수 있어 그냥 넘어갑니다.")
-            webshot._적기(아이디칸, 아이디, 유형)
-            webshot._적기(비번칸, 비밀번호, 유형)
-            단추 = _단추(쪽, 매체.로그인칸말["단추"])
-            if 단추 is None:
-                비번칸.press("Enter")
-            else:
-                try:
-                    webshot._누르기(단추, "로그인", 유형)
-                except Exception as e:
-                    return 안됨(str(e).strip().splitlines()[0][:120])
-            쪽.wait_for_timeout(int(기다릴초 * 1000))
-            return _판정(쪽)
-        except Exception as e:
-            return 못해봄(f"미리 해 보다 막혔습니다 — {str(e).strip().splitlines()[0][:120]}")
+            return 쪽에서(쪽, 유형, 아이디, 비밀번호, 주소=주소)
         finally:
             try:
                 브라우저.close()

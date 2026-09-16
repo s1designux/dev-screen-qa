@@ -1,0 +1,86 @@
+{
+ "screen": "체류시간 관리_과속보기",
+ "note": "river님이 2026-09-04에 직접 확인한 진짜 오류. 2026-09-08: #7(탭 10개→4개)은 'GNB 아래 탭 줄은 열린 탭만 보이므로 탭 구성 차이는 오류 아님'으로 river님이 재확정 → not_errors로 이동. 정답은 7건.",
+ "answers": [
+  {
+   "no": 1,
+   "where": "표 컬럼 제목",
+   "design": "입문날짜",
+   "dev": "IN_날짜",
+   "expect": [
+    "only_design"
+   ]
+  },
+  {
+   "no": 2,
+   "where": "표 컬럼 제목",
+   "design": "입문시간",
+   "dev": "IN_시간",
+   "expect": [
+    "only_design"
+   ]
+  },
+  {
+   "no": 3,
+   "where": "표 컬럼 제목",
+   "design": "출문날짜",
+   "dev": "OUT_날짜",
+   "expect": [
+    "only_design"
+   ]
+  },
+  {
+   "no": 4,
+   "where": "표 컬럼 제목",
+   "design": "출문시간",
+   "dev": "OUT_시간",
+   "expect": [
+    "only_design"
+   ]
+  },
+  {
+   "no": 5,
+   "where": "상단 메뉴",
+   "design": "통근버스 운영 시스템",
+   "dev": "(로고 워드마크 없음)",
+   "expect": [
+    "only_design"
+   ]
+  },
+  {
+   "no": 6,
+   "where": "상단 메뉴",
+   "design": "운영 관리",
+   "dev": "운영관리",
+   "expect": [
+    "spacing"
+   ]
+  },
+  {
+   "no": 8,
+   "where": "검색 조건",
+   "design": "과속여부",
+   "dev": "(조회조건 없음)",
+   "expect": [
+    "only_design"
+   ]
+  }
+ ],
+ "not_errors": [
+  {
+   "where": "검색 조건",
+   "design": "83어 4688",
+   "why": "샘플 데이터(가변)"
+  },
+  {
+   "where": "목록 제목",
+   "design": "{{count}}",
+   "why": "건수 — 데이터(가변)"
+  },
+  {
+   "where": "GNB 아래 탭 줄",
+   "design": "노선별 운행실적",
+   "why": "탭 줄은 열린 탭만 보임 — 탭 구성 차이는 오류 아님(2026-09-08 river 확정). 단 선택된 탭(흰 바탕·파란 글씨)의 글자 내용은 같아야 함, 자리는 달라도 됨"
+  }
+ ]
+}
