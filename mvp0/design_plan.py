@@ -115,7 +115,7 @@ class Plans:
                 if not vals[0] or not vals[1] or any(len(v)>6000 for v in vals):raise ValueError('촬영 절차와 기대 모습을 입력하세요.')
                 c.execute('UPDATE design_case SET tc=?,expected=?,prerequisite=?,revision=revision+1 WHERE id=?',(*vals,case))
             elif action=='select':
-                if r['page_id'] and c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():raise ValueError('지적이 등록된 화면의 캡처 교체는 새 차수에서 진행합니다.')
+                if r['page_id'] and c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():raise ValueError('수정필요 항목이 있는 화면은 새 차수에서 바꿉니다.')
                 cap=fields.get('capture','');note=fields.get('note','작업자가 캡처 선택')[:2000]
                 if not c.execute('SELECT 1 FROM plan_capture WHERE plan_id=? AND id=?',(plan,cap)).fetchone():raise ValueError('이 목록의 캡처를 선택하세요.')
                 if r['page_id']:
@@ -126,7 +126,7 @@ class Plans:
                 status='confirmed' if r['page_id'] else ('required' if r['status']=='required' and fields.get('keep_request')=='1' else 'pending')
                 c.execute("UPDATE design_case SET capture_id=?,status=?,match_note=?,revision=revision+1 WHERE id=?",(cap,status,note,case))
             elif action=='request':
-                if r['page_id']:raise ValueError('검수 시작 후 추가 촬영은 새 차수에서 진행합니다.')
+                if r['page_id']:raise ValueError('검수를 시작한 뒤의 추가 촬영은 새 차수에서 합니다.')
                 reason=fields.get('reason','').strip()
                 if not reason or len(reason)>2000:raise ValueError('추가 촬영 사유를 입력하세요.')
                 c.execute("UPDATE design_case SET status='required',request_reason=?,revision=revision+1 WHERE id=?",(reason,case))

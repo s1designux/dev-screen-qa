@@ -19,7 +19,7 @@ def get(handler,store,path):
             q=plans.queue(plan);buf=io.BytesIO()
             with zipfile.ZipFile(buf,'w',zipfile.ZIP_DEFLATED) as z:
                 z.writestr('촬영요청.json',json.dumps(q,ensure_ascii=False,indent=2));z.write(Path(__file__).with_name('capture_tc.py'),'capture_tc.py')
-                z.writestr('사용안내.txt','디자인별 TC 촬영 요청\n1. 촬영요청.json과 디자인 폴더에서 목표 모습을 확인합니다.\n2. Android 기기를 연결하고 잠금을 해제합니다. adb가 설치된 PC에서 python3 capture_tc.py 를 실행합니다.\n3. TC대로 직접 조작한 뒤 Enter를 누릅니다. 도우미는 화면 촬영만 하며 입력·로그인·계정 잠금은 자동 실행하지 않습니다. 준비 조건이 충족되지 않으면 s로 건너뜁니다.\n4. shots 폴더의 PNG와 찍은목록.json을 포털의 촬영 결과 가져오기로 등록합니다.\n5. 포털에서 시안과 맞는지 확인합니다. 오류는 자동 확정하지 않습니다.\niOS는 TC대로 수동 촬영한 PNG를 각 페이지에 등록하세요.\n')
+                z.writestr('사용안내.txt','화면 찍기\n1. 폰을 연결하고 잠금을 풉니다.\n2. python3 capture_tc.py 를 실행하고, 화면을 만든 뒤 Enter 를 누릅니다. 못 만들면 s 로 건너뜁니다.\n3. shots 폴더를 포털의 촬영 결과 가져오기에 올립니다.\niOS 는 직접 찍은 PNG 를 각 페이지에 올립니다.\n')
                 _,cases=plans.get(plan)
                 for r in cases:
                     if r['status']=='required':z.write(store.uploads/r['design_file'],f'디자인/{r["seq"]:02d}-{r["id"]}.png')

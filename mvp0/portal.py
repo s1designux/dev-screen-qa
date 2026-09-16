@@ -506,9 +506,10 @@ def render_screen(human_key: str, notice=""):
     remove_bar = f"""
       <form id="page-remove" class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/remove"
             onsubmit="return document.querySelector('input[name=page]:checked') ?
-                      confirm('고른 검수 페이지를 지웁니다. 그 페이지의 지적·차수 기록도 함께 사라지고 되돌릴 수 없습니다. 지울까요?') :
+                      confirm('고른 검수 페이지와 수정필요·차수 기록을 지웁니다. 지울까요?') :
                       (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
         <button type="submit">삭제</button>
+        {move_bar}
       </form>""" if pages else ""
 
     # 스토리보드 ID는 화면 한 장마다 붙는다 (river 2026-09-15). 표 안에서 고쳐 한 번에 저장한다.
@@ -564,9 +565,10 @@ def render_screen(human_key: str, notice=""):
     {notice_html}
     {warn_html}
     <section class="group">
-      <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
-      {remove_bar}
-      {move_bar}
+      <div class="grouphead">
+        <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
+        {remove_bar}
+      </div>
       <table>
         <thead><tr>
           {pick_all_th}<th class="ctr">순번</th><th class="ctr">스토리보드 ID</th><th>검수 페이지</th>
@@ -877,7 +879,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
                   f'<script>{auto_inspect.JS}</script>') if auto_view else ''
     issues_html = panels
     if not all_issues and linked and linked['status'] != 'confirmed':
-        issues_html = '<p class="empty">아직 등록된 검수 내용이 없습니다. 시안을 연결하고 짝을 확인한 뒤 이곳에서 검수를 이어갑니다.</p>'
+        issues_html = '<p class="empty">아직 검수한 것이 없습니다. 시안을 연결해 시작하세요.</p>'
 
     roster_html = "".join(
         f'<span class="person">{_esc(p["name"])}'
@@ -907,7 +909,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         controls = ui.hidden('item',linked['id']) + ui.hidden('revision',linked['revision'])
         if linked['status'] == 'pending':
             connection_controls += ui.form('/intake/'+linked['batch_id']+'/confirm', controls+'<button>이 짝으로 확인</button>')
-            connection_controls += '<span>두 이미지가 같은 상태인지 확인하세요. 확인 후에도 이 화면에서 이어집니다.</span>'
+            connection_controls += '<span>두 그림이 같은 상태인지 확인하세요.</span>'
         elif linked['status'] == 'unlinked':
             connection_controls += '<span>왼쪽에서 Figma 시안을 연결해 주세요.</span>'
         elif linked['status'] == 'confirmed' and not linked['page_id']:
@@ -1319,8 +1321,11 @@ _LIST_CSS = """
   .rename summary { cursor:pointer; }
   .rename form { display:inline-flex; gap:var(--spacing-6); margin-top:var(--spacing-8); }
   .bulk { display:flex; gap:var(--spacing-8); align-items:center; flex-wrap:wrap; margin:var(--spacing-4) var(--spacing-4) var(--spacing-12); }
-  /* 검수 페이지 지우기 — 단추 하나만 오른쪽 끝에. 되돌릴 수 없다는 말은 누를 때 물어보는 창에서 한다. */
-  #page-remove { justify-content:flex-end; }
+  /* 제목 한 줄에 단추 둘까지 — 지우기·옮기기는 오른쪽 끝에.
+     되돌릴 수 없다는 말은 누를 때 물어보는 창에서 한다. */
+  .grouphead { display:flex; align-items:center; gap:var(--spacing-8); }
+  .grouphead h2 { flex:1 1 auto; min-width:0; }
+  #page-remove { justify-content:flex-end; flex:0 0 auto; margin:var(--spacing-8) var(--spacing-4); }
   .bulk .lbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .bulk .hint { font-size:var(--font-size-12); color:var(--color-text-helper); }
   td.pick, th.pick { width:32px; padding:0; }

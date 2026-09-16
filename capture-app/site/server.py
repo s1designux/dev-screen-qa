@@ -708,8 +708,7 @@ def 화면_디자인(오류=""):
         <div class="bar"><button class="go" type="submit"{'' if 열쇠있음 else ' disabled'}>화면 목록 읽기</button>
           <span class="hint">{'' if 열쇠있음 else '열쇠를 먼저 넣어 주세요.'}</span></div>
       </form>
-      <div class="hint">브라우저에서 그 파일을 열고 주소창을 통째로 복사해 붙여넣으면 됩니다.
-        개발자 모드(Dev Mode)일 필요는 없습니다.</div>
+      <div class="hint">Figma에서 파일을 열고 주소창을 그대로 붙여넣으세요.</div>
     </div>"""
 
     파일 = 작업.get("파일")
@@ -732,8 +731,7 @@ def 화면_디자인(오류=""):
           <form method="get" action="/">
             <select name="페이지" onchange="this.form.submit()">{옵션}</select>
           </form>
-          <div class="hint">메뉴·흐름별로 나뉜 페이지를 하나씩 열어 고르면 됩니다.
-            페이지를 옮겨도 이미 고른 것은 그대로 남습니다.</div>
+          <div class="hint">페이지를 옮겨도 고른 것은 남습니다.</div>
         </div>"""
 
         이미고름 = {f["id"] for f in 고른것}

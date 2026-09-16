@@ -229,13 +229,13 @@ class Auto:
         if row:
             return {'frame': json.loads(row['frame']), 'elements': json.loads(row['elements'])}
         if design['provider'] == 'Figma 플러그인':
-            raise ValueError('이 시안은 플러그인에서 요소 목록 없이 왔어요. 피그마에서 플러그인을 다시 불러온 뒤 그 프레임을 골라 「검수 시안 바꾸기」를 눌러 주세요.')
+            raise ValueError('요소 목록이 없는 시안입니다. Figma 플러그인에서 그 프레임을 골라 「검수 시안 바꾸기」를 누르세요.')
         if design['provider'] != 'Figma REST' or design['file_key'] == 'local-design':
-            raise ValueError('Figma 시안이 아니라 디자인 요소를 읽을 수 없어요. 시안을 Figma 링크로 연결하면 자동 검수가 됩니다.')
+            raise ValueError('Figma 시안이 아니라 요소를 읽을 수 없습니다. 시안을 Figma 링크로 연결하세요.')
         data = figma_reader.api('files/' + design['file_key'] + '/nodes?ids=' + design['node_id'] + '&plugin_data=shared')
         item = (data.get('nodes') or {}).get(design['node_id'])
         if not item or not item.get('document'):
-            raise ValueError('Figma에서 시안 프레임을 찾지 못했어요. 시안을 다시 연결해 주세요.')
+            raise ValueError('Figma에서 시안 프레임을 찾지 못했습니다. 시안을 다시 연결하세요.')
         got = figma_elements.collect(item['document'])
         c.execute('INSERT OR REPLACE INTO design_elements VALUES (?,?,?,?,?)',
                   (design['id'], now(), data.get('version'), json.dumps(got['frame'], ensure_ascii=False), json.dumps(got['elements'], ensure_ascii=False)))
@@ -265,7 +265,7 @@ class Auto:
             try:
                 v = int(round(float(v)))
             except (TypeError, ValueError):
-                raise ValueError(f'{name} 값이 숫자가 아니에요.')
+                raise ValueError(f'{name} 값이 숫자가 아닙니다.')
             if v < 0:
                 raise ValueError(f'{name} 값은 0 이상이어야 해요.')
             return v
@@ -273,13 +273,13 @@ class Auto:
         with self.store.connect() as c:
             run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (run_id,)).fetchone()
             if not run or not run['dev_img']:
-                raise ValueError('이 차수에 개발 화면이 없어요.')
+                raise ValueError('이 차수에 개발 화면이 없습니다.')
             h = run['dev_img_h'] or 0
             if h and (top or 0) + (bottom or 0) >= h - 8:
-                raise ValueError('위·아래를 합치면 화면이 남지 않아요.')
+                raise ValueError('위·아래를 합치면 화면이 남지 않습니다.')
             design = self.design_of_page(c, page_id)
             if not design:
-                raise ValueError('이 페이지에 연결된 Figma 시안이 없어요.')
+                raise ValueError('이 페이지에 연결된 Figma 시안이 없습니다.')
             c.execute('INSERT INTO auto_range VALUES (?,?,?,?,?,?,?)', (uid(), run_id, top, bottom, actor, now(), note))
             new_id = uid()
             c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
@@ -315,15 +315,15 @@ class Auto:
         """브라우저 엔진에 줄 재료(POST). 회차가 없으면 여기서 만든다. 실패하면 회차를 failed로 남기고 ValueError."""
         r = self.ensure_run(page_id, run_id)
         if not r:
-            raise ValueError('이 페이지에 연결된 Figma 시안이 없어요.')
+            raise ValueError('이 페이지에 연결된 Figma 시안이 없습니다.')
         try:
             with self.store.connect() as c:
                 run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (run_id,)).fetchone()
                 design = self.design_of_page(c, page_id)
                 if not design:
-                    raise ValueError('이 페이지에 연결된 Figma 시안이 없어요.')
+                    raise ValueError('이 페이지에 연결된 Figma 시안이 없습니다.')
                 if not run or not run['dev_img']:
-                    raise ValueError('이 차수에 개발 화면이 없어요.')
+                    raise ValueError('이 차수에 개발 화면이 없습니다.')
                 got = self.ensure_elements(c, design)
         except ValueError as e:
             self.fail(r['id'], str(e))  # 실패 사유를 남긴다(같은 연결 안에서 쓰면 예외와 함께 되돌려지므로 따로)
@@ -356,7 +356,7 @@ class Auto:
         with self.store.connect() as c:
             r = c.execute('SELECT * FROM auto_run WHERE id=?', (auto_run_id,)).fetchone()
             if not r:
-                raise ValueError('자동 검수 회차가 없어요.')
+                raise ValueError('자동 검수 회차가 없습니다.')
             if r['status'] == 'done':
                 return r['id']  # 같은 결과가 두 번 오면 첫 결과를 지킨다
             cap = result.get('capture') or {}
@@ -383,13 +383,13 @@ class Auto:
     # ── 사람의 판정 ───────────────────────────────────────────────
     def set_status(self, candidate_id, status, actor='', note=''):
         if status not in STATUS_LABEL:
-            raise ValueError('알 수 없는 판정이에요.')
+            raise ValueError('알 수 없는 판정입니다.')
         with self.store.connect() as c:
             k = c.execute('SELECT * FROM auto_candidate WHERE id=?', (candidate_id,)).fetchone()
             if not k:
-                raise ValueError('후보가 없어요.')
+                raise ValueError('후보가 없습니다.')
             if k['issue_id'] and status != 'open':
-                raise ValueError('이미 지적으로 등록한 후보예요. 지적 쪽에서 처리해 주세요.')
+                raise ValueError('이미 수정필요로 올린 후보입니다. 수정필요 칸에서 처리하세요.')
             if k['status'] == status:
                 return
             c.execute('UPDATE auto_candidate SET status=? WHERE id=?', (status, candidate_id))
@@ -426,7 +426,7 @@ class Auto:
         with self.store.connect() as c:
             k = c.execute('SELECT k.*,r.page_id,r.run_id,r.capture_w,r.capture_h FROM auto_candidate k JOIN auto_run r ON r.id=k.auto_run_id WHERE k.id=?', (candidate_id,)).fetchone()
             if not k:
-                raise ValueError('후보가 없어요.')
+                raise ValueError('후보가 없습니다.')
             if k['issue_id']:
                 return k['issue_id']
             if k['status'] != 'open':
@@ -582,7 +582,7 @@ def range_html(view, person_options=''):
             + (f' <a class="auto-policy-link" href="/policy/screen/{_e(view["screen_id"])}">이 화면의 규칙</a>' if view.get('screen_id') else '') + '</div>'
             f'<dialog class="auto-range-editor" id="auto-range-editor"><div class="s1-modal-inset">'
             f'<b class="auto-range-title">검수 범위 조정</b>'
-            f'<p class="auto-hint">붉은 선 바깥(위쪽 선 위, 아래쪽 선 아래)은 비교하지 않아요. 상태바·주소창·키보드·하단 단추 줄이 끝나는 곳에 선을 끌어 맞춰 주세요.</p>'
+            f'<p class="auto-hint">상태바·주소창·키보드가 끝나는 곳으로 붉은 선을 끌어 주세요. 선 바깥은 비교하지 않습니다.</p>'
             f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
             f'<div class="auto-range-shade" id="auto-range-shade-top"></div><div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
             f'<form class="auto-range-form" onsubmit="return autoRangeSave(this,false)">'
@@ -609,7 +609,7 @@ def card_html(k, numbers, page_id, rnd):
     conf = f'<span class="sev">신뢰도 {k["confidence"]}%</span>' if k['confidence'] is not None else ''
     if k['issue_id']:
         n = numbers.get(k['issue_id'])
-        foot = f'<div class="passed">✓ 지적 #{n}로 등록됨</div>' if n else '<div class="passed">✓ 지적으로 등록됨</div>'
+        foot = f'<div class="passed">✓ 수정필요 #{n}</div>' if n else '<div class="passed">✓ 수정필요로 올림</div>'
         ex = ''
     else:
         foot = ''
@@ -745,7 +745,7 @@ JS = r'''
     });
     document.body.appendChild(f);
     setTimeout(function(){if(!done){done=true;post('/auto/'+page+'/fail',{autoRunId:m.autoRunId,message:'시간이 너무 오래 걸려 멈췄어요(3분).'}).then(function(){location.reload();});}},180000);
-  }).catch(function(){say('자동 검수 재료를 못 받았어요.');});
+  }).catch(function(){say('자동 검수 재료를 받지 못했습니다.');});
 })();
 function autoFocus(id){
   document.querySelectorAll('.auto-overlay .sel').forEach(function(e){e.classList.remove('sel');});

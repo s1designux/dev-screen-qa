@@ -99,37 +99,52 @@ def 문서만들기(uploads, pages, human_key, 화면이름, 주소, store=None)
 
 
 def 카드(human_key, 셈):
-    """검수 페이지 목록 맨 위에 붙는 주의 카드."""
-    몇 = ("값으로 확인된 차이가 <b>%d곳</b> 있습니다." % 셈) if 셈 else "값으로 확인된 차이를 모아 두었습니다."
+    """검수 페이지 목록 맨 위에 붙는 주의 칸.
+
+    모양은 촬영 준비 사이트 ①의 '디자인 수정 필요' 칸과 같다(사람이 보는 말·모양이 두 곳에서 같아야 한다).
+    """
+    몇 = ("<b>%d곳</b>입니다." % 셈) if 셈 else "모아 두었습니다."
+    센 = ("· %d건" % 셈) if 셈 else ""
+    주의아이콘 = ('<svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">'
+              '<path fill="var(--color-icon-red)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
+              '<path fill="var(--color-icon-red)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
+    화살표 = ('<svg class="arw" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">'
+            '<path fill="none" stroke="var(--color-icon-red)" stroke-width="2" stroke-linecap="round"'
+            ' stroke-linejoin="round" d="m7 10 5 5 5-5"/></svg>')
     return f"""
-    <section class="warn-card">
-      <div class="warn-head">⚠ 개발화면 검수 전 적용해주세요</div>
-      <div class="warn-body">
-        <p>{몇} 색·크기·글꼴처럼 <b>값으로 딱 떨어지는 것</b>과, 회사 토큰·공통 컴포넌트 규정에
-           어긋난 것입니다. 사람이 눈으로 보는 검수를 시작하기 <b>전에</b> 개발이 먼저 반영해야
-           같은 지적을 차수마다 되풀이하지 않습니다.</p>
+    <details class="warn-card" open>
+      <summary>{주의아이콘}<span class="ttl">개발화면 검수 전 적용해주세요</span>
+        <span class="muted">{센}</span>{화살표}</summary>
+      <div class="body">
+        <p>색·크기·글꼴이 시안과 다르거나 회사 색·컴포넌트를 쓰지 않은 곳, {몇}<br>
+           <b>검수를 시작하기 전에</b> 개발이 먼저 고치면 같은 수정필요를 되풀이하지 않습니다.</p>
         <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.md" download>수정요청서 MD 다운로드</a>
         <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.html" target="_blank">수정요청서 PDF 보기</a>
-        <span class="warn-hint">개발·퍼블리셔에게 그대로 넘기는 문서입니다. 자동으로 찾은 후보이며 확정은 디자이너가 합니다.
-          <b>PDF 보기</b>는 내려받지 않고 그 자리에서 읽고, 눌러서 PDF 로 저장합니다.</span>
       </div>
-    </section>"""
+    </details>"""
 
 
 CSS = """
-/* 주의 카드 — 값은 S-1 디자인가이드 토큰만 쓴다(색·크기를 직접 적지 않는다).
-   토큰 네 장은 포털이 /assets/css/ 로 내보낸다. */
-.warn-card{border:var(--border-width-1) solid var(--color-status-warning);
-  border-radius:var(--radius-card-md);background:var(--color-bg-level-1);
-  margin:0 0 var(--spacing-16);overflow:hidden}
-.warn-head{background:var(--color-status-warning);color:var(--color-text-primary);
-  font-weight:var(--font-weight-bold);padding:var(--spacing-8) var(--spacing-14);
-  font-size:var(--font-size-14)}
-.warn-body{padding:var(--spacing-12) var(--spacing-14) var(--spacing-14)}
-.warn-body p{margin:0 0 var(--spacing-10);font-size:var(--font-size-14);
-  line-height:var(--line-height-140);color:var(--color-text-tertiary)}
-.warn-hint{display:block;margin-top:var(--spacing-8);
-  font-size:var(--font-size-12);color:var(--color-text-caption)}
+/* 주의 칸 — 촬영 준비 사이트 ①의 '디자인 수정 필요' 칸과 같은 모양.
+   값은 S-1 디자인가이드 토큰만 쓴다(색·크기를 직접 적지 않는다). */
+.warn-card{background:var(--color-surface-default);
+  border:var(--border-width-1) solid var(--color-red-100);
+  border-radius:var(--radius-card-md);margin:0 0 var(--spacing-16)}
+.warn-card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;
+  gap:var(--spacing-6);padding:var(--spacing-16) var(--spacing-20);
+  font-size:var(--font-size-14);color:var(--color-text-state-caution);
+  border-radius:var(--radius-card-md)}
+.warn-card>summary::-webkit-details-marker{display:none}
+.warn-card>summary:hover{background:var(--color-red-50)}
+.warn-card[open]>summary{border-radius:var(--radius-card-md) var(--radius-card-md) 0 0}
+.warn-card>summary .ttl{font-weight:var(--font-weight-bold)}
+.warn-card>summary .muted{font-weight:var(--font-weight-medium)}
+.warn-card>summary .ico{flex:0 0 auto}
+.warn-card>summary .arw{margin-left:auto;flex:0 0 auto;transition:transform .15s}
+.warn-card[open]>summary .arw{transform:rotate(180deg)}
+.warn-card>.body{padding:0 var(--spacing-20) var(--spacing-16)}
+.warn-card>.body p{margin:0 0 var(--spacing-10);font-size:var(--font-size-14);
+  line-height:var(--line-height-140);color:var(--color-text-body-tertiary)}
 
 /* S-1 Button · Size XSM(PC) — h34 / 좌우 spacing-8 / radius-4 / body 14M.
    두 단추는 같은 무게다(둘 다 이 카드의 할 일이다 — river 2026-09-14). */

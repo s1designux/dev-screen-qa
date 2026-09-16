@@ -112,10 +112,9 @@ def _rule_score(c, screen_id=None):
 
     여기서 규칙을 고치지는 않는다(CLAUDE.md 2번). 세어서 보여주기만 하고, 고칠지는 사람이 정한다."""
     rows = rule_log.stats(c, screen_id)
-    seen = [r for r in rows if r['agree'] or r['overturn']]
     if not rows:
-        return ('<h2>규칙 성적</h2><p class="sub">아직 판정 기록이 없어요. 페이지 상세에서 후보를 '
-                '<b>제외</b>·<b>가변</b>으로 내리거나 <b>지적으로 등록</b>하면 어느 규칙이 그렇게 만들었는지 여기에 쌓입니다.</p>')
+        return ('<h2>규칙 성적</h2><p class="sub">아직 판정한 후보가 없습니다. 페이지 상세에서 후보를 '
+                '<b>제외</b>·<b>가변</b>으로 내리면 여기에 쌓입니다.</p>')
     body = []
     for r in rows:
         judged = r['agree'] + r['overturn']
@@ -124,9 +123,7 @@ def _rule_score(c, screen_id=None):
         body.append(f'<tr><td class="k">{_e(r["title"])}</td><td class="help">{_e(r["rule"])}</td>'
                     f'<td class="n">{r["fired"]}</td><td class="n">{r["agree"]}</td><td class="n">{r["overturn"]}</td>'
                     f'<td class="n"{cls}>{rate}</td></tr>')
-    note = ('' if seen else '<p class="sub">아직 사람이 판정한 후보가 없어 맞음·뒤집힘이 모두 0입니다.</p>')
-    return ('<h2>규칙 성적</h2><p class="sub">후보를 그 자리에 둔 규칙마다, 사람이 <b>그대로 둔 수</b>와 <b>뒤집은 수</b>입니다. '
-            '뒤집힘이 많은 규칙이 다음에 고칠 규칙입니다. (여기서 자동으로 바꾸지 않습니다.)</p>' + note +
+    return ('<h2>규칙 성적</h2><p class="sub">뒤집힘이 많은 규칙이 다음에 고칠 규칙입니다. 여기서 자동으로 바꾸지 않습니다.</p>'
             '<table><tr><th>규칙</th><th>이름</th><th>나온 후보</th><th>그대로 둠</th><th>뒤집음</th><th>맞은 비율</th></tr>'
             + ''.join(body) + '</table>')
 
@@ -143,7 +140,7 @@ def page_root(store, person_options=''):
     body = (f'<h1>검수 규칙</h1><p class="sub">규칙 값은 <b>시스템 기본 → 서비스 → 화면 → 요소</b> 순으로 겹치고, 아래층이 위층을 덮습니다. '
             f'바꾼 값은 지우지 않고 이력으로 쌓입니다.</p>'
             f'<h2>시스템 기본값</h2>{table}{score}{hist}'
-            f'<h2>서비스별 규칙</h2><ul class="list">{items or "<li>서비스가 아직 없어요.</li>"}</ul>')
+            f'<h2>서비스별 규칙</h2><ul class="list">{items or "<li>서비스가 아직 없습니다.</li>"}</ul>')
     return _shell('검수 규칙', body)
 
 
@@ -160,7 +157,7 @@ def page_service(store, project_id, person_options=''):
         hist = _history(pol, c, 'service', project_id)
     items = ''.join(f'<li><a href="/policy/screen/{_e(s["uuid"])}">{_e(s["human_key"] or "")} {_e(s["name"] or "")}</a></li>' for s in screens)
     body = (f'<h1>서비스 규칙 — {_e(p["name"])}</h1><p class="sub">여기 정한 값은 이 서비스의 모든 화면에 적용되고, 화면·요소 층에서 다시 덮을 수 있습니다.</p>'
-            f'{table}{hist}<h2>화면별 규칙</h2><ul class="list">{items or "<li>화면이 아직 없어요.</li>"}</ul>')
+            f'{table}{hist}<h2>화면별 규칙</h2><ul class="list">{items or "<li>화면이 아직 없습니다.</li>"}</ul>')
     return _shell(f'서비스 규칙 — {p["name"]}', body, ('/policy', '← 검수 규칙'))
 
 
@@ -188,7 +185,7 @@ def page_screen(store, screen_id, person_options=''):
         hist = _history(pol, c, 'screen', screen_id) + _history(pol, c, 'element', screen_id).replace('이 층의 변경 이력', '요소 층의 변경 이력')
         score = _rule_score(c, screen_id)
     el_table = ('<table><tr><th>규칙</th><th>요소</th><th>값</th><th>어떻게 정해졌나</th><th></th></tr>' + ''.join(el_rows) + '</table>') if el_rows else \
-        '<p class="sub">아직 없어요. 페이지 상세에서 후보를 <b>가변</b>·<b>제외</b>로 내리면 여기에 쌓입니다.</p>'
+        '<p class="sub">아직 없습니다. 페이지 상세에서 후보를 <b>가변</b>·<b>제외</b>로 내리면 여기에 쌓입니다.</p>'
     body = (f'<h1>화면 규칙 — {_e(s["human_key"] or "")} {_e(s["name"] or "")}</h1>'
             f'<p class="sub">서비스 <a href="/policy/service/{_e(s["project_id"])}">{_e(s["pname"])}</a> 의 값을 이 화면에서만 덮습니다. '
             f'검수 범위(위·아래 px)는 차수에서 직접 정한 것이 있으면 그쪽이 먼저입니다.</p>'
@@ -206,7 +203,7 @@ def get(handler, store, path, person_options=''):
     else:
         return False
     if html is None:
-        html = _shell('없음', '<p>그런 서비스·화면이 없어요.</p>', ('/policy', '← 검수 규칙'))
+        html = _shell('없음', '<p>그런 서비스·화면이 없습니다.</p>', ('/policy', '← 검수 규칙'))
         code = 404
     else:
         code = 200

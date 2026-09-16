@@ -201,9 +201,9 @@ CSS = """
 
 
 def 막대():
-    """검수 페이지 목록 위의 '옮기기' 단추. 고른 것은 '삭제'와 같은 체크박스를 읽는다(JS)."""
-    return ('<div class="bulk movebar"><span class="hint">고른 페이지를 다른 화면으로 나누거나 합칠 수 있어요.</span>'
-            '<button type="button" id="page-move-open">고른 페이지 옮기기</button></div>')
+    """'삭제' 와 한 줄에 나란히 서는 '옮기기' 단추. 고른 것은 '삭제'와 같은 체크박스를 읽는다(JS)."""
+    return '<button type="button" id="page-move-open">페이지 옮기기</button>'
+
 
 
 def 창(human_key_esc, 키제안값, 다른화면들, 담당자들, esc):
@@ -233,7 +233,7 @@ def 창(human_key_esc, 키제안값, 다른화면들, 담당자들, esc):
     <select id="pm-actor" name="actor"><option value="">(고르지 않음)</option>{사람}</select>
     <label class="fld" for="pm-note">왜 (선택)</label>
     <input id="pm-note" name="note" autocomplete="off" placeholder="예: 홈 화면은 로그인과 다른 스토리보드">
-    <p class="why">옮겨도 지적·후보·차수 기록은 페이지를 그대로 따라갑니다. 옮긴 사실은 기록으로 남습니다.</p>
+    <p class="why">수정필요·후보·차수 기록은 그대로 따라갑니다.</p>
     <div class="foot">
       <button type="button" id="page-move-cancel">취소</button>
       <button type="submit" class="primary">옮기기</button>

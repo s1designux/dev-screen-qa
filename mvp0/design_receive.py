@@ -146,14 +146,14 @@ class Receiver:
         try:
             data = base64.b64decode(png) if isinstance(png, str) else bytes(png or b'')
         except (ValueError, TypeError):
-            raise ValueError('그림을 읽지 못했어요.')
+            raise ValueError('그림을 읽지 못했습니다.')
         if not data.startswith(b'\x89PNG'):
-            raise ValueError('PNG 그림이 아니에요.')
+            raise ValueError('PNG 그림이 아닙니다.')
         settings = {'policy': frame['policy']} if isinstance(frame.get('policy'), dict) else None
         with self.store.connect() as c:
             page = c.execute('SELECT p.*, s.human_key FROM inspection_page p JOIN screen s ON s.uuid=p.screen_id WHERE p.uuid=?', (page_id,)).fetchone()
             if not page:
-                raise ValueError('검수 화면을 찾지 못했어요.')
+                raise ValueError('검수 화면을 찾지 못했습니다.')
         source_url = figma_reader.link_for(key, node) if not key.startswith('name:') and key != 'plugin' else ''
         design = self.store.add_design(key, node, str(frame.get('name') or page['name']), source_url, node, data, None, provider=PROVIDER, qa_settings=settings)
         with self.store.connect() as c:
@@ -187,10 +187,10 @@ class Receiver:
             raise ValueError('같은 화면에서 찍은 사진 중에서 골라 주세요.')
         with self.store.connect() as c:
             if c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1', (page_id,)).fetchone():
-                raise ValueError('지적이 등록된 화면의 개발 화면 교체는 새 차수에서 진행합니다.')
+                raise ValueError('수정필요 항목이 있는 화면은 새 차수에서 바꿉니다.')
             run = c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1', (page_id,)).fetchone()
             if not run:
-                raise ValueError('검수 차수가 없어요.')
+                raise ValueError('검수 차수가 없습니다.')
             if run['dev_img'] == filename:
                 return
             c.execute('UPDATE inspection_run SET dev_img=?,dev_img_w=?,dev_img_h=?,coord_ref_w=?,coord_ref_h=? WHERE uuid=?',
@@ -233,7 +233,7 @@ def post(handler, store, path):
     try:
         body = json.loads(raw.decode('utf-8')) if raw else {}
     except (UnicodeDecodeError, json.JSONDecodeError):
-        _json(handler, {'error': '자료 모양이 맞지 않아요.'}, 400)
+        _json(handler, {'error': '자료 모양이 맞지 않습니다.'}, 400)
         return True
     r = Receiver(store)
     try:

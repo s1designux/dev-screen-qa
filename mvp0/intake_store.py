@@ -215,7 +215,7 @@ class Store:
                 if len(prior)==len(listed) and len(set(prior))==1:
                     self.event(c,prior[0],None,'중복 촬영본 접수',{'결과':'기존 접수 유지'})
                     return prior[0],True
-                raise ValueError('이미 접수된 촬영본이 포함되어 있습니다. 접수함에서 이어서 작업하거나 중복 사진을 빼고 새 사진만 선택해 주세요. 이번 접수는 저장하지 않았습니다.')
+                raise ValueError('이미 접수한 사진이 섞여 있습니다. 새 사진만 골라 주세요.')
             batch = uid()
             if platform not in ('android','ios','web','mobile-web'):
                 raise ValueError('플랫폼을 확인해 주세요.')
@@ -270,7 +270,7 @@ class Store:
             r = c.execute('SELECT * FROM intake_item WHERE id=?',(item,)).fetchone()
             self.check(r,revision)
             if r['page_id']:
-                raise ValueError('검수를 시작한 항목의 이름·대상 변경은 이번 단계에서 제공하지 않습니다.')
+                raise ValueError('검수를 시작한 뒤에는 이름을 바꿀 수 없습니다.')
             next_status = ('pending' if r['design_id'] else 'unlinked') if status=='include' else status
             c.execute('UPDATE intake_item SET screen_name=?,state_name=?,status=?,reason=?,revision=revision+1 WHERE id=?',
                       (screen,state,next_status,reason,item))
@@ -314,7 +314,7 @@ class Store:
             if r['status'] in ('held','excluded') or not r['asset_id']:
                 raise ValueError('연결 대상인 정상 촬영본만 디자인을 선택할 수 있습니다.')
             if r['page_id'] and c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():
-                raise ValueError('지적이 있는 페이지의 디자인 교체는 이번 단계에서 제공하지 않습니다. 기존 검수 근거를 보존합니다.')
+                raise ValueError('수정필요 항목이 있는 페이지는 시안을 바꿀 수 없습니다.')
             if not c.execute('SELECT 1 FROM intake_design WHERE id=?',(design,)).fetchone():
                 raise ValueError('디자인을 다시 선택해 주세요.')
             c.execute("UPDATE intake_item SET design_id=?,status='pending',revision=revision+1 WHERE id=?",(design,item))
@@ -333,15 +333,15 @@ class Store:
             r=c.execute('SELECT * FROM intake_item WHERE id=?',(item,)).fetchone()
             self.check(r,revision)
             if not r['page_id']:
-                raise ValueError('검수가 시작된 페이지에서만 개발 화면을 바꿀 수 있어요.')
+                raise ValueError('검수를 시작한 페이지에서만 개발 화면을 바꿀 수 있습니다.')
             if c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():
-                raise ValueError('지적이 등록된 화면의 개발 화면 교체는 새 차수에서 진행합니다.')
+                raise ValueError('수정필요 항목이 있는 화면은 새 차수에서 바꿉니다.')
             cap=c.execute('SELECT i.id,a.* FROM intake_item i JOIN intake_asset a ON a.id=i.asset_id WHERE i.id=? AND i.batch_id=?',(capture,r['batch_id'])).fetchone()
             if not cap:
                 raise ValueError('이 접수함에서 찍은 사진을 골라 주세요.')
             run=c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1',(r['page_id'],)).fetchone()
             if not run:
-                raise ValueError('검수 차수가 없어요.')
+                raise ValueError('검수 차수가 없습니다.')
             if run['dev_img']==cap['filename']:
                 return
             c.execute('UPDATE inspection_run SET dev_img=?,dev_img_w=?,dev_img_h=?,coord_ref_w=?,coord_ref_h=? WHERE uuid=?',
@@ -362,7 +362,7 @@ class Store:
                 raise ValueError('먼저 디자인을 선택하고 두 이미지를 확인해 주세요.')
             if r['page_id']:
                 if c.execute('SELECT 1 FROM inspection_issue WHERE page_id=? LIMIT 1',(r['page_id'],)).fetchone():
-                    raise ValueError('지적이 생겨 디자인 교체를 중단했습니다. 기존 검수 근거를 보존합니다.')
+                    raise ValueError('수정필요 항목이 생겨 시안을 바꾸지 않았습니다.')
                 design=c.execute('SELECT a.filename FROM intake_design d JOIN intake_asset a ON a.id=d.asset_id WHERE d.id=?',(r['design_id'],)).fetchone()
                 c.execute('UPDATE inspection_page SET design_img=? WHERE uuid=?',(design['filename'],r['page_id']))
             c.execute("UPDATE intake_item SET status='confirmed',revision=revision+1 WHERE id=?",(item,))
