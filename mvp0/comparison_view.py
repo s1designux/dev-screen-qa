@@ -31,9 +31,19 @@ JS = r'''
  let lastPt={x:innerWidth/2,y:innerHeight/2};
  document.addEventListener('pointerdown',e=>{lastPt={x:e.clientX,y:e.clientY};if(!pop.hidden&&!pop.contains(e.target))pop.hidden=true;},true);
  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;pop.hidden=true;if(mode==='crop')setMode('side');});   // 부분 확대는 Esc 로 빠져나온다
- function placePop(){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';const r=pop.getBoundingClientRect();
-  const left=Math.max(12,Math.min(innerWidth-r.width-12,lastPt.x-r.width/2));let top=lastPt.y-r.height-16;
-  if(top<12)top=Math.min(innerHeight-r.height-12,lastPt.y+22);
+ // 누른 자리에 그대로 띄우면 그 카드의 글을 덮는다 — 카드를 피해 옆(넓은 쪽)에 둔다(river 2026-09-16)
+ function placePop(avoid){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';const r=pop.getBoundingClientRect();
+  let left=null;
+  const a=avoid&&avoid.getBoundingClientRect?avoid.getBoundingClientRect():null;
+  if(a&&a.width){
+   const 왼자리=a.left-12,오른자리=innerWidth-a.right-12;
+   if(왼자리>=r.width+12)left=Math.max(12,a.left-12-r.width);
+   else if(오른자리>=r.width+12)left=Math.min(innerWidth-r.width-12,a.right+12);
+  }
+  if(left===null)left=Math.max(12,Math.min(innerWidth-r.width-12,lastPt.x-r.width/2));
+  let top;
+  if(a&&a.width)top=Math.min(innerHeight-r.height-12,Math.max(12,a.top));   // 카드 옆이면 카드 머리에 맞춘다
+  else{top=lastPt.y-r.height-16;if(top<12)top=Math.min(innerHeight-r.height-12,lastPt.y+22);}
   pop.style.left=left+'px';pop.style.top=Math.max(12,top)+'px';}
  let mode='side',dx=0,dy=0,start=null,autoDy=null,userSet=false;
  const key='qa-view-offset:'+location.pathname+location.search+':'+d.getAttribute('src')+':'+v.getAttribute('src');
@@ -163,10 +173,12 @@ JS = r'''
   const t=overlayDy();if(t)return t;
   const al=window.qaAlign;if(al&&al.s)return al.ty-(al.ctop||0)*al.s;
   return null;}
- function fitBox(b,ratio){let w=b.w,h=b.h;if(w/h<ratio)w=h*ratio;else h=w/ratio;return{x:b.x+b.w/2-w/2,y:b.y+b.h/2-h/2,w:w,h:h};}
+ // 시안 쪽도 **개발과 똑같은 넓이**를 잘라 온다 — 시안 요소 상자 크기를 그대로 쓰면 둘이 다른 배율로 보인다.
+ // (개발 1px = 시안 scale px. 가운데만 시안 요소에 맞추고, 잘라 오는 넓이는 개발 쪽에서 받아온다.)
+ function 같은배율(b,w,h,scale){const cw=w*scale,ch=h*scale;return{x:b.x+b.w/2-cw/2,y:b.y+b.h/2-ch/2,w:cw,h:ch};}
  function crop(box,target=dialog,dbox){if(!v.naturalWidth||!d.naturalWidth)return false;const x=Math.max(0,box.x),y=Math.max(0,box.y),w=Math.min(v.naturalWidth,box.x+box.w)-x,h=Math.min(v.naturalHeight,box.y+box.h)-y;if(w<3||h<3)return false;
  const scale=d.naturalWidth/v.naturalWidth;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
- const db=dbox?fitBox(dbox,w/h):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
+ const db=dbox?같은배율(dbox,w,h,scale):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
  window.qaLastCrop={dev:{x:x,y:y,w:w,h:h},design:db};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
  target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle=색('--color-surface-default','#fff');ctx.fillRect(0,0,outW,outH);
   if(i)ctx.drawImage(v,x,y,w,h,0,0,outW,outH);
@@ -199,7 +211,7 @@ JS = r'''
    :개발빔?'개발 그림의 이 자리는 비어 있어요 — 핀 자리가 실제 요소와 어긋났을 수 있어요.'
    :시안빔?'시안의 이 자리는 비어 있어요 — 개발에만 있는 요소이거나, 자리를 못 맞췄을 수 있어요.':'';
   note.hidden=!note.textContent;
-  placePop();
+  placePop(card);
   return{dev:{x:bx,y:by,w:bw,h:bh},design:dbox};};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
  function reload(){profCache=null;shiftCache=null;dyCache=undefined;shiftMemo.clear();boxMemo.clear();autoDy=pageDy();if(!userSet)dy=autoDy||0;paint();}   // 그림이 바뀌면 줄무늬도 다시 잰다
  new ResizeObserver(paint).observe(host);d.addEventListener('load',reload);v.addEventListener('load',reload);
