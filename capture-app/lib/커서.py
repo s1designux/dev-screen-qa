@@ -12,8 +12,8 @@
 import os
 import time
 
-옮기는초 = 0.38          # 화살표가 미끄러져 가는 시간 — 자바스크립트 쪽 transition 과 같아야 한다
-누른뒤초 = 0.12          # 파문을 보여 주고 실제로 누르기까지의 틈
+옮기는초 = 0.12          # 화살표가 미끄러져 가는 시간 — 자바스크립트 쪽 transition 과 같아야 한다
+누른뒤초 = 0.03          # 파문을 보여 주고 실제로 누르기까지의 틈
 표시 = "data-capture-cursor"
 
 
@@ -54,13 +54,16 @@ _그리기 = """
   }
   것.style.transform = 'translate(' + (x - 2) + 'px,' + (y - 2) + 'px)';   // 화살표 끝이 그 자리에 오게
   if (누름) {
-    const 파문 = document.createElement('div');
-    파문.setAttribute(표시, '1');
-    파문.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;width:46px;height:46px;' +
-      'margin:0;border-radius:50%;background:#1a73e8;z-index:2147483646;pointer-events:none;' +
-      'animation:__촬영파문 .45s ease-out forwards;';
-    (document.body || document.documentElement).appendChild(파문);
-    setTimeout(() => 파문.remove(), 600);
+    // 화살표가 다 간 뒤에 파문 — 파이썬이 다시 부르지 않고 브라우저가 스스로 띄운다
+    setTimeout(() => {
+      const 파문 = document.createElement('div');
+      파문.setAttribute(표시, '1');
+      파문.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;width:46px;height:46px;' +
+        'margin:0;border-radius:50%;background:#1a73e8;z-index:2147483646;pointer-events:none;' +
+        'animation:__촬영파문 .3s ease-out forwards;';
+      (document.body || document.documentElement).appendChild(파문);
+      setTimeout(() => 파문.remove(), 400);
+    }, Math.round(옮기는초 * 1000));
   }
   return true;
 }
@@ -76,11 +79,8 @@ def 자리로(쪽, x, y, 누름=True):
     if not 켜졌나():
         return
     try:
-        쪽.evaluate(_그리기, [x, y, False, 옮기는초])
-        time.sleep(옮기는초)
-        if 누름:
-            쪽.evaluate(_그리기, [x, y, True, 옮기는초])
-            time.sleep(누른뒤초)
+        쪽.evaluate(_그리기, [x, y, 누름, 옮기는초])
+        time.sleep(옮기는초 + (누른뒤초 if 누름 else 0))
     except Exception:
         pass
 
