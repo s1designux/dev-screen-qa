@@ -185,6 +185,14 @@ input[readonly] { background:var(--form-bg-readonly); color:var(--form-text-read
   border-color:var(--color-border-default); }
 input[disabled] { background:var(--color-form-control-bg-disabled); color:var(--color-text-disabled);
   border-color:var(--color-form-control-border-disabled); }
+/* 인풋 안내메시지(helper) — S-1 Input 의 선택 슬롯. 칸 아래 한 줄로 붙고,
+   기본/오류/확인 세 가지 색은 input-* 컴포넌트 토큰이 정한다(확인은 파랑, 초록 아님). */
+input[type=text].is-error, input[type=password].is-error { border-color:var(--color-form-control-border-error); }
+input[type=text].is-correct, input[type=password].is-correct { border-color:var(--color-form-control-border-correct); }
+.helper { font-size:var(--font-size-12); line-height:1.6; margin-top:var(--spacing-6);
+  color:var(--input-helper-text); }
+.helper.is-error { color:var(--input-error-text); }
+.helper.is-correct { color:var(--input-correct-text); }
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
 input.s { height:34px; padding:0 var(--spacing-8) 0 var(--spacing-12); font-size:var(--font-size-14); }
@@ -904,12 +912,12 @@ def 화면_초안(알림=""):
       <label class="f">{'사이트 이름' if 웹 else '앱 이름'}</label>
       <div class="bar" style="margin:0">
         <input type="text" name="앱이름" id="앱이름" list="앱들" autocomplete="off"
-               class="w-md" value="{_e(작업.get('앱이름',''))}"
+               class="w-md" value="{_e(작업.get('앱이름',''))}" aria-describedby="읽은말"
                onkeydown="if(event.key==='Enter'){{event.preventDefault();읽기();}}">
         <button type="button" class="go" onclick="읽기()" style="white-space:nowrap">읽기</button>
       </div>
       <datalist id="앱들">{고름목록}</datalist>
-      <div class="hint" id="읽은말"></div>
+      <div class="helper" id="읽은말" role="status" hidden></div>
 
       <div id="계정칸">
         <label class="f">시험 아이디</label>
@@ -960,9 +968,13 @@ def 화면_초안(알림=""):
           단추.setAttribute('aria-label', 보임 ? '비밀번호 보기' : '비밀번호 숨기기');
           e.focus();
         }}
-        function 말(글, 색) {{
-          var e = document.getElementById('읽은말');
-          e.innerHTML = 글; e.style.color = 색 || 'var(--color-text-body-tertiary)';
+        function 말(글, 상태) {{                       // 상태: '' | 'error' | 'correct'
+          var e = document.getElementById('읽은말'), 칸 = document.getElementById('앱이름');
+          e.innerHTML = 글;
+          e.hidden = !글;
+          e.className = 'helper' + (상태 ? ' is-' + 상태 : '');
+          칸.classList.toggle('is-error', 상태 === 'error');
+          칸.classList.toggle('is-correct', 상태 === 'correct');
         }}
         function 이름미리() {{
           var e = document.getElementById('이름미리보기');
@@ -991,18 +1003,18 @@ def 화면_초안(알림=""):
         }}
         function 읽기() {{
           var 이름 = document.getElementById('앱이름').value.trim();
-          if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', 'var(--color-text-state-error)'); return; }}
+          if (!이름) {{ 말((웹 ? '사이트' : '앱') + ' 이름을 먼저 적어 주세요.', 'error'); return; }}
           var 것 = 사전[이름];
           if (!것) {{
             코드제안();
-            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', 'var(--color-text-state-error)');
+            말('<b>' + 이름 + '</b> 은(는) 아직 모르는 ' + (웹 ? '사이트' : '앱') + '입니다. 아래 칸을 직접 적어 주세요.', 'error');
             return;
           }}
           칸들.forEach(function(k) {{
             if (덮을칸.indexOf(k) >= 0 || !칸(k).value) 칸(k).value = 것[k] || '';
           }});
           이름미리();
-          말('<b>' + 이름 + '</b> 을(를) 찾았습니다. 다르면 그냥 고쳐 쓰세요.', 'var(--color-green-450)');
+          말('<b>' + 이름 + '</b> 을(를) 찾았습니다. 다르면 그냥 고쳐 쓰세요.', 'correct');
         }}
         ['기본주소', '앱주소'].forEach(function(k) {{        // 주소를 적으면 빈 코드 칸을 채워 준다
           var e = 칸(k);
