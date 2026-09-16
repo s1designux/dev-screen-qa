@@ -1725,6 +1725,48 @@ function growInkBox(ctx,pb,dx,dy,inner,data){
   for(g=0;g<maxH&&box.x+box.w<lim.x+lim.w&&inkCol(box.x+box.w);g++)box.w++;
   return box;
 }
+// ── 상자 밖으로 이어진 글자 재기 (P17) ─────────────────────────────────────────
+// 글자 비교는 디자인 글자 상자 안에서만 한다. 그래서 개발에서 글자가 길어져 상자를 넘어가면
+// 상자 안쪽만 촘촘히 겹쳐 '같다'로 빠져나간다(표 컬럼 제목 '연락처'→'담당자 휴대전화번호').
+// 같다고 접기 전에 잉크가 끊기는 곳까지 좌우로 넓혀 실제 글자 폭을 재고, 눈에 띄게 길거나 짧으면 후보를 낸다.
+// 신뢰도는 낮게 매긴다 — 확정이 아니라 사람이 먼저 볼 것이라는 뜻이다(CLAUDE.md 2번-2).
+var INK_WIDTH_LONG=1.35,INK_WIDTH_SHORT=.7,INK_WIDTH_MIN_PX=4;
+function inkWidthVerdict(dw,cw,left,right,scaleX){
+  if(!dw||!cw||dw<INK_WIDTH_MIN_PX)return null;
+  var ratio=cw/dw,sx=scaleX||1,d=Math.round(dw*sx),c=Math.round(cw*sx);
+  if(Math.abs(c-d)<INK_WIDTH_MIN_PX)return null;          // 몇 px 차이는 글꼴 폴백·안티앨리어싱으로 늘 흔들린다
+  if(ratio<INK_WIDTH_LONG&&ratio>INK_WIDTH_SHORT)return null;
+  var side=(left>1&&right>1)?"양쪽으로":(right>1?"오른쪽으로":(left>1?"왼쪽으로":""));
+  return{ratio:ratio,long:ratio>=INK_WIDTH_LONG,designW:d,capW:c,side:side};
+}
+function inkWidthTrustable(designInkW,text,fontSize){
+  // 글자 상자가 늘어나 있으면(가로로 꽉 찬 제목 줄 등) 상자 안에 구분선·옆 내용까지 들어와 잉크 폭이 엉뚱하게 잡힌다.
+  // 글자 수 × 글자 크기로 넉넉한 윗값을 두고, 그보다 넓게 재졌으면 잘못 잰 것으로 보고 조용히 넘어간다.
+  var n=(text||"").replace(/\s+/g,"").length;
+  if(!n||!fontSize)return false;
+  return designInkW<=n*fontSize*1.2+fontSize;
+}
+function inDataSlot(map,id){
+  // 표·목록의 반복되는 행 안에 놓인 '본문 값' 자리인지. 컬럼 제목·메뉴 이름은 사양이라 여기서 뺀다.
+  // 본문 값은 개발 화면에 진짜 데이터가 들어 있어 글자가 통째로 다르다 — 잉크 폭으로 세면 자료 차이를 오류라 말하게 된다.
+  if(!map||!id)return false;
+  var p=map[id];if(p&&p.variable)return true;
+  return !!(map.repeats||{})[id]&&!(map.headers||{})[id]&&!(map.menus||{})[id];
+}
+function inkWidthCheck(res,ctx){
+  var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H,inner=parentInnerBox(u.el,ctx);
+  if(inDataSlot(ctx.design&&ctx.design.policyMap,u.el.id))return null;   // 데이터 자리는 잉크 폭으로 세지 않는다
+  var dbox=growInkBox(ctx,pb,0,0,inner,ctx.dd.data);
+  var ds=edgeStats(ctx.dE,W,H,Math.round(dbox.x),Math.round(dbox.y),Math.round(dbox.w),Math.round(dbox.h));
+  var cbox=growInkBox(ctx,pb,r.dx,r.dy,inner);
+  var cs=edgeStats(ctx.cE,W,H,Math.round(cbox.x+r.dx),Math.round(cbox.y+r.dy),Math.round(cbox.w),Math.round(cbox.h));
+  if(!ds.w||!cs.w)return null;
+  if(ds.lines>1||cs.lines>1)return null;                               // 여러 줄은 줄바꿈 규칙이 따로 본다
+  if(ds.h&&cs.h&&(cs.h>ds.h*1.4||cs.h<ds.h*.7))return null;           // 높이까지 달라지면 옆 요소가 섞여 들어온 것
+  var sx=1/(ctx.lg||1),txt=u.el.text||(u.el.values&&u.el.values.text)||"",fs=(u.el.values&&u.el.values.fontSize)||0;
+  if(!inkWidthTrustable(ds.w*sx,txt,fs))return null;                   // 디자인 잉크가 글자가 차지할 수 있는 폭을 넘으면 잘못 잰 것
+  return inkWidthVerdict(ds.w,cs.w,Math.max(0,pb.x-cbox.x),Math.max(0,(cbox.x+cbox.w)-(pb.x+pb.w)),sx);
+}
 function textCandidateFor(res,ctx){
   var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H;
   var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";
@@ -1737,6 +1779,13 @@ function textCandidateFor(res,ctx){
   }else same=res.mismatch<=.3&&res.ncc>=.6&&res.exact<=.42;
   if(same){
     if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)return{label:LABEL_COLOR,detail:"디자인 글자색 "+(u.el.values&&u.el.values.color||"")+" · 개발 캡처의 글자색이 다르게 보입니다.",confidence:clamp(Math.round(50+colorDistance(dInk.color,cInk.color)/4),55,88)};
+    var iw=inkWidthCheck(res,ctx);                                     // 상자 밖으로 이어진 글자까지 재고 나서 접는다(P17)
+    if(iw){res.inkWidth=iw;
+      return{label:LABEL_TEXT_CONTENT,
+        detail:"디자인보다 글자가 "+(iw.long?"길어":"짧아")+" 보입니다"+(iw.side?"("+iw.side+" "+(iw.long?"늘어남":"줄어듦")+")":"")+
+               " — 디자인 약 "+iw.designW+"px · 개발 약 "+iw.capW+"px."+
+               (designText?" 디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"”":"")+" 개발 캡처의 글자와 눈으로 대조해 주세요.",
+        confidence:iw.long?58:55};}
     return null;
   }
   var ds=edgeStats(ctx.dE,W,H,Math.round(pb.x),Math.round(pb.y),Math.round(pb.w),Math.round(pb.h)),csBox=growInkBox(ctx,pb,r.dx,r.dy,parentInnerBox(u.el,ctx));
@@ -3077,6 +3126,14 @@ async function runSelfTest(){
   check("'가변'을 누르면 다시 가변 묶음으로(사람 판정 기억)",polR.candidates[1].status==="variable"&&polDesign.policy.variable.n2===true&&polR.candidates[1].detail.indexOf("사람이 가변으로 정함")>=0);
   kindCommon.onclick();
   check("화면 종류를 공통으로 바꾸면 저장되고 표시가 바뀜(사람이 정한 것은 유지)",polDesign.policy.screenType==="common"&&kindCommon.classList.contains("on")&&kindAuto.textContent===""&&polSent.some(function(m){return m.type==="set-design-policy"&&m.policy.screenType==="common";})&&polR.candidates[1].status==="variable"&&polR.candidates[0].status==="variable");
+  // 상자 밖으로 이어진 글자 재기(P17) — 길면 후보, 흔들림은 조용히
+  check("디자인보다 잉크가 많이 길면 글자 내용 후보(오른쪽으로 늘어남)",(function(){var v=inkWidthVerdict(48,110,0,62,1);return !!v&&v.long===true&&v.side==="오른쪽으로"&&v.designW===48&&v.capW===110;})());
+  check("잉크가 많이 짧아도 후보",(function(){var v=inkWidthVerdict(100,60,0,0,1);return !!v&&v.long===false;})());
+  check("조금 다른 것은 조용히(글꼴 폴백·안티앨리어싱 흔들림)",inkWidthVerdict(100,115,0,15,1)===null&&inkWidthVerdict(48,51,0,3,1)===null&&inkWidthVerdict(3,9,0,6,1)===null);
+  var slotMap={v1:{variable:true,reason:"x"},body:{variable:false},head:{variable:false},menu:{variable:false},free:{variable:false},repeats:{body:4,head:4,menu:3},headers:{head:4},menus:{menu:3}};
+  check("표 본문 값 자리의 글자는 잉크 폭으로 세지 않음(컬럼 제목·메뉴 이름·표 밖 글자는 그대로 잰다)",
+    inDataSlot(slotMap,"body")===true&&inDataSlot(slotMap,"v1")===true&&inDataSlot(slotMap,"head")===false&&inDataSlot(slotMap,"menu")===false&&inDataSlot(slotMap,"free")===false&&inDataSlot(null,"body")===false);
+  check("글자가 찰 수 없는 넓이로 재졌으면 잘못 잰 것으로 보고 조용히",inkWidthTrustable(42,"연락처",13)===true&&inkWidthTrustable(837,"공지사항",24)===false&&inkWidthTrustable(42,"",13)===false&&inkWidthTrustable(42,"연락처",0)===false);
   var polPayload=buildReportPayload(polR);
   check("레포트 요약은 가변 글자를 후보 수에서 빼고 따로 적음",polPayload.summary.indexOf("후보 0건")===0&&polPayload.summary.indexOf("가변 글자(내용 미검사) 2")>=0&&polPayload.rows[0].statusText==="가변 글자(내용 미검사)");
   post=polRealPost;results=[];currentResult=0;selectedCandidateId=null;variableOpen=false;compareOn=true;
