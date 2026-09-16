@@ -2016,12 +2016,111 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   applyListPolicy(cands,policyMap);
   // 5) 요소가 없는 빈자리의 픽셀 차이 — 개발에만 있는 것 등
   ctx.bands=bands;cands=cands.concat(uncoveredAreaCandidates(design,designImg,capture,model,results,sections,sectionInfo.root,ctx));
+  // 5-1) 속이 빈 그릇(입력칸·카드) 안쪽 — 격자 훑기가 덮어 못 보던 자리. 확정하지 않는다(신뢰도 낮음).
+  emptyVesselExtras(ctx,resultByElId).forEach(function(v){
+    var logical=logicalOf(v.box),dv=designValuesFor(design,logical);
+    var c={kind:"area",rawBox:toRaw(shifted(v.box,v.dx,v.dy)),designBox:logical,designNodeIds:[v.el.id],designValues:dv.text,
+      label:LABEL_EXTRA,detail:"시안의 이 상자 안에는 없는 작은 덩어리가 개발 화면에 보입니다.",confidence:55};
+    c.base={label:c.label,detail:c.detail,confidence:c.confidence};
+    push(c);applyCandidatePolicy(c,policyMap);
+  });
   numberCandidates(cands,pairId);
   cands.topGap=measureTopGap(design,designImg,capture,bands,lg);
   cands.notices=notices;cands.bands=bands;cands.contentTop=estimateCaptureContentTop(sections,sectionInfo.root,bands,model,lg);
   cands.contentBottom=estimateCaptureContentBottom(sections,sectionInfo.root,bands,model,lg,design);
   cands.sections=sections.concat([sectionInfo.root]).map(function(s){return{name:s.el?s.el.name:"(구역 밖)",matched:s.matched,excluded:!!s.excluded,offset:s.offset,units:s.units.length};});
   return cands;
+}
+function emptyVesselExtras(ctx,resultByElId){
+  // 속이 빈 그릇 안쪽 따로 보기 — 입력칸·카드처럼 **테두리만 있고 안은 비어 있는 상자**는
+  // 짝을 찾았다고 안쪽까지 통째로 덮지 않는다. 빈자리 훑기(uncoveredAreaCandidates)는 짝을 찾은 요소가
+  // 덮은 칸을 건너뛰므로, 그릇 안에 **개발에만 있는 작은 덩어리**(지우기 ×·상태 아이콘)가 있어도 못 본다.
+  //  · 그릇인지 아닌지는 화면 이름·좌표가 아니라 **시안 그림**으로만 정한다 — 안에 든 것(글자·아이콘)을
+  //    뺀 안쪽이 고른 한 색이면 그릇이다. 그릇이 스스로 그린 것은 테두리와 바탕뿐이라는 뜻이다.
+  //  · 글자는 건드리지 않는다 — 입력칸에 사람이 친 글자·안내 글자는 자료다. 그래서 가까이 붙은 자국은
+  //    하나로 합쳐 보고 **작고 네모반듯한** 덩어리만 올린다. 글줄은 길쭉한 덩어리가 되어 걸러지고,
+  //    깜빡이는 커서는 가늘고 길어 걸러진다.
+  //  · 확정하지 않는다 — 신뢰도를 낮게 매겨 사람이 보고 정한다.
+  var W=ctx.W,H=ctx.H,lg=ctx.lg,design=ctx.design,dd=ctx.dd.data,cd=ctx.cd.data,out=[];
+  var children=childMap(design),frameArea=Math.max(1,design.width*design.height);
+  var MIN_W=80,MIN_H=24,MAX_H=260,MAX_AREA=.35;   // 그릇의 크기(디자인 논리 px)
+  var FLAT=28,QUIET=22,INK=44;                    // 고름 / 시안이 조용함 / 개발에 자국이 있음
+  var MAX_DIRTY=.03;                              // 안쪽이 이보다 더 얼룩지면 '빈 그릇'이 아니다
+  var MIN_SIDE=8,MAX_SIDE=44,RATIO=2.4;           // 올릴 덩어리: 작고 네모반듯한 것만
+  (design.elements||[]).forEach(function(e){
+    if(e.kind!=="shape")return;
+    var v=e.values||{};if(!(v.fill||v.stroke))return;
+    var b=e.box;if(!b||b.w<MIN_W||b.h<MIN_H||b.h>MAX_H||b.w*b.h>frameArea*MAX_AREA)return;
+    if(b.w>design.width*.8)return;                  // 화면을 가로지르는 띠(머리말·바닥글)는 그릇이 아니다
+    // 이미 제외로 내려간 상자(다른 것에 가려짐·껍데기·가짜 브라우저 틀)와 표 본문의 값 자리는 보지 않는다
+    var pm=design.policyMap||{};
+    if((pm.excluded||{})[e.id])return;
+    if((pm.repeats||{})[e.id]&&pm[e.id]&&pm[e.id].variable)return;
+    // 그릇 자신을 개발 화면에서 또렷이 찾았을 때만 안쪽을 말한다 — 못 찾은 자리의 안쪽은 믿을 수 없다
+    var res=resultByElId[e.id];if(!res||res.missing||!res.best||res.best.score<.65)return;
+    if(res.mismatch>.4)return;
+    var pad=Math.max(3,Math.round((4+(v.strokeWidth||0))*lg));
+    var x0=Math.max(0,Math.round(b.x*lg)+pad),y0=Math.max(0,Math.round(b.y*lg)+pad),
+        x1=Math.min(W,Math.round((b.x+b.w)*lg)-pad),y1=Math.min(H,Math.round((b.y+b.h)*lg)-pad);
+    if(x1-x0<MIN_SIDE*lg*2||y1-y0<MIN_SIDE*lg)return;
+    var ddx=Math.round(res.best.dx),ddy=Math.round(res.best.dy);
+    if(x0+ddx<0||x1+ddx>W||y0+ddy<0||y1+ddy>H)return;
+    // 그릇이 스스로 그린 것 말고 **안에 든 것**의 자리는 빼고 본다(시안 자리와 개발에서 찾은 자리 둘 다).
+    // 비교에서 빠진 것(가변·제외)도 그림에는 그려져 있다 — 자리를 빼는 데는 다 쓴다.
+    var inner=[];descendantsOf(e,children).forEach(function(k){
+      if(!(k.kind==="text"||k.kind==="icon"||k.kind==="image"||isVisibleShape(k)))return;
+      if(!k.box||k.box.w<=0||k.box.h<=0)return;var r2=resultByElId[k.id];
+      var kb={x:Math.round(k.box.x*lg)-2,y:Math.round(k.box.y*lg)-2,w:Math.round(k.box.w*lg)+4,h:Math.round(k.box.h*lg)+4};
+      kb.dx=!r2||r2.missing||!r2.best?0:Math.round(r2.best.dx);kb.dy=!r2||r2.missing||!r2.best?0:Math.round(r2.best.dy);kb.text=k.kind==="text";inner.push(kb);});
+    function inInner(x,y){for(var i=0;i<inner.length;i++){var q=inner[i];
+      if(x>=q.x&&x<q.x+q.w&&y>=q.y&&y<q.y+q.h)return true;
+      if(x>=q.x+q.dx&&x<q.x+q.w+q.dx&&y>=q.y+q.dy&&y<q.y+q.h+q.dy)return true;}return false;}
+    // ① 안쪽이 고른 한 색인가 — 바탕은 안에 든 것을 뺀 자리의 평균으로 본다
+    var sr=0,sg=0,sb=0,sn=0,x,y,i;
+    for(y=y0;y<y1;y++)for(x=x0;x<x1;x++){if(inInner(x,y))continue;i=(y*W+x)*4;sr+=dd[i];sg+=dd[i+1];sb+=dd[i+2];sn++;}
+    if(sn<200)return;
+    var bg=[sr/sn,sg/sn,sb/sn],dirty=0;
+    for(y=y0;y<y1;y++)for(x=x0;x<x1;x++){if(inInner(x,y))continue;i=(y*W+x)*4;
+      if(colorDistance([dd[i],dd[i+1],dd[i+2]],bg)>FLAT)dirty++;}
+    if(dirty/sn>MAX_DIRTY)return;
+    // ② 개발에만 있는 자국 — 시안은 바탕 그대로인데 개발에는 색이 든 자리
+    var cell=Math.max(2,Math.round(2*lg)),cols=Math.ceil((x1-x0)/cell),rows=Math.ceil((y1-y0)/cell),mask=new Uint8Array(cols*rows);
+    for(var gy=0;gy<rows;gy++)for(var gx=0;gx<cols;gx++){
+      var ax0=x0+gx*cell,ay0=y0+gy*cell,ax1=Math.min(x1,ax0+cell),ay1=Math.min(y1,ay0+cell),hit=0,tot=0;
+      for(var yy=ay0;yy<ay1;yy++)for(var xx=ax0;xx<ax1;xx++){
+        tot++;if(inInner(xx,yy))continue;
+        var di=(yy*W+xx)*4,ci=((yy+ddy)*W+xx+ddx)*4;
+        if(colorDistance([dd[di],dd[di+1],dd[di+2]],bg)<QUIET&&colorDistance([cd[ci],cd[ci+1],cd[ci+2]],bg)>INK)hit++;
+      }
+      mask[gy*cols+gx]=(tot&&hit/tot>=.35)?1:0;
+    }
+    // ③ 글자가 자란 자리는 지운다 — 시안 글자에서 옆으로 이어지는 자국은 사람이 친 글자(자료)이지 새 덩어리가 아니다.
+    //    글자 상자에서 좌우로 번져 가며, 빈 칸이 글자 높이만큼 이어지면 거기서 멈춘다.
+    inner.forEach(function(q){
+      if(!q.text)return;
+      var ty0=Math.max(0,Math.floor((Math.min(q.y,q.y+q.dy)-y0)/cell)),ty1=Math.min(rows-1,Math.ceil((Math.max(q.y+q.h,q.y+q.h+q.dy)-y0)/cell));
+      if(ty1<ty0)return;
+      var cl=Math.max(0,Math.floor((Math.min(q.x,q.x+q.dx)-x0)/cell)),cr=Math.min(cols-1,Math.ceil((Math.max(q.x+q.w,q.x+q.w+q.dx)-x0)/cell));
+      var reach=Math.max(3,Math.round(Math.max(12*lg,q.h*1.2)/cell));
+      function any(c){for(var r=ty0;r<=ty1;r++)if(mask[r*cols+c])return true;return false;}
+      var run=0,c;
+      for(c=cr+1;c<cols;c++){if(any(c)){cr=c;run=0;}else if(++run>reach)break;}
+      run=0;for(c=cl-1;c>=0;c--){if(any(c)){cl=c;run=0;}else if(++run>reach)break;}
+      for(var r2=ty0;r2<=ty1;r2++)for(c=Math.max(0,cl);c<=Math.min(cols-1,cr);c++)mask[r2*cols+c]=0;
+    });
+    // ④ 가까이 붙은 자국은 하나로 합친다 — 글줄은 길쭉해져 걸러지고, 홀로 떨어진 단추만 남는다
+    var gap=Math.max(2,Math.round(6*lg/cell));
+    mergeBoxes(connectedBoxes(mask,cols,rows),gap).forEach(function(bx){
+      var px={x:x0+bx.x*cell,y:y0+bx.y*cell,w:bx.w*cell,h:bx.h*cell},lw=px.w/lg,lh=px.h/lg;
+      if(bx.cells<4)return;
+      if(lw<MIN_SIDE||lh<MIN_SIDE||lw>MAX_SIDE||lh>MAX_SIDE)return;
+      if(lw/lh>RATIO||lh/lw>RATIO)return;                                   // 길쭉한 것은 글줄·커서다
+      if(bx.cells*cell*cell<px.w*px.h*.45)return;                            // 속이 빈 테두리 얼룩은 뺀다
+      if(px.x<=x0||px.y<=y0||px.x+px.w>=x1||px.y+px.h>=y1)return;            // 안쪽 가장자리에 닿으면 그릇 밖으로 이어지는 것일 수 있다
+      out.push({el:e,box:px,dx:ddx,dy:ddy});
+    });
+  });
+  return out;
 }
 function uncoveredAreaCandidates(design,designImg,capture,model,results,sections,root,ctx){
   var max=360,q=Math.min(max/designImg.width,max/designImg.height),w=Math.max(24,Math.round(designImg.width*q)),h=Math.max(24,Math.round(designImg.height*q)),lg=ctx.lg;
@@ -2598,6 +2697,31 @@ async function runSelfTest(){
   var boxes=connectedBoxes(mask,5,3);check("연결 영역 묶기",boxes.length===2);
   var mergedCaps=mergeCaptureItems([{id:"a",name:"이전"}],[{id:"a",name:"새 값"},{id:"b",name:"추가"}]);check("Figma 이미지 중복 방지",mergedCaps.length===2&&mergedCaps[0].name==="새 값");
   var merged=mergeBoxes([{x:0,y:0,w:2,h:2,cells:4},{x:3,y:0,w:2,h:2,cells:4}],1);check("가까운 영역 합치기",merged.length===1&&merged[0].w===5);
+  // 속이 빈 그릇 안쪽 보기 — 입력칸 안에 개발에만 있는 작은 단추는 짚고, 자란 글자·커서는 그대로 둔다
+  (function(){
+    var VW=300,VH=160;
+    function paint(draw){var c=canvasFor(VW,VH),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,VW,VH);
+      x.strokeStyle="#CCCCCC";x.lineWidth=1;x.strokeRect(20.5,20.5,159,39);x.fillStyle="#222222";x.fillRect(30,32,40,14);draw(x);return x.getImageData(0,0,VW,VH);}
+    var vessel={id:"box",kind:"shape",type:"RECTANGLE",name:"입력칸",box:{x:20,y:20,w:160,h:40},values:{fill:"#FFFFFF",stroke:"#CCCCCC",strokeWidth:1}};
+    var label={id:"t1",kind:"text",type:"TEXT",parentId:"box",text:"아이디",box:{x:30,y:32,w:40,h:14},values:{fontSize:14}};
+    var vdesign={width:VW,height:VH,elements:[vessel,label]};
+    var one={missing:false,mismatch:0,best:{dx:0,dy:0,score:1}};
+    var vres={box:one,t1:one},dd=paint(function(){});
+    function run(draw){return emptyVesselExtras({W:VW,H:VH,lg:1,design:vdesign,dd:dd,cd:paint(draw)},vres);}
+    var 단추=run(function(x){x.fillStyle="#777777";x.fillRect(150,32,16,16);});
+    check("빈 그릇 안 개발에만 있는 작은 단추를 짚는다",단추.length===1&&Math.abs(단추[0].box.x-150)<=4&&Math.abs(단추[0].box.y-32)<=4);
+    check("그릇 안이 그대로면 아무 말 없다",run(function(){}).length===0);
+    check("입력칸 글자가 길어진 것은 새 덩어리로 보지 않는다",run(function(x){x.fillStyle="#222222";x.fillRect(30,32,110,14);}).length===0);
+    check("깜빡이는 커서는 가늘고 길어 새 덩어리로 보지 않는다",run(function(x){x.fillStyle="#2266DD";x.fillRect(150,28,2,20);}).length===0);
+    check("글줄 하나가 통째로 새로 생겨도 새 덩어리로 보지 않는다",run(function(x){x.fillStyle="#222222";x.fillRect(90,32,70,14);}).length===0);
+    var 꽉찬={id:"box",kind:"shape",type:"RECTANGLE",name:"그림칸",box:{x:20,y:20,w:160,h:40},values:{fill:"#FFFFFF",stroke:"#CCCCCC",strokeWidth:1}};
+    var 얼룩design={width:VW,height:VH,elements:[꽉찬]};
+    var 얼룩dd=(function(){var c=canvasFor(VW,VH),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,VW,VH);
+      x.strokeStyle="#CCCCCC";x.strokeRect(20.5,20.5,159,39);x.fillStyle="#3366AA";x.fillRect(30,28,140,24);return x.getImageData(0,0,VW,VH);})();
+    var 얼룩cd=(function(){var c=canvasFor(VW,VH),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,VW,VH);
+      x.strokeStyle="#CCCCCC";x.strokeRect(20.5,20.5,159,39);x.fillStyle="#3366AA";x.fillRect(30,28,140,24);x.fillStyle="#777777";x.fillRect(150,32,16,16);return x.getImageData(0,0,VW,VH);})();
+    check("속이 꽉 찬 상자는 그릇으로 보지 않는다",emptyVesselExtras({W:VW,H:VH,lg:1,design:얼룩design,dd:얼룩dd,cd:얼룩cd},{box:one}).length===0);
+  })();
   var design={width:200,height:120,elements:[{id:"t1",kind:"text",box:{x:20,y:20,w:80,h:24},values:{fontSize:16,fontWeight:600,lineHeight:24,color:"#111111"}}]};
   var values=designValuesFor(design,{x:18,y:18,w:90,h:30});check("디자인 원본값 찾기",values.ids[0]==="t1"&&values.text.indexOf("크기 16")>=0);
   check("원본값 표기는 글자·도형 같은 모양",formatDesignValues({kind:"text",values:{fontSize:16,fontWeight:600,color:"#111111"}})==="크기 16 · 굵기 600 · 색 #111111"&&formatDesignValues({kind:"shape",values:{width:100,height:40,fill:"#EEEEEE",radius:4}})==="100×40 · 배경 #EEEEEE · 둥글기 4");
