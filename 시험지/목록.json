@@ -2,25 +2,30 @@
   "_설명": "공식 측정이 도는 화면 목록. 이 파일과 세트·정답·도구는 시험지다 — 구현하는 쪽이 고치지 않는다.",
   "판": "2026-09-16",
   "화면": [
-    {"이름": "board",   "요소": "elements_board.json",        "시안": "design_board_1920x1898.png",  "개발": "dev_board_1920x1816.png"},
-    {"이름": "vehicle", "요소": "elements_vehicle.json",      "시안": "design_vehicle_720x1560.png", "개발": "dev_vehicle_360x780.png"},
-    {"이름": "dash",    "요소": "elements_dash.json",         "시안": "design_dash_360x1071.png",    "개발": "dev_dash_360x1031.png"},
-    {"이름": "door",    "요소": "elements_door.json",         "시안": "design_door_186x400.png",     "개발": "dev_door_196x436.png"},
-    {"이름": "stay",    "요소": "elements_stay_full.json",    "시안": "design_stay_1920x1080.png",   "개발": "dev_stay_1920x1081.png"},
-    {"이름": "findid",  "요소": "elements.json",              "시안": "design_1920x1080.png",        "개발": "dev_1920x934.png"},
-    {"이름": "login",   "요소": "elements_login.json",        "시안": "design_login_1920x1080.png",  "개발": "dev_login_1920x934.png"},
-    {"이름": "table",   "요소": "elements_table.json",        "시안": "design_table_1200x700.png",   "개발": "dev_table_1200x700.png"},
-    {"이름": "codes",   "요소": "elements_codes.json",        "시안": "design_codes_1200x760.png",   "개발": "dev_codes_1200x760.png"},
-    {"이름": "route",   "요소": "elements_route_plugin.json", "시안": "design_route_1920x1080.png",  "개발": "dev_route_1920x1080.png", "정렬고정": 99},
-    {"이름": "home1",   "요소": "home1_elements.json",        "시안": "design_home1_1920x1938.png",  "개발": "dev_home1_1920x1730.png"},
-    {"이름": "home2",   "요소": "home2_elements.json",        "시안": "design_home2_1920x1080.png",  "개발": "dev_home2_1920x1730.png"},
-    {"이름": "home3",   "요소": "home3_elements.json",        "시안": "design_home3_1920x1495.png",  "개발": "dev_home3_1920x1730.png"},
-    {"이름": "home4",   "요소": "home4_elements.json",        "시안": "design_home4_1920x1080.png",  "개발": "dev_home4_1920x1730.png"},
-    {"이름": "appkbd",  "요소": "elements_appkbd.json",       "시안": "design_appkbd_360x812.png",   "개발": "dev_appkbd_1080x2340.png"}
+    {"이름": "board", "요소": "elements_board.json", "시안": "design_board_1920x1898.png", "개발": "dev_board_1920x1816.png"},
+    {"이름": "vehicle", "요소": "elements_vehicle.json", "시안": "design_vehicle_720x1560.png", "개발": "dev_vehicle_360x780.png"},
+    {"이름": "dash", "요소": "elements_dash.json", "시안": "design_dash_360x1071.png", "개발": "dev_dash_360x1031.png"},
+    {"이름": "door", "요소": "elements_door.json", "시안": "design_door_186x400.png", "개발": "dev_door_196x436.png"},
+    {"이름": "stay", "요소": "elements_stay_full.json", "시안": "design_stay_1920x1080.png", "개발": "dev_stay_1920x1081.png"},
+    {"이름": "findid", "요소": "elements.json", "시안": "design_1920x1080.png", "개발": "dev_1920x934.png"},
+    {"이름": "login", "요소": "elements_login.json", "시안": "design_login_1920x1080.png", "개발": "dev_login_1920x934.png"},
+    {"이름": "table", "요소": "elements_table.json", "시안": "design_table_1200x700.png", "개발": "dev_table_1200x700.png"},
+    {"이름": "codes", "요소": "elements_codes.json", "시안": "design_codes_1200x760.png", "개발": "dev_codes_1200x760.png"},
+    {"이름": "route", "요소": "elements_route_plugin.json", "시안": "design_route_1920x1080.png", "개발": "dev_route_1920x1080.png", "정렬고정": 99},
+    {"이름": "home1", "요소": "home1_elements.json", "시안": "design_home1_1920x1938.png", "개발": "dev_home1_1920x1730.png"},
+    {"이름": "home2", "요소": "home2_elements.json", "시안": "design_home2_1920x1080.png", "개발": "dev_home2_1920x1730.png"},
+    {"이름": "home3", "요소": "home3_elements.json", "시안": "design_home3_1920x1495.png", "개발": "dev_home3_1920x1730.png"},
+    {"이름": "home4", "요소": "home4_elements.json", "시안": "design_home4_1920x1080.png", "개발": "dev_home4_1920x1730.png"},
+    {"이름": "appkbd", "요소": "elements_appkbd.json", "시안": "design_appkbd_360x812.png", "개발": "dev_appkbd_1080x2340.png"},
+    {"이름": "가입약관", "요소": "elements_가입약관.json", "시안": "design_가입약관_1920x1080.png", "개발": "dev_가입약관_1920x900.png"},
+    {"이름": "앱로그인실패", "요소": "elements_앱로그인실패.json", "시안": "design_앱로그인실패_360x812.png", "개발": "dev_앱로그인실패_1080x2340.png"},
+    {"이름": "앱비번보임", "요소": "elements_앱비번보임.json", "시안": "design_앱비번보임_360x812.png", "개발": "dev_앱비번보임_1080x2340.png"},
+    {"이름": "웹로그인실패", "요소": "elements_웹로그인실패.json", "시안": "design_웹로그인실패_1920x1080.png", "개발": "dev_웹로그인실패_1920x900.png"},
+    {"이름": "웹로그인커서", "요소": "elements_웹로그인커서.json", "시안": "design_웹로그인커서_1920x1080.png", "개발": "dev_웹로그인커서_1920x900.png"},
+    {"이름": "표항목", "요소": "elements_표항목.json", "시안": "design_표항목_1200x700.png", "개발": "dev_표항목_1200x700.png"}
   ],
   "정답": [
-    {"이름": "체류시간", "화면": "stay", "검사도구": "answers_check.js", "기대": 7,
-     "설명": "river가 2026-09-04에 직접 확인한 진짜 오류 7건. 접히면(가변·제외) 떨어진 것으로 본다."}
+    {"이름": "체류시간", "화면": "stay", "검사도구": "answers_check.js", "기대": 7, "설명": "river가 2026-09-04에 직접 확인한 진짜 오류 7건. 접히면(가변·제외) 떨어진 것으로 본다."}
   ],
   "시안최대": 4096
 }
