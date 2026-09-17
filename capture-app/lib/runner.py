@@ -97,23 +97,32 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
     기억해 둔 자리가 있으면 글자를 찾지 않고 그 자리를 바로 누른다(빠르다).
     '들어가는 길'(로그인)이 있으면 앱을 켠 바로 뒤에 조용히 지난다 — 찍지는 않는다.
     """
+    차례 = []          # [(글자, 화면번호 또는 None)] — 찍고 난 뒤 자리를 외우는 데 쓴다
+
+    def 담기(새줄, 화면번호=None):
+        차례.extend((글자, 화면번호 if 익힐것 else None)
+                   for 글자, 익힐것 in actions.글자탭들(새줄))
+        return 새줄
+
     줄 = [f"appId: {tag.get('앱주소','')}", "---", "- stopApp", "- launchApp"]
     if not 스플래시인가(한묶음[0]):
         줄 += ["- waitForAnimationToEnd:", "    timeout: 5000"]
         # 앱은 묶음마다 껐다 켜므로 켤 때마다 로그아웃된다 — 묶음마다 한 번씩 들어간다.
         # 스플래시는 켠 순간을 찍는 것이라 지나지 않는다.
-        줄 += 들머리줄 or []
+        줄 += 담기(list(들머리줄 or []))
     첫장 = 한묶음[0]
     누를것 = 첫장.get("누를것", "-")
     if 누를것 not in ("-", "", "없음"):
         줄 += ["- scrollUntilVisible:", "    element:",
               f"      text: {_따옴표(누를것)}", "    direction: DOWN",
-              "    timeout: 10000", f"- tapOn: {_따옴표(누를것)}",
-              "- waitForAnimationToEnd:", "    timeout: 5000"]
+              "    timeout: 10000"]
+        줄 += 담기([f"- tapOn: {_따옴표(누를것)}"])
+        줄 += ["- waitForAnimationToEnd:", "    timeout: 5000"]
 
     for s, 사진이름 in zip(한묶음, 사진이름들):
         동작 = s.get("동작", "")
-        줄 += actions.옮기기(동작, 계정, account.실패화면(s.get("이름", "")), 자리)
+        줄 += 담기(actions.옮기기(동작, 계정, account.실패화면(s.get("이름", "")), 자리),
+                 s.get("번호"))
         # 동작 뒤에는 화면이 가라앉기를 기다린다. 스플래시만은 기다리지 않는다 —
         # 기다리는 사이에 이미 다음 화면으로 넘어가 버리기 때문이다.
         # 동작이 '기다림'으로 끝났으면 방금 기다린 것이므로 또 기다리지 않는다.
@@ -125,10 +134,10 @@ def 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정=N
     경로 = os.path.join(대본폴더, f"{순번:03d}.yaml")
     with open(경로, "w", encoding="utf-8") as f:
         f.write("\n".join(줄) + "\n")
-    return 경로
+    return 경로, 차례
 
 
-def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패):
+def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패, 차례=1, 전부=1):
     """스플래시 한 장을 연사로 찍고 고른 결과를 목록에 담는다.
 
     적어 둔 '기다림 …' 은 여기서 쓰지 않는다 — 기다릴 시간을 사람이 맞추지
@@ -140,11 +149,12 @@ def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패):
         결과 = burst.찍기(tag.get("앱주소", ""), os.path.join(결과폴더, 사진이름), 기록)
     except Exception as e:
         까닭 = f"연사로 찍지 못했습니다 — {e}"
-        print(f"  ✗ {화면['이름']} — {까닭}", flush=True)
+        print(f"[{차례}/{전부}] {화면['이름']} → {사진이름}", flush=True)
+        print(f"    ✗ 못 찍음: {까닭}", flush=True)
         실패.append({"화면이름": 화면["이름"], "까닭": 까닭})
         return
-    print(f"  ✓ {화면['이름']} → {사진이름}"
-          f"  (연사 {결과['장수']}장 중 {결과['고른때']}밀리초 장 — {결과['까닭']})", flush=True)
+    print(f"[{차례}/{전부}] {화면['이름']} → {사진이름}", flush=True)
+    print(f"    · 연사 {결과['장수']}장 중 {결과['고른때']}밀리초 장 — {결과['까닭']}", flush=True)
     찍힌것.append({"파일": 사진이름, "화면번호": 화면["번호"], "화면이름": 화면["이름"],
                  "상태": 화면.get("상태", "default"),
                  "연사": {"장수": 결과["장수"], "고른때": 결과["고른때"],
@@ -152,8 +162,67 @@ def 연사한장(tag, 화면, 결과폴더, 찍힌것, 실패):
 
 
 def 자리기억켰나():
-    """'자리기억' 이라고 뒤에 붙여 부르면 켜진다(기본은 꺼짐)."""
+    """'자리기억' 이라고 뒤에 붙여 부르면, 찍기 전에 미리 자리를 익히러 다닌다(옛 길).
+
+    지금은 찍고 난 기록에서 저절로 외우므로 보통 쓸 일이 없다(lib/places.py).
+    """
     return any(a.strip("-") == "자리기억" for a in sys.argv[1:])
+
+
+def 자리끄기했나():
+    """'자리끄기' 라고 뒤에 붙여 부르면 외워 둔 자리를 쓰지 않고 늘 글자로 찾는다."""
+    return any(a.strip("-") == "자리끄기" for a in sys.argv[1:])
+
+
+def 도구가남긴기록(임시):
+    """촬영 도구가 '어디를 눌렀는지' 적어 둔 기록을 대본마다 걷어 온다.
+
+    자리: <임시>/<찍은때>/<대본이름>/logs/maestro.log — 폴더 이름이 곧 대본 이름이다.
+    돌려주는 것: {대본이름: 기록 글}
+    """
+    걷은것 = {}
+    for 자리, _폴더들, 파일들 in os.walk(임시):
+        if "maestro.log" not in 파일들 or os.path.basename(자리) != "logs":
+            continue
+        대본이름 = os.path.basename(os.path.dirname(자리))
+        try:
+            with open(os.path.join(자리, "maestro.log"), encoding="utf-8",
+                      errors="replace") as f:
+                걷은것[대본이름] = f.read()
+        except OSError:
+            pass
+    return 걷은것
+
+
+def 지켜보며찍기(손파일, 대본폴더, 앱주소, 임시, 볼것, 전부):
+    """촬영 도구를 돌리는 동안, 사진이 한 장 떨어질 때마다 한 줄 알린다.
+
+    예전에는 다 끝날 때까지 아무 줄도 나오지 않아, 찍는 사이트의 막대가 멈춰 있었다.
+    볼것: [(차례, 화면, 사진이름)] — 찍힐 차례대로.
+    """
+    os.makedirs(임시, exist_ok=True)
+    기록길 = os.path.join(임시, "도구가한말.txt")
+    알린것 = set()
+
+    def 살피기():
+        for 차례, s, 사진이름 in 볼것:
+            if 사진이름 not in 알린것 and 사진찾기(임시, 사진이름[:-4]):
+                알린것.add(사진이름)
+                print(f"[{차례}/{전부}] {s['이름']} → {사진이름}", flush=True)
+
+    with open(기록길, "w", encoding="utf-8") as f:
+        진행 = subprocess.Popen([손파일, 대본폴더, 앱주소, "-", "-", 임시],
+                              stdout=f, stderr=subprocess.STDOUT, text=True)
+        while 진행.poll() is None:
+            살피기()
+            time.sleep(0.6)
+    살피기()
+    try:
+        with open(기록길, encoding="utf-8", errors="replace") as f:
+            말 = f.read()
+    except OSError:
+        말 = ""
+    return 진행.returncode, 말, 알린것
 
 
 def 묶음자리(한묶음, 자리사전):
@@ -198,7 +267,7 @@ def 다시찍기(tag, 묶음차례, 계정, 손파일, 결과폴더, 임시, 들
     shutil.rmtree(다시폴더, ignore_errors=True)
     os.makedirs(다시폴더, exist_ok=True)
     for i, (한묶음, 사진이름들) in enumerate(되돌릴것, 1):
-        대본쓰기(tag, 한묶음, 사진이름들, 다시폴더, i, 계정, None, 들머리줄)
+        대본쓰기(tag, 한묶음, 사진이름들, 다시폴더, i, 계정, None, 들머리줄)[0]
     다시임시 = os.path.join(임시, "다시")
     subprocess.run([손파일, 다시폴더, 앱주소, "-", "-", 다시임시],
                    capture_output=True, text=True)
@@ -244,35 +313,42 @@ def 한번에찍기(tag, 결과폴더):
 
     묶음들 = 묶기(tag["화면"])
     찍힌것, 실패 = [], []
+    전부 = len(tag["화면"])
+    차례 = {id(s): i for i, s in enumerate(tag["화면"], 1)}   # 몇 번째 화면인가
 
     # 스플래시는 촬영 도구에 맡기지 않고 먼저 연사로 찍는다(시간을 맞출 수 없으므로).
     연사묶음 = {id(묶) for 묶 in 묶음들 if 연사로찍을묶음인가(plat, 묶)}
     for 한묶음 in 묶음들:
         if id(한묶음) in 연사묶음:
-            연사한장(tag, 한묶음[0], 결과폴더, 찍힌것, 실패)
+            연사한장(tag, 한묶음[0], 결과폴더, 찍힌것, 실패,
+                  차례.get(id(한묶음[0]), 1), 전부)
 
-    # 자리 기억 — 글자를 찾지 않고 좌표를 바로 누르면 빠르지만, 서버 응답에 따라
-    # 단추가 오르내리는 화면에서는 헛손질이 된다(통근버스 로그인에서 두 장이 잘못 찍혔다).
-    # 그래서 기본은 꺼 둔다. 화면이 늘 같은 자리인 앱에서만 켜서 쓴다:
-    #     ./run.sh apps/이름표.yaml 자리기억
-    자리기억 = 자리기억켰나()
+    # 자리 기억 — 글자를 찾아 누르면 폰 화면 목록을 통째로 읽어 한 번에 3.7초가 든다.
+    # 자리를 알면 2.0초다. 자리는 **찍고 난 기록에서 저절로 외운다**(아래 places.기록에서익히기) —
+    # 첫 촬영은 예전과 같은 시간이 걸리고, 그다음 촬영부터 빨라진다.
+    # 자리가 어긋나면 앞 장과 똑같은 사진이 찍히므로, 그 묶음만 글자로 다시 찍는다(다시찍기).
+    # 늘 글자로 찾게 하려면:  ./run.sh apps/이름표.yaml 자리끄기
+    자리씀 = plat == "android" and not 자리끄기했나()
     찍을묶음 = [묶 for 묶 in 묶음들 if id(묶) not in 연사묶음]
-    if plat == "android" and 자리기억:
+    if plat == "android" and 자리기억켰나():      # 옛 길 — 찍기 전에 미리 익히러 다닌다
         try:
             learn.익히기(tag, 찍을묶음, 계정, 손파일, 결과폴더,
                       스플래시인가, account.실패화면)
         except Exception as e:
             print(f"자리를 익히지 못했습니다 — 예전처럼 글자로 찾아 찍습니다({e}).\n", flush=True)
-    자리 = places.읽기(tag.get("앱주소", "")) if (plat == "android" and 자리기억) else {}
+    자리 = places.읽기(tag.get("앱주소", "")) if 자리씀 else {}
 
     이름들 = []
     묶음차례 = []
+    대본차례 = {}
     순번 = 0
     for 한묶음 in 찍을묶음:
         순번 += 1
         사진이름들 = [nametag.사진이름(tag, s) for s in 한묶음]
         한묶음자리 = 묶음자리(한묶음, 자리)
-        대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번, 계정, 한묶음자리, 들머리줄)
+        _경로, 누른차례 = 대본쓰기(tag, 한묶음, 사진이름들, 대본폴더, 순번,
+                             계정, 한묶음자리, 들머리줄)
+        대본차례[f"{순번:03d}"] = 누른차례
         이름들 += list(zip(한묶음, 사진이름들))
         묶음차례.append((한묶음, 사진이름들, 한묶음자리))
 
@@ -282,11 +358,14 @@ def 한번에찍기(tag, 결과폴더):
 
     print(f"촬영 도구를 한 번만 띄워 {len(이름들)}장을 찍습니다"
           f"({순번}묶음). 잠시 기다려 주세요.\n", flush=True)
-    r = subprocess.run([손파일, 대본폴더, tag.get("앱주소", ""), "-", "-", 임시],
-                       capture_output=True, text=True)
+    볼것 = [(차례.get(id(s), 0), s, 사진이름) for s, 사진이름 in 이름들]
+    되돌아온값, 도구말, _알린것 = 지켜보며찍기(손파일, 대본폴더, tag.get("앱주소", ""),
+                                    임시, 볼것, 전부)
+    # 기록은 다시 찍기 전에 걷는다 — 다시 찍은 대본도 이름이 001 이라 섞이면 안 된다.
+    누른기록 = 도구가남긴기록(임시) if 자리씀 else {}
 
-    if r.returncode != 0:
-        꼬리 = [l for l in (r.stdout + r.stderr).strip().splitlines()
+    if 되돌아온값 != 0:
+        꼬리 = [l for l in 도구말.strip().splitlines()
               if l.strip() and not l.strip().startswith(("│", "╭", "╰", "="))][-6:]
         print("촬영 도구가 알려 온 말:\n    " + "\n    ".join(꼬리) + "\n", flush=True)
     for s, 사진이름 in 이름들:
@@ -298,9 +377,18 @@ def 한번에찍기(tag, 결과폴더):
     # 그런 묶음은 자리 기억을 지우고 예전처럼 글자로 찾아 한 번 더 찍는다.
     다시찍기(tag, 묶음차례, 계정, 손파일, 결과폴더, 임시, 들머리줄)
 
+    # 이번에 누른 자리를 외워 둔다 — 다음 촬영이 빨라진다(찍는 동안 든 시간은 없다).
+    if 자리씀:
+        try:
+            외운수 = places.기록에서익히기(tag.get("앱주소", ""), 누른기록, 대본차례)
+        except Exception:
+            외운수 = 0
+        if 외운수:
+            print(f"\n누른 자리 {외운수}곳을 외웠습니다 — 다음 촬영이 조금 빨라집니다.",
+                  flush=True)
+
     for s, 사진이름 in 이름들:
         if os.path.exists(os.path.join(결과폴더, 사진이름)):
-            print(f"  ✓ {s['이름']} → {사진이름}", flush=True)
             찍힌것.append({"파일": 사진이름, "화면번호": s["번호"], "화면이름": s["이름"],
                          "상태": s.get("상태", "default")})
         else:
@@ -308,7 +396,8 @@ def 한번에찍기(tag, 결과폴더):
                   if s.get("누를것", "-") not in ("-", "", "없음")
                   else ("적어 둔 동작이 화면에서 되지 않았습니다"
                         if s.get("동작", "-") not in ("-", "", "없음") else "찍히지 않았습니다"))
-            print(f"  ✗ {s['이름']} — {까닭}", flush=True)
+            print(f"[{차례.get(id(s), 0)}/{전부}] {s['이름']} → {사진이름}", flush=True)
+            print(f"    ✗ 못 찍음: {까닭}", flush=True)
             실패.append({"화면이름": s["이름"], "까닭": 까닭})
 
     shutil.rmtree(임시, ignore_errors=True)
@@ -342,8 +431,7 @@ def 찍기(tag, 결과폴더):
     for i, s in enumerate(tag["화면"], 1):
         이름 = nametag.사진이름(tag, s)
         if 연사로찍을묶음인가(plat, [s]):
-            print(f"[{i}/{len(tag['화면'])}] {s['이름']} → {이름}", flush=True)
-            연사한장(tag, s, 결과폴더, 찍힌것, 실패)
+            연사한장(tag, s, 결과폴더, 찍힌것, 실패, i, len(tag["화면"]))
             continue
         누를것 = s.get("누를것", "-")
         대본 = "shoot-home.yaml" if 누를것 in ("-", "", "없음") else "shoot-menu.yaml"
@@ -381,7 +469,7 @@ def 찍기(tag, 결과폴더):
 
 
 def main():
-    붙임말 = [a for a in sys.argv[1:] if a.strip("-") != "자리기억"]
+    붙임말 = [a for a in sys.argv[1:] if a.strip("-") not in ("자리기억", "자리끄기")]
     if not 붙임말:
         raise SystemExit("쓰는 법: ./run.sh apps/이름표.yaml")
     이름표경로 = 붙임말[0]

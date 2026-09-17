@@ -17,6 +17,8 @@ fi
 # 폐쇄망 원칙 — 바깥으로 사용기록을 보내지 않는다.
 export MAESTRO_CLI_NO_ANALYTICS=1
 
+# --test-output-dir 안에 대본마다 기록(logs/maestro.log)이 남는다. 찍고 난 뒤
+# lib/places.py 가 그 기록에서 '어디를 눌렀는지'를 읽어 자리를 외운다(다음 촬영이 빨라진다).
 exec maestro test "$flow" \
   --test-output-dir="$out_dir" \
   -e APP_ID="$app_id" \
