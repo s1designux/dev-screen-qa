@@ -34,10 +34,22 @@ JS = r'''
  let lastPt={x:innerWidth/2,y:innerHeight/2};
  document.addEventListener('pointerdown',e=>{lastPt={x:e.clientX,y:e.clientY};if(!pop.hidden&&!pop.contains(e.target))pop.hidden=true;},true);
  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;pop.hidden=true;if(mode==='crop')setMode('side');});   // 부분 확대는 Esc 로 빠져나온다
- // 누른 자리에 그대로 띄우면 그 카드의 글을 덮는다 — 카드를 피해 옆(넓은 쪽)에 둔다(river 2026-09-16)
- function placePop(avoid){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';const r=pop.getBoundingClientRect();
+ // 앱 검수는 카드를 피해 옆(넓은 쪽)에, PC 웹은 그 카드 **바로 위**에 띄운다 — 카드도 좌우 칸도 가리지 않게(river 2026-09-16 · 2026-09-17)
+ const 카드위=document.body.classList.contains('web-view');
+ function placePop(avoid){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';pop.style.width='';
+  const 카드=avoid&&avoid.getBoundingClientRect?avoid.getBoundingClientRect():null;
+  if(카드위&&카드&&카드.width){
+   pop.style.width=Math.max(320,Math.min(카드.width,innerWidth-24))+'px';
+   const q=pop.getBoundingClientRect(),틈=10;
+   let top=카드.top-틈-q.height;
+   if(top<12)top=(카드.bottom+틈+q.height<=innerHeight-12)?카드.bottom+틈   // 위가 좁으면 카드 아래로
+            :Math.max(12,Math.min(innerHeight-q.height-12,카드.top-틈-q.height));
+   pop.style.left=Math.max(12,Math.min(innerWidth-q.width-12,카드.left))+'px';
+   pop.style.top=Math.max(12,top)+'px';
+   return;}
+  const r=pop.getBoundingClientRect();
   let left=null;
-  const a=avoid&&avoid.getBoundingClientRect?avoid.getBoundingClientRect():null;
+  const a=카드;
   if(a&&a.width){
    const 왼자리=a.left-12,오른자리=innerWidth-a.right-12;
    if(왼자리>=r.width+12)left=Math.max(12,a.left-12-r.width);
