@@ -14,6 +14,8 @@ CSS = '''
 .app-view .app-sidebar .review-actions button{width:100%}
 .app-view .app-sidebar .review-actions p{flex:none;margin:0 0 var(--spacing-4)}
 .app-view .app-sidebar .review-tabs,.app-view .app-sidebar .tabbar{flex-wrap:wrap;row-gap:var(--spacing-10)}
+/* 앱 검수는 옆칸이 좁다 — 성질 칩을 탭 아랫줄로 내린다(river 2026-09-17) */
+.app-view .app-sidebar .fbar{flex:1 1 100%;margin-left:0;display:flex;justify-content:flex-start;row-gap:var(--spacing-8);padding-block:var(--spacing-6)}
 .app-view .app-sidebar .passform{flex-wrap:wrap}.app-view .app-sidebar .passform input{min-width:0}
 .app-view .app-sidebar .issue{padding:var(--spacing-16);overflow-wrap:anywhere}
 @media(max-width:1000px){

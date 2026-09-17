@@ -595,29 +595,11 @@ def panel_html(view, page_id, person_options='', which='open'):
         return head + (f'<p class="empty auto-msg">자동 검수를 못 했어요 — {_e(r["error"])}</p>'
                        f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>'
                        + range_html(view, person_options)) + grid(값것)
-    return head + _align_warn(al) + range_html(view, person_options) + grid(열린것)
+    return head + range_html(view, person_options) + grid(열린것)
 
 
-# 겹침이 이보다 낮으면서 근거까지 얇으면 알린다(화면 15개로 잡은 첫 문턱).
-_겹침낮음 = 0.72
-
-
-def _align_warn(al):
-    """시안을 얹은 자리가 미덥지 않으면 한 줄 알린다. 판정은 바꾸지 않는다(2번-2).
-
-    엔진의 자신감 점수는 크게 밀린 화면에서도 높게 나와(0.78, 실측) 쓰지 않는다.
-    대신 ① 자리를 다시 잡았는지 ② 근거가 얇은데 겹침까지 낮은지를 본다.
-    """
-    if not al:
-        return ''
-    fit = al.get('fit')
-    if al.get('rescued'):
-        말 = '시안을 얹을 자리를 다시 잡았습니다. 겹쳐보기로 한번 확인해 주세요.'
-    elif al.get('thin') and fit is not None and fit < _겹침낮음:
-        말 = '시안과 개발 화면을 맞출 근거가 적어 자리가 미덥지 않습니다. 겹쳐보기로 한번 확인해 주세요.'
-    else:
-        return ''
-    return f'<p class="auto-align-warn" role="status">{_e(말)}</p>'
+# 시안을 얹은 자리가 미덥지 않을 때 붙이던 빨간 줄은 보이지 않는다(river 2026-09-17).
+# 재던 값(rescued·thin·fit)은 그대로 남는다 — 겹쳐보기로 사람이 본다.
 
 
 def range_html(view, person_options=''):
@@ -766,7 +748,7 @@ CSS = '''
 .auto-range-line::after{content:"";position:absolute;left:0;right:0;top:-8px;height:18px}
 .auto-range-shade{position:absolute;left:0;right:0;background:var(--color-status-error);opacity:.18;pointer-events:none;z-index:1}
 .auto-range-form{display:flex;flex-wrap:wrap;gap:var(--spacing-8);align-items:center;margin-top:var(--spacing-8);font-size:var(--font-size-12)}
-.auto-range-form input{width:70px}\n.auto-align-warn{margin:0 0 var(--spacing-10);padding:var(--spacing-8) var(--spacing-12);border-radius:var(--radius-8);background:var(--color-surface-default);border:1px solid var(--color-border-subtle);color:var(--color-text-state-caution);font-size:var(--font-size-12)}
+.auto-range-form input{width:70px}
 .auto-wait.inline{position:static;flex-direction:row;justify-content:flex-start;gap:var(--spacing-8);margin:0 0 var(--spacing-10);font-size:var(--font-size-14)}
 .auto-wait.inline .auto-spin{width:18px;height:18px;border-width:var(--border-width-2)}
 

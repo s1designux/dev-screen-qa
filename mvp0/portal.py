@@ -1492,9 +1492,8 @@ _PAGE_CSS = """
   /* 유형 탭 바 (고정 영역) */
   .tabbar { flex-shrink:0; flex-wrap:wrap; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
   /* 성질 거르개 — 탭과 같은 줄 오른쪽 끝. 탭은 밑줄, 거르개는 알약이라 섞이지 않는다. */
-  /* 칩이 두 줄로 넘어가도 답답하지 않게 위아래 숨을 둔다(river 2026-09-16) */
-  .fbar { flex:1 1 100%; display:flex; justify-content:flex-start; align-items:center; gap:var(--spacing-6); row-gap:var(--spacing-8);
-    flex-wrap:wrap; padding-block:var(--spacing-6); }
+  /* PC 웹은 한 줄(탭 오른쪽)이다. 자리가 좁은 앱 검수만 아랫줄로 내린다(river 2026-09-17) */
+  .fbar { margin-left:auto; display:inline-flex; align-items:center; gap:var(--spacing-6); flex-wrap:wrap; align-self:center; }
   .fchip { height:var(--sizing-28); padding:0 var(--spacing-16); border-radius:var(--radius-full);
     border:var(--border-width-1) solid var(--color-chip-line-border-default);
     background:var(--color-chip-line-bg-default); color:var(--color-chip-line-label-default);
