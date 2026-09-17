@@ -426,6 +426,34 @@ class Auto:
     def candidates(self, c, auto_run_id):
         return c.execute('SELECT * FROM auto_candidate WHERE auto_run_id=? ORDER BY no', (auto_run_id,)).fetchall()
 
+    # ── 미리 돌릴 것 고르기 ────────────────────────────────────────
+    def pending_pages(self, screen_id):
+        """그 화면에서 아직 자동 검수 결과가 없는 페이지(읽기만 한다 — 여기서 회차를 만들지 않는다).
+
+        페이지를 열 때와 같은 잣대로 고른다: 마지막 차수에 개발 화면과 시안이 다 있고,
+        결과가 없거나 · 개발 화면이 바뀌었거나 · 검수 규칙이 바뀐 것. 한 번 실패한 것은 넣지 않는다
+        (사람이 '다시 돌리기'를 누를 때만 다시 돈다)."""
+        out = []
+        try:
+            with self.store.connect() as c:
+                rev = engine_rev()
+                pages = c.execute(
+                    'SELECT uuid, seq, name FROM inspection_page WHERE screen_id=? AND removed_at IS NULL ORDER BY seq',
+                    (screen_id,)).fetchall()
+                for p in pages:
+                    run = c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1',
+                                    (p['uuid'],)).fetchone()
+                    if not run or not run['dev_img'] or not self.design_of_page(c, p['uuid']):
+                        continue
+                    r = self.run_for(c, run['uuid'], p['uuid'])
+                    if r and (r['status'] == 'failed'
+                              or (r['status'] == 'done' and not _stale(r, rev, capture_sig(run)))):
+                        continue
+                    out.append({'page': p['uuid'], 'run': run['uuid'], 'seq': p['seq'], 'name': p['name'] or ''})
+        except sqlite3.OperationalError:
+            return []          # 옛 DB(자동 검수 표 없음) — 미리 돌릴 것도 없다
+        return out
+
     # ── 사람의 판정 ───────────────────────────────────────────────
     def set_status(self, candidate_id, status, actor='', note=''):
         if status not in STATUS_LABEL:
@@ -758,6 +786,58 @@ CSS = '''
 @media (prefers-reduced-motion:reduce){.auto-spin{animation-duration:2.4s}}
 '''
 
+
+# ── 미리 검수: 한 장씩 열어 기다리지 않게, 아직 결과가 없는 페이지를 숨은 자리에서 먼저 돌려 둔다 ──
+# 판정은 페이지를 직접 열 때와 똑같다(같은 엔진·같은 재료·같은 저장 길). 한 번에 한 장씩만 돌린다.
+PREWARM_JS = r"""
+(function(){
+  function 보내기(길,몸){return fetch(길,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(몸)}).then(function(r){return r.json();});}
+  function 한장(it){
+    return 보내기('/auto/'+it.page+'/materials',{run:it.run}).then(function(m){
+      if(!m||m.error)return false;
+      return new Promise(function(끝냄){
+        var f=document.createElement('iframe'),끝=false;
+        f.setAttribute('aria-hidden','true');
+        f.style.cssText='position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
+        function 치우기(약속){
+          if(끝)return;끝=true;clearTimeout(시계);window.removeEventListener('message',받기);
+          (약속||Promise.resolve()).catch(function(){}).then(function(){
+            if(f.parentNode)f.parentNode.removeChild(f);끝냄(true);});
+        }
+        function 받기(e){
+          var d=e.data;if(!d||!d.type||끝)return;
+          if(d.type==='portal-ready'&&f.contentWindow&&e.source===f.contentWindow){f.contentWindow.postMessage(Object.assign({type:'portal-run'},m),'*');}
+          else if(d.type==='portal-result'&&d.autoRunId===m.autoRunId){치우기(보내기('/auto/'+it.page+'/result',d));}
+          else if(d.type==='portal-error'&&d.autoRunId===m.autoRunId){치우기(보내기('/auto/'+it.page+'/fail',{autoRunId:m.autoRunId,message:d.message}));}
+        }
+        var 시계=setTimeout(function(){치우기(보내기('/auto/'+it.page+'/fail',{autoRunId:m.autoRunId,message:'시간이 너무 오래 걸려 멈췄습니다(3분).'}));},180000);
+        window.addEventListener('message',받기);
+        f.src='/engine/ui.html';document.body.appendChild(f);
+      });
+    }).catch(function(){return false;});
+  }
+  window.qa미리검수=function(화면,옵션){
+    옵션=옵션||{};
+    var 알림=옵션.알림?document.getElementById(옵션.알림):null;
+    fetch('/auto/screen/'+화면+'/pending').then(function(r){return r.json();}).then(function(j){
+      var 목록=(j&&j.pages)||[];
+      if(옵션.지금페이지){
+        // 페이지 상세에서는 바로 다음 한 장만 미리 돌린다 — 보고 있는 화면이 굼떠지지 않게.
+        var 뒤=목록.filter(function(x){return x.page!==옵션.지금페이지&&x.seq>(옵션.지금순번||0);});
+        목록=(뒤.length?뒤:목록.filter(function(x){return x.page!==옵션.지금페이지;})).slice(0,1);
+      }
+      if(!목록.length)return;
+      var i=0;
+      (function 다음(){
+        if(i>=목록.length){if(알림)알림.textContent='';return;}
+        if(알림)알림.textContent='다른 장을 미리 검수하고 있습니다 · '+(i+1)+' / '+목록.length+'장';
+        한장(목록[i]).then(function(){i++;setTimeout(다음,50);});
+      })();
+    }).catch(function(){});
+  };
+})();
+"""
+
 JS = r'''
 (function(){
   var st=document.getElementById('auto-state');if(!st)return;
@@ -892,7 +972,10 @@ def _body_json(handler):
 
 
 def get(handler, store, path, q):
-    """GET /engine/ui.html (엔진 한 벌 + 포털 손잡이)"""
+    """GET /engine/ui.html (엔진 한 벌 + 포털 손잡이) · /auto/screen/<화면>/pending (미리 돌릴 페이지)"""
+    if path.startswith('/auto/screen/') and path.endswith('/pending'):
+        _json(handler, {'pages': Auto(store).pending_pages(path.split('/')[3])})
+        return True
     if path == '/engine/ui.html':
         data = engine_html().encode('utf-8')
         handler.send_response(200)

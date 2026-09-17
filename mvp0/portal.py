@@ -576,6 +576,7 @@ def render_screen(human_key: str, notice=""):
     <section class="group">
       <div class="grouphead">
         <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
+        <span class="muted" id="prewarm-note"></span>
         {remove_bar}
       </div>
       <table>
@@ -594,6 +595,8 @@ def render_screen(human_key: str, notice=""):
   {move_dlg}
   <script>{page_move.JS}</script>
   <script>{page_group.JS}</script>
+  <script>{auto_inspect.PREWARM_JS}</script>
+  <script>qa미리검수({json.dumps(s["uuid"])},{{알림:'prewarm-note'}});</script>
   <footer>업로드일 = 개발화면이 올라온 날 · 검수일 = 그 차수에 검수 기록이 남은 날 (최대 {MAX_ROUNDS}차) ·
   화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
@@ -894,8 +897,12 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
                      '<button type="button" class="fchip on" data-type="" onclick="filterType(this)">전체</button>'
                      + 칩 + '</span>')
 
+    미리 = ('<script>' + auto_inspect.PREWARM_JS + '</script>'
+          + '<script>if(document.getElementById("auto-state").dataset.status!=="pending")'
+            'qa미리검수(' + json.dumps(s['uuid']) + ',{지금페이지:' + json.dumps(page_uuid)
+          + ',지금순번:' + str(int(page.get('seq') or 0)) + '});</script>') if auto_view else ''
     auto_extra = (f'<script id="auto-data" type="application/json">{auto_inspect.overlay_json(auto_view)}</script>'
-                  f'<script>{auto_inspect.JS}</script>') if auto_view else ''
+                  f'<script>{auto_inspect.JS}</script>' + 미리) if auto_view else ''
     issues_html = panels
     if not all_issues and linked and linked['status'] != 'confirmed':
         issues_html = '<p class="empty">아직 검수한 것이 없습니다. 시안을 연결해 시작하세요.</p>'
