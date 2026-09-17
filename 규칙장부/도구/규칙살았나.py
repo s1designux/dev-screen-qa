@@ -123,8 +123,9 @@ def main() -> int:
         뒷말 = f"드러나야 {h.get('드러나야 할 것', '-')} · 접혀있어야 {h.get('접혀 있어야 할 것', '-')}"
         옛 = f"   (옛 {옛것[h['제안']]})" if h["제안"] in 옛것 and 옛것[h["제안"]] != h["판정"] else ""
         확인 = h.get("규칙 없는 판 확인", "확인 안 됨")
-        꼬리 = ("[규칙 빼고 재니 걸렸다 · " + 확인 + "]" if 확인.startswith("0")
+        꼬리 = ("[규칙 빼고 재니 걸렸다 · " + 확인 + "]" if 확인[:1].isdigit()
               else "[규칙을 빼도 안 걸린다 — " + 확인.split(":", 1)[-1].strip() + "]" if 확인.startswith("안 됨")
+              else "[가릴 규칙이 없다 — " + 확인.split(":", 1)[-1].strip() + "]" if 확인.startswith("해당 없음")
               else "[규칙을 빼도 걸리는지 확인 안 됨]")
         print(f"  {표.get(h['판정'], h['판정']):7s} {h['제안']:8s} {뒷말}{옛}")
         print(f"       {꼬리}")
@@ -138,9 +139,19 @@ def main() -> int:
     둘곳 = 측정방 / 측정번호 / "규칙살았나.json"
     둘곳.write_text(json.dumps(본것, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n적은 자리: {둘곳.relative_to(뿌리)}")
-    센것 = sum(1 for h in 본것["본 것"] if str(h.get("규칙 없는 판 확인", "")).startswith("0"))
-    print(f"이 가운데 **규칙을 빼면 실제로 걸리는 것이 확인된** 시험지는 "
-          f"{센것}장 / {len(본것['본 것'])}장입니다. 나머지는 맞았다고 해서 그 규칙이 살았다는 뜻이 아닙니다.")
+    확인들 = [str(h.get("규칙 없는 판 확인", "")) for h in 본것["본 것"]]
+    센것 = sum(1 for v in 확인들 if v[:1].isdigit())
+    안된것 = [h["제안"] for h, v in zip(본것["본 것"], 확인들) if v.startswith("안 됨")]
+    없는것 = [h["제안"] for h, v in zip(본것["본 것"], 확인들) if v.startswith("해당 없음")]
+    모름 = [h["제안"] for h, v in zip(본것["본 것"], 확인들)
+          if not (v[:1].isdigit() or v.startswith("안 됨") or v.startswith("해당 없음"))]
+    print(f"규칙을 빼면 실제로 걸리는 것이 확인된 시험지: {센것}장 / {len(확인들)}장")
+    if 안된것:
+        print(f"  · 규칙을 빼도 안 걸리는 시험지: {', '.join(안된것)} — 맞았다고 해서 그 규칙이 살았다는 뜻이 아니다")
+    if 없는것:
+        print(f"  · 가릴 규칙이 아예 없는 시험지: {', '.join(없는것)}")
+    if 모름:
+        print(f"  · 아직 확인 안 한 시험지: {', '.join(모름)}")
     죽은것 = [h["제안"] for h in 본것["본 것"] if h["판정"] != "두 쪽 다 맞음"]
     return 1 if 죽은것 else 0
 
