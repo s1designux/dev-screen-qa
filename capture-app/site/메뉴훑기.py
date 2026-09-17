@@ -180,10 +180,14 @@ def 이름닮음(디자인이름, 메뉴이름):
 
 
 # ── 링크 모으기 ──────────────────────────────────────────────
+_메뉴자리 = ('nav,header,footer,aside,[role="navigation"],[role="menu"],'
+         '[class*="gnb"],[class*="lnb"],[class*="nav"],[class*="menu"],[class*="sitemap"],'
+         '[id*="gnb"],[id*="lnb"],[id*="nav"],[id*="menu"]')
 _링크뽑기 = """
-() => Array.from(document.querySelectorAll('a[href]')).map((a) => ({
+(자리) => Array.from(document.querySelectorAll('a[href]')).map((a) => ({
   이름: (a.innerText || a.getAttribute('aria-label') || a.title || '').trim().replace(/\\s+/g, ' ').slice(0, 40),
   주소: a.href,
+  메뉴자리: !!a.closest(자리),
 }))
 """
 안볼말 = re.compile(r"로그아웃|logout|sign\s*out|다운로드|download|\.(pdf|zip|xlsx?|hwp|docx?)$", re.I)
@@ -206,20 +210,35 @@ def _다듬기(주소):
 
 
 def 링크모으기(쪽, 바탕, 이미본것):
-    모은것 = []
+    """**메뉴 자리**(위쪽 메뉴·머리글·바닥글·사이트맵)에 있는 링크만 모은다.
+
+    화면 본문에 있는 링크는 메뉴가 아니라 지나가는 길이다 — 공지 낱개 글, 노선 바로가기 같은 것들.
+    그걸 다 따라 들어가면 읽을 것이 세 배로 늘고(실측 12 → 32), 비슷비슷한 목록 화면이 섞여
+    시안을 짚기도 어려워진다. (river 확정 2026-09-16 — 관리자 화면은 따로 찍는다.)
+    메뉴 자리를 알아볼 수 없는 사이트에서는 예전처럼 화면의 링크를 다 본다.
+    """
+    쓸만한것 = []
     try:
-        것들 = 쪽.evaluate(_링크뽑기)
+        것들 = 쪽.evaluate(_링크뽑기, _메뉴자리)
     except Exception:
-        return 모은것
+        return []
     for 하나 in 것들:
         주소 = _다듬기(하나.get("주소") or "")
         이름 = (하나.get("이름") or "").strip()
         if not 이름 or not _같은집인가(주소, 바탕) or 안볼말.search(이름) or 안볼말.search(주소):
             continue
-        if 주소 in 이미본것:
+        하나 = {"이름": 이름, "주소": 주소}
+        쓸만한것.append(하나)
+    # 메뉴 자리 것만 추려 둔다(자리를 못 알아보는 사이트면 비어 있다)
+    자리표 = {_다듬기(하나.get("주소") or ""): bool(하나.get("메뉴자리")) for 하나 in 것들}
+    메뉴자리것 = [하나 for 하나 in 쓸만한것 if 자리표.get(하나["주소"])]
+    고른것 = 메뉴자리것 or 쓸만한것
+    모은것 = []
+    for 하나 in 고른것:
+        if 하나["주소"] in 이미본것:
             continue
-        이미본것.add(주소)
-        모은것.append({"이름": 이름, "주소": 주소})
+        이미본것.add(하나["주소"])
+        모은것.append(하나)
     return 모은것
 
 
