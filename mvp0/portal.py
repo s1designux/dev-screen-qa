@@ -386,7 +386,7 @@ def render_list(unresolved_only: bool, round_filter):
             </tr>"""
         키 = 프로젝트키.get(project)
         결과서 = (f'<span class="docs">'
-                f'<a class="chip" href="/result/{_esc(키)}?scope=all" target="_blank">개발화면검수서</a></span>') if 키 else ''
+                f'<a class="button" href="/result/{_esc(키)}?scope=all" target="_blank">개발화면검수서</a></span>') if 키 else ''
         groups_html += f"""
         <section class="group">
           <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span>{결과서}</h2>
@@ -1386,7 +1386,8 @@ _LIST_CSS = """
   h2 { font-size:var(--font-size-14); margin:var(--spacing-14) var(--spacing-4) var(--spacing-8); }
   .muted { color:var(--color-text-helper); font-weight:var(--font-weight-regular); }
   .docs { float:right; font-size:var(--font-size-12); color:var(--color-text-caption); font-weight:var(--font-weight-regular); }
-  .docs .chip { margin-left:var(--spacing-6); margin-right:0; }
+  /* 검수 페이지 목록의 단추와 같은 모양으로 둔다 (river 2026-09-17). */
+  .docs .button { margin-left:var(--spacing-6); }
   tbody tr { cursor:pointer; }   /* 표 모양은 코어 Table(s1_components) */
   .name { font-weight:var(--font-weight-bold); }
   .key { font-family:ui-monospace,monospace; color:var(--color-text-tertiary); }
