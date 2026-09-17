@@ -515,7 +515,8 @@ def render_screen(human_key: str, notice=""):
     # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
     move_bar = page_move.막대() if pages else ""
     # 개발화면검수서 — 전체목록의 것과 같은 문서를 이 화면만 담아 새 창으로 띄운다 (result_doc).
-    doc_bar = (f'<a class="chip" href="/screen/{quote(human_key)}/{quote("검수서.html")}"'
+    # 모양은 옆의 단추와 같다 — 코어 Button(s1_components) 의 `.button` 을 그대로 받는다.
+    doc_bar = (f'<a class="button" href="/screen/{quote(human_key)}/{quote("검수서.html")}"'
                f' target="_blank">개발화면검수서</a>') if pages else ""
     move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
 
