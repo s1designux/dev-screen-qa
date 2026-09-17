@@ -47,7 +47,29 @@ def main() -> int:
     받기 = argparse.ArgumentParser(description="시험지에 화면 더 넣기")
     받기.add_argument("--넣는다", action="store_true", help="실제로 넣는다")
     받기.add_argument("--볼것만", action="store_true", help="무엇이 들어갈지 보기만 한다")
+    받기.add_argument("--뺀다", default="", help="시험지에서 뺄 화면 이름(쉼표로 여럿). 그림 파일은 지우지 않는다")
     args = 받기.parse_args()
+
+    if args.뺀다:
+        목록 = json.loads(목록길.read_text(encoding="utf-8"))
+        뺄것 = {n.strip() for n in args.뺀다.split(",") if n.strip()}
+        남은것 = [c for c in 목록["화면"] if c["이름"] not in 뺄것]
+        못찾은것 = 뺄것 - {c["이름"] for c in 목록["화면"]}
+        if 못찾은것:
+            sys.exit(f"그 화면이 목록에 없습니다: {', '.join(sorted(못찾은것))}")
+            # 정답이 걸린 화면은 빼지 않는다 — 채점 기준이 통째로 사라진다
+        걸린것 = {a["화면"] for a in 목록.get("정답", [])} & 뺄것
+        if 걸린것:
+            sys.exit(f"정답이 걸린 화면은 뺄 수 없습니다: {', '.join(sorted(걸린것))}")
+        목록["화면"] = 남은것
+        글 = json.dumps(목록, ensure_ascii=False, indent=2) + "\n"
+        글 = re.sub(r"\{\n\s+(\"이름\".*?)\n\s+\}",
+                  lambda m: "{" + re.sub(r"\s*\n\s*", " ", m.group(1)) + "}", 글, flags=re.S)
+        목록길.write_text(글, encoding="utf-8")
+        print(f"뺐습니다: {', '.join(sorted(뺄것))} — 이제 시험 화면 {len(남은것)}장입니다.")
+        print("  (그림·요소 파일은 시험지/세트 에 그대로 둡니다 — 되돌릴 때 쓴다)")
+        print("→ 시험지 지문이 바뀌었습니다. 공식측정.py 로 출발점을 다시 재세요.")
+        return 0
 
     if not 후보방.exists():
         sys.exit(f"넣을 것이 없습니다: {후보방}")
