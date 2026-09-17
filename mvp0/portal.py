@@ -510,6 +510,10 @@ def render_screen(human_key: str, notice=""):
 
     # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
     move_bar = page_move.막대() if pages else ""
+    # 개발화면검수서 받기 — 고른 장이 있으면 그 장만, 없으면 이 화면 전부 (result_doc).
+    doc_bar = (f'<button type="button" id="result-doc-get"'
+               f' data-href="/screen/{quote(human_key)}/{quote("검수서.html")}">개발화면검수서 다운로드</button>'
+               ) if pages else ""
     move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
 
     remove_bar = f"""
@@ -519,6 +523,7 @@ def render_screen(human_key: str, notice=""):
                       (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
         <button type="submit">삭제</button>
         {move_bar}
+        {doc_bar}
       </form>""" if pages else ""
 
     # 스토리보드 ID는 화면 한 장마다 붙는다 (river 2026-09-15). 표 안에서 고쳐 한 번에 저장한다.
@@ -594,6 +599,7 @@ def render_screen(human_key: str, notice=""):
   </div>
   {move_dlg}
   <script>{page_move.JS}</script>
+  <script>{result_doc.받기JS}</script>
   <script>{page_group.JS}</script>
   <script>{auto_inspect.PREWARM_JS}</script>
   <script>qa미리검수({json.dumps(s["uuid"])},{{알림:'prewarm-note'}});</script>
@@ -1063,6 +1069,10 @@ class Handler(BaseHTTPRequestHandler):
                 case_ref=c.execute('SELECT plan_id,id FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
             page = design_plan_http.ui.detail(intake(),case_ref['plan_id'],case_ref['id'],q.get('notice',[''])[0],rnd) if case_ref else render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
+        elif path.startswith("/screen/") and unquote(path).endswith("/검수서.html"):
+            푼길 = unquote(path)
+            고른것 = [x for x in q.get("pages", [""])[0].split(",") if x]
+            self._검수서(푼길[len("/screen/"):-len("/검수서.html")], 고른것, q.get("scope", ["all"])[0])
         elif path.startswith("/screen/") and unquote(path).endswith(("/수정요청.md", "/수정요청.html")):
             # 한글 주소는 브라우저가 %xx 로 싸서 보낸다 — 풀어서 견준다.
             푼길 = unquote(path)
@@ -1248,6 +1258,33 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def _검수서(self, human_key, 고른것=(), scope="all"):
+        """화면 하나의 개발화면검수서를 파일로 내려준다.
+
+        담는 규칙은 프로젝트 전체 검수서와 같다(result_doc). 고른 장이 있으면 그 장만 담는다.
+        """
+        conn = dbmod.connect(REAL_DB)
+        scr = queries.get_screen(conn, human_key)
+        if scr is None:
+            conn.close()
+            self._html(self._nf(f"화면 없음: {human_key}"), 404)
+            return
+        row = scr["row"]
+        conn.close()
+        html_doc = result_doc.build(row["project_id"], scope, db_path=REAL_DB,
+                                    screen_uuid=row["uuid"], page_ids=고른것)
+        if html_doc is None:
+            self._html(self._nf(f"화면 없음: {human_key}"), 404)
+            return
+        data = html_doc.encode("utf-8")
+        이름 = quote(f"개발화면검수서-{row['name']}.html")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{이름}")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _수정요청(self, human_key, 보기=False):
         """개발·퍼블리셔에게 그대로 넘기는 수정 요청 한 장.

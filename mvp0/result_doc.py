@@ -249,8 +249,12 @@ def 한장(자료, 조각, 순번=0, 전체=1):
             f'<div class="list"><h4>수정필요 {len(자료["지적"])}건</h4>{목록}</div></div></section>')
 
 
-def build(project_uuid, scope='open', db_path=None):
-    """프로젝트 하나의 검수결과서 HTML. scope: 'open'(수정필요만) / 'all'(전부)."""
+def build(project_uuid, scope='open', db_path=None, screen_uuid=None, page_ids=None):
+    """검수결과서 HTML. scope: 'open'(수정필요만) / 'all'(전부).
+
+    `screen_uuid` 를 주면 그 화면 한 장만, `page_ids` 를 주면 그 중 고른 검수 페이지만 담는다.
+    둘 다 없으면 프로젝트 전부다 — 담는 규칙(제외한 것은 빼기)은 어느 쪽이든 같다.
+    """
     if scope not in SCOPES:
         scope = 'open'
     conn = dbmod.connect(db_path or dbmod.DB_PATH)
@@ -259,10 +263,15 @@ def build(project_uuid, scope='open', db_path=None):
         conn.close()
         return None
     화면들 = conn.execute('SELECT * FROM screen WHERE project_id=? ORDER BY human_key, name', (project_uuid,)).fetchall()
+    if screen_uuid:
+        화면들 = [r for r in 화면들 if r['uuid'] == screen_uuid]
+    고른쪽 = set(page_ids or ())
     묶음 = []
     for s in 화면들:
         자료들 = []
         for 쪽 in queries.pages_of_screen(conn, s['uuid']):
+            if 고른쪽 and 쪽['uuid'] not in 고른쪽:
+                continue
             행 = conn.execute('SELECT * FROM inspection_page WHERE uuid=?', (쪽['uuid'],)).fetchone()
             쪽 = dict(쪽, design_img=행['design_img'])
             자료 = 페이지자료(conn, s, 쪽)
@@ -283,6 +292,8 @@ def build(project_uuid, scope='open', db_path=None):
         본문 += ('<section class="sheet page"><p class="none">담을 검수 페이지가 없습니다. '
                  '수정필요를 올린 뒤 다시 받으세요.</p></section>')
     제목 = f'개발화면 검수결과서 · {project["name"]}'
+    if screen_uuid and 화면들:
+        제목 += f' · {화면들[0]["name"]}'
     return (f'<!doctype html><html lang=ko><head><meta charset=utf-8>'
             f'<meta name=viewport content="width=device-width,initial-scale=1">'
             f'<title>{_e(제목)}</title>{s1_tokens.품기()}<style>{CSS}</style></head><body>'
@@ -370,3 +381,20 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 }
 @page{size:A4 landscape;margin:12mm}
 '''
+
+
+# ── 검수 페이지 목록에서 바로 받기 ────────────────────────────────────────
+# '삭제'·'페이지 옮기기' 와 한 줄에 선다. 고른 것이 있으면 그 장만, 없으면 그 화면 전부를 담는다.
+
+받기JS = """
+(function () {
+  var 단추 = document.getElementById('result-doc-get');
+  if (!단추) return;
+  단추.addEventListener('click', function () {
+    var 고름 = Array.prototype.slice.call(document.querySelectorAll('input[name=page]:checked'));
+    var 주소 = 단추.dataset.href;
+    if (고름.length) 주소 += '?pages=' + 고름.map(function (c) { return c.value; }).join(',');
+    location.href = 주소;
+  });
+})();
+"""
