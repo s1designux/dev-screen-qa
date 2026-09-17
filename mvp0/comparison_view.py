@@ -27,13 +27,38 @@ JS = r'''
  const hover=document.createElement('div');hover.className='cv-hover';hover.hidden=true;hover.innerHTML='<div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(hover);
  const pop=document.createElement('div');pop.className='cv-hover cv-pop';pop.hidden=true;pop.innerHTML='<div class="cv-pop-head"><b class="cv-pop-title">비교</b><button type="button" class="cv-pop-x" aria-label="닫기">닫기</button></div><p class="cv-pop-note" hidden></p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(pop);
  pop.querySelector('.cv-pop-x').onclick=()=>{pop.hidden=true;};
+ // 이 화면의 자(尺) — 곱하고 나누는 셈은 자.py 한 곳에만 있다. 그림이 바뀌면 다시 잰다.
+ function 자(){const ref=window.qaDesignRef,화면폭=(ref&&ref.w)||v.naturalWidth;
+  return window.자({시안폭:화면폭,화면폭:화면폭,개발그림폭:v.naturalWidth,시안그림폭:d.naturalWidth});}
  const 색=(n,f)=>{const x=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return x||f;};   // 캔버스는 var(...)를 못 읽는다 — 값으로 풀어 준다
  let lastPt={x:innerWidth/2,y:innerHeight/2};
  document.addEventListener('pointerdown',e=>{lastPt={x:e.clientX,y:e.clientY};if(!pop.hidden&&!pop.contains(e.target))pop.hidden=true;},true);
  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;pop.hidden=true;if(mode==='crop')setMode('side');});   // 부분 확대는 Esc 로 빠져나온다
- function placePop(){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';const r=pop.getBoundingClientRect();
-  const left=Math.max(12,Math.min(innerWidth-r.width-12,lastPt.x-r.width/2));let top=lastPt.y-r.height-16;
-  if(top<12)top=Math.min(innerHeight-r.height-12,lastPt.y+22);
+ // 앱 검수는 카드를 피해 옆(넓은 쪽)에, PC 웹은 그 카드 **바로 위**에 띄운다 — 카드도 좌우 칸도 가리지 않게(river 2026-09-16 · 2026-09-17)
+ const 카드위=document.body.classList.contains('web-view');
+ function placePop(avoid){pop.hidden=false;pop.style.left='0px';pop.style.top='0px';pop.style.width='';
+  const 카드=avoid&&avoid.getBoundingClientRect?avoid.getBoundingClientRect():null;
+  if(카드위&&카드&&카드.width){
+   pop.style.width=Math.max(320,Math.min(카드.width,innerWidth-24))+'px';
+   const q=pop.getBoundingClientRect(),틈=10;
+   let top=카드.top-틈-q.height;
+   if(top<12)top=(카드.bottom+틈+q.height<=innerHeight-12)?카드.bottom+틈   // 위가 좁으면 카드 아래로
+            :Math.max(12,Math.min(innerHeight-q.height-12,카드.top-틈-q.height));
+   pop.style.left=Math.max(12,Math.min(innerWidth-q.width-12,카드.left))+'px';
+   pop.style.top=Math.max(12,top)+'px';
+   return;}
+  const r=pop.getBoundingClientRect();
+  let left=null;
+  const a=카드;
+  if(a&&a.width){
+   const 왼자리=a.left-12,오른자리=innerWidth-a.right-12;
+   if(왼자리>=r.width+12)left=Math.max(12,a.left-12-r.width);
+   else if(오른자리>=r.width+12)left=Math.min(innerWidth-r.width-12,a.right+12);
+  }
+  if(left===null)left=Math.max(12,Math.min(innerWidth-r.width-12,lastPt.x-r.width/2));
+  let top;
+  if(a&&a.width)top=Math.min(innerHeight-r.height-12,Math.max(12,a.top));   // 카드 옆이면 카드 머리에 맞춘다
+  else{top=lastPt.y-r.height-16;if(top<12)top=Math.min(innerHeight-r.height-12,lastPt.y+22);}
   pop.style.left=left+'px';pop.style.top=Math.max(12,top)+'px';}
  let mode='side',dx=0,dy=0,start=null,autoDy=null,userSet=false;
  const key='qa-view-offset:'+location.pathname+location.search+':'+d.getAttribute('src')+':'+v.getAttribute('src');
@@ -142,7 +167,7 @@ JS = r'''
  function cropGray(im,x,y,w,h){return grayOf(g=>g.drawImage(im,x,y,w,h,0,0,SN,SM),SN,SM);}
  function designBoxFor(bx,by,bw,bh){   // 개발 그림의 이 자리가 시안에서는 어디인지 — 후보를 두고 그림째 견줘 고른다
   const mk=[bx,by,bw,bh].map(n=>Math.round(n/8)).join(',');if(boxMemo.has(mk))return boxMemo.get(mk);
-  const P=profiles(),al=window.qaAlign,sx=d.naturalWidth/v.naturalWidth,t=overlayDy();
+  const P=profiles(),al=window.qaAlign,sx=자().시안그림배/자().개발그림배,t=overlayDy();
   const wide=t?(by-t)*sx:((al&&al.s)?(by-(al.ty-(al.ctop||0)*al.s))/al.s:null);   // 화면 전체로 본 자리
   const cand=[],add=y=>{if(isFinite(y)&&y>-bh*sx&&y<d.naturalHeight&&!cand.some(c=>Math.abs(c-y)<3))cand.push(y);};
   if(P.d&&P.v){const g=shiftFor(by,bh);if(g!==null&&g!==undefined)add((by*P.v.k+g)/P.d.k);
@@ -163,10 +188,13 @@ JS = r'''
   const t=overlayDy();if(t)return t;
   const al=window.qaAlign;if(al&&al.s)return al.ty-(al.ctop||0)*al.s;
   return null;}
- function fitBox(b,ratio){let w=b.w,h=b.h;if(w/h<ratio)w=h*ratio;else h=w/ratio;return{x:b.x+b.w/2-w/2,y:b.y+b.h/2-h/2,w:w,h:h};}
+ // 시안 쪽도 **개발과 똑같은 넓이**를 잘라 온다 — 시안 요소 상자 크기를 그대로 쓰면 둘이 다른 배율로 보인다.
+ // (개발 1px = 시안 scale px. 가운데만 시안 요소에 맞추고, 잘라 오는 넓이는 개발 쪽에서 받아온다.)
+ function 같은배율(b,w,h){const ㅈ=자(),c=ㅈ.화면_시안그림(ㅈ.개발그림_화면({x:0,y:0,w:w,h:h}));
+  return{x:b.x+b.w/2-c.w/2,y:b.y+b.h/2-c.h/2,w:c.w,h:c.h};}
  function crop(box,target=dialog,dbox){if(!v.naturalWidth||!d.naturalWidth)return false;const x=Math.max(0,box.x),y=Math.max(0,box.y),w=Math.min(v.naturalWidth,box.x+box.w)-x,h=Math.min(v.naturalHeight,box.y+box.h)-y;if(w<3||h<3)return false;
- const scale=d.naturalWidth/v.naturalWidth;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
- const db=dbox?fitBox(dbox,w/h):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
+ const scale=자().시안그림배/자().개발그림배;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
+ const db=dbox?같은배율(dbox,w,h):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
  window.qaLastCrop={dev:{x:x,y:y,w:w,h:h},design:db};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
  target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle=색('--color-surface-default','#fff');ctx.fillRect(0,0,outW,outH);
   if(i)ctx.drawImage(v,x,y,w,h,0,0,outW,outH);
@@ -182,15 +210,18 @@ JS = r'''
  window.qaCompareIssue=function(id){
   const g=document.getElementById('box-'+id)||document.getElementById('abox-'+id);if(!g)return;
   const rect=g.tagName.toLowerCase()==='rect'?g:g.querySelector('rect'),svg=rect&&rect.ownerSVGElement;if(!rect||!svg)return;
-  const b=svg.viewBox.baseVal,kx=v.naturalWidth/b.width,ky=v.naturalHeight/b.height;
+  const b=svg.viewBox.baseVal,kx=v.naturalWidth/b.width,ky=v.naturalHeight/b.height,ㅈ=자();
+  const 여백=20;   // 둘레에 붙이는 여백은 **화면 기준** 한 값이다 — 그림마다 제 자로 옮긴다
   const card=document.getElementById('issue-'+id)||document.getElementById('cand-'+id);
   const no=card?((card.querySelector('.pinno')||{}).textContent||'').trim():'';
   pop.querySelector('.cv-pop-title').textContent=no?('번호 '+no+' — 디자인 · 개발 나란히 보기'):'디자인 · 개발 나란히 보기';
-  const bx=(Number(rect.getAttribute('x'))-20)*kx,by=(Number(rect.getAttribute('y'))-20)*ky,
-        bw=(Number(rect.getAttribute('width'))+40)*kx,bh=(Number(rect.getAttribute('height'))+40)*ky;
+  const 여백개발=ㅈ.길이_개발그림(여백);
+  const bx=Number(rect.getAttribute('x'))*kx-여백개발,by=Number(rect.getAttribute('y'))*ky-여백개발,
+        bw=Number(rect.getAttribute('width'))*kx+여백개발*2,bh=Number(rect.getAttribute('height'))*ky+여백개발*2;
   const ref=window.qaDesignRef,db=(window.qaDesignBox||{})[id];
   let dbox=null;
-  if(db&&ref&&ref.w){const kd=d.naturalWidth/ref.w;dbox={x:(db[0]-20)*kd,y:(db[1]-20)*kd,w:(db[2]+40)*kd,h:(db[3]+40)*kd};}
+  if(db&&ref&&ref.w){const g=ㅈ.화면_시안그림({x:db[0],y:db[1],w:db[2],h:db[3]}),여백시안=ㅈ.길이_시안그림(여백);
+   dbox={x:g.x-여백시안,y:g.y-여백시안,w:g.w+여백시안*2,h:g.h+여백시안*2};}
   else dbox=designBoxFor(bx,by,bw,bh);   // 밀린 만큼 가늠해서, 안 되면 화면 전체 맞춤값으로
   if(!crop({x:bx,y:by,w:bw,h:bh},pop,dbox))return;
   const cs=pop.querySelectorAll('canvas'),note=pop.querySelector('.cv-pop-note');
@@ -199,7 +230,7 @@ JS = r'''
    :개발빔?'개발 그림의 이 자리는 비어 있어요 — 핀 자리가 실제 요소와 어긋났을 수 있어요.'
    :시안빔?'시안의 이 자리는 비어 있어요 — 개발에만 있는 요소이거나, 자리를 못 맞췄을 수 있어요.':'';
   note.hidden=!note.textContent;
-  placePop();
+  placePop(card);
   return{dev:{x:bx,y:by,w:bw,h:bh},design:dbox};};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
  function reload(){profCache=null;shiftCache=null;dyCache=undefined;shiftMemo.clear();boxMemo.clear();autoDy=pageDy();if(!userSet)dy=autoDy||0;paint();}   // 그림이 바뀌면 줄무늬도 다시 잰다
  new ResizeObserver(paint).observe(host);d.addEventListener('load',reload);v.addEventListener('load',reload);

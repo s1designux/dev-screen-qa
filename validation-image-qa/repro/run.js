@@ -6,7 +6,8 @@ const uiPath = process.argv[2] || path.resolve(here, '../../engine/ui.html');
 const outPrefix = process.argv[3] || 'out';
 const ui = fs.readFileSync(fs.existsSync(uiPath) ? uiPath : '/Users/designgroup_02/dev-screen-qa/engine/ui.html', 'utf8');
 const el = JSON.parse(fs.readFileSync(path.join(here, process.env.ELEMENTS_JSON || 'elements.json'), 'utf8'));
-const elements = el.rows.map(r => {
+// 포털 자료를 그대로 쓰는 길 — elements 파일에 native 배열이 있으면 그대로 쓴다(값을 다시 짜맞추지 않는다).
+const elements = el.native ? el.native : el.rows.map(r => {
   const o = {}; el.cols.forEach((c, i) => o[c] = r[i]);
   const e = { id: o.id, name: o.name || o.id, type: o.type, kind: o.kind, depth: o.depth, parentId: o.parentId, parentType: null, box: { x: o.x, y: o.y, w: o.w, h: o.h }, text: o.text || '' };
   if (o.chain) e.chain = o.chain; if (o.propRef) e.propRef = o.propRef; // 역할 판단용(있을 때만)
@@ -106,7 +107,7 @@ async function __run(){
     lx.save();lx.beginPath();lx.rect(0,(z.y0-model.ty)/model.s+trimUsed,cap.width,(z.y1-z.y0)/model.s);lx.clip();
     lx.setTransform(1/model.s,0,0,1/model.s,-model.tx/model.s,-z.ty/model.s+trimUsed);lx.drawImage(dc,0,0);lx.restore();});
   lx.setTransform(1,0,0,1,0,0);
-  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,bands:model.bands||null,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,range:pairResult.range,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
+  var out={model:{mode:model.mode,s:model.s,tx:model.tx,ty:model.ty,score:model.score,anchors:model.anchors,bands:model.bands||null,fit:model.fit==null?null:model.fit,rescued:!!model.rescued,thin:!!model.thin,logicalScale:dc.width/design.width},timing:{alignMs:Math.round(t1-t0),diffMs:Math.round(t2-t1)},designImg:{w:dc.width,h:dc.height},capture:{w:cap.width,h:cap.height},candidates:lite,notices:cands.notices,range:pairResult.range,sections:cands.sections,units:window.__unitDbg,secVotes:window.__secVotes,anchorVotes:window.__anchorVotes,anchorList:window.__anchorList,areaBoxes:window.__areaBoxes,areaGrid:window.__areaGrid,dbg:window.__dbg,textDbg:window.__textDbg};
   document.body.innerHTML='<pre id="reproOut">'+JSON.stringify(out).replace(/</g,"&lt;")+'</pre><img id="reproOverlay" src="'+ov.toDataURL("image/png")+'"><img id="reproAlign" src="'+ovl.toDataURL("image/png")+'">';
   document.title="REPRO DONE";
 }

@@ -1,6 +1,6 @@
 // 화면별 [후보 · 숨김 · 볼 것] 세기. 쓰기: node 열넷세기.js <앞> [견줄앞]
 const fs=require('fs');
-const 화면=['board','vehicle','dash','door','stay','findid','login','table','codes','route','home1','home2','home3','home4'];
+const 화면=['board','vehicle','dash','door','stay','findid','login','table','codes','route','home1','home2','home3','home4','appkbd'];
 const [앞,전]=[process.argv[2],process.argv[3]];
 function 재기(p,s){const f=`${p}_${s}.json`;if(!fs.existsSync(f))return null;
   const c=(JSON.parse(fs.readFileSync(f,'utf8')).candidates)||[];

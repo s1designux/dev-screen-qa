@@ -208,7 +208,8 @@ textarea.s { width:100%; box-sizing:border-box; padding:var(--spacing-6) var(--s
 textarea.s:focus { outline:none; border-color:var(--color-border-focus); box-shadow:0 0 0 2px var(--color-blue-50); }
 textarea.s::placeholder { color:var(--form-placeholder); }
 table.list td { vertical-align:top; }
-table.list input.s { width:100%; max-width:none; box-sizing:border-box; }
+table.list input.s, table.list select.s { width:100%; max-width:none; box-sizing:border-box; }
+table.list select.s + input.s { margin-top:var(--spacing-4); }
 /* 비밀번호 칸 — 눈 아이콘을 칸 안 오른쪽에 둔다(S-1 Input · Password 정본).
    숨김 중에는 eye_hide, 보이는 중에는 eye_show. 아이콘 색은 어느 상태에서나 하나다. */
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
@@ -400,16 +401,33 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .rows label:hover { background:var(--color-bg-level-1); }
 .rows .nm { flex:1; min-width:0; word-break:keep-all; }
 .bar { display:flex; gap:var(--spacing-10); align-items:center; margin-top:var(--spacing-16); }
-/* 적는 칸 밑에 내미는 '닮은 것' 판 — 목록 화살표 대신 적는 대로 따라 나온다. */
+/* 적는 칸 밑에 내미는 목록 판 — S-1 Dropdown(옵션 패널) 그대로.
+   적는 칸이 트리거를 겸한다: 적으면 적는 대로 걸러 보이고, 화살표를 누르면 통째로 열린다.
+   색·테두리·그림자·줄높이는 --dropdown-* 토큰만 쓴다(전용 색을 만들지 않는다). */
 .sugwrap { position:relative; flex:1 1 auto; min-width:0; }
 .sugwrap input[type=text] { width:100%; }
-.sug { position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20;
-  background:var(--form-bg); border:1px solid var(--color-border-default);
-  border-radius:var(--radius-control-sm); box-shadow:0 6px 16px -8px rgba(0,0,0,.28);
-  overflow:hidden; }
-.sugrow { padding:var(--spacing-8) var(--spacing-12); font-size:var(--font-size-14); cursor:pointer; }
-.sugrow + .sugrow { border-top:1px solid var(--color-border-subtle); }
-.sugrow:hover, .sugrow.on { background:var(--color-bg-level-1); }
+.sugwrap.has-dd input[type=text] { padding-right:var(--spacing-32); }
+.sug { position:absolute; left:0; right:0; top:calc(100% + var(--spacing-8)); z-index:20;
+  background:var(--color-dropdown-list-bg);
+  border:var(--border-width-1) solid var(--color-dropdown-list-border);
+  border-radius:var(--radius-4); box-shadow:var(--shadow-dropdown);
+  padding-block:var(--spacing-4); min-width:100px; max-height:264px; overflow-y:auto; }
+.sugrow { display:flex; align-items:center; min-height:var(--sizing-34);
+  padding-block:var(--spacing-4); padding-inline:var(--spacing-12);
+  font-size:var(--font-size-14); color:var(--color-dropdown-option-label-default);
+  cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sugrow:hover, .sugrow.on { background:var(--color-dropdown-option-bg-hover);
+  color:var(--color-dropdown-option-label-hover); }
+.sugrow[aria-selected="true"] { color:var(--color-dropdown-option-label-selected); }
+/* 목록 여는 화살표 — 칸 안 오른쪽. 닫힘은 아래(∨), 열림은 위(∧) 로 돌린다(S-1 Select). */
+.ddbtn { position:absolute; top:50%; right:var(--spacing-4); transform:translateY(-50%);
+  width:var(--sizing-24); height:var(--sizing-24); min-width:0; padding:0; border:0;
+  background:none; color:var(--color-form-control-icon-default);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.ddbtn svg { display:block; width:var(--sizing-24); height:var(--sizing-24);
+  transform:rotate(90deg); }
+.ddbtn[aria-expanded="true"] svg { transform:rotate(-90deg); }
+.ddbtn[hidden] { display:none; }   /* display:flex 가 hidden 을 이기지 않게 */
 
 /* 칸 한 줄은 두 칸이든 단추가 붙든 오른쪽 끝이 늘 같은 자리에서 끝난다. */
 .form { max-width:460px; }
@@ -533,6 +551,12 @@ def _그림(번호, 기본):
 <path d="M9 0C5.07109 0 1.55207 2.01944 0.0524854 5.14857C-0.0174951 5.28853 -0.0174951 5.44849 0.0524854 5.57845C1.55207 8.70758 5.07109 10.727 9 10.727C12.9289 10.727 16.4379 8.70758 17.9475 5.57845C18.0175 5.43849 18.0175 5.27853 17.9475 5.14857C16.4379 2.01944 12.9289 0 9 0ZM9 9.7273C5.54096 9.7273 2.46182 8.01777 1.0622 5.35851C2.46182 2.70925 5.54096 0.999722 9 0.999722C12.459 0.999722 15.5382 2.70925 16.9378 5.36851C15.5382 8.02777 12.459 9.73729 9 9.73729V9.7273Z"/>
 <path d="M9.00047 8.57777C10.7728 8.57777 12.2096 7.14101 12.2096 5.36866C12.2096 3.59632 10.7728 2.15956 9.00047 2.15956C7.22813 2.15956 5.79136 3.59632 5.79136 5.36866C5.79136 7.14101 7.22813 8.57777 9.00047 8.57777Z"/>
 </g></svg>"""
+
+# 꺾쇠 아이콘 — S-1 Select 의 열고닫기 표시(chevron). 정본은 오른쪽(›)이고, 닫힘은 시계 90°(아래 ∨),
+# 열림은 반시계 90°(위 ∧) 로 돌려 쓴다(ui-library select.css 와 같은 철학). 폐쇄망이라 글자로 박아 둔다.
+꺾쇠아이콘 = ('<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+         '<path d="M10.375 7.75L14.625 12L10.375 16.25" stroke="currentColor" '
+         'stroke-linecap="square"/></svg>')
 
 걸음 = [("/", "① 디자인 업로드"), ("/초안", "② 찍을 목록"),
       ("/조건", "③ 조건 확인"), ("/촬영", "④ 전체 촬영")]
@@ -873,6 +897,8 @@ def _메뉴띠말(것):
     """'읽고 있는 티' 한 줄 — 무엇을 몇 개째 읽고 있는지 그대로 보인다."""
     if 것.get("까닭"):
         return f"메뉴를 읽지 못했습니다 — {것['까닭']}"
+    if 것.get("아직"):                      # 적을 것이 남았을 뿐 — 붉게 보이지 않는다
+        return 것["아직"]
     if 것.get("진행중"):
         지금, 전부 = 것.get("지금", 0), 것.get("전부", 0)
         읽는것 = 것.get("읽는것") or ""
@@ -894,10 +920,17 @@ def 화면_초안(알림=""):
 
     def 셋째칸(i, r, 이어서):
         if 웹:      # 웹은 누를 메뉴가 아니라 '개발 주소'를 적는다(메뉴를 훑어 두면 저절로 채워진다)
-            return (f'<td><input class="s" type="text" name="주소_{i}" id="주소_{i}" '
-                    f'list="메뉴들" value="{_e(r.get("주소",""))}" placeholder="/login" '
-                    f'autocomplete="off">'
-                    f'<div class="hint" id="닮음_{i}"></div></td>')
+            # 칸은 하나다 — 적으면 적는 대로 들어가고, 화살표를 누르면 읽어 둔 메뉴가 뜬다.
+            return (f'<td><div class="sugwrap">'
+                    f'<input class="s" type="text" name="주소_{i}" id="주소_{i}" '
+                    f'value="{_e(r.get("주소",""))}" placeholder="/login" autocomplete="off" '
+                    f'role="combobox" aria-expanded="false" aria-autocomplete="list" '
+                    f'aria-controls="주소목록_{i}">'
+                    f'<button type="button" class="ddbtn" id="주소열기_{i}" tabindex="-1" hidden '
+                    f'aria-label="읽어 둔 메뉴 보기" aria-expanded="false" '
+                    f'aria-controls="주소목록_{i}">{꺾쇠아이콘}</button>'
+                    f'<div class="sug" id="주소목록_{i}" role="listbox" hidden></div>'
+                    f'</div><div class="hint" id="닮음_{i}"></div></td>')
         return (f'<td><input class="s" type="text" name="누를것_{i}" value="{_e(r["누를것"])}" '
                 f'{"disabled" if 이어서 else ""}></td>')
 
@@ -956,9 +989,10 @@ def 화면_초안(알림=""):
 
     사전 = 앱사전.읽기()
     # 웹 화면에는 앱 이름이 섞여 나오지 않게, 그 갈래에 맞는 것만 보여 준다.
+    # 가르는 열쇠는 **사람이 플러그인에서 고른 유형**이다 — 웹 주소가 적혀 있는지로 짐작하면
+    # 웹 주소를 함께 적어 둔 앱이 사이트로 넘어가 앱 화면에서 사라진다(2026-09-17).
     보일사전 = {k: v for k, v in 사전.items()
-             if bool(v.get("기본주소")) == 웹인가(작업)} or (
-                 {} if 웹인가(작업) else 사전)
+             if 매체.웹인가(앱사전.유형짚기(v)) == 웹인가(작업)} or 사전
     제안코드 = 서비스코드제안(작업)
     제안출처 = ("적힌것" if (작업.get("서비스코드") or "").strip()
             else "기억" if (사전.get(작업.get("앱이름", "")) or {}).get("서비스코드") else "짐작")
@@ -1192,20 +1226,21 @@ def 화면_초안(알림=""):
     <div class="card"><h2>찍을 목록 <span class="muted">· {len(작업["초안"])}개 · 디자인에 놓인 차례 그대로 · 틀린 건 고치세요</span></h2>
       <table class="list">
         <colgroup><col style="width:30px"><col style="width:72px"><col style="width:18%">
-          <col style="width:15%"><col style="width:12%"><col><col style="width:120px"></colgroup>
+          <col style="width:13%"><col style="width:20%"><col><col style="width:120px"></colgroup>
         <thead><tr><th></th><th>번호</th><th>화면 이름</th><th>상태</th>
         <th>{'개발 주소 <span class="muted">(기본 주소 뒤에 붙는 부분)</span>'
              if 웹 else '눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span>'}</th>
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
         <th>화면 묶음</th></tr></thead>
         <tbody>{행}</tbody></table>
-      <datalist id="메뉴들"></datalist>
       <script>
         /* 사이트 메뉴를 읽는 동안, 읽는 대로 주소 칸을 채운다.
            사람이 적고 있는 칸과 이미 적힌 칸은 건드리지 않는다. */
         (function () {{
           var 웹 = {1 if 웹 else 0};
           if (!웹) return;
+          var 짝기억 = {{}}, 자동넣음 = {{}}, 붙임 = {{}}, 훑는중 = false;
+          var 메뉴기억 = [], 고른줄 = {{}};
           function 그리기(것) {{
             var 말 = document.getElementById('메뉴말');
             if (말) {{
@@ -1217,39 +1252,153 @@ def 화면_초안(알림=""):
               단추.disabled = !!것.진행중;
               단추.textContent = 것.진행중 ? '읽는 중' : 'IA 읽어오기';
             }}
-            var 목록 = document.getElementById('메뉴들');
-            if (목록 && 것.메뉴) {{
-              목록.innerHTML = 것.메뉴.map(function (m) {{
-                return '<option value="' + m.주소길 + '">' + m.이름 + '</option>';
-              }}).join('');
-            }}
+            훑는중 = !!것.진행중;
+            메뉴기억 = 것.메뉴 || 메뉴기억;
             Object.keys(것.짝 || {{}}).forEach(function (i) {{
               var 칸 = document.getElementById('주소_' + i);
-              var 표 = document.getElementById('닮음_' + i);
-              var 하나 = 것.짝[i];
-              if (!칸 || !표) return;
-              if (하나.확정) {{
-                if (!칸.value && document.activeElement !== 칸) {{
-                  칸.value = 하나.주소;
-                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름
-                    + ' · 닮음 ' + 하나.닮음 + '%. 다르면 고치세요';
-                }} else if (칸.value === 하나.주소) {{
-                  표.textContent = '자동으로 넣었습니다 — ' + 하나.메뉴이름 + ' · 닮음 ' + 하나.닮음 + '%';
-                }}
-                return;
+              if (!칸) return;
+              짝기억[i] = 것.짝[i];
+              /* 가장 닮은 것을 미리 골라 둔다 — 빈 칸에 한 번만, 바꾸면 다시 고르지 않는다(사람이 이긴다). */
+              if (것.짝[i].주소 && !칸.value && !자동넣음[i] && document.activeElement !== 칸) {{
+                자동넣음[i] = true;
+                칸.value = 것.짝[i].주소;
               }}
-              /* 애매한 것은 넣지 않는다 — 가장 닮은 것만 내밀고 사람이 누른다. */
-              if (칸.value) return;
-              표.innerHTML = '어느 메뉴인지 애매합니다. 가장 닮은 것은 <b>' + 하나.메뉴이름
-                + '</b> (' + 하나.닮음 + '%) '
-                + '<button type="button" class="pickbtn" data-주소="' + 하나.주소
-                + '" data-줄="' + i + '">이걸로</button>';
-              var 단추 = 표.querySelector('button');
-              if (단추) 단추.onclick = function () {{
-                칸.value = 단추.getAttribute('data-주소');
-                표.textContent = '눌러서 넣었습니다 — ' + 하나.메뉴이름;
-              }};
             }});
+            [].forEach.call(document.querySelectorAll('input[id^="주소_"]'), function (칸) {{
+              고르개(칸.id.slice(3));
+            }});
+          }}
+          function 안전(글) {{
+            return String(글 == null ? '' : 글)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;');
+          }}
+          /* 개발 주소는 칸 하나다 — 적으면 적는 대로 들어가고, 화살표를 누르면 읽어 둔 메뉴가 뜬다.
+             목록은 닮은 것이 맨 위, 그 밑에 사이트의 모든 메뉴. 고르든 적든 값은 한 곳에만 있다. */
+          function 목록줄(i) {{
+            var 하나 = 짝기억[i] || {{}};
+            var 것들 = [], 뽑힘 = {{}};
+            (하나.후보 || []).forEach(function (c) {{
+              뽑힘[c.주소] = 1;
+              것들.push({{주소: c.주소, 이름: c.메뉴이름, 닮음: c.닮음}});
+            }});
+            메뉴기억.forEach(function (m) {{
+              if (!뽑힘[m.주소길]) 것들.push({{주소: m.주소길, 이름: m.이름, 닮음: 0}});
+            }});
+            return 것들;
+          }}
+          function 닫기(i) {{
+            var 판 = document.getElementById('주소목록_' + i);
+            var 칸 = document.getElementById('주소_' + i);
+            var 단추 = document.getElementById('주소열기_' + i);
+            if (판) {{ 판.hidden = true; 판.innerHTML = ''; }}
+            고른줄[i] = -1;
+            if (칸) 칸.setAttribute('aria-expanded', 'false');
+            if (단추) 단추.setAttribute('aria-expanded', 'false');
+          }}
+          function 칠하기(i) {{
+            var 판 = document.getElementById('주소목록_' + i);
+            [].forEach.call(판.children, function (e, n) {{
+              e.classList.toggle('on', n === 고른줄[i]);
+            }});
+          }}
+          function 넣기(i, 주소) {{
+            var 칸 = document.getElementById('주소_' + i);
+            칸.value = 주소; 자동넣음[i] = true;
+            닫기(i); 안내(i); 칸.focus();
+          }}
+          function 열기(i, 거를까) {{
+            var 칸 = document.getElementById('주소_' + i);
+            var 판 = document.getElementById('주소목록_' + i);
+            var 단추 = document.getElementById('주소열기_' + i);
+            if (!칸 || !판) return;
+            var 값 = (칸.value || '').trim();
+            var 찾을것 = 거를까 ? 값.toLowerCase() : '';
+            var 것들 = 목록줄(i).filter(function (o) {{
+              return !찾을것 || (o.주소 + ' ' + o.이름).toLowerCase().indexOf(찾을것) >= 0;
+            }});
+            if (!것들.length) return 닫기(i);
+            판.innerHTML = 것들.map(function (o) {{
+              /* 칸 폭을 넘는 줄은 말줄임으로 자르고, 마우스를 올리면 전체를 보여준다(S-1 Dropdown). */
+              var 온글 = o.이름 + ' · ' + o.주소 + (o.닮음 ? ' · 유사도 ' + o.닮음 + '%' : '');
+              return '<div class="sugrow" role="option" data-주소="' + 안전(o.주소) + '"'
+                + ' title="' + 안전(온글) + '"'
+                + ' aria-selected="' + (o.주소 === 값) + '">' + 안전(o.이름)
+                + '<span class="muted"> · ' + 안전(o.주소)
+                + (o.닮음 ? ' · ' + o.닮음 + '%' : '') + '</span></div>';
+            }}).join('');
+            [].forEach.call(판.children, function (e) {{
+              e.addEventListener('mousedown', function (ev) {{
+                ev.preventDefault(); 넣기(i, e.getAttribute('data-주소'));
+              }});
+            }});
+            고른줄[i] = -1; 판.hidden = false;
+            칸.setAttribute('aria-expanded', 'true');
+            if (단추) 단추.setAttribute('aria-expanded', 'true');
+          }}
+          /* 줄마다 한 번만 배선한다. 읽어 둔 메뉴가 없으면 화살표를 감춰 그냥 적는 칸으로 둔다. */
+          function 고르개(i) {{
+            var 칸 = document.getElementById('주소_' + i);
+            var 단추 = document.getElementById('주소열기_' + i);
+            if (!칸) return;
+            if (단추) 단추.hidden = !메뉴기억.length;
+            칸.parentNode.classList.toggle('has-dd', !!메뉴기억.length);
+            if (!붙임[i]) {{
+              붙임[i] = true;
+              고른줄[i] = -1;
+              칸.addEventListener('input', function () {{
+                열기(i, true); 안내(i);
+              }});
+              칸.addEventListener('blur', function () {{ setTimeout(function () {{ 닫기(i); }}, 120); }});
+              칸.addEventListener('keydown', function (e) {{
+                var 판 = document.getElementById('주소목록_' + i);
+                var 열림 = !판.hidden && 판.children.length;
+                if (e.key === 'ArrowDown' && !열림) {{ e.preventDefault(); return 열기(i, false); }}
+                if (!열림) {{ if (e.key === 'Escape') 닫기(i); return; }}
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {{
+                  e.preventDefault();
+                  var 끝 = 판.children.length;
+                  고른줄[i] = (고른줄[i] + (e.key === 'ArrowDown' ? 1 : 끝 - 1) + 끝) % 끝;
+                  칠하기(i);
+                }} else if (e.key === 'Home' || e.key === 'End') {{
+                  e.preventDefault();
+                  고른줄[i] = e.key === 'Home' ? 0 : 판.children.length - 1;
+                  칠하기(i);
+                }} else if (e.key === 'Enter') {{
+                  /* 목록이 열려 있는 동안의 엔터는 목록을 다루는 것이다 — 폼을 보내지 않는다. */
+                  e.preventDefault();
+                  if (고른줄[i] >= 0) 넣기(i, 판.children[고른줄[i]].getAttribute('data-주소'));
+                  else 닫기(i);
+                }} else if (e.key === 'Escape') {{
+                  e.preventDefault(); 닫기(i);
+                }}
+              }});
+              if (단추) {{
+                단추.addEventListener('mousedown', function (e) {{ e.preventDefault(); }});
+                단추.addEventListener('click', function () {{
+                  var 판 = document.getElementById('주소목록_' + i);
+                  if (!판.hidden) {{ 닫기(i); 칸.focus(); return; }}
+                  칸.focus(); 열기(i, false);
+                }});
+              }}
+            }}
+            안내(i);
+          }}
+          function 안내(i) {{
+            var 칸 = document.getElementById('주소_' + i);
+            var 표 = document.getElementById('닮음_' + i);
+            var 하나 = 짝기억[i] || {{}};
+            if (!칸 || !표) return;
+            var 값 = (칸.value || '').trim(), 닮은것 = null;
+            (하나.후보 || []).forEach(function (c) {{ if (c.주소 === 값) 닮은것 = c; }});
+            if (!값) {{
+              표.textContent = (메뉴기억.length && !훑는중) ? '메뉴에서 고르거나 직접 적으세요' : '';
+            }} else if (닮은것) {{
+              /* 숫자만 적는다 — 자동으로 넣었는지 사람이 골랐는지는 말하지 않는다(river 2026-09-17). */
+              표.textContent = '유사도 ' + 닮은것.닮음 + '%';
+            }} else {{
+              표.textContent = '';
+            }}
           }}
           function 한번() {{
             fetch('/메뉴훑기/상태').then(function (r) {{ return r.json(); }}).then(function (것) {{
@@ -1258,7 +1407,16 @@ def 화면_초안(알림=""):
             }}).catch(function () {{}});
           }}
           window.메뉴다시 = function () {{
-            fetch('/메뉴훑기', {{method: 'POST'}}).then(function () {{ setTimeout(한번, 300); }});
+            /* 화면에 적힌 값을 함께 보낸다 — 저장을 먼저 누르지 않아도 그 주소로 훑게. */
+            var 몸 = new URLSearchParams();
+            ['앱이름', '기본주소', '시험아이디', '시험비밀번호'].forEach(function (k) {{
+              var e = document.getElementById(k);
+              if (e) 몸.append(k, e.value);
+            }});
+            fetch('/메뉴훑기', {{method: 'POST',
+                              headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                              body: 몸.toString()}})
+              .then(function () {{ setTimeout(한번, 300); }});
           }};
           한번();
         }})();
@@ -1880,7 +2038,15 @@ class 손님(BaseHTTPRequestHandler):
                      "페이지": []}
         작업["파일주소"] = ""
         작업["온곳"] = "figma-플러그인"
+        앞유형 = 작업.get("유형") or ""
         작업["유형"] = 꾸러미.get("플랫폼") or "android"
+        # 유형이 바뀌면 **앞 작업에서 쓰던 값은 비운다** — PC 웹을 찍고 나서 앱을 보냈는데
+        # 앞 사이트의 이름·코드·주소·계정이 그대로 남아 앱에 웹 주소가 붙어 저장됐다(2026-09-17).
+        if 앞유형 and 앞유형 != 작업["유형"]:
+            for k in ("앱이름", "서비스코드", "앱주소", "기본주소", "화면폭",
+                      "시험아이디", "시험비밀번호", "로그인", "들어가는길",
+                      "이름표경로", "계정확인", "조건확인"):
+                작업.pop(k, None)
         작업["찍을폭"] = int(꾸러미.get("찍을폭") or 0)
         작업["고른화면"] = 고른화면
         작업["초안"] = 초안만들기.만들기(고른화면, 작업.get("유형"))
@@ -2047,7 +2213,7 @@ class 손님(BaseHTTPRequestHandler):
             앱사전.적어두기(작업["앱이름"], 작업["서비스코드"], 작업.get("앱주소", ""),
                        작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
                        작업.get("기본주소", ""), 작업.get("찍을폭", ""),
-                       작업.get("들어가는길", ""))
+                       작업.get("들어가는길", ""), 유형(작업))
             작업["이름표경로"] = 이름표쓰기(작업)
             작업쓰기(작업)
             return self._이동("/조건")
@@ -2079,7 +2245,22 @@ class 손님(BaseHTTPRequestHandler):
 
         if 길 == "/메뉴훑기":
             # '다시 읽기' — 기억을 무시하고 사이트를 한 번 더 훑는다.
-            메뉴훑기.자동시작(작업읽기(), 다시=True)
+            # 화면에 적힌 값을 그대로 쓴다 — 저장을 먼저 누르지 않아도 되게(2026-09-17).
+            # (빈 칸은 저장된 값을 덮지 않는다. 적은 것만 이긴다.)
+            작업 = 작업읽기()
+            바뀐것 = False
+            for k in ("앱이름", "시험아이디", "시험비밀번호"):
+                if 한개(k) and 한개(k) != (작업.get(k) or ""):
+                    작업[k] = 한개(k)
+                    바뀐것 = True
+            if 한개("기본주소"):
+                주소 = 매체.주소다듬기(한개("기본주소"), 유형(작업))
+                if 주소 != (작업.get("기본주소") or ""):
+                    작업["기본주소"] = 주소
+                    바뀐것 = True
+            if 바뀐것:
+                작업쓰기(작업)
+            메뉴훑기.자동시작(작업, 다시=True)
             return self._json({"시작": True})
 
         if 길 == "/계정확인":
@@ -2097,7 +2278,7 @@ class 손님(BaseHTTPRequestHandler):
             앱사전.적어두기(작업.get("앱이름", ""), 작업.get("서비스코드", ""), 작업.get("앱주소", ""),
                        작업["로그인"], 작업["시험아이디"], 작업["시험비밀번호"],
                        작업.get("기본주소", ""), 작업.get("찍을폭", ""),
-                       작업.get("들어가는길", ""))
+                       작업.get("들어가는길", ""), 유형(작업))
             작업["계정확인"] = 계정한번(작업)
             작업쓰기(작업)
             if 한개("다시촬영") == "1" and 작업["계정확인"].get("됨") is not False:

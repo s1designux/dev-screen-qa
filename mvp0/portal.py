@@ -21,6 +21,7 @@ import issue_categories
 import app_layout
 import card_view
 import comparison_view
+import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import auto_inspect
 import design_receive
 import policy_ui
@@ -29,6 +30,7 @@ import fixdoc_http
 import fixdoc_view
 import page_group
 import page_move
+import result_doc
 
 import json
 import uuid as uuidmod
@@ -360,6 +362,10 @@ def render_list(unresolved_only: bool, round_filter):
         + chip("미해결만", qs(True), unresolved_only)
     )
 
+    conn = dbmod.connect(REAL_DB)
+    프로젝트키 = {r["name"]: r["uuid"] for r in conn.execute("SELECT uuid,name FROM project")}
+    conn.close()
+
     groups_html = ""
     if not rows:
         groups_html = '<p class="empty">조건에 맞는 화면이 없습니다.</p>'
@@ -378,9 +384,12 @@ def render_list(unresolved_only: bool, round_filter):
               <td class="ctr">{_pf_badge(r['pass_fail'])}</td>
               <td class="ctr"><span class="{unres_cls}">{unres}</span> / {r['total']}</td>
             </tr>"""
+        키 = 프로젝트키.get(project)
+        결과서 = (f'<span class="docs">'
+                f'<a class="chip" href="/result/{_esc(키)}?scope=all" target="_blank">개발화면검수서</a></span>') if 키 else ''
         groups_html += f"""
         <section class="group">
-          <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span></h2>
+          <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span>{결과서}</h2>
           <table>
             <thead><tr>
               <th>화면명</th><th>플랫폼</th>
@@ -406,6 +415,10 @@ def render_list(unresolved_only: bool, round_filter):
   </div>
   <footer>미해결 정의 = {" / ".join(UNRESOLVED_STATUSES)} · 원본 = SQLite(DB), 이 화면은 렌더링 뷰</footer>
 </body></html>"""
+
+
+# 방금 만든 검수서 한 벌. 문서가 무거워 다시 열 때 그대로 내준다 — 한 벌만, 5분까지.
+_검수서품기 = {}
 
 
 # ────────────────────────────────────────────────────── 화면 상세 = 페이지 목록
@@ -501,6 +514,10 @@ def render_screen(human_key: str, notice=""):
 
     # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
     move_bar = page_move.막대() if pages else ""
+    # 개발화면검수서 — 전체목록의 것과 같은 문서를 이 화면만 담아 새 창으로 띄운다 (result_doc).
+    # 모양은 옆의 단추와 같다 — 코어 Button(s1_components) 의 `.button` 을 그대로 받는다.
+    doc_bar = (f'<a class="button" href="/screen/{quote(human_key)}/{quote("검수서.html")}"'
+               f' target="_blank">개발화면검수서</a>') if pages else ""
     move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
 
     remove_bar = f"""
@@ -510,6 +527,7 @@ def render_screen(human_key: str, notice=""):
                       (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
         <button type="submit">삭제</button>
         {move_bar}
+        {doc_bar}
       </form>""" if pages else ""
 
     # 스토리보드 ID는 화면 한 장마다 붙는다 (river 2026-09-15). 표 안에서 고쳐 한 번에 저장한다.
@@ -567,6 +585,7 @@ def render_screen(human_key: str, notice=""):
     <section class="group">
       <div class="grouphead">
         <h2>검수 페이지 <span class="muted">· {len(pages)}개 (행 클릭 → 페이지 상세)</span></h2>
+        <span class="muted" id="prewarm-note"></span>
         {remove_bar}
       </div>
       <table>
@@ -585,6 +604,8 @@ def render_screen(human_key: str, notice=""):
   {move_dlg}
   <script>{page_move.JS}</script>
   <script>{page_group.JS}</script>
+  <script>{auto_inspect.PREWARM_JS}</script>
+  <script>qa미리검수({json.dumps(s["uuid"])},{{알림:'prewarm-note'}});</script>
   <footer>업로드일 = 개발화면이 올라온 날 · 검수일 = 그 차수에 검수 기록이 남은 날 (최대 {MAX_ROUNDS}차) ·
   화면 종합: FAIL 우선 · 모든 페이지가 PASS일 때만 PASS · 그 외 미검수 포함</footer>
 </body></html>"""
@@ -596,28 +617,37 @@ def _capture_picker(store, linked, page, sel_run, human_key=''):
     접수함에 연결된 페이지는 /intake/<batch>/capture 로, 촬영기가 바로 넣은 페이지는 /screen/…/page/…/capture 로 보낸다."""
     ui = intake_http.ui
     current = sel_run['dev_img'] if sel_run else None
-    rows = []
+    rows = []   # (순서, 값, 파일, 이름, 예전 촬영인가)
     if linked:
         for cap in store.captures_of_batch(linked['batch_id']):
             name = f"{cap['screen_name']} · {cap['state_name']}" + (' (보류)' if cap['status'] == 'held' else ' (제외)' if cap['status'] == 'excluded' else '')
-            rows.append((cap['seq'], cap['id'], cap['filename'], name))
+            rows.append((cap['seq'], cap['id'], cap['filename'], name, False))
         action = f'/intake/{linked["batch_id"]}/capture'
         controls = ui.hidden('item', linked['id']) + ui.hidden('revision', linked['revision'])
     else:
-        for i, cap in enumerate(design_receive.Receiver(store).sibling_captures(page['uuid'])):
-            rows.append((i, cap['filename'], cap['filename'], f"{cap['page_name']} · {cap['round']}차"))
+        # 같은 화면을 여러 번 찍으면 같은 상태가 여러 장 쌓인다 — 마지막 촬영만 펼쳐 두고 예전 것은 접는다.
+        caps_all = design_receive.Receiver(store).sibling_captures(page['uuid'])
+        last_shot = caps_all[0]['shot_at'] if caps_all else ''
+        for i, cap in enumerate(caps_all):
+            old_shot = cap['shot_at'] != last_shot and cap['filename'] != current
+            rows.append((i, cap['filename'], cap['filename'], f"{cap['page_name']} · {cap['round']}차", old_shot))
         action = f"/screen/{_esc(human_key)}/page/{_esc(page['uuid'])}/capture"
         controls = ''
     caps = rows
     options = ''
-    for seq, value, filename, name in sorted(rows, key=lambda x: (x[2] != current, x[0])):
-        options += (f'<label class="cap-option"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
-                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">비교 중</span><span>{_esc(name)}</span></label>')
+    for seq, value, filename, name, old_shot in sorted(rows, key=lambda x: (x[2] != current, x[4], x[0])):
+        options += (f'<label class="cap-option{" cap-old" if old_shot else ""}"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
+                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">{"예전에 찍은 사진" if old_shot else "비교 중"}</span><span>{_esc(name)}</span></label>')
+    옛것 = sum(1 for r in rows if r[4])
+    접기 = ' hide-old' if 옛것 else ''
+    if 옛것:
+        options += (f'<label class="cap-more"><input type="checkbox" onchange="this.closest(\'.capture-list\').querySelector(\'.capture-options\').classList.toggle(\'hide-old\', !this.checked)">'
+                    f'<span>예전에 찍은 사진도 보기 ({옛것}장)</span></label>')
     pic = f'<img id="plan-capture-preview" src="/uploads/{_esc(current)}" alt="선택한 개발 캡처">' if current else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
     design = f'<img class="design-original" src="/uploads/{_esc(page["design_img"])}" alt="디자인 원본">' if page.get('design_img') else '<span class="ph">디자인 없음</span>'
     comparison = (f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image">{design}</div></section>'
                   f'<section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div>'
-                  f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options">{options}</div></aside></div>')
+                  f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options{접기}">{options}</div></aside></div>')
     return (f'<dialog id="capture-picker"><div class="s1-modal-inset"><div class="dialog-head"><h2>개발 화면 바꾸기</h2><button type="button" onclick="document.getElementById(\'capture-picker\').close()">닫기</button></div>'
             f'<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
             + ui.form(action, controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
@@ -858,6 +888,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             f'{body}</div>'
         )
     # 성질 거르개 — 탭과 같은 줄 오른쪽. 생김새(밑줄 탭 ↔ 알약 칩)가 달라 헷갈리지 않는다.
+    # 이름표('성질')는 붙이지 않는다 — 칩만으로 뜻이 통하고, 좁은 자리에서 줄이 넘어간다(river 2026-09-16).
     성질 = []
     for src in ([k for k in (auto_view or {}).get('candidates', []) if k['status'] == 'open'] if auto_view else []):
         lb = issue_categories.label(auto_inspect.candidate_category(src))
@@ -871,12 +902,16 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     if len(성질) > 1:
         칩 = ''.join(f'<button type="button" class="fchip" data-type="{_esc(x)}" onclick="filterType(this)">{_esc(x)}</button>'
                     for x in 성질)
-        filterbar = ('<span class="fbar"><span class="flbl">성질</span>'
+        filterbar = ('<span class="fbar">'
                      '<button type="button" class="fchip on" data-type="" onclick="filterType(this)">전체</button>'
                      + 칩 + '</span>')
 
+    미리 = ('<script>' + auto_inspect.PREWARM_JS + '</script>'
+          + '<script>if(document.getElementById("auto-state").dataset.status!=="pending")'
+            'qa미리검수(' + json.dumps(s['uuid']) + ',{지금페이지:' + json.dumps(page_uuid)
+          + ',지금순번:' + str(int(page.get('seq') or 0)) + '});</script>') if auto_view else ''
     auto_extra = (f'<script id="auto-data" type="application/json">{auto_inspect.overlay_json(auto_view)}</script>'
-                  f'<script>{auto_inspect.JS}</script>') if auto_view else ''
+                  f'<script>{auto_inspect.JS}</script>' + 미리) if auto_view else ''
     issues_html = panels
     if not all_issues and linked and linked['status'] != 'confirmed':
         issues_html = '<p class="empty">아직 검수한 것이 없습니다. 시안을 연결해 시작하세요.</p>'
@@ -990,7 +1025,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     {'</aside></div>' if native_app else ''}
   </div>
   {design_dialog}
-  <script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>{auto_extra}
+  <script>{자모듈.JS()}</script><script>{_PAGE_JS}</script><script>{comparison_view.JS}</script>{auto_extra}
 </body></html>"""
 
 
@@ -1037,6 +1072,10 @@ class Handler(BaseHTTPRequestHandler):
                 case_ref=c.execute('SELECT plan_id,id FROM design_case WHERE page_id=?',(page_uuid,)).fetchone()
             page = design_plan_http.ui.detail(intake(),case_ref['plan_id'],case_ref['id'],q.get('notice',[''])[0],rnd) if case_ref else render_page(page_uuid, rnd, q.get('designs',[''])[0]=='1',q.get('notice',[''])[0])
             self._html(page if page else self._nf("페이지 없음"), 200 if page else 404)
+        elif path.startswith("/screen/") and unquote(path).endswith("/검수서.html"):
+            푼길 = unquote(path)
+            고른것 = [x for x in q.get("pages", [""])[0].split(",") if x]
+            self._검수서(푼길[len("/screen/"):-len("/검수서.html")], 고른것, q.get("scope", ["all"])[0])
         elif path.startswith("/screen/") and unquote(path).endswith(("/수정요청.md", "/수정요청.html")):
             # 한글 주소는 브라우저가 %xx 로 싸서 보낸다 — 풀어서 견준다.
             푼길 = unquote(path)
@@ -1072,8 +1111,16 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+        elif path.startswith("/result/"):
+            # 프로젝트 하나의 검수결과서(가로 A4 · 인쇄창에서 PDF 저장)
+            html_doc = result_doc.build(path.split("/")[2], q.get("scope", ["open"])[0], db_path=REAL_DB)
+            if html_doc is None:
+                self.send_response(404)
+                self.end_headers()
+            else:
+                self._html(html_doc)
         elif path.startswith("/report/"):
-            # A4 반출은 park(나중 조각). report.py는 손대지 않음.
+            # 화면 한 개 A4 반출은 park(나중 조각). report.py는 손대지 않음.
             self._html("<p style='font-family:sans-serif;padding:var(--spacing-40)'>화면 전체 A4 반출은 다음 조각입니다. "
                        "<a href='javascript:history.back()'>← 뒤로</a></p>")
         else:
@@ -1215,6 +1262,39 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def _검수서(self, human_key, 고른것=(), scope="all"):
+        """화면 하나의 개발화면검수서를 새 창으로 띄운다 — 전체목록의 검수서와 같은 문서다.
+
+        담는 규칙도 같다(result_doc). 고른 장이 있으면 그 장만 담는다.
+        문서가 무거워 같은 것을 다시 열면 방금 만든 한 벌을 그대로 내준다.
+        """
+        conn = dbmod.connect(REAL_DB)
+        scr = queries.get_screen(conn, human_key)
+        if scr is None:
+            conn.close()
+            self._html(self._nf(f"화면 없음: {human_key}"), 404)
+            return
+        row = scr["row"]
+        conn.close()
+        키 = (human_key, scope, tuple(고른것))
+        쥔것 = _검수서품기.get("키")
+        if 쥔것 == 키 and time.time() - _검수서품기.get("때", 0) < 300:
+            data = _검수서품기["글"]
+        else:
+            html_doc = result_doc.build(row["project_id"], scope, db_path=REAL_DB,
+                                        screen_uuid=row["uuid"], page_ids=고른것)
+            if html_doc is None:
+                self._html(self._nf(f"화면 없음: {human_key}"), 404)
+                return
+            data = html_doc.encode("utf-8")
+            _검수서품기.clear()
+            _검수서품기.update({"키": 키, "때": time.time(), "글": data})
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _수정요청(self, human_key, 보기=False):
         """개발·퍼블리셔에게 그대로 넘기는 수정 요청 한 장.
 
@@ -1305,6 +1385,8 @@ _LIST_CSS = """
   .group { background:var(--color-surface-default); border:1px solid var(--color-border-subtle); border-radius:var(--radius-12); padding:var(--spacing-6) var(--spacing-14) var(--spacing-14); margin-bottom:var(--spacing-16); }
   h2 { font-size:var(--font-size-14); margin:var(--spacing-14) var(--spacing-4) var(--spacing-8); }
   .muted { color:var(--color-text-helper); font-weight:var(--font-weight-regular); }
+  .docs { float:right; font-size:var(--font-size-12); color:var(--color-text-caption); font-weight:var(--font-weight-regular); }
+  .docs .chip { margin-left:var(--spacing-6); margin-right:0; }
   tbody tr { cursor:pointer; }   /* 표 모양은 코어 Table(s1_components) */
   .name { font-weight:var(--font-weight-bold); }
   .key { font-family:ui-monospace,monospace; color:var(--color-text-tertiary); }
@@ -1392,10 +1474,12 @@ _PAGE_CSS = """
   #capture-picker .capture-pair img{width:100%;height:100%;min-width:0;object-fit:contain}
   #capture-picker .capture-list{overflow:auto;min-height:0;font-size:var(--font-size-12)}
   #capture-picker .capture-options{display:flex;flex-direction:column;gap:var(--spacing-4);margin-top:var(--spacing-12)}
-  #capture-picker .cap-option{display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
+  #capture-picker .cap-option{position:relative;display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
   #capture-picker .cap-option:has(input:checked){border-color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
   #capture-picker .cap-option:has(input:focus-visible){outline:2px solid var(--color-border-focus);outline-offset:2px}
   #capture-picker input[type=radio]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;opacity:0;clip-path:inset(50%);overflow:hidden}
+  #capture-picker .capture-options.hide-old .cap-old{display:none}
+  #capture-picker .cap-more{display:flex;align-items:center;gap:var(--spacing-6);padding:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);cursor:pointer}
   #capture-picker .rank{font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap}
   #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end}
   .app-view #capture-picker{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
@@ -1459,10 +1543,10 @@ _PAGE_CSS = """
   .cards { flex:1; min-height:0; overflow-y:auto; position:relative; padding:0 var(--spacing-10) var(--spacing-32) 0; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:var(--spacing-16); align-items:start; }
   /* 유형 탭 바 (고정 영역) */
-  .tabbar { flex-shrink:0; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
+  .tabbar { flex-shrink:0; flex-wrap:wrap; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
   /* 성질 거르개 — 탭과 같은 줄 오른쪽 끝. 탭은 밑줄, 거르개는 알약이라 섞이지 않는다. */
+  /* PC 웹은 한 줄(탭 오른쪽)이다. 자리가 좁은 앱 검수만 아랫줄로 내린다(river 2026-09-17) */
   .fbar { margin-left:auto; display:inline-flex; align-items:center; gap:var(--spacing-6); flex-wrap:wrap; align-self:center; }
-  .flbl { font-size:var(--font-size-12); color:var(--color-text-caption); margin-right:var(--spacing-2); }
   .fchip { height:var(--sizing-28); padding:0 var(--spacing-16); border-radius:var(--radius-full);
     border:var(--border-width-1) solid var(--color-chip-line-border-default);
     background:var(--color-chip-line-bg-default); color:var(--color-chip-line-label-default);

@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import card_view
 import figma_elements
 import figma_reader
@@ -22,8 +23,15 @@ import issue_categories
 import policy as policymod
 import rule_log
 import value_candidates
+import 설정
 
 ENGINE_UI = Path(__file__).resolve().parents[1] / 'engine' / 'ui.html'
+
+
+def uploads_dir():
+    return Path(설정.자리('포털.그림보관'))
+
+
 PLUGIN_UI = ENGINE_UI  # (옛 이름) 2026-09-14 피그마 플러그인 폐기 — 엔진 원본은 engine/ui.html 한 벌뿐이다
 ENGINE_MARKER = 'if(location.search.indexOf("selftest=1")>=0)runSelfTest();else post({type:"request-selection-status"});'
 
@@ -38,7 +46,7 @@ CREATE TABLE IF NOT EXISTS auto_run (
  created_at TEXT NOT NULL, finished_at TEXT, error TEXT NOT NULL DEFAULT '',
  alignment TEXT NOT NULL DEFAULT '', range TEXT NOT NULL DEFAULT '', notices TEXT NOT NULL DEFAULT '[]',
  capture_w INTEGER, capture_h INTEGER, design_id TEXT NOT NULL DEFAULT '',
- source TEXT NOT NULL DEFAULT 'engine'
+ source TEXT NOT NULL DEFAULT 'engine', capture_sig TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS auto_range (
  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES inspection_run(uuid),
@@ -140,7 +148,7 @@ def repair(database):
             for t in ('auto_run__new', 'auto_candidate__new', 'auto_candidate_event__new'):
                 if t in names():
                     conn.execute(f'DROP TABLE "{t}"')  # 전에 고치다 만 자취
-            if 'design_id' not in cols('auto_run') or 'source' not in cols('auto_run') or 'UNIQUE(' in sql_of('auto_run'):
+            if 'design_id' not in cols('auto_run') or 'source' not in cols('auto_run') or 'capture_sig' not in cols('auto_run') or 'UNIQUE(' in sql_of('auto_run'):
                 rebuild('auto_run')
             merge('auto_run', 'auto_run_v1')
             merge('auto_run', 'auto_run_v0')
@@ -152,6 +160,42 @@ def repair(database):
             conn.executescript(SCHEMA)  # 다시 세운 표의 트리거
     finally:
         conn.close()
+
+
+_CAPTURE_SIG = {}
+
+
+def capture_sig(run):
+    """그 차수 개발 화면 그림의 지문. 그림을 바꾸면 값이 달라진다.
+    파일 이름만으로는 모자란다 — 포털에서 올리는 그림은 이름이 늘 같고 내용만 바뀐다."""
+    name = (run['dev_img'] if run else None) or ''
+    if not name:
+        return ''
+    try:
+        f = uploads_dir() / name
+        st = f.stat()
+    except OSError:
+        return ''
+    key = (name, st.st_size, st.st_mtime_ns)
+    if key not in _CAPTURE_SIG:
+        try:
+            if len(_CAPTURE_SIG) > 200:
+                _CAPTURE_SIG.clear()
+            _CAPTURE_SIG[key] = hashlib.sha1(f.read_bytes()).hexdigest()[:12]
+        except OSError:
+            return ''
+    return _CAPTURE_SIG[key]
+
+
+def _stale(r, rev, sig):
+    """저장된 회차가 지금 재료와 어긋나는가 — 검수 규칙이 바뀌었거나 개발 화면 그림이 바뀌었으면 참."""
+    if rev and (r['engine'] or '') != rev:
+        return True
+    try:
+        saved = r['capture_sig']
+    except (IndexError, KeyError):
+        return False
+    return bool(sig) and (saved or '') != sig
 
 
 def now():
@@ -197,7 +241,7 @@ window.addEventListener("message",async function(e){var m=e.data;if(!m||m.type!=
     if(m.capture.topTrim!=null)capture.topTrim=m.capture.topTrim;
     if(m.capture.bottomTrim!=null)capture.bottomTrim=m.capture.bottomTrim;
     var r=comparePair({id:"portal"},design,capture,dc),a=r.alignment||{};
-    parent.postMessage({type:"portal-result",autoRunId:m.autoRunId,alignment:{mode:a.mode,s:a.s,tx:a.tx,ty:a.ty,score:a.score},range:r.range||null,notices:r.candidates.notices||[],candidates:r.candidates.map(__portalLite),capture:{w:cap.width,h:cap.height}},"*");
+    parent.postMessage({type:"portal-result",autoRunId:m.autoRunId,alignment:{mode:a.mode,s:a.s,tx:a.tx,ty:a.ty,score:a.score,fit:a.fit==null?null:a.fit,rescued:!!a.rescued,thin:!!a.thin},range:r.range||null,notices:r.candidates.notices||[],candidates:r.candidates.map(__portalLite),capture:{w:cap.width,h:cap.height}},"*");
   }catch(err){parent.postMessage({type:"portal-error",autoRunId:m.autoRunId,message:String(err&&err.message||err)},"*");}
 });
 parent.postMessage({type:"portal-ready"},"*");
@@ -282,27 +326,29 @@ class Auto:
                 raise ValueError('이 페이지에 연결된 Figma 시안이 없습니다.')
             c.execute('INSERT INTO auto_range VALUES (?,?,?,?,?,?,?)', (uid(), run_id, top, bottom, actor, now(), note))
             new_id = uid()
-            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
-                      (new_id, page_id, run_id, 'pending', engine_rev(), now(), design['id']))
+            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id,capture_sig) VALUES(?,?,?,?,?,?,?,?)',
+                      (new_id, page_id, run_id, 'pending', engine_rev(), now(), design['id'], capture_sig(run)))
             return new_id
 
     def ensure_run(self, page_id, run_id):
         """그 차수·지금 시안의 자동 검수가 없으면 '대기'로 만든다. 디자인이 안 붙은 페이지면 None.
 
-        검수 규칙(엔진)이 바뀌었으면 새 회차로 다시 돌린다 — 옛 회차·후보·이력은 그대로 남는다
+        개발 화면 그림을 바꿨거나 검수 규칙(엔진)이 바뀌었으면 새 회차로 다시 돌린다 — 옛 회차·후보·이력은 그대로 남는다
         (검수 범위를 바꿀 때와 같은 방식). 규칙을 고쳐 놓고 옛 결과를 계속 보여 주면
         고친 것이 화면에 반영되지 않는다.
         """
         rev = engine_rev()
         with self.store.connect() as c:
+            run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (run_id,)).fetchone()
+            sig = capture_sig(run)
             r = self.run_for(c, run_id, page_id)
-            if r and (r['status'] != 'done' or (r['engine'] or '') == rev or not rev):
+            if r and (r['status'] != 'done' or not _stale(r, rev, sig)):
                 return r
             design = self.design_of_page(c, page_id)
             if not design:
                 return r
-            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id) VALUES(?,?,?,?,?,?,?)',
-                      (uid(), page_id, run_id, 'pending', rev, now(), design['id']))
+            c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id,capture_sig) VALUES(?,?,?,?,?,?,?,?)',
+                      (uid(), page_id, run_id, 'pending', rev, now(), design['id'], sig))
             return self.run_for(c, run_id, page_id)
 
     def retry(self, page_id, run_id):
@@ -380,6 +426,34 @@ class Auto:
     def candidates(self, c, auto_run_id):
         return c.execute('SELECT * FROM auto_candidate WHERE auto_run_id=? ORDER BY no', (auto_run_id,)).fetchall()
 
+    # ── 미리 돌릴 것 고르기 ────────────────────────────────────────
+    def pending_pages(self, screen_id):
+        """그 화면에서 아직 자동 검수 결과가 없는 페이지(읽기만 한다 — 여기서 회차를 만들지 않는다).
+
+        페이지를 열 때와 같은 잣대로 고른다: 마지막 차수에 개발 화면과 시안이 다 있고,
+        결과가 없거나 · 개발 화면이 바뀌었거나 · 검수 규칙이 바뀐 것. 한 번 실패한 것은 넣지 않는다
+        (사람이 '다시 돌리기'를 누를 때만 다시 돈다)."""
+        out = []
+        try:
+            with self.store.connect() as c:
+                rev = engine_rev()
+                pages = c.execute(
+                    'SELECT uuid, seq, name FROM inspection_page WHERE screen_id=? AND removed_at IS NULL ORDER BY seq',
+                    (screen_id,)).fetchall()
+                for p in pages:
+                    run = c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1',
+                                    (p['uuid'],)).fetchone()
+                    if not run or not run['dev_img'] or not self.design_of_page(c, p['uuid']):
+                        continue
+                    r = self.run_for(c, run['uuid'], p['uuid'])
+                    if r and (r['status'] == 'failed'
+                              or (r['status'] == 'done' and not _stale(r, rev, capture_sig(run)))):
+                        continue
+                    out.append({'page': p['uuid'], 'run': run['uuid'], 'seq': p['seq'], 'name': p['name'] or ''})
+        except sqlite3.OperationalError:
+            return []          # 옛 DB(자동 검수 표 없음) — 미리 돌릴 것도 없다
+        return out
+
     # ── 사람의 판정 ───────────────────────────────────────────────
     def set_status(self, candidate_id, status, actor='', note=''):
         if status not in STATUS_LABEL:
@@ -433,9 +507,11 @@ class Auto:
                 raise ValueError('제외·가변으로 둔 후보는 먼저 되돌린 뒤 등록해 주세요.')
             page = c.execute('SELECT * FROM inspection_page WHERE uuid=?', (k['page_id'],)).fetchone()
             run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (k['run_id'],)).fetchone()
-            sx = (run['coord_ref_w'] or k['capture_w'] or 1) / (k['capture_w'] or run['coord_ref_w'] or 1)
-            sy = (run['coord_ref_h'] or k['capture_h'] or 1) / (k['capture_h'] or run['coord_ref_h'] or 1)
-            box = [int(round((k['box_x'] or 0) * sx)), int(round((k['box_y'] or 0) * sy)), int(round((k['box_w'] or 0) * sx)), int(round((k['box_h'] or 0) * sy))]
+            # 후보를 잰 촬영본 → 지금 화면이 쓰는 좌표 기준 (자.py)
+            ㅈ = 자모듈.그림자(run['coord_ref_w'], k['capture_w'])
+            b = ㅈ.개발그림_화면({'x': k['box_x'] or 0, 'y': k['box_y'] or 0,
+                             'w': k['box_w'] or 0, 'h': k['box_h'] or 0})
+            box = [int(round(b['x'])), int(round(b['y'])), int(round(b['w'])), int(round(b['h']))]
             node_ids = json.loads(k['design_node_ids'] or '[]')
             anchor = node_ids[0] if node_ids else f'{box[0]},{box[1]},{box[2]},{box[3]}'
             dedup = f"{k['page_id']}|{anchor}|{k['kind']}|auto"
@@ -489,9 +565,9 @@ class Auto:
                 range_view = {'manual_top': rng['top'] if rng else None, 'manual_bottom': rng['bottom'] if rng else None,
                               'dev_img': run['dev_img'], 'w': run['dev_img_w'], 'h': run['dev_img_h']}
                 rev = engine_rev()
-                stale = bool(r) and r['status'] == 'done' and bool(rev) and (r['engine'] or '') != rev
+                stale = bool(r) and r['status'] == 'done' and _stale(r, rev, capture_sig(run))
                 if not r or stale:
-                    # 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
+                    # 개발 화면을 바꿨거나 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
                     return {'run': {'id': '', 'run_id': run['uuid'], 'status': 'pending', 'error': '', 'notices': '[]'},
                             'candidates': [], 'issue_numbers': {}, 'round': run['round'], 'scale': 1, 'range': range_view,
                             'screen_id': run['screen_id'], 'design_frame': design_frame}
@@ -508,7 +584,7 @@ class Auto:
             al = {}
         return {'run': dict(r), 'candidates': cands, 'issue_numbers': numbers, 'round': run['round'], 'range': range_view,
                 'screen_id': run['screen_id'], 'design_frame': design_frame, 'alignment': al,
-                'scale': ((run['coord_ref_w'] or r['capture_w'] or 1) / (r['capture_w'] or run['coord_ref_w'] or 1)) if r['status'] == 'done' else 1}
+                'scale': (1.0 / 자모듈.그림자(run['coord_ref_w'], r['capture_w']).개발그림배) if r['status'] == 'done' else 1}
 
 
 def _e(v):
@@ -550,6 +626,10 @@ def panel_html(view, page_id, person_options='', which='open'):
     return head + range_html(view, person_options) + grid(열린것)
 
 
+# 시안을 얹은 자리가 미덥지 않을 때 붙이던 빨간 줄은 보이지 않는다(river 2026-09-17).
+# 재던 값(rescued·thin·fit)은 그대로 남는다 — 겹쳐보기로 사람이 본다.
+
+
 def range_html(view, person_options=''):
     """검수 범위 카드: 지금 개발 화면에서 위·아래 몇 px를 비교에서 뺐는지 + '조정'(선 두 개 끌기 → 그 범위로 다시 검수)."""
     rv = view.get('range') or {}
@@ -575,13 +655,19 @@ def range_html(view, person_options=''):
         summary = f'위쪽 {top}px ({how("top", mt, top)}) · 아래쪽 {bottom}px ({how("bottom", mb, bottom)})'
     else:
         summary = '직접 정한 범위로 검수함' if (mt is not None or mb is not None) else '자동'
-    return (f'<div class="auto-range" id="auto-range" data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
-            f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}">'
-            f'<b>검수 범위</b> <span class="auto-range-sum">{_e(summary)}</span>'
-            f'<button type="button" id="auto-range-btn" class="auto-range-btn" title="검수 범위 조정" onclick="autoRangeOpen()">조정</button>'
-            + (f' <a class="auto-policy-link" href="/policy/screen/{_e(view["screen_id"])}">이 화면의 규칙</a>' if view.get('screen_id') else '') + '</div>'
+    # 요약 줄은 보이지 않는다 — 범위 값은 '검수범위 설정' 창에서 본다(river 2026-09-16).
+    # 이 칸은 그림·범위 값을 담아 두는 자리로만 남긴다.
+    정책단추 = (f'<button type="button" class="auto-range-btn" '
+              f'onclick="location.href=\'/policy/screen/{_e(view["screen_id"])}\'">화면규칙</button>'
+              if view.get('screen_id') else '')
+    return (f'<div class="auto-range" id="auto-range" hidden data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
+            f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}" '
+            f'data-sum="{_e(summary)}"></div>'
+            f'<span class="auto-range-tools" id="auto-range-tools">{정책단추}'
+            f'<button type="button" id="auto-range-btn" class="auto-range-btn" onclick="autoRangeOpen()">검수범위 설정</button></span>'
             f'<dialog class="auto-range-editor" id="auto-range-editor"><div class="s1-modal-inset">'
-            f'<b class="auto-range-title">검수 범위 조정</b>'
+            f'<b class="auto-range-title">검수범위 설정</b>'
+            f'<p class="auto-hint">지금 범위는 {_e(summary)} 입니다.</p>'
             f'<p class="auto-hint">상태바·주소창·키보드가 끝나는 곳으로 붉은 선을 끌어 주세요. 선 바깥은 비교하지 않습니다.</p>'
             f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
             f'<div class="auto-range-shade" id="auto-range-shade-top"></div><div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
@@ -676,15 +762,13 @@ CSS = '''
 
 .auto-actions button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
 .auto-msg{color:var(--color-text-tertiary)}
-.auto-range{display:flex;align-items:center;gap:var(--spacing-8);margin:0 0 var(--spacing-8);padding:var(--spacing-6) var(--spacing-10);border:1px solid var(--color-border-subtle);border-radius:var(--radius-8);background:var(--color-bg-subtle);font-size:var(--font-size-12)}
-.auto-range .auto-range-sum{flex:1;color:var(--color-text-tertiary)}
 
 .auto-range-form button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
 .auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto}
 .auto-range-editor::backdrop{background:var(--color-overlay)}
 .auto-range-title{display:block;margin:0 0 var(--spacing-8);font-size:var(--font-size-14)}
-.cv-tools .auto-range-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}   /* 가운데 단추들이 한가운데 오도록 '조정'은 오른쪽에 따로 붙인다 */
-@media (max-width:760px){.cv-tools .auto-range-btn{position:static;transform:none;margin-left:auto}}
+.cv-tools .auto-range-tools{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--spacing-8)}   /* 가운데 단추들이 한가운데 오도록 오른쪽 단추는 따로 붙인다 */
+@media (max-width:760px){.cv-tools .auto-range-tools{position:static;transform:none;margin-left:auto}}
 .auto-range-editor .auto-hint{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-caption)}
 .auto-range-stage{position:relative;display:inline-block;max-width:100%;line-height:0;user-select:none;touch-action:none}
 .auto-range-stage img{max-width:100%;max-height:60vh;display:block;border:1px solid var(--color-border-default)}
@@ -701,6 +785,58 @@ CSS = '''
 @keyframes auto-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.auto-spin{animation-duration:2.4s}}
 '''
+
+
+# ── 미리 검수: 한 장씩 열어 기다리지 않게, 아직 결과가 없는 페이지를 숨은 자리에서 먼저 돌려 둔다 ──
+# 판정은 페이지를 직접 열 때와 똑같다(같은 엔진·같은 재료·같은 저장 길). 한 번에 한 장씩만 돌린다.
+PREWARM_JS = r"""
+(function(){
+  function 보내기(길,몸){return fetch(길,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(몸)}).then(function(r){return r.json();});}
+  function 한장(it){
+    return 보내기('/auto/'+it.page+'/materials',{run:it.run}).then(function(m){
+      if(!m||m.error)return false;
+      return new Promise(function(끝냄){
+        var f=document.createElement('iframe'),끝=false;
+        f.setAttribute('aria-hidden','true');
+        f.style.cssText='position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
+        function 치우기(약속){
+          if(끝)return;끝=true;clearTimeout(시계);window.removeEventListener('message',받기);
+          (약속||Promise.resolve()).catch(function(){}).then(function(){
+            if(f.parentNode)f.parentNode.removeChild(f);끝냄(true);});
+        }
+        function 받기(e){
+          var d=e.data;if(!d||!d.type||끝)return;
+          if(d.type==='portal-ready'&&f.contentWindow&&e.source===f.contentWindow){f.contentWindow.postMessage(Object.assign({type:'portal-run'},m),'*');}
+          else if(d.type==='portal-result'&&d.autoRunId===m.autoRunId){치우기(보내기('/auto/'+it.page+'/result',d));}
+          else if(d.type==='portal-error'&&d.autoRunId===m.autoRunId){치우기(보내기('/auto/'+it.page+'/fail',{autoRunId:m.autoRunId,message:d.message}));}
+        }
+        var 시계=setTimeout(function(){치우기(보내기('/auto/'+it.page+'/fail',{autoRunId:m.autoRunId,message:'시간이 너무 오래 걸려 멈췄습니다(3분).'}));},180000);
+        window.addEventListener('message',받기);
+        f.src='/engine/ui.html';document.body.appendChild(f);
+      });
+    }).catch(function(){return false;});
+  }
+  window.qa미리검수=function(화면,옵션){
+    옵션=옵션||{};
+    var 알림=옵션.알림?document.getElementById(옵션.알림):null;
+    fetch('/auto/screen/'+화면+'/pending').then(function(r){return r.json();}).then(function(j){
+      var 목록=(j&&j.pages)||[];
+      if(옵션.지금페이지){
+        // 페이지 상세에서는 바로 다음 한 장만 미리 돌린다 — 보고 있는 화면이 굼떠지지 않게.
+        var 뒤=목록.filter(function(x){return x.page!==옵션.지금페이지&&x.seq>(옵션.지금순번||0);});
+        목록=(뒤.length?뒤:목록.filter(function(x){return x.page!==옵션.지금페이지;})).slice(0,1);
+      }
+      if(!목록.length)return;
+      var i=0;
+      (function 다음(){
+        if(i>=목록.length){if(알림)알림.textContent='';return;}
+        if(알림)알림.textContent='다른 장을 미리 검수하고 있습니다 · '+(i+1)+' / '+목록.length+'장';
+        한장(목록[i]).then(function(){i++;setTimeout(다음,50);});
+      })();
+    }).catch(function(){});
+  };
+})();
+"""
 
 JS = r'''
 (function(){
@@ -798,7 +934,7 @@ function autoRangeSave(form,reset){
 // ── '조정' 단추를 비교 보기 줄 오른쪽 끝으로 · 팝업은 어느 탭에서 눌러도 뜨도록 몸통으로 ──
 (function(){
   function move(){
-    var btn=document.getElementById('auto-range-btn'),tools=document.querySelector('.cv-tools');
+    var btn=document.getElementById('auto-range-tools'),tools=document.querySelector('.cv-tools');
     if(btn&&tools&&btn.parentNode!==tools)tools.appendChild(btn);
     var ed=document.getElementById('auto-range-editor');
     if(ed&&ed.parentNode!==document.body)document.body.appendChild(ed);
@@ -836,7 +972,10 @@ def _body_json(handler):
 
 
 def get(handler, store, path, q):
-    """GET /engine/ui.html (엔진 한 벌 + 포털 손잡이)"""
+    """GET /engine/ui.html (엔진 한 벌 + 포털 손잡이) · /auto/screen/<화면>/pending (미리 돌릴 페이지)"""
+    if path.startswith('/auto/screen/') and path.endswith('/pending'):
+        _json(handler, {'pages': Auto(store).pending_pages(path.split('/')[3])})
+        return True
     if path == '/engine/ui.html':
         data = engine_html().encode('utf-8')
         handler.send_response(200)

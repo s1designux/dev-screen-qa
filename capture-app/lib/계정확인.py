@@ -94,6 +94,18 @@ def _뽑기(글, 말):
     return ""
 
 
+def 들어갈때까지(쪽, 최대초=None):
+    """로그인 화면을 벗어나면 바로 끝낸다 — 정해진 시간을 늘 통째로 버리지 않는다.
+
+    (못 벗어나면 예전처럼 최대초를 다 기다린 뒤 판정으로 넘어간다.)
+    """
+    끝 = (최대초 if 최대초 is not None else 기다릴초) * 1000
+    try:
+        쪽.wait_for_selector('input[type="password"]', state="hidden", timeout=int(끝))
+    except Exception:
+        pass
+
+
 def 판정(쪽):
     """로그인 화면을 벗어났으면 됐다. 남아 있으면 화면에 뜬 말로 까닭을 가른다."""
     try:
@@ -126,7 +138,10 @@ def 쪽에서(쪽, 유형, 아이디, 비밀번호, 주소=None):
     try:
         if 주소:
             쪽.goto(주소, wait_until="load", timeout=30000)
-            쪽.wait_for_timeout(1200)
+            try:        # 로그인 칸이 뜨면 바로 — 늘 1.2초를 버리지 않는다
+                쪽.wait_for_selector('input[type="password"]', timeout=1200)
+            except Exception:
+                pass
         아이디칸 = _칸(쪽, 매체.로그인칸말["아이디"])
         비번칸 = _칸(쪽, 매체.로그인칸말["비밀번호"], 비번칸=True)
         if 아이디칸 is None or 비번칸 is None:
@@ -142,7 +157,7 @@ def 쪽에서(쪽, 유형, 아이디, 비밀번호, 주소=None):
                 webshot._누르기(단추, "로그인", 유형)
             except Exception as e:
                 return 안됨(str(e).strip().splitlines()[0][:120])
-        쪽.wait_for_timeout(int(기다릴초 * 1000))
+        들어갈때까지(쪽)
         return 판정(쪽)
     except Exception as e:
         return 못해봄(f"로그인해 보다 막혔습니다 — {str(e).strip().splitlines()[0][:120]}")

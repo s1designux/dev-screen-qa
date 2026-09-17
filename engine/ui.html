@@ -530,6 +530,45 @@ function matchAnchorPatch(dEdge,dw,dh,cEdge,cw,ch,b,win){
   return{tx:px-bx,ty:py-by,q:clamp(1-bestSad/(cnt*255),0,1)};
 }
 function median(list){var a=list.slice().sort(function(x,y){return x-y;});return a[Math.floor(a.length/2)];}
+// 표로 고른 세로 자리가 그림과 겉도는지 본다. 크기·가로는 그대로 두고 세로만 훑어,
+// 눈에 띄게(+0.05) 더 잘 겹치는 자리가 있으면 그 자리를 돌려준다. 없으면 null(표를 그대로 믿는다).
+// 검수하는 자리(위·아래로 떼어낸 띠를 뺀 구간)만 놓고 세로 밀림을 다시 본다.
+// 빈 곳끼리 겹쳐 점수가 뜨는 것을 막으려고, 캡처가 그 구간을 충분히 덮는 자리만 센다.
+function liveBand(H,boxes){
+  var top=0,bottom=H;
+  (boxes||[]).forEach(function(b){
+    if(!b||!isFinite(b.y)||!isFinite(b.h))return;
+    if(b.y<=Math.max(2,H*.02))top=Math.max(top,b.y+b.h);
+    else if(b.y+b.h>=H-Math.max(2,H*.02))bottom=Math.min(bottom,b.y);
+  });
+  return bottom-top>H*.2?{y0:top,y1:bottom}:{y0:0,y1:H};
+}
+// 근거가 얇은가 — 기준 요소가 셋 미만이거나, 모두 한 줄 언저리에 몰려 있으면
+// 함께 틀려도 서로를 걸러 주지 못한다(같은 줄의 둘은 서로를 검증하지 않는다).
+function thinAnchors(g,H){
+  if(!g||g.length<3)return true;
+  var lo=Infinity,hi=-Infinity;
+  g.forEach(function(v){if(v.dy<lo)lo=v.dy;if(v.dy>hi)hi=v.dy;});
+  return !(hi-lo>H*.15);
+}
+function verticalRescue(designImg,captureImg,s,tx,ty,space,liveBoxes){
+  var H=designImg.height,capH=captureImg.height*s;              // 캡처가 디자인 좌표에서 차지하는 세로 길이
+  var live=liveBand(H,liveBoxes),LH=live.y1-live.y0;
+  var span=H*.5,step=Math.max(6,Math.round(H/50)),need=Math.min(capH,LH)*.8;
+  function at(t){
+    var y0=Math.max(live.y0,t),y1=Math.min(live.y1,t+capH);
+    if(y1-y0<need)return -1;                                    // 검수하는 자리를 캡처가 제대로 덮지 못하는 자리는 세지 않는다
+    var e=renderCaptureEdge(captureImg,space.w,space.h,s*space.q,tx*space.q,t*space.q);
+    var v=edgeScoreBand(space.edge,e,space.w,Math.round(y0*space.q),Math.min(space.h,Math.round(y1*space.q)));
+    return v==null?-1:v;
+  }
+  var base=at(ty),bt=null,bs=base;
+  for(var t=ty-span;t<=ty+span;t+=step){var v=at(t);if(v>bs){bs=v;bt=t;}}
+  if(bt==null)return{ty:ty,fit:base,moved:false};
+  for(var f=bt-step;f<=bt+step;f+=2){var w=at(f);if(w>bs){bs=w;bt=f;}}
+  // 지금 자리가 아예 못 덮거나, 새 자리가 눈에 띄게 나을 때만 옮긴다
+  return (base<0||bs>base+.05)?{ty:bt,fit:bs,moved:true}:{ty:ty,fit:base,moved:false};
+}
 function anchorAlignment(design,designImg,captureImg,opts){
   var s=designImg.width/captureImg.width;
   var half=Math.max(1,Math.ceil(designImg.width/640));
@@ -562,9 +601,9 @@ function anchorAlignment(design,designImg,captureImg,opts){
   // 표가 엇비슷한 무리가 여럿이면(캡처에 없는 아래쪽 요소들이 엉뚱한 자리에 붙어 표를 모으는 일 — 키보드에 가린 앱 화면),
   // 그림 전체의 윤곽이 실제로 얼마나 겹치는지 재서 고른다. 표만 믿으면 화면 절반이 통째로 밀린다.
   // 표가 3개 이상이고 2등과 2.5표 넘게 벌어졌으면 표를 그대로 믿는다(웹 화면의 평소 모습).
-  var clear=best.group.length>=3&&(pool.length<2||best.weight>=pool[1].weight+2.5);
+  var clear=best.group.length>=3&&(pool.length<2||best.weight>=pool[1].weight+2.5),space=null;
   if(!clear){
-    var space=makeSpace(designImg,200),guide={group:[],tx:0,ty:0,weight:0,qsum:0,guide:true};
+    space=makeSpace(designImg,200);var guide={group:[],tx:0,ty:0,weight:0,qsum:0,guide:true};
     function fit(o){if(o.fit==null)o.fit=scoreModel(space,captureImg,s,o.tx,o.ty);return o.fit;}
     var pick=best,bestFit=fit(best);
     pool.slice(1,6).forEach(function(o){if(o.weight<best.weight-2.5)return;var f=fit(o);if(f>bestFit+.02){bestFit=f;pick=o;}});
@@ -582,7 +621,14 @@ function anchorAlignment(design,designImg,captureImg,opts){
     });
     if(fine.length){tx=median(fine.map(function(v){return v.tx;}));ty=median(fine.map(function(v){return v.ty;}));}
   }
-  var out={s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length};
+  // 표 두어 개가 나란히 엉뚱한 자리에 붙는 일이 있다 — 앱 로그인 화면에서 화면 절반이 통째로 밀렸다(river 2026-09-16).
+  // 크기·가로는 그대로 두고(캡처 폭이 정답이다) 세로만 윤곽으로 다시 훑어, 눈에 띄게 더 잘 겹치면 그리로 옮긴다.
+  if(!space)space=makeSpace(designImg,200);
+  var vt=verticalRescue(designImg,captureImg,s,tx,ty,space,(opts&&opts.excludeBoxes||[]).map(function(b){return{y:b.y*(designImg.width/design.width),h:b.h*(designImg.width/design.width)};}));
+  if(vt&&vt.moved)ty=vt.ty;
+  // fit: 검수하는 구간에서 시안과 캡처의 윤곽이 실제로 얼마나 겹치는지(자신감 점수와 달리 밀림을 잡아낸다)
+  var out={s:s,tx:tx,ty:ty,score:best.qsum/g.length,mode:"anchor",anchors:g.length,
+           fit:vt?vt.fit:null,rescued:!!(vt&&vt.moved),thin:thinAnchors(g,designImg.height)};
   var bands=bandAlignment(design,designImg,captureImg,votes,out,tol);if(bands)out.bands=bands;
   return out;
 }
@@ -1043,7 +1089,9 @@ var CAPTURE_EXCLUDE_RULES=[{
     var last=rows[rows.length-1];if(H-last.end>Math.round(H*.02))return 0; // 바닥에 붙어 있어야 한다
     var top=last.start,base=last.color,maxGap=Math.round(H*.07);
     for(var i=rows.length-2;i>=0;i--){var r=rows[i];if(top-r.end>maxGap||colorDistance(r.color,base)>24)break;top=r.start;}
-    var h=H-top;return h>=H*.25&&h<=H*.6?h:0;
+    var h=H-top;if(h<H*.25||h>H*.6)return 0;
+    top=keyboardToolTop(prof,top); // 자판 위에 붙은 도구 줄까지가 키보드다
+    return H-top;
   }
 },{
   id:"navBar",edge:"bottom",title:"기기 하단 내비게이션(홈·뒤로 단추)",
@@ -1092,6 +1140,28 @@ function offBgRuns(prof,minH){
     else y++;
   }
   return out;
+}
+function keyboardToolTop(prof,top){
+  // 자판 바로 위에 붙은 '도구 줄'(이모지·마이크·설정 아이콘 줄, '자동 입력' 칩)도 키보드의 일부다 —
+  // 기기가 그린 것이지 개발 결과물이 아니다. 남겨 두면 아이콘마다 '디자인에 없는 요소'가 붙고,
+  // 그 자리에 가려진 시안 글자가 '개발 화면에 없다'로 올라온다.
+  // **색으로는 못 가른다** — 도구 줄 바탕이 화면 바탕과 9밖에 차이 나지 않는 기기가 있다(실측: 246,246,248 대 255).
+  // 바탕색 문턱(12)을 낮추면 연한 바탕을 쓴 다른 화면까지 잘려 나간다. 그래서 **얼개**로 본다:
+  //   ① 자판에 붙어 있고(사이 틈 없음) ② 바탕이 한 가지로 고르고 ③ 납작하고(화면 높이의 8% 안)
+  //   ④ 그 위에 바탕이 바뀌는 이음매가 있고 ⑤ 이음매 위가 빈 줄(잉크 없음)이고
+  //   ⑥ 자판과 색기운이 비슷하고(앱 제 것인 원색 단추 줄을 막는다) ⑦ 속에 든 잉크가 얇다(아이콘 한 줄).
+  // 한 걸음만 올라간다 — 되풀이하면 이음매를 타고 그 위 앱 내용까지 먹는다.
+  var H=prof.H;if(top<5)return top;
+  var base=prof.bg[top-3]; // 자판과 맞닿은 두어 줄은 색이 섞여 있다 — 그 위에서 도구 줄 바탕을 잡는다
+  if(colorDistance(base,prof.bg[top])>40)return top; // ⑥ 자판과 색기운이 딴판이면 앱 제 것이다
+  var maxH=Math.round(H*.08),t=top-3,seam=false;
+  while(t>0&&top-t<maxH){if(colorDistance(prof.bg[t-1],base)>6){seam=true;break;}t--;} // ②③
+  if(!seam||top-t<2)return top; // ④ 이음매를 못 만나고 높이 한도에 걸렸으면 도구 줄이 아니다
+  var blank=0,y=t-1;while(y>=0&&!prof.ink[y]&&blank<24){blank++;y--;}
+  if(blank<8)return top; // ⑤ 바로 위에 글자·아이콘이 붙어 있으면 앱 내용이다
+  var inked=0;for(y=t;y<top;y++)if(prof.ink[y])inked++;
+  if(inked>(top-t)*.6)return top; // ⑦ 속이 잉크로 꽉 차 있으면 자판이나 앱 내용이다
+  return t;
 }
 function captureFrameRules(cap){
   // 앱 촬영본이면 촬영본 제외표를 위에서부터 적용해 위·아래 제외 px를 정한다. 아니면 빈 결과.
@@ -1307,13 +1377,46 @@ function componentEdgePoints(edge,W,H,box){
   if(pts.length>520){var step=Math.ceil(pts.length/520),sample=[];for(var i=0;i<pts.length;i+=step)sample.push(pts[i]);pts=sample;}
   return pts;
 }
+var __maskCache=(typeof WeakMap!=="undefined")?new WeakMap():null;
+function edgeMask3(edge,W,H){
+  // "이 점의 3×3 안에 윤곽이 있나"를 그림마다 한 장으로 미리 만들어 둔다(가장자리 한 칸 덧댐). 답은 하나씩 따질 때와 같다.
+  var got=__maskCache&&__maskCache.get(edge);
+  if(got&&got.W===W&&got.H===H)return got.mask;
+  var PW=W+2,PH=H+2,row=new Uint8Array(PW*PH),mask=new Uint8Array(PW*PH),x,y,o,p,q;
+  for(y=0;y<H;y++){o=y*W;p=(y+1)*PW+1;for(x=0;x<W;x++){if(edge[o+x]>30){row[p+x-1]=1;row[p+x]=1;row[p+x+1]=1;}}}
+  for(y=0;y<PH;y++){q=y*PW;for(x=0;x<PW;x++){if(row[q+x]){mask[q+x]=1;if(y>0)mask[q-PW+x]=1;if(y<PH-1)mask[q+PW+x]=1;}}}
+  if(__maskCache)__maskCache.set(edge,{W:W,H:H,mask:mask});
+  return mask;
+}
+function pointIndex(points,W){
+  // 점 목록을 '덧댄 한 장에서의 자리'로 미리 바꿔 둔다. 밀린 자리는 더하기 한 번이면 된다.
+  if(points.__idxW===W&&points.__idx)return points.__idx;
+  var PW=W+2,n=points.length,a=new Int32Array(n),minX=1/0,maxX=-1/0,minY=1/0,maxY=-1/0;
+  for(var i=0;i<n;i++){var p=points[i];a[i]=(p.y+1)*PW+(p.x+1);
+    if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;}
+  var o={arr:a,minX:minX,maxX:maxX,minY:minY,maxY:maxY};
+  try{points.__idx=o;points.__idxW=W;}catch(e){}
+  return o;
+}
 function componentEdgeMatch(edge,W,H,points,dx,dy){
-  if(points.length<16)return 0;var hit=0;
-  for(var i=0;i<points.length;i++){var px=points[i].x+dx,py=points[i].y+dy,found=false;
-    for(var yy=-1;yy<=1&&!found;yy++)for(var xx=-1;xx<=1;xx++){var x=px+xx,y=py+yy;if(x>=0&&y>=0&&x<W&&y<H&&edge[y*W+x]>30){found=true;break;}}
+  if(points.length<16)return 0;var hit=0,n=points.length,i;
+  if((dx|0)===dx&&(dy|0)===dy){
+    var mask=edgeMask3(edge,W,H),PW=W+2,ix=pointIndex(points,W);
+    if(ix.minX+dx>=-1&&ix.maxX+dx<=W&&ix.minY+dy>=-1&&ix.maxY+dy<=H){
+      var a=ix.arr,off=dy*PW+dx;
+      for(i=0;i<n;i++)if(mask[a[i]+off])hit++;
+      return hit/n;
+    }
+    for(i=0;i<n;i++){var px=points[i].x+dx,py=points[i].y+dy;
+      if(px<-1||py<-1||px>W||py>H)continue;
+      if(mask[(py+1)*PW+(px+1)])hit++;}
+    return hit/n;
+  }
+  for(i=0;i<n;i++){var qx=points[i].x+dx,qy=points[i].y+dy,found=false;
+    for(var yy=-1;yy<=1&&!found;yy++)for(var xx=-1;xx<=1;xx++){var x=qx+xx,y=qy+yy;if(x>=0&&y>=0&&x<W&&y<H&&edge[y*W+x]>30){found=true;break;}}
     if(found)hit++;
   }
-  return hit/points.length;
+  return hit/n;
 }
 function dilateEdges(edge,W,H,r){
   // 윤곽을 r px 두껍게 만든 사본. 성긴 간격으로 훑을 때 가는 글자 윤곽을 놓치지 않게 한다.
@@ -1546,23 +1649,51 @@ function namedFrameBoxes(design){
   var children=childMap(design);
   return topLevelElements(design).filter(function(e){return e.box&&frameBandEdge(e.box,design)&&sectionLooksLikeFrame({el:e},children);}).map(function(e){return e.box;});
 }
+function frameEvidence(e,children){
+  // 틀이라고 본 근거를 갈라 돌려준다. own=묶음 제 이름 / text=URL·시계 글자 / named=자식 이름으로 걸린 것들.
+  // own·text는 띠 전체가 틀이다(주소창을 통째로 그려 넣은 그림 띠). named만 걸린 묶음은 그 자식 자리만 틀이라,
+  // 같은 묶음에 든 진짜 내용(로고 등)까지 함께 빼지 않도록 뺄 범위를 좁힌다.
+  if(!e)return null;
+  if(FRAME_NAME_RE.test(e.name||""))return{own:true};
+  var named=[],text=false;
+  descendantsOf(e,children).forEach(function(d){
+    if(FRAME_NAME_RE.test(d.name||""))named.push(d);
+    else if(d.kind==="text"&&FRAME_TEXT_RE.test(String(d.text||"").trim()))text=true;
+  });
+  if(text)return{text:true};
+  if(named.length)return{named:named};
+  return null;
+}
 function sectionLooksLikeFrame(section,children){
   // 이름이나 글자(URL·시계)로 브라우저 틀/상태바가 분명한 구역
-  var e=section.el;if(!e)return false;if(FRAME_NAME_RE.test(e.name||""))return true;
-  return descendantsOf(e,children).some(function(d){return FRAME_NAME_RE.test(d.name||"")||(d.kind==="text"&&FRAME_TEXT_RE.test(String(d.text||"").trim()));});
+  return !!frameEvidence(section.el,children);
+}
+function narrowFrameBand(box,edge,named,design){
+  // 자식 이름으로 틀이라 본 띠: 화면 끝에서 그 자식(들)의 안쪽 끝까지만 뺀다. 자식이 여럿이면 가장 안쪽까지.
+  // 좁힌 결과가 너무 얇거나(8px 미만) 띠 조건을 더는 못 채우면 null을 돌려 지금처럼 통째로 빼게 둔다.
+  var inner=null;
+  named.forEach(function(d){
+    if(!d.box)return;var v=edge==="top"?d.box.y+d.box.h:d.box.y;
+    inner=inner==null?v:(edge==="top"?Math.max(inner,v):Math.min(inner,v));
+  });
+  if(inner==null)return null;
+  var nb=edge==="top"?{x:box.x,y:box.y,w:box.w,h:inner-box.y}:{x:box.x,y:inner,w:box.w,h:box.y+box.h-inner};
+  if(nb.h<8||nb.h>=box.h-1)return null;
+  if(!frameBandEdge(nb,design))return null;
+  return nb;
 }
 function decideFrameBands(sections,root,design,model,lg,children,captureHeight,preset,ctx){
   // 위/아래 끝의 얇은 구역 중 '틀'로 볼 것을 고른다. preset이 있으면(2차 비교) 그 결정을 그대로 쓴다.
   // 구역이 못 되는 낱개 요소(이미지 한 장으로 그려 넣은 가짜 브라우저 틀처럼 안에 비교 단위가 없는 것)도 같은 기준으로 본다.
   var out=[];
-  if(preset){preset.forEach(function(b){var s=null;sections.forEach(function(x){if(x.el&&x.el.id===b.id)s=x;});if(s)s.excluded=true;out.push(b);});return out;}
+  if(preset){preset.forEach(function(b){var s=null;sections.forEach(function(x){if(x.el&&x.el.id===b.id)s=x;});if(s&&!b.narrowed)s.excluded=true;out.push(b);});return out;} // 좁힌 띠는 구역째 빼지 않는다(안쪽은 계속 검수)
   var content=sections.filter(function(s){return s.matched&&!frameBandEdge(s.box,design);}),main=null;
   content.forEach(function(s){if(!main||s.units.length>main.units.length)main=s;});
   if(root.units.length&&(!main||root.units.length>main.units.length))main=root;
   var mainDx=main?main.offset.dx:0,nearEdge=Math.max(8,12*lg/model.s);
   sections.forEach(function(s){
-    var edge=frameBandEdge(s.box,design);if(!edge||!s.el)return;var reason=null;
-    if(sectionLooksLikeFrame(s,children))reason="name";
+    var edge=frameBandEdge(s.box,design);if(!edge||!s.el)return;var reason=null,ev=frameEvidence(s.el,children);
+    if(ev)reason="name";
     else if(!s.matched)reason="unmatched";
     else{
       // 구역의 안쪽 경계가 개발 캡처의 어디에 닿는지. 캡처 바깥이면 디자인 전용 장식이다.
@@ -1571,7 +1702,12 @@ function decideFrameBands(sections,root,design,model,lg,children,captureHeight,p
       else if(edge==="bottom"&&innerEdgeCap>=captureHeight-nearEdge)reason="offCapture";
       else if(Math.abs(s.offset.dx-mainDx)>Math.max(16,design.width*.01)*lg)reason="shifted"; // 본문과 가로 밀림이 다르면 진짜 짝이 아니다(가짜 탭바 ↔ 진짜 크롬)
     }
-    if(reason){s.excluded=true;out.push({id:s.el.id,name:s.el.name||"이름 없는 영역",box:s.box,edge:edge,reason:reason});}
+    if(reason){
+      // 자식 이름만으로 틀이라 본 띠는 그 자식 자리까지만 빼고 구역은 살려 둔다 — 같은 띠에 든 진짜 내용은 계속 검수한다.
+      var band=reason==="name"&&ev.named?narrowFrameBand(s.box,edge,ev.named,design):null;
+      if(!band)s.excluded=true;
+      out.push({id:s.el.id,name:s.el.name||"이름 없는 영역",box:band||s.box,edge:edge,reason:reason,narrowed:band?true:undefined});
+    }
   });
   // 구역 밖 낱개 단위: 위/아래 끝에 붙은 얇은 이미지·도형. 이름으로 분명하거나, 캡처 바깥이거나, 글자가 없는데 짝이 없거나 가로로 어긋나면 틀이다.
   (root.units||[]).forEach(function(u){
@@ -1580,7 +1716,7 @@ function decideFrameBands(sections,root,design,model,lg,children,captureHeight,p
     if(clip.h<8||!frameBandEdge(clip,design))return; // 프레임 밖으로 넘쳐 안쪽엔 몇 px만 걸친 요소는 띠가 아니다
     if(out.some(function(b){return boxContains(b.box,e.box);}))return;
     var reason=null,hasText=e.kind==="text"||descendantsOf(e,children).some(function(d){return d.kind==="text"&&String(d.text||"").trim();});
-    if(sectionLooksLikeFrame({el:e},children))reason="name";
+    if(sectionLooksLikeFrame({el:e},children))reason="name"; // 낱개 띠는 그 자체가 비교 단위 하나라 쪼갤 수 없다 — 좁히지 않고 통째로 뺀다
     else{
       var innerEdgeCap=edge==="top"?((e.box.y+e.box.h)*lg-tyAt(model,(e.box.y+e.box.h)*lg))/model.s:(e.box.y*lg-tyAt(model,e.box.y*lg))/model.s;
       if(edge==="top"&&innerEdgeCap<=nearEdge)reason="offCapture";
@@ -1594,6 +1730,7 @@ function decideFrameBands(sections,root,design,model,lg,children,captureHeight,p
 }
 function bandNotice(b){
   var where=b.edge==="top"?"위쪽":"아래쪽",why=b.reason==="name"?"이름·글자로 보아 브라우저 틀·상태바라서":b.reason==="unmatched"?"개발 캡처에서 짝을 찾지 못해 디자인 전용 장식으로 보고":b.reason==="appRule"?"앱 화면 기본 규칙에 따라 기기가 그린 것으로 보고":b.reason==="offCapture"?"개발 캡처 바깥에 해당해 디자인 전용 장식으로 보고":"개발 캡처의 같은 자리와 맞지 않아 브라우저 틀 같은 디자인 전용 장식으로 보고";
+  if(b.narrowed)return "디자인 "+where+" ‘"+b.name+"’ 중 화면 끝 "+Math.round(b.box.h)+"px만 "+why+" 비교에서 제외했어요. 나머지 안쪽은 그대로 봤어요.";
   return "디자인 "+where+" ‘"+b.name+"’ 영역("+Math.round(b.box.h)+"px)은 "+why+" 비교에서 제외했어요.";
 }
 function estimateCaptureContentTop(sections,root,bands,model,lg){
@@ -1674,10 +1811,21 @@ function inkAverage(data,W,H,box,dx,dy){
 }
 function interiorAverage(data,W,H,box,dx,dy,inset){var x0=Math.max(0,Math.floor(box.x+dx+inset)),y0=Math.max(0,Math.floor(box.y+dy+inset)),x1=Math.min(W,Math.ceil(box.x+box.w+dx-inset)),y1=Math.min(H,Math.ceil(box.y+box.h+dy-inset));return x1-x0>=4&&y1-y0>=4?averageCell(data,W,H,x0,y0,x1,y1):null;}
 function blurLum(data,W,H,x,y){var r=0,n=0;for(var yy=-1;yy<=1;yy++)for(var xx=-1;xx<=1;xx++){var px=x+xx,py=y+yy;if(px<0||py<0||px>=W||py>=H)continue;var i=(py*W+px)*4;r+=data[i]*.299+data[i+1]*.587+data[i+2]*.114;n++;}return r/n;}
+var __blurCache=(typeof WeakMap!=="undefined")?new WeakMap():null;
+function blurLumMap(data,W,H){
+  // 흐린 밝기는 그림 한 장에서 값이 정해져 있다 — 볼 때마다 다시 세지 않고 한 번만 만들어 둔다(셈하는 차례가 같아 값도 같다).
+  var got=__blurCache&&__blurCache.get(data);
+  if(got&&got.W===W&&got.H===H)return got.map;
+  var map=new Float64Array(W*H);
+  for(var y=0;y<H;y++)for(var x=0;x<W;x++)map[y*W+x]=blurLum(data,W,H,x,y);
+  if(__blurCache)__blurCache.set(data,{W:W,H:H,map:map});
+  return map;
+}
 function grayPatchNCC(dd,cd,W,H,box,dx,dy){
   // 살짝 흐린 밝기 패턴의 상관계수(1 같음 ~ 0 무관). 같은 글자는 렌더러가 달라도 0.7 위, 다른 글자는 0.6 아래로 갈린다(실측).
   var x0=Math.max(0,Math.floor(box.x)),y0=Math.max(0,Math.floor(box.y)),x1=Math.min(W,Math.ceil(box.x+box.w)),y1=Math.min(H,Math.ceil(box.y+box.h)),n=0,sa=0,sb=0,saa=0,sbb=0,sab=0;
-  for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx;if(cx<0||cx>=W)continue;var a=blurLum(dd,W,H,x,y),b=blurLum(cd,W,H,cx,cy);n++;sa+=a;sb+=b;saa+=a*a;sbb+=b*b;sab+=a*b;}}
+  var __da=blurLumMap(dd,W,H),__ca=blurLumMap(cd,W,H);
+  for(var y=y0;y<y1;y++){var cy=y+dy;if(cy<0||cy>=H)continue;for(var x=x0;x<x1;x++){var cx=x+dx;if(cx<0||cx>=W)continue;var a=__da[y*W+x],b=__ca[cy*W+cx];n++;sa+=a;sb+=b;saa+=a*a;sbb+=b*b;sab+=a*b;}}
   if(n<16)return 1;var ma=sa/n,mb=sb/n,va=saa/n-ma*ma,vb=sbb/n-mb*mb;if(va<1||vb<1)return va<1&&vb<1?1:0;return clamp((sab/n-ma*mb)/Math.sqrt(va*vb),-1,1);
 }
 function exactEdgeMismatchMin(dE,cE,W,H,box,dx,dy){
@@ -2913,6 +3061,27 @@ async function runSelfTest(){
   check("캡처 바깥에 해당하는 위쪽 띠는 틀로 제외",decideFrameBands([secOff,secB],rootS,{width:1920,height:1080},{s:1,tx:0,ty:100},1,{},934)[0].reason==="offCapture");
   var preset=decideFrameBands([{el:{id:"tab"},box:secA.box,matched:true,offset:{dx:0,dy:0},units:[]}],rootS,{width:1920,height:1080},{s:1,tx:0,ty:0},1,{},934,[{id:"tab",edge:"top",reason:"shifted",box:secA.box,name:"탭바"}]);
   check("2차 비교는 1차 틀 결정을 그대로 사용",preset.length===1&&preset[0].reason==="shifted");
+  // 같은 띠에 든 진짜 내용까지 함께 빼지 않는다 — 자식 이름으로 걸린 띠만 그 자식 자리까지로 좁힌다
+  var nDesign={width:400,height:300},nRoot={units:[],offset:{dx:0,dy:0}},nModel={s:1,tx:0,ty:0};
+  function nBands(sec,kids,preset2){return decideFrameBands([sec],nRoot,nDesign,nModel,1,kids,300,preset2);}
+  var navKid={id:"nav",name:"Navigation bar",type:"RECTANGLE",kind:"image",parentId:"foot",box:{x:0,y:276,w:400,h:24},values:{}};
+  var logoKid={id:"s1",name:"S1 logo",type:"FRAME",kind:"shape",parentId:"foot",box:{x:170,y:240,w:60,h:20},values:{}};
+  var footSec={el:{id:"foot",name:"Frame 2087"},box:{x:0,y:240,w:400,h:60},matched:true,offset:{dx:0,dy:0},units:[1,2]};
+  var footBands=nBands(footSec,{foot:[logoKid,navKid]});
+  check("자식 이름으로 걸린 띠는 그 자식 자리까지만 뺀다",footBands.length===1&&footBands[0].reason==="name"&&footBands[0].narrowed===true&&footBands[0].box.y===276&&footBands[0].box.h===24&&!footSec.excluded);
+  check("좁힌 띠는 안내 글월도 좁힌 크기를 말한다",bandNotice(footBands[0]).indexOf("24px")>0);
+  var footSec2={el:{id:"foot",name:"Frame 2087"},box:{x:0,y:240,w:400,h:60},matched:true,offset:{dx:0,dy:0},units:[1,2]};
+  var footPreset=nBands(footSec2,{foot:[logoKid,navKid]},[{id:"foot",name:"Frame 2087",edge:"bottom",reason:"name",box:{x:0,y:276,w:400,h:24},narrowed:true}]);
+  check("2차 비교도 좁힌 띠를 그대로 잇는다",footPreset[0].narrowed===true&&!footSec2.excluded);
+  var ownSec={el:{id:"own",name:"web tab bar"},box:{x:0,y:0,w:400,h:40},matched:true,offset:{dx:0,dy:0},units:[1,2]};
+  check("묶음 제 이름이 틀이면 통째로 뺀다",(function(){var b=nBands(ownSec,{own:[{id:"nv1",name:"Navigation bar",type:"RECTANGLE",kind:"image",parentId:"own",box:{x:0,y:0,w:400,h:16},values:{}}]});
+    return b[0].box.h===40&&!b[0].narrowed&&ownSec.excluded===true;})());
+  var urlSec={el:{id:"ub",name:"Frame 9"},box:{x:0,y:0,w:400,h:40},matched:true,offset:{dx:0,dy:0},units:[1,2]};
+  check("URL 글자로 걸린 띠는 통째로 뺀다",(function(){var b=nBands(urlSec,{ub:[{id:"nv2",name:"Navigation bar",type:"RECTANGLE",kind:"image",parentId:"ub",box:{x:0,y:0,w:400,h:14},values:{}},{id:"u1",kind:"text",type:"TEXT",parentId:"ub",box:{x:20,y:12,w:200,h:16},text:"https://dev.example.com/login.do",values:{}}]});
+    return b[0].reason==="name"&&!b[0].narrowed&&b[0].box.h===40&&urlSec.excluded===true;})());
+  var thinSec={el:{id:"thin",name:"Frame 3"},box:{x:0,y:240,w:400,h:60},matched:true,offset:{dx:0,dy:0},units:[1,2]};
+  check("좁히면 너무 얇아지는 띠는 통째로 뺀다",(function(){var b=nBands(thinSec,{thin:[{id:"tn",name:"home indicator",type:"RECTANGLE",kind:"image",parentId:"thin",box:{x:0,y:296,w:400,h:4},values:{}}]});
+    return b[0].box.h===60&&!b[0].narrowed&&thinSec.excluded===true;})());
   var leafTab={id:"lt",name:"browser_tab",type:"RECTANGLE",kind:"image",parentId:"frame0",box:{x:0,y:0,w:1920,h:88},values:{}},leafU={el:leafTab,kind:"icon",container:false};
   var leafRoot={units:[leafU],offset:{dx:0,dy:0},matched:true},leafBands=decideFrameBands([secB],leafRoot,{width:1920,height:1898},{s:1,tx:0,ty:85},1,{},1816);
   check("구역이 못 되는 낱개 이미지(가짜 브라우저 틀)도 이름으로 틀 판정",leafBands.length===1&&leafBands[0].id==="lt"&&leafBands[0].reason==="name"&&leafBands[0].leaf===true);
@@ -2992,6 +3161,35 @@ async function runSelfTest(){
     var got3=captureFrameRules({img:c3,width:W,height:H});
     check("앱 촬영본: 바닥까지 붙은 목록은 하단 내비게이션으로 보지 않음",got3.bottom===0);
     check("가로가 긴 캡처(PC 웹)에는 앱 규칙을 적용하지 않음",captureFrameRules({img:canvasFor(800,500),width:800,height:500}).rules.length===0);
+    // ── 자판 위에 붙은 도구 줄도 키보드의 일부다(P24)
+    function kbdShot(draw){var c=canvasFor(W,H),x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);
+      x.fillStyle="#111";x.fillRect(16,12,40,14); // 상태바
+      x.fillRect(40,120,320,30);x.fillRect(40,200,320,30); // 본문
+      draw(x);return captureFrameRules({img:c,width:W,height:H});}
+    function keypad(x){x.fillStyle="#e4e4e7";x.fillRect(0,540,W,360);
+      x.fillStyle="#fff";for(var r=0;r<4;r++)for(var k=0;k<10;k++)x.fillRect(6+k*39,556+r*72,33,56);}
+    var toolbar=kbdShot(function(x){
+      x.fillStyle="#f6f6f8";x.fillRect(0,480,W,60); // 도구 줄 — 화면 바탕(255)과 차이 9뿐이라 색으로는 안 잡힌다
+      x.fillStyle="#555";for(var i=0;i<6;i++)x.fillRect(24+i*62,495,22,20); // 이모지·마이크 아이콘 한 줄
+      keypad(x);});
+    check("앱 촬영본: 자판 위에 붙은 납작한 도구 줄도 함께 자른다(바탕색이 화면과 거의 같아도)",
+      toolbar.bottom>=415&&toolbar.bottom<=425&&toolbar.rules.some(function(r){return r.id==="keyboard";}));
+    var noKbd=kbdShot(function(x){
+      x.fillStyle="#f6f6f8";x.fillRect(0,480,W,60); // 같은 도구 줄 모양인데 자판이 없다
+      x.fillStyle="#555";for(var i=0;i<6;i++)x.fillRect(24+i*62,495,22,20);});
+    check("앱 촬영본: 키보드가 없으면 납작한 띠가 있어도 아래쪽을 자르지 않는다",noKbd.bottom===0);
+    var faraway=kbdShot(function(x){
+      x.fillStyle="#555";x.fillRect(30,430,140,24);x.fillRect(30,480,140,24); // 자판 위가 그냥 앱 내용 — 바탕이 이어져 이음매가 없다
+      keypad(x);});
+    check("앱 촬영본: 자판 위가 앱 내용이면 자판만 자른다(끊기는 자리가 없다)",
+      faraway.bottom>=355&&faraway.bottom<=365);
+    var stuck=kbdShot(function(x){
+      x.fillStyle="#f6f6f8";x.fillRect(0,480,W,60); // 도구 줄과 같은 모양이지만
+      x.fillStyle="#555";x.fillRect(30,455,140,20); // 바로 위에 앱 글자가 붙어 있다 → 앱 제 것으로 본다
+      for(var i=0;i<6;i++)x.fillRect(24+i*62,495,22,20);
+      keypad(x);});
+    check("앱 촬영본: 납작한 띠 바로 위에 앱 글자가 붙어 있으면 자르지 않는다",
+      stuck.bottom>=355&&stuck.bottom<=365);
   })();
   check("직접 정한 아래쪽 검수 범위 적용",navManual.range.manualBottom===true&&navManual.range.captureBottom===70&&navManual.view.height===300&&navManual.candidates.length===0&&navManual.notices.some(function(n){return n.indexOf("개발 캡처 아래쪽 70px")>=0;}));
   var noBarDesign={id:"nb",name:"nb",width:400,height:260,elements:pageDesign.elements.slice(3).map(function(e){return Object.assign({},e,{box:{x:e.box.x,y:e.box.y-40,w:e.box.w,h:e.box.h}});})};
