@@ -381,20 +381,3 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 }
 @page{size:A4 landscape;margin:12mm}
 '''
-
-
-# ── 검수 페이지 목록에서 바로 받기 ────────────────────────────────────────
-# '삭제'·'페이지 옮기기' 와 한 줄에 선다. 고른 것이 있으면 그 장만, 없으면 그 화면 전부를 담는다.
-
-받기JS = """
-(function () {
-  var 단추 = document.getElementById('result-doc-get');
-  if (!단추) return;
-  단추.addEventListener('click', function () {
-    var 고름 = Array.prototype.slice.call(document.querySelectorAll('input[name=page]:checked'));
-    var 주소 = 단추.dataset.href;
-    if (고름.length) 주소 += '?pages=' + 고름.map(function (c) { return c.value; }).join(',');
-    location.href = 주소;
-  });
-})();
-"""

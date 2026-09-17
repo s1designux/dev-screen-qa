@@ -417,6 +417,10 @@ def render_list(unresolved_only: bool, round_filter):
 </body></html>"""
 
 
+# 방금 만든 검수서 한 벌. 문서가 무거워 다시 열 때 그대로 내준다 — 한 벌만, 5분까지.
+_검수서품기 = {}
+
+
 # ────────────────────────────────────────────────────── 화면 상세 = 페이지 목록
 def render_screen(human_key: str, notice=""):
     for group in intake().screen_groups():
@@ -510,10 +514,9 @@ def render_screen(human_key: str, notice=""):
 
     # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
     move_bar = page_move.막대() if pages else ""
-    # 개발화면검수서 받기 — 고른 장이 있으면 그 장만, 없으면 이 화면 전부 (result_doc).
-    doc_bar = (f'<button type="button" id="result-doc-get"'
-               f' data-href="/screen/{quote(human_key)}/{quote("검수서.html")}">개발화면검수서 다운로드</button>'
-               ) if pages else ""
+    # 개발화면검수서 — 전체목록의 것과 같은 문서를 이 화면만 담아 새 창으로 띄운다 (result_doc).
+    doc_bar = (f'<a class="chip" href="/screen/{quote(human_key)}/{quote("검수서.html")}"'
+               f' target="_blank">개발화면검수서</a>') if pages else ""
     move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
 
     remove_bar = f"""
@@ -599,7 +602,6 @@ def render_screen(human_key: str, notice=""):
   </div>
   {move_dlg}
   <script>{page_move.JS}</script>
-  <script>{result_doc.받기JS}</script>
   <script>{page_group.JS}</script>
   <script>{auto_inspect.PREWARM_JS}</script>
   <script>qa미리검수({json.dumps(s["uuid"])},{{알림:'prewarm-note'}});</script>
@@ -1260,9 +1262,10 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _검수서(self, human_key, 고른것=(), scope="all"):
-        """화면 하나의 개발화면검수서를 파일로 내려준다.
+        """화면 하나의 개발화면검수서를 새 창으로 띄운다 — 전체목록의 검수서와 같은 문서다.
 
-        담는 규칙은 프로젝트 전체 검수서와 같다(result_doc). 고른 장이 있으면 그 장만 담는다.
+        담는 규칙도 같다(result_doc). 고른 장이 있으면 그 장만 담는다.
+        문서가 무거워 같은 것을 다시 열면 방금 만든 한 벌을 그대로 내준다.
         """
         conn = dbmod.connect(REAL_DB)
         scr = queries.get_screen(conn, human_key)
@@ -1272,16 +1275,21 @@ class Handler(BaseHTTPRequestHandler):
             return
         row = scr["row"]
         conn.close()
-        html_doc = result_doc.build(row["project_id"], scope, db_path=REAL_DB,
-                                    screen_uuid=row["uuid"], page_ids=고른것)
-        if html_doc is None:
-            self._html(self._nf(f"화면 없음: {human_key}"), 404)
-            return
-        data = html_doc.encode("utf-8")
-        이름 = quote(f"개발화면검수서-{row['name']}.html")
+        키 = (human_key, scope, tuple(고른것))
+        쥔것 = _검수서품기.get("키")
+        if 쥔것 == 키 and time.time() - _검수서품기.get("때", 0) < 300:
+            data = _검수서품기["글"]
+        else:
+            html_doc = result_doc.build(row["project_id"], scope, db_path=REAL_DB,
+                                        screen_uuid=row["uuid"], page_ids=고른것)
+            if html_doc is None:
+                self._html(self._nf(f"화면 없음: {human_key}"), 404)
+                return
+            data = html_doc.encode("utf-8")
+            _검수서품기.clear()
+            _검수서품기.update({"키": 키, "때": time.time(), "글": data})
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{이름}")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
