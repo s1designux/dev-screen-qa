@@ -26,6 +26,7 @@ import auto_inspect
 import design_receive
 import policy_ui
 import policy_api
+import rule_board
 import fixdoc_http
 import fixdoc_view
 import page_group
@@ -1049,6 +1050,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         if auto_inspect.get(self, intake(), path, q):
+            return
+        if rule_board.get(self, unquote(path)):
             return
         if path == '/policy' or path.startswith('/policy/'):
             conn = dbmod.connect(REAL_DB)

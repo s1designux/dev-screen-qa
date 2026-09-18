@@ -139,6 +139,9 @@ def page_root(store, person_options=''):
     items = ''.join(f'<li><a href="/policy/service/{_e(p["uuid"])}">{_e(p["name"] or "(이름 없음)")}</a></li>' for p in projects)
     body = (f'<h1>검수 규칙</h1><p class="sub">규칙 값은 <b>시스템 기본 → 서비스 → 화면 → 요소</b> 순으로 겹치고, 아래층이 위층을 덮습니다. '
             f'바꾼 값은 지우지 않고 이력으로 쌓입니다.</p>'
+            f'<p class="sub" style="margin-top:calc(-1 * var(--spacing-12))">'
+            f'<a href="/policy/%EC%93%B0%EB%8A%94%EA%B7%9C%EC%B9%99">검수기가 지금 무엇을 보나 →</a>'
+            f' 사람이 정해 넣은 규칙과, 그 규칙이 망가지면 채점에서 걸리는지 한 장으로 봅니다.</p>'
             f'<h2>시스템 기본값</h2>{table}{score}{hist}'
             f'<h2>서비스별 규칙</h2><ul class="list">{items or "<li>서비스가 아직 없습니다.</li>"}</ul>')
     return _shell('검수 규칙', body)
