@@ -25,6 +25,7 @@ import 자 as 자모듈                                   # 좌표를 바꾸는 
 import auto_inspect
 import design_receive
 import policy_ui
+import project_view
 import policy_api
 import rule_board
 import fixdoc_http
@@ -44,6 +45,7 @@ from urllib.parse import urlparse, parse_qs, quote, unquote
 import s1_tokens
 # S-1 디자인가이드 토큰 네 장 — 포털 화면이 var(--…) 로 쓸 수 있게 머리에 잇는다.
 _토큰CSS = s1_tokens.링크()
+_부품CSS = s1_tokens.부품()   # 새 화면(과제 카드·과제 안)은 정본 부품 CSS 를 그대로 쓴다
 
 import db as dbmod
 import queries
@@ -963,7 +965,10 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
                        + _esc((design_now['orig_at'] or '')[:10]) + '">시안 새 판 · '
                        + _esc((design_now['fetched_at'] or '')[:10]) + '</span>')
     native_app = app_layout.is_app(s['platform'])
-    parent_href = f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked else f"/screen/{human_key}"
+    # 돌아가는 곳은 **왔던 화면**이다 — 과제 안(왼쪽 화면 목록 + 시안 카드).
+    # 옛 표 목록으로 보내면 눌러 들어온 자리와 달라 river 가 헤맸다(2026-09-21).
+    parent_href = (f"/intake/{linked['batch_id']}/screen/{linked['id']}" if linked
+                   else f"/project/{s['project_id']}?screen={s['uuid']}")
     if workflow:parent_href=workflow["parent"]
     navigation = workflow.get("navigation", "") if workflow else ""
     if not navigation and len(siblings) > 1:
@@ -1056,8 +1061,23 @@ class Handler(BaseHTTPRequestHandler):
         elif path.startswith('/intake'):
             intake_http.get(self, intake(), path, q)
         elif path == "/":
+            conn = dbmod.connect(REAL_DB)
+            try:
+                self._html(project_view.render_home(conn, q.get("상태", [""])[0], _부품CSS))
+            finally:
+                conn.close()
+        elif unquote(path) == "/전체목록":
+            # 옛 표 목록 — 과제를 가로질러 한눈에 볼 때만 쓴다(첫 화면은 과제 카드다)
             round_filter = int(q["round"][0]) if "round" in q else None
             self._html(render_list(unresolved_only, round_filter))
+        elif path.startswith("/project/"):
+            conn = dbmod.connect(REAL_DB)
+            try:
+                쪽 = project_view.render_project(conn, intake(), path[len("/project/"):],
+                                                q.get("screen", [""])[0], _부품CSS, UPLOADS)
+            finally:
+                conn.close()
+            self._html(쪽 if 쪽 else self._nf("과제 없음"), 200 if 쪽 else 404)
         elif "/page/" in path and path.startswith("/screen/"):
             page_uuid = path.rsplit("/page/", 1)[1]
             rnd = int(q["round"][0]) if "round" in q else None

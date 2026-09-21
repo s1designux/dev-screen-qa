@@ -98,7 +98,7 @@ def 문서만들기(uploads, pages, human_key, 화면이름, 주소, store=None)
     return 지시서묶음(화면별, 제목="개발화면 수정 요청 — %s" % 화면이름, 차수=1)
 
 
-def 카드(human_key, 셈):
+def 카드(human_key, 셈, 부품=False):
     """검수 페이지 목록 맨 위에 붙는 주의 칸.
 
     모양은 촬영 준비 사이트 ①의 '디자인 수정 필요' 칸과 같다(사람이 보는 말·모양이 두 곳에서 같아야 한다).
@@ -111,6 +111,18 @@ def 카드(human_key, 셈):
     화살표 = ('<svg class="arw" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">'
             '<path fill="none" stroke="var(--color-icon-red)" stroke-width="2" stroke-linecap="round"'
             ' stroke-linejoin="round" d="m7 10 5 5 5-5"/></svg>')
+    # 새 화면(과제 안)은 정본 부품 CSS 를 쓰므로 단추도 정본 마크업으로 낸다.
+    # 옛 화면은 손으로 옮겨 적은 s1_components 를 쓰므로 그대로 둔다 — 한 번에 갈아끼우지 않는다.
+    if 부품:
+        단추 = "".join(
+            f'<button type="button" data-s1-component="button" data-variant="primary" data-size="xsm"'
+            f' onclick="{동작}"><span data-s1-part="label">{이름}</span></button>'
+            for 이름, 동작 in (
+                ("수정요청서 MD 다운로드", f"location.href='/screen/{human_key}/수정요청.md'"),
+                ("수정요청서 PDF 보기", f"window.open('/screen/{human_key}/수정요청.html','_blank')")))
+    else:
+        단추 = (f'<a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.md" download>수정요청서 MD 다운로드</a>'
+              f'<a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.html" target="_blank">수정요청서 PDF 보기</a>')
     return f"""
     <details class="warn-card" open>
       <summary>{주의아이콘}<span class="ttl">개발화면 검수 전 적용해주세요</span>
@@ -118,8 +130,7 @@ def 카드(human_key, 셈):
       <div class="body">
         <p>색·크기·글꼴이 시안과 다르거나 회사 색·컴포넌트를 쓰지 않은 곳, {몇}<br>
            <b>검수를 시작하기 전에</b> 개발이 먼저 고치면 같은 수정필요를 되풀이하지 않습니다.</p>
-        <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.md" download>수정요청서 MD 다운로드</a>
-        <a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.html" target="_blank">수정요청서 PDF 보기</a>
+        {단추}
       </div>
     </details>"""
 
@@ -143,6 +154,8 @@ CSS = """
 .warn-card>summary .arw{margin-left:auto;flex:0 0 auto;transition:transform .15s}
 .warn-card[open]>summary .arw{transform:rotate(180deg)}
 .warn-card>.body{padding:0 var(--spacing-20) var(--spacing-16)}
+/* 단추 둘 사이 — 정본 부품(data-s1-component)으로 낼 때도 간격은 여기서 준다 */
+.warn-card>.body [data-s1-component="button"]+[data-s1-component="button"]{margin-left:var(--spacing-8)}
 .warn-card>.body p{margin:0 0 var(--spacing-10);font-size:var(--font-size-14);
   line-height:var(--line-height-140);color:var(--color-text-body-tertiary)}
 

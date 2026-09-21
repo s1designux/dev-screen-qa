@@ -20,6 +20,18 @@ def 링크():
             + "<style>%s</style>" % s1_components.CSS)
 
 
+def 부품():
+    """토큰 네 장 + **정본 부품 CSS 한 장**(s1-ui 0.8.1).
+
+    새로 만드는 화면은 이쪽을 쓴다 — 부품 생김새를 우리가 다시 적지 않고
+    가이드가 배포한 것을 그대로 받는다. 마크업에 `data-s1-component` 를 달아야 붙는다.
+    받아 두기: cp ~/.claude/s1-design-guide/ui-library/dist/s1-ui.css mvp0/assets/css/s1-ui.css
+    (옛 화면이 쓰는 `링크()` 는 손으로 옮겨 적은 s1_components 를 그대로 둔다 — 한 번에 갈아끼우지 않는다.)
+    """
+    return ("".join("<link rel=stylesheet href='/assets/css/%s.css'>" % x for x in 차례)
+            + "<link rel=stylesheet href='/assets/css/s1-ui.css'>")
+
+
 def 품기():
     글 = []
     for x in 차례:

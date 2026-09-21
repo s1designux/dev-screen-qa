@@ -1,0 +1,4288 @@
+/* s1-제외 시작 — 아래는 S-1 정본 부품 CSS 사본입니다(s1-ui 0.8.1 2026-09-17).
+   손으로 고치지 마세요. 다시 받기: bash scripts/부품받기.sh */
+/* component:input */
+/* Base Input + Password Field (type=password 옵션) + Search Input (data-mode=search 옵션).
+   둘 다 별도 컴포넌트가 아니라 이 Input을 조립한다(river D1, 2026-09-04). */
+[data-s1-component="input"] {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+  width: 100%;
+}
+
+/* Search 최소 폭 — 정본 SEARCH_MIN_W(build-components.ts) 와 같은 200px.
+   좁아지면 좌우 아이콘이 서로 붙어 보인다(river 지시 2026-09-09). 늘어나는 것은 그대로 둔다. */
+[data-s1-component="input"][data-mode="search"],
+[data-s1-component="input"][data-mode="search"] [data-s1-part="field"] {
+  min-width: 200px;
+}
+
+[data-s1-component="input"] [data-s1-part="label"] {
+  color: var(--color-form-control-label-default);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="input"] [data-s1-part="field"] {
+  align-items: center;
+  background: var(--color-form-control-bg-default);
+  border: var(--border-width-1) solid var(--color-form-control-border-default);
+  border-radius: var(--radius-control-sm);
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+}
+
+[data-s1-component="input"] [data-s1-part="control"] {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  caret-color: var(--color-form-control-text-cursor);
+  color: var(--color-form-control-text-default);
+  flex: 1 1 auto;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  height: 100%;
+  line-height: var(--line-height-130);
+  margin: 0;
+  min-width: 0;
+  outline: 0;
+  padding-block: 0;
+  width: 100%;
+}
+
+[data-s1-component="input"] [data-s1-part="control"]::placeholder {
+  color: var(--color-form-control-text-placeholder);
+  opacity: var(--opacity-100);
+}
+
+[data-s1-component="input"] [data-s1-part="action"] {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  color: var(--color-form-control-icon-default);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--sizing-28);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: var(--sizing-28);
+}
+
+[data-s1-component="input"] [data-s1-part="action"][hidden] {
+  display: none;
+}
+
+/* 트레일링 액션 사이 간격. Password = [눈][지우기] 2px(정본 trail itemSpacing:2, build-components.ts:1246).
+   Search = [지우기][돋보기] 4px(정본 trail itemSpacing:4, build-components.ts:1591) — data-mode=search 로 override. */
+[data-s1-component="input"] [data-s1-part="action"] + [data-s1-part="action"] {
+  margin-inline-start: var(--spacing-2);
+}
+
+[data-s1-component="input"][data-mode="search"] [data-s1-part="action"] + [data-s1-part="action"] {
+  margin-inline-start: var(--spacing-4);
+}
+
+/* Mobile 에서 아이콘이 두 개 보일 때 — 누르는 영역 48×48 은 그대로 두고 그림만 안쪽으로 당긴다.
+   48 칸 정중앙에 24 그림을 두면 양쪽 12px 씩이 비어 보이는 간격이 PC 8px 대비 28px 까지 벌어진다.
+   칸 사이 간격을 0 으로 맞붙이고 왼쪽 그림을 자기 칸 오른쪽 끝에 붙여 좁힌다(river HD-3 A, 2026-09-07).
+   오른쪽 그림 위치(칸 끝에서 12px)는 river 승인값이라 건드리지 않는다. 칸은 겹치지 않는다. */
+[data-s1-component="input"][data-break="mobile"] [data-s1-part="action"] + [data-s1-part="action"] {
+  margin-inline-start: 0;
+}
+
+[data-s1-component="input"][data-break="mobile"] [data-s1-part="action"]:has(+ [data-s1-part="action"]:not([hidden])) {
+  justify-content: flex-end;
+}
+
+/* Mobile break 는 hover 를 내지 않는다 — 손가락에는 hover 가 없고,
+   PC 브라우저에서 Mobile 화면을 볼 때 48×48 누르는 영역이 통째로 칠해져
+   실제 아이콘보다 훨씬 큰 면이 반응하는 것처럼 보이기 때문이다(river 지시 2026-09-07).
+   화면 구분을 감싸는 요소에만 적었을 때도 같아야 한다 — 자기 [data-break] 가 없어도
+   모바일 감싸개 안이면 hover 를 내지 않는다(2026-09-15). 자기가 pc 라고 적었으면 그쪽이 이긴다. */
+@media (hover: hover) {
+  [data-s1-component="input"]:not([data-break="mobile"]):is([data-break="pc"], :not([data-s1-break="mobile"] *)) [data-s1-part="action"]:hover:not(:disabled) {
+    background: var(--color-form-control-bg-hover);
+    border-radius: var(--radius-control-sm);
+  }
+}
+
+[data-s1-component="input"] [data-s1-part="action-icon"] {
+  background-color: currentColor;
+  display: block;
+  height: var(--sizing-24);
+  mask: url("./assets/icons/remove.svg") center / contain no-repeat;
+  width: var(--sizing-24);
+}
+
+/* 비밀번호 표시 전환 — 숨김 중(aria-pressed=false)은 eye_hide, 표시 중(aria-pressed=true)은 eye_show.
+   눈 아이콘 색은 정본이 모든 상태에서 icon/default 하나만 쓴다(build-components.ts:1229 — 상태별 분기 없음). */
+[data-s1-component="input"] [data-s1-part="action"][data-action="password"] [data-s1-part="action-icon"] {
+  mask: url("./assets/icons/eye_hide.svg") center / contain no-repeat;
+}
+
+[data-s1-component="input"] [data-s1-part="action"][data-action="password"][aria-pressed="true"] [data-s1-part="action-icon"] {
+  mask: url("./assets/icons/eye_show.svg") center / contain no-repeat;
+}
+
+/* 검색 실행(돋보기) — 항상 표시, 값 유무와 무관(river D4). */
+[data-s1-component="input"] [data-s1-part="action"][data-action="search"] [data-s1-part="action-icon"] {
+  mask: url("./assets/icons/search.svg") center / contain no-repeat;
+}
+
+/* Search 돋보기만 Disabled 에서 색을 낮춘다 — 정본 buildSearch 의 Disabled state 만 icon/disabled 를 쓴다
+   (build-components.ts:1520). Password 눈·clear 는 정본에 disabled 전용 아이콘 색이 없어 그대로 둔다. */
+[data-s1-component="input"][data-mode="search"]:has([data-s1-part="control"]:disabled) [data-s1-part="action"][data-action="search"] {
+  color: var(--color-form-control-icon-disabled);
+}
+
+[data-s1-component="input"][data-size="xxsm"] [data-s1-part="action-icon"] {
+  height: var(--sizing-20);
+  width: var(--sizing-20);
+}
+
+[data-s1-component="input"][data-break="mobile"] [data-s1-part="action"] {
+  height: var(--sizing-48);
+  width: var(--sizing-48);
+}
+
+[data-s1-component="input"] [data-s1-part="message"] {
+  color: var(--color-text-state-caption);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  margin: 0;
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="xxsm"] [data-s1-part="field"] {
+  height: var(--sizing-28);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="xxsm"] [data-s1-part="control"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: 0;
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="xsm"] [data-s1-part="field"] {
+  height: var(--sizing-34);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="xsm"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="md"] [data-s1-part="field"] {
+  height: var(--sizing-44);
+  padding-inline: var(--spacing-16) var(--spacing-12);
+}
+
+[data-s1-component="input"][data-break="pc"][data-size="md"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* Mobile 오른쪽 안쪽 여백은 0 — 누르는 영역 48×48 을 칸 끝에 붙여
+   아이콘이 안쪽으로 밀리지 않게 한다. (river 지시 2026-09-04) */
+[data-s1-component="input"][data-break="mobile"][data-size="md"] [data-s1-part="field"] {
+  height: var(--sizing-48);
+  min-height: var(--sizing-48);
+  padding-inline: var(--spacing-16) 0;
+}
+
+[data-s1-component="input"][data-break="mobile"][data-size="md"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+[data-s1-component="input"]:focus-within [data-s1-part="field"] {
+  background: var(--color-form-control-bg-selected);
+  border-color: var(--color-form-control-border-selected);
+}
+
+[data-s1-component="input"]:focus-within [data-s1-part="control"] {
+  color: var(--color-form-control-text-selected);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"][aria-invalid="true"]) [data-s1-part="field"] {
+  background: var(--color-form-control-bg-default);
+  border-color: var(--color-form-control-border-error);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"][aria-invalid="true"]) [data-s1-part="message"] {
+  color: var(--color-text-state-caution);
+}
+
+[data-s1-component="input"][data-state="correct"] [data-s1-part="field"] {
+  background: var(--color-form-control-bg-default);
+  border-color: var(--color-form-control-border-correct);
+}
+
+[data-s1-component="input"][data-state="correct"] [data-s1-part="message"] {
+  color: var(--color-text-state-correct);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"][readonly]) [data-s1-part="field"] {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-default);
+}
+
+[data-s1-component="input"] [data-s1-part="control"][readonly] {
+  color: var(--color-form-control-text-read-only);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"]:disabled) [data-s1-part="field"] {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-disabled);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"]:disabled) [data-s1-part="label"] {
+  color: var(--color-form-control-label-disabled);
+}
+
+[data-s1-component="input"]:has([data-s1-part="control"]:disabled) [data-s1-part="message"] {
+  color: var(--color-text-state-disabled);
+}
+
+[data-s1-component="input"] [data-s1-part="control"]:disabled {
+  color: var(--color-form-control-text-disabled);
+  cursor: not-allowed;
+}
+
+[data-s1-component="input"] [data-s1-part="control"]:disabled::placeholder {
+  color: var(--color-form-control-text-disabled);
+}
+
+/* Error·Correct·Read-only 의미는 유지하되 키보드 초점은 정본 Selected border로 구분한다.
+   (2026-09-02 focus-visible 철회 때 함께 지워졌던 규칙 — 2026-09-04 river 지시로 복원) */
+[data-s1-component="input"]:has([data-s1-part="control"]:focus-visible) [data-s1-part="field"] {
+  border-color: var(--color-form-control-border-selected);
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-44);
+  padding-inline: var(--spacing-16) var(--spacing-12);
+}
+
+[data-s1-density="wide"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+[data-s1-break="pc"][data-s1-density="wide"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-44);
+  padding-inline: var(--spacing-16) var(--spacing-12);
+}
+
+[data-s1-break="pc"][data-s1-density="wide"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-34);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-density="normal"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+[data-s1-break="pc"][data-s1-density="normal"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-34);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-break="pc"][data-s1-density="normal"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="input"]:not([data-size]) [data-s1-part="action-icon"] {
+  height: var(--sizing-20);
+  width: var(--sizing-20);
+}
+
+[data-s1-density="narrow"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-28);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-density="narrow"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: 0;
+}
+
+[data-s1-break="pc"][data-s1-density="narrow"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-28);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+[data-s1-break="pc"][data-s1-density="narrow"] [data-s1-component="input"]:not([data-break="mobile"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: 0;
+}
+
+/* bridge:pc 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="xxsm"] [data-s1-part="field"] {
+  height: var(--sizing-28);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="xxsm"] [data-s1-part="control"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: 0;
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="xsm"] [data-s1-part="field"] {
+  height: var(--sizing-34);
+  padding-inline: var(--spacing-12) var(--spacing-8);
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="xsm"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="md"] [data-s1-part="field"] {
+  height: var(--sizing-44);
+  padding-inline: var(--spacing-16) var(--spacing-12);
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="input"]:not([data-break="mobile"])[data-size="md"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"]) [data-s1-part="action"] + [data-s1-part="action"] {
+  margin-inline-start: 0;
+}
+
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"]) [data-s1-part="action"]:has(+ [data-s1-part="action"]:not([hidden])) {
+  justify-content: flex-end;
+}
+
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"]) [data-s1-part="action"] {
+  height: var(--sizing-48);
+  width: var(--sizing-48);
+}
+
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"])[data-size="md"] [data-s1-part="field"] {
+  height: var(--sizing-48);
+  min-height: var(--sizing-48);
+  padding-inline: var(--spacing-16) 0;
+}
+
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"])[data-size="md"] [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"]):not([data-size]) [data-s1-part="field"] {
+  height: var(--sizing-48);
+  min-height: var(--sizing-48);
+  padding-inline: var(--spacing-16) 0;
+}
+
+[data-s1-break="mobile"] [data-s1-component="input"]:not([data-break="pc"]):not([data-size]) [data-s1-part="control"] {
+  font-size: var(--font-size-14);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: 0;
+}
+
+/* component:button */
+/* Generated-token consumer. Load assets/css/tokens.css and typography.css first. */
+[data-s1-component="button"] {
+  align-items: center;
+  appearance: none;
+  border-style: solid;
+  border-width: var(--border-width-1);
+  border-radius: var(--radius-button-md);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  line-height: var(--line-height-130);
+  margin: 0;
+  padding-block: 0;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+[data-s1-component="button"] [data-s1-part="label"] {
+  pointer-events: none;
+  text-align: center;
+}
+
+[data-s1-component="button"][data-size="md"] {
+  font-size: var(--font-size-14);
+  height: var(--sizing-44);
+  min-width: var(--sizing-80);
+  padding-inline: var(--spacing-16);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+[data-s1-component="button"][data-size="xsm"] {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  min-width: var(--sizing-64);
+  padding-inline: var(--spacing-8);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+[data-s1-component="button"][data-size="xxsm"] {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  min-width: var(--sizing-56);
+  padding-inline: var(--spacing-8);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+[data-s1-component="button"][data-size="lg"] {
+  font-size: var(--font-size-16);
+  height: var(--sizing-48);
+  min-width: var(--sizing-80);
+  padding-inline: var(--spacing-16);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+[data-s1-component="button"][data-size="lg"] [data-s1-part="label"] {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+[data-s1-component="button"][data-variant="primary"] {
+  background: var(--color-button-bg-primary--default);
+  border-color: var(--color-button-border-primary--default);
+  color: var(--color-button-label-primary--default);
+}
+
+/* ── 상태 칠: 누름(:active)은 전 크기 · 마우스오버(:hover)는 PC 크기에만 ────────────────────
+   정본 State 축은 Default·Hover·Pressed·Disabled 이고 Hover 와 Pressed 는 같은 칠이다.
+   그런데 **모바일(LG)에는 마우스오버가 없어야 한다** — 손가락에는 hover 가 없고, PC 브라우저로
+   모바일 화면을 볼 때 큰 버튼이 통째로 칠해져 혼란을 준다. 같은 이유로 Input 의 suffix 액션에서
+   이미 모바일 hover 를 걷어냈다(river 지시 2026-09-07 · registry/components/input.json).
+   2026-09-15 river 가 바텀시트 검수에서 같은 규칙을 Button 에도 적용하라고 지시했다.
+   → :active(누름)는 LG 를 포함해 그대로 두고, :hover 만 (hover: hover) 기기 + LG 제외로 좁힌다.
+   밀도 감싸개로 만든 모바일 버튼도 같다 — 크기를 직접 안 적고 감싸는 요소에 data-s1-break="mobile"
+   만 선언해도 48 로 서므로(density.mjs), 그 안에서는 hover 를 내지 않는다. 자기가 크기를 직접
+   적었으면 그쪽이 이긴다(:is([data-size], …)). Input 의 같은 규칙과 짝을 맞춘 것이다
+   (input.css:110 · river 지시 2026-09-07 → 2026-09-15 밀도 감싸개까지 확장). */
+[data-s1-component="button"][data-variant="primary"]:active:not(:disabled) {
+  background: var(--color-button-bg-primary--hover);
+  border-color: var(--color-button-border-primary--hover);
+  color: var(--color-button-label-primary--hover);
+}
+
+@media (hover: hover) {
+  [data-s1-component="button"][data-variant="primary"]:hover:not(:disabled):not([data-size="lg"]):is([data-size], :not([data-s1-break="mobile"] *)) {
+    background: var(--color-button-bg-primary--hover);
+    border-color: var(--color-button-border-primary--hover);
+    color: var(--color-button-label-primary--hover);
+  }
+}
+
+[data-s1-component="button"][data-variant="secondary"] {
+  background: var(--color-button-bg-secondary--default);
+  border-color: var(--color-button-border-secondary--default);
+  color: var(--color-button-label-secondary--default);
+}
+
+[data-s1-component="button"][data-variant="secondary"]:active:not(:disabled) {
+  background: var(--color-button-bg-secondary--hover);
+  border-color: var(--color-button-border-secondary--hover);
+  color: var(--color-button-label-secondary--hover);
+}
+
+@media (hover: hover) {
+  [data-s1-component="button"][data-variant="secondary"]:hover:not(:disabled):not([data-size="lg"]):is([data-size], :not([data-s1-break="mobile"] *)) {
+    background: var(--color-button-bg-secondary--hover);
+    border-color: var(--color-button-border-secondary--hover);
+    color: var(--color-button-label-secondary--hover);
+  }
+}
+
+[data-s1-component="button"][data-variant="blue-line"] {
+  background: var(--color-button-bg-blue-line--default);
+  border-color: var(--color-button-border-blue-line--default);
+  color: var(--color-button-label-blue-line--default);
+}
+
+[data-s1-component="button"][data-variant="blue-line"]:active:not(:disabled) {
+  background: var(--color-button-bg-blue-line--hover);
+  border-color: var(--color-button-border-blue-line--hover);
+  color: var(--color-button-label-blue-line--hover);
+}
+
+@media (hover: hover) {
+  [data-s1-component="button"][data-variant="blue-line"]:hover:not(:disabled):not([data-size="lg"]):is([data-size], :not([data-s1-break="mobile"] *)) {
+    background: var(--color-button-bg-blue-line--hover);
+    border-color: var(--color-button-border-blue-line--hover);
+    color: var(--color-button-label-blue-line--hover);
+  }
+}
+
+[data-s1-component="button"]:disabled {
+  background: var(--color-button-bg-disabled);
+  border-color: var(--color-button-border-disabled);
+  color: var(--color-button-label-disabled);
+  cursor: not-allowed;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="button"]:not([data-size]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-44);
+  min-width: var(--sizing-80);
+  padding-inline: var(--spacing-16);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="button"]:not([data-size]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  min-width: var(--sizing-64);
+  padding-inline: var(--spacing-8);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="button"]:not([data-size]) {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  min-width: var(--sizing-56);
+  padding-inline: var(--spacing-8);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="button"]:not([data-size]) {
+  font-size: var(--font-size-16);
+  height: var(--sizing-48);
+  min-width: var(--sizing-80);
+  padding-inline: var(--spacing-16);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+[data-s1-break="mobile"] [data-s1-component="button"]:not([data-size]) [data-s1-part="label"] {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+/* component:checkbox */
+/* Base Checkbox — 정본 buildCheckbox(18×18 box, radius 2, inside border 1, check 16×16 at 1,1) 기준.
+   라벨은 선택 부품이며 없을 때는 상자만 남는다. */
+[data-s1-component="checkbox"] {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: var(--spacing-8);
+}
+
+[data-s1-component="checkbox"] [data-s1-part="control"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-control-bg-default);
+  border: var(--border-width-1) solid var(--color-control-border-default);
+  border-radius: var(--radius-control-xs);
+  box-sizing: border-box;
+  color: var(--color-control-indicator-selected);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--sizing-18);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: var(--sizing-18);
+}
+
+/* 체크 표시는 :checked 에서만 그린다. 색은 currentColor 를 통해 상태별 indicator 토큰을 따라간다. */
+[data-s1-component="checkbox"] [data-s1-part="control"]:checked::before {
+  background-color: currentColor;
+  content: "";
+  display: block;
+  height: var(--sizing-16);
+  mask: url("./assets/icons/check.svg") center / contain no-repeat;
+  width: var(--sizing-16);
+}
+
+/* 정본 Hover 는 선택 안 된 상자의 배경만 바뀐다. Checked 에는 Hover 변형이 없다. */
+@media (hover: hover) {
+  [data-s1-component="checkbox"] [data-s1-part="control"]:hover:not(:disabled):not(:checked) {
+    background: var(--color-control-bg-hover);
+  }
+}
+
+[data-s1-component="checkbox"] [data-s1-part="control"]:checked {
+  background: var(--color-control-bg-selected);
+  border-color: var(--color-control-border-selected);
+  color: var(--color-control-indicator-selected);
+}
+
+[data-s1-component="checkbox"] [data-s1-part="control"]:disabled {
+  background: var(--color-control-bg-disabled);
+  border-color: var(--color-control-border-disabled);
+  cursor: not-allowed;
+}
+
+[data-s1-component="checkbox"] [data-s1-part="control"]:disabled:checked {
+  color: var(--color-control-indicator-disabled);
+}
+
+[data-s1-component="checkbox"] [data-s1-part="label"] {
+  color: var(--color-control-label-default);
+  cursor: pointer;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="checkbox"]:has([data-s1-part="control"]:disabled) [data-s1-part="label"] {
+  color: var(--color-control-label-disabled);
+  cursor: not-allowed;
+}
+
+/* component:radio */
+/* Base Radio — 정본 buildRadio(원 18×18, inside border 1, dot 10×10 중앙, 라벨 간격 8) 기준.
+   정본 Label 축의 Off 가 기본이고 On(라벨 있음)은 선택 부품이다. */
+[data-s1-component="radio"] {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: var(--spacing-8);
+}
+
+[data-s1-component="radio"] [data-s1-part="control"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-control-bg-default);
+  border: var(--border-width-1) solid var(--color-control-border-default);
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+  color: var(--color-control-indicator-selected-alt);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--sizing-18);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: var(--sizing-18);
+}
+
+/* 선택 점은 :checked 에서만 그린다. 정본 Selected 는 배경을 바꾸지 않고 테두리와 점만 바뀐다. */
+[data-s1-component="radio"] [data-s1-part="control"]:checked::before {
+  background-color: currentColor;
+  border-radius: var(--radius-full);
+  content: "";
+  display: block;
+  height: var(--sizing-10);
+  width: var(--sizing-10);
+}
+
+@media (hover: hover) {
+  [data-s1-component="radio"] [data-s1-part="control"]:hover:not(:disabled):not(:checked) {
+    background: var(--color-control-bg-hover);
+  }
+}
+
+[data-s1-component="radio"] [data-s1-part="control"]:checked {
+  background: var(--color-control-bg-default);
+  border-color: var(--color-control-border-selected);
+  color: var(--color-control-indicator-selected-alt);
+}
+
+[data-s1-component="radio"] [data-s1-part="control"]:disabled {
+  background: var(--color-control-bg-disabled);
+  border-color: var(--color-control-border-disabled);
+  cursor: not-allowed;
+}
+
+[data-s1-component="radio"] [data-s1-part="control"]:disabled:checked {
+  color: var(--color-control-indicator-disabled);
+}
+
+[data-s1-component="radio"] [data-s1-part="label"] {
+  color: var(--color-control-label-default);
+  cursor: pointer;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="radio"]:has([data-s1-part="control"]:disabled) [data-s1-part="label"] {
+  color: var(--color-control-label-disabled);
+  cursor: not-allowed;
+}
+
+/* component:toggle */
+/* Toggle — 정본 buildToggle(트랙 40×20 radius full, 노브 16×16 at 2,2 / 22,2) 기준.
+   정본에 Hover·모션 변형이 없어 웹에서도 만들지 않는다. 루트 button 이 곧 트랙이다. */
+[data-s1-component="toggle"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-control-indicator-unselected);
+  border: 0;
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--sizing-20);
+  margin: 0;
+  padding: 0;
+  position: relative;
+  width: var(--sizing-40);
+}
+
+[data-s1-component="toggle"] [data-s1-part="knob"] {
+  background: var(--color-control-indicator-selected);
+  border-radius: var(--radius-full);
+  height: var(--sizing-16);
+  left: var(--spacing-2);
+  pointer-events: none;
+  position: absolute;
+  width: var(--sizing-16);
+}
+
+/* 정본 Pressed=On — 트랙은 선택 배경, 노브는 오른쪽 끝에서 2px */
+[data-s1-component="toggle"][aria-checked="true"] {
+  background: var(--color-control-bg-selected);
+}
+
+[data-s1-component="toggle"][aria-checked="true"] [data-s1-part="knob"] {
+  left: auto;
+  right: var(--spacing-2);
+}
+
+/* 정본 State=Disabled — Off·On 모두 같은 비활성 트랙·노브 색을 쓴다 */
+[data-s1-component="toggle"]:disabled {
+  background: var(--color-control-bg-disabled);
+  cursor: not-allowed;
+}
+
+[data-s1-component="toggle"]:disabled [data-s1-part="knob"] {
+  background: var(--color-control-indicator-disabled);
+}
+
+/* component:chip */
+/* Chip — 정본 buildChip(Line·Solid × Default·Hover·Selected·Disabled, radius full, inside border 1) 기준.
+   크기는 정본 3조합만 있다: PC SM h28/12/pad16 · Mobile SM h30/14/pad12 · PC MD h34/14/pad16.
+   정본에 아이콘·닫기(X) 부품이 없어 이번 배포는 라벨 전용이다. */
+[data-s1-component="chip"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border-radius: var(--radius-full);
+  border-style: solid;
+  border-width: var(--border-width-1);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  /* line-height: normal — 정본에 텍스트 줄간격 값이 없다. 130%(문단용 배수)를 쓰면
+     Pretendard 의 ascent:descent 비율이 그대로 배 배분돼 라벨이 살짝 위로 떠 보인다.
+     normal(폰트 자체 메트릭)로 두면 라벨이 실측상 상하 대칭으로 앉는다(2026-08-31 river 지적). */
+  line-height: normal;
+  margin: 0;
+  padding-block: 0;
+  text-align: center;
+  user-select: none;
+  white-space: nowrap;
+}
+
+[data-s1-component="chip"] [data-s1-part="label"] {
+  pointer-events: none;
+}
+
+[data-s1-component="chip"][data-size="sm"][data-break="pc"] {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: var(--spacing-16);
+}
+
+[data-s1-component="chip"][data-size="sm"][data-break="mobile"] {
+  font-size: var(--font-size-14);
+  height: var(--sizing-30);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-12);
+}
+
+[data-s1-component="chip"][data-size="md"][data-break="pc"] {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+/* ── Line ── */
+[data-s1-component="chip"][data-variant="line"] {
+  background: var(--color-chip-line-bg-default);
+  border-color: var(--color-chip-line-border-default);
+  color: var(--color-chip-line-label-default);
+}
+
+/* 정본 Line Hover — 배경만 바뀌고 테두리는 기본값을 유지한다. 선택됨에는 Hover 변형이 없다. */
+@media (hover: hover) {
+  [data-s1-component="chip"][data-variant="line"]:hover:not(:disabled):not([aria-pressed="true"]) {
+    background: var(--color-chip-line-bg-hover);
+  }
+}
+
+[data-s1-component="chip"][data-variant="line"][aria-pressed="true"]:not(:disabled) {
+  background: var(--color-chip-line-bg-selected);
+  border-color: var(--color-chip-line-border-selected);
+  color: var(--color-chip-line-label-selected);
+}
+
+[data-s1-component="chip"][data-variant="line"]:disabled {
+  background: var(--color-chip-line-bg-disabled);
+  border-color: var(--color-chip-line-border-disabled);
+  color: var(--color-chip-line-label-disabled);
+}
+
+/* ── Solid ── */
+[data-s1-component="chip"][data-variant="solid"] {
+  background: var(--color-chip-solid-bg-default);
+  border-color: var(--color-chip-solid-border-default);
+  color: var(--color-chip-solid-label-default);
+}
+
+/* 정본 Solid Hover — 스트록이 채움색과 같아져 테두리가 사라져 보인다. */
+@media (hover: hover) {
+  [data-s1-component="chip"][data-variant="solid"]:hover:not(:disabled):not([aria-pressed="true"]) {
+    background: var(--color-chip-solid-bg-hover);
+    border-color: var(--color-chip-solid-bg-hover);
+  }
+}
+
+[data-s1-component="chip"][data-variant="solid"][aria-pressed="true"]:not(:disabled) {
+  background: var(--color-chip-solid-bg-selected);
+  border-color: var(--color-chip-solid-border-selected);
+  color: var(--color-chip-solid-label-selected);
+}
+
+[data-s1-component="chip"][data-variant="solid"]:disabled {
+  background: var(--color-chip-solid-bg-disabled);
+  border-color: var(--color-chip-solid-border-disabled);
+  color: var(--color-chip-solid-label-disabled);
+}
+
+[data-s1-component="chip"]:disabled {
+  cursor: not-allowed;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+[data-s1-break="pc"][data-s1-density="wide"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+[data-s1-break="pc"][data-s1-density="normal"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: var(--spacing-16);
+}
+
+[data-s1-break="pc"][data-s1-density="narrow"] [data-s1-component="chip"]:not([data-size]):not([data-break="mobile"]) {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: var(--spacing-16);
+}
+
+/* bridge:pc 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="chip"][data-size="sm"]:not([data-break="mobile"]) {
+  font-size: var(--font-size-12);
+  height: var(--sizing-28);
+  letter-spacing: var(--letter-spacing-normal);
+  padding-inline: var(--spacing-16);
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="chip"][data-size="md"]:not([data-break="mobile"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-34);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-16);
+}
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="chip"][data-size="sm"]:not([data-break="pc"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-30);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-12);
+}
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="chip"]:not([data-size]):not([data-break="pc"]) {
+  font-size: var(--font-size-14);
+  height: var(--sizing-30);
+  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--spacing-12);
+}
+
+/* component:dropdown */
+/* Dropdown — 정본 buildDropdown(패널)·buildDropdownList(옵션 행) 기준.
+   패널 자체는 State 축이 없다(항상 Default) — 상태는 옵션 행이 담당한다.
+   체크박스 유형 옵션은 코어 checkbox 배포본을 그대로 내부에 배치한다(복제 금지).
+
+   ── 폭 규칙 (river 최종 확정 2026-09-07) ────────────────────────────────
+   ① **목록 최소 폭 = 100px.** 어떤 경우에도 이보다 좁아지지 않는다.
+   ② **트리거(칩·셀렉트)가 100px 보다 좁으면 목록은 100px 로 뜬다.**
+   ③ **트리거가 100px 이상이면 목록 폭 = 트리거 폭과 동일.**
+   ④ 최대 폭 상한은 없다 — 폭을 트리거가 정하므로 상한이 따로 필요 없다.
+   ⑤ 트리거 폭을 넘는 긴 옵션은 **말줄임(…)**, 마우스를 올리면 전체 글자를 보여준다(dropdown.js).
+   river 원문: "드롭다운은 최소 100px / 칩이 드롭다운보다 width값이 작은경우 드롭다운은 100px로 보여진다 /
+   칩의 width가 100px이상이 되는경우 드롭다운의 width는 칩의 width와 동일하게 표출된다".
+   ①~③ 은 min-width:100px + 소비자(select·filter-chip)의 width:100% 조합 하나로 전부 성립한다.
+   경위(320 상한 → 폐기 → 하한 140 → 100 확정) = reports/ui-library/dropdown-max-width/ · workflow-state D22~D27.
+   ※ 100 은 정본 리터럴 140(설치기 기본 크기)과 다른 값이다 — river 가 별도로 정한 웹 표출 기준이다. */
+
+[data-s1-component="dropdown"] {
+  background: var(--color-dropdown-list-bg);
+  border: var(--border-width-1) solid var(--color-dropdown-list-border);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-dropdown);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  padding-block: var(--spacing-4);
+  width: max-content; /* 트리거 없이 코어만 단독으로 쓸 때의 값(폭을 정해 줄 트리거가 없으므로 내용만큼).
+     트리거가 있는 소비자(select·filter-chip)는 이 값을 width:100% 로 덮어 「목록 폭 = 트리거 폭」을 만든다.
+     width:auto 를 쓰지 않는 이유 — 블록 요소라 부모 폭 채우기로 동작해 내용을 따라 커지지 않는다(2026-09-01 실측). */
+}
+
+/* 사이즈 축 — Size=XXSM/XSM/MD (build-components.ts buildDropdownList 1570-1574).
+   height→min-height 로 둔 이유(긴 글자의 줄바꿈)는 2026-09-07 말줄임 결정으로 사라졌다 — 옵션은 항상 한 줄이라
+   정본의 고정 높이 28/34/44 와 결과가 같다. 값은 정본 그대로이므로 그대로 둔다(변경 범위를 넓히지 않는다). */
+[data-s1-component="dropdown"][data-size="xxsm"] [data-s1-part="option"] {
+  font-size: var(--font-size-12);
+  min-height: var(--sizing-28);
+}
+
+[data-s1-component="dropdown"][data-size="xsm"] [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-34);
+}
+
+[data-s1-component="dropdown"][data-size="md"] [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-44);
+}
+
+/* 전체 선택 줄만 내용 행을 1px 낮춰 아래 구분선(1px)과 합쳐 다른 줄과 같은 총높이를 만든다.
+   정본 주석 "총높이는 다른 줄과 같게 유지(내용 = h-1)"(build-components.ts:1877-1889) 그대로. */
+[data-s1-component="dropdown"][data-size="xxsm"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-28) - var(--border-width-1));
+}
+[data-s1-component="dropdown"][data-size="xsm"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-34) - var(--border-width-1));
+}
+[data-s1-component="dropdown"][data-size="md"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-44) - var(--border-width-1));
+}
+
+[data-s1-component="dropdown"] [data-s1-part="option"] {
+  align-items: center;
+  background: var(--color-dropdown-option-bg-default);
+  box-sizing: border-box;
+  color: var(--color-dropdown-option-label-default);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  padding-block: var(--spacing-4);
+  padding-inline: var(--spacing-12);
+}
+
+/* 체크박스 유형만 체크박스↔글자 간격(8px)을 갖는다 — 글자 유형은 itemSpacing 0(build-components.ts:1854) */
+[data-s1-component="dropdown"][data-type="checkbox"] [data-s1-part="option"] {
+  gap: var(--spacing-8);
+}
+
+/* 정본 주석: Selected 배경은 default 재사용 — 강조는 글자색만(hover 색과 다른 계열) */
+@media (hover: hover) {
+  [data-s1-component="dropdown"] [data-s1-part="option"]:hover {
+    background: var(--color-dropdown-option-bg-hover);
+    color: var(--color-dropdown-option-label-hover);
+  }
+}
+
+/* 단일 선택(Text 유형)만 선택된 옵션의 글자를 강조한다.
+   체크박스 유형은 선택돼도 라벨을 강조하지 않는다 — 체크 표시가 이미 선택을 표현한다(정본 2026-08-14 결정). */
+[data-s1-component="dropdown"][data-type="text"] [data-s1-part="option"][aria-selected="true"] {
+  color: var(--color-dropdown-option-label-selected);
+}
+
+/* river 결정 2026-09-07: 폭(=트리거 폭, 최소 100)을 넘는 긴 옵션은 줄바꿈이 아니라 **말줄임(…)** 으로 자른다.
+   min-width:0 은 flex item 기본값(auto)이 축소를 막는 것을 해제하기 위함 — 이게 없으면 말줄임이 걸리지 않는다.
+   잘린 글자는 마우스 올림으로 전체를 보여준다 — river 결정 2026-09-07. 실제로 잘린 옵션에만 붙이며,
+   폭 측정이 필요해 dropdown.js 의 syncEllipsisTitles 가 담당한다(정적 HTML만 쓰고 런타임을 안 붙이면 안내도 없다). */
+[data-s1-component="dropdown"] [data-s1-part="option"] [data-s1-part="option-label"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 체크박스는 글자에 밀려 찌그러지면 안 된다 — 줄이는 건 글자 쪽만. */
+[data-s1-component="dropdown"][data-type="checkbox"] [data-s1-part="option"] [data-s1-component="checkbox"] {
+  flex: 0 0 auto;
+}
+
+/* 전체 선택 줄 아래 1px 구분선 — 패널이 아니라 이 줄이 들고 있다(build-components.ts:1913-1921) */
+[data-s1-component="dropdown"] [data-s1-part="divider"] {
+  background: var(--color-dropdown-list-border);
+  flex: 0 0 auto;
+  height: var(--border-width-1);
+}
+
+/* 체크박스 유형 옵션에 얹는 코어 checkbox 인스턴스는 장식(aria-hidden) — 접근성 이름·상태는 option 자신이 role=checkbox로 낸다. */
+[data-s1-component="dropdown"] [data-s1-part="option"] [data-s1-component="checkbox"] {
+  pointer-events: none;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-44);
+}
+
+[data-s1-density="wide"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-44) - var(--border-width-1));
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-34);
+}
+
+[data-s1-density="normal"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-34) - var(--border-width-1));
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-12);
+  min-height: var(--sizing-28);
+}
+
+[data-s1-density="narrow"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-28) - var(--border-width-1));
+}
+
+/* component:select */
+/* Select Box — 정본 buildSelect(트리거 5states × 4 size/break) 기준.
+   Open 은 Dropdown(dropdown 모듈) 인스턴스를 자식으로 붙인다(패널 자체는 select 가 소유하지 않는다). */
+
+[data-s1-component="select"] {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+}
+
+[data-s1-component="select"] [data-s1-part="trigger"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-form-control-bg-default);
+  border: var(--border-width-1) solid var(--color-form-control-border-default);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-form-control-text-placeholder);
+  cursor: pointer;
+  display: flex;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  justify-content: space-between;
+  min-width: 140px; /* 정본 trigger.resize(140, sc.h) — river 2차 지시(2026-09-01): 셀렉트박스 본체(트리거)에도 최소 폭. Filter Chip 트리거는 정본이 primaryAxisSizingMode=AUTO(내용에 맞춰 줄어듦)라 여기 적용 안 함(filter-chip.css는 손대지 않음). */
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+  width: 100%;
+}
+
+/* Size×Break — build-components.ts:1703-1708 */
+[data-s1-component="select"][data-size="xxsm"] [data-s1-part="trigger"] { font-size: var(--font-size-12); height: var(--sizing-28); }
+[data-s1-component="select"][data-size="xsm"] [data-s1-part="trigger"] { font-size: var(--font-size-14); height: var(--sizing-34); }
+[data-s1-component="select"][data-size="md"] [data-s1-part="trigger"] { font-size: var(--font-size-14); height: var(--sizing-44); }
+[data-s1-component="select"][data-size="md"][data-break="mobile"] [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+[data-s1-component="select"] [data-s1-part="value"] {
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 아이콘 — chevron. 크기: XXSM=20px, 그 외=24px(fcIconPx, build-components.ts:1506·1481).
+   방향은 회전으로 표현(닫힘 아래·열림 위) — 정본과 동일 철학. */
+[data-s1-component="select"] [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-default);
+  flex: 0 0 auto;
+  mask: url("./assets/icons/chevron.svg") center / contain no-repeat;
+  /* 라이브러리 chevron 원본은 오른쪽(›) 기준이다(아이콘 라이브러리 V2.2 419:67). 닫힘=시계 90°(아래 ∨) · 열림=반시계 90°(위 ∧) — build-components.ts 의 up?90:270(반시계) 과 같은 결과. */
+  transform: rotate(90deg);
+}
+[data-s1-component="select"][data-size="xxsm"] [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+[data-s1-component="select"][data-size="xsm"] [data-s1-part="icon"],
+[data-s1-component="select"][data-size="md"] [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+@media (hover: hover) {
+  [data-s1-component="select"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]):not([data-filled="true"]) {
+    background: var(--color-form-control-bg-hover);
+    color: var(--color-form-control-text-placeholder);
+  }
+  /* 아이콘도 상태를 따라간다 — 정본 buildSelect 상태표 Hover=icon/hover(2026-09-10 신설). */
+  [data-s1-component="select"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]):not([data-filled="true"]) [data-s1-part="icon"] {
+    background-color: var(--color-form-control-icon-hover);
+  }
+}
+
+/* Filled — 값이 선택된 뒤(닫힘). 정본: bg/default·border/default·text/selected. */
+[data-s1-component="select"] [data-s1-part="trigger"][data-filled="true"] {
+  background: var(--color-form-control-bg-default);
+  border-color: var(--color-form-control-border-default);
+  color: var(--color-form-control-text-selected);
+}
+
+/* Open — 정본: bg/selected·border/selected·text/placeholder(Filled 여부와 무관, 정본에 Open+Filled 교차 셀이 없다). */
+[data-s1-component="select"] [data-s1-part="trigger"][aria-expanded="true"] {
+  background: var(--color-form-control-bg-selected);
+  border-color: var(--color-form-control-border-selected);
+  color: var(--color-form-control-text-placeholder);
+}
+[data-s1-component="select"] [data-s1-part="trigger"][aria-expanded="true"] [data-s1-part="icon"] {
+  /* 정본 Open=icon/selected. :disabled 규칙이 뒤에 와서 이기므로 비활성 색은 그대로 유지된다. */
+  background-color: var(--color-form-control-icon-selected);
+  transform: rotate(-90deg);
+}
+
+[data-s1-component="select"] [data-s1-part="trigger"]:disabled {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-disabled);
+  color: var(--color-form-control-text-disabled);
+  cursor: not-allowed;
+}
+[data-s1-component="select"] [data-s1-part="trigger"]:disabled [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-disabled);
+}
+
+/* 패널 배치 — dropdown(자식 코어)의 형태·상태는 dropdown.css 가 소유하고, select 는 배치·간격만 담당한다.
+   정본 itemSpacing 8px(build-components.ts:1732 comp.itemSpacing) 유지, 웹에서는 겹쳐 뜨는 오버레이로 배치한다. */
+[data-s1-component="select"] [data-s1-part="panel"] {
+  left: 0;
+  margin-top: var(--spacing-8);
+  position: absolute;
+  top: 100%;
+  width: 100%;
+  z-index: 10;
+}
+[data-s1-component="select"] [data-s1-part="panel"][hidden] {
+  display: none;
+}
+
+/* 자식 dropdown 코어의 기본값은 트리거가 없을 때를 위한 width:max-content 이므로, 트리거가 있는 select 는
+   이를 100% 로 덮어 「목록 폭 = 트리거 폭」을 만든다 — **river 결정 2026-09-07(번복 확정)**:
+   "드롭다운은 상단 트리거의 크기에 따라서 동일하게 반영되되 트리거 자체가 너무 좁은 경우에는 전에 내가
+   잡았던 기준으로 너무 작아지지 않게끔 제공". select 트리거는 min-width:140px(정본 resize(140,…)) 라 하한(100)에 걸릴 일이 없다.
+   하한 100 은 dropdown.css 가 소유한다 — select.css 는 배치(폭 100%)만 담당.
+   ※ 종전 주석에 있던 "river 2차 지시에서 '트리거보다 목록이 좁아 보이면 안 된다'고 명시" 라는 서술은
+     2026-09-07 세션 기록 대조 결과 **사람 발화에서 확인되지 않아** 삭제했다(⭐ 자기 진술이었다). */
+[data-s1-component="select"] [data-s1-part="panel"] [data-s1-component="dropdown"] {
+  width: 100%;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="select"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); height: var(--sizing-44); }
+
+[data-s1-density="wide"] [data-s1-component="select"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="select"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); height: var(--sizing-34); }
+
+[data-s1-density="normal"] [data-s1-component="select"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="select"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-12); height: var(--sizing-28); }
+
+[data-s1-density="narrow"] [data-s1-component="select"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="select"][data-size="md"]:not([data-break="pc"]) [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="select"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); height: var(--sizing-44); }
+
+[data-s1-break="mobile"] [data-s1-component="select"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+[data-s1-break="mobile"] [data-s1-component="select"]:not([data-size]):not([data-break="pc"]) [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+/* component:filter-chip */
+/* Filter Chip — 정본 buildFilterChip(2195-2330) 기준.
+   Selected(=열림) 은 Dropdown(dropdown 모듈) 인스턴스를 자식으로 붙인다.
+   패널 사이즈 매핑은 Select 와 다르다: SM→xsm · MD→xsm (build-components.ts:2602-2626, river 결정 2026-09-01). */
+
+[data-s1-component="filter-chip"] {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+}
+
+[data-s1-component="filter-chip"] [data-s1-part="trigger"] {
+  align-items: center;
+  appearance: none;
+  border-radius: var(--radius-full);
+  border-style: solid;
+  border-width: var(--border-width-1);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  gap: var(--spacing-4);
+}
+
+/* Size×Break — build-components.ts:2546-2550 */
+/* 화살표는 칩의 오른쪽 끝에 둔다 — river 지시 2026-09-07("칩의 라벨과 화살표아이콘이 좌우로 벌어지지 않는다").
+   칩은 정본대로 내용 크기(hug)라 평소에는 남는 공간이 없어 **보이는 결과가 바뀌지 않는다**(폭·간격 실측 동일 확인).
+   칩에 폭이 주어지는 경우(권장 사용은 아니다 — D24 에서 미지원으로 정리)에만 화살표가 끝으로 밀린다.
+   justify-content:space-between 을 쓰지 않는 이유 — 제목 있음 칩은 아이템이 3개(제목·값·화살표)라
+   제목과 값 사이까지 벌어진다. 그래서 화살표에만 margin-left:auto 를 준다(라벨끼리는 gap 4px 유지). */
+[data-s1-component="filter-chip"] [data-s1-part="trigger"] [data-s1-part="icon"] {
+  margin-left: auto;
+}
+
+[data-s1-component="filter-chip"][data-size="sm"][data-break="pc"] [data-s1-part="trigger"] {
+  height: var(--sizing-28);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+[data-s1-component="filter-chip"][data-size="md"][data-break="pc"] [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+[data-s1-component="filter-chip"][data-size="md"][data-break="mobile"] [data-s1-part="trigger"] {
+  height: var(--sizing-30);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+[data-s1-component="filter-chip"] [data-s1-part="value"] {
+  color: inherit;
+}
+[data-s1-component="filter-chip"] [data-s1-part="title"] {
+  color: inherit;
+}
+
+/* 아이콘 — chevron 20px 고정(리터럴, fcIconPx 미사용, build-components.ts:2614).
+   색은 화살표 전용 icon 토큰(2026-09-10 신설, river 지시). 종전에는 currentColor 로 라벨색을 빌려 썼다 —
+   값은 그대로 옮겨 왔으므로 보이는 색은 변하지 않는다. variant/state 별 지정은 아래 각 블록에 있다. */
+[data-s1-component="filter-chip"] [data-s1-part="icon"] {
+  background-color: var(--color-chip-line-icon-default);
+  flex: 0 0 auto;
+  height: var(--sizing-20);
+  mask: url("./assets/icons/chevron.svg") center / contain no-repeat;
+  /* 라이브러리 chevron 원본은 오른쪽(›) 기준이다(아이콘 라이브러리 V2.2 419:67). 닫힘=시계 90°(아래 ∨) · 열림=반시계 90°(위 ∧) — build-components.ts 의 up?90:270(반시계) 과 같은 결과. */
+  transform: rotate(90deg);
+  width: var(--sizing-20);
+}
+[data-s1-component="filter-chip"] [data-s1-part="trigger"][aria-expanded="true"] [data-s1-part="icon"] {
+  transform: rotate(-90deg);
+}
+
+/* Line variant — chipSlot(v="line") */
+[data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="trigger"] {
+  background: var(--color-chip-line-bg-default);
+  border-color: var(--color-chip-line-border-default);
+  color: var(--color-chip-line-label-default);
+}
+[data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="icon"] {
+  background-color: var(--color-chip-line-icon-default);
+}
+@media (hover: hover) {
+  [data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]) {
+    background: var(--color-chip-line-bg-hover);
+  }
+}
+[data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="trigger"][aria-expanded="true"] {
+  background: var(--color-chip-line-bg-selected);
+  border-color: var(--color-chip-line-border-selected);
+}
+[data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="trigger"]:disabled {
+  background: var(--color-chip-line-bg-disabled);
+  border-color: var(--color-chip-line-border-disabled);
+  color: var(--color-chip-line-label-disabled);
+}
+[data-s1-component="filter-chip"][data-variant="line"] [data-s1-part="trigger"]:disabled [data-s1-part="icon"] {
+  background-color: var(--color-chip-line-icon-disabled);
+}
+
+/* Solid variant — chipSlot(v="solid"). Hover 의 보더는 fill 과 같은 색(bdGroup="bg") — 보더가 안 보이는 효과. */
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"] {
+  background: var(--color-chip-solid-bg-default);
+  border-color: var(--color-chip-solid-border-default);
+  color: var(--color-chip-solid-label-default);
+}
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="icon"] {
+  background-color: var(--color-chip-solid-icon-default);
+}
+@media (hover: hover) {
+  [data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]) {
+    background: var(--color-chip-solid-bg-hover);
+    border-color: var(--color-chip-solid-bg-hover);
+  }
+}
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"][aria-expanded="true"] {
+  background: var(--color-chip-solid-bg-selected);
+  border-color: var(--color-chip-solid-border-selected);
+  color: var(--color-chip-solid-label-selected);
+}
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"][aria-expanded="true"] [data-s1-part="icon"] {
+  background-color: var(--color-chip-solid-icon-selected);
+}
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"]:disabled {
+  background: var(--color-chip-solid-bg-disabled);
+  border-color: var(--color-chip-solid-border-disabled);
+  color: var(--color-chip-solid-label-disabled);
+}
+[data-s1-component="filter-chip"][data-variant="solid"] [data-s1-part="trigger"]:disabled [data-s1-part="icon"] {
+  background-color: var(--color-chip-solid-icon-disabled);
+}
+
+/* Title(있음) + Line 조합만 값 라벨을 항상 강조색으로 — disabled 는 제외(build-components.ts:2588, valLbSlot). */
+[data-s1-component="filter-chip"][data-variant="line"][data-title="on"] [data-s1-part="value"] {
+  color: var(--color-chip-line-label-selected);
+}
+[data-s1-component="filter-chip"][data-variant="line"][data-title="on"] [data-s1-part="trigger"]:disabled [data-s1-part="value"] {
+  color: var(--color-chip-line-label-disabled);
+}
+
+/* 패널 배치 — dropdown(자식 코어)의 형태·상태는 dropdown.css 가 소유하고, filter-chip 은 배치·간격만 담당한다. */
+[data-s1-component="filter-chip"] [data-s1-part="panel"] {
+  left: 0;
+  margin-top: var(--spacing-8);
+  position: absolute;
+  top: 100%;
+  width: 100%; /* 칩(트리거) 폭 = 목록 폭의 기준선이 된다 */
+  z-index: 10;
+}
+/* **river 최종 확정 2026-09-07**: 칩 폭이 100px 이상이면 목록 폭 = 칩 폭, 칩이 100px 보다 좁으면 목록은 100px.
+   여기서는 「칩 폭을 넘긴다」(width:100%)만 담당하고, 하한 100px 은 dropdown.css 가 소유한다 —
+   min-width:100px 가 width:100% 를 이겨서 두 규칙이 이 조합 하나로 자동 성립한다.
+   실측(PC) — 제목 없는 칩 74px → 목록 100px(하한) · 제목 있는 칩 103px → 목록 103px(칩과 동일).
+   경위: 하한을 140 으로 뒀을 때는 실제 칩이 전부 140 미만이라 모든 칩에서 목록이 칩보다 넓어졌고(river 제보),
+   하한을 아예 없앴을 때는 아주 좁은 칩에서 목록까지 좁아졌다. 100 은 river 가 그 사이로 정한 값이다. */
+[data-s1-component="filter-chip"] [data-s1-part="panel"] [data-s1-component="dropdown"] {
+  width: 100%;
+}
+[data-s1-component="filter-chip"] [data-s1-part="panel"][hidden] {
+  display: none;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+[data-s1-break="pc"][data-s1-density="wide"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+[data-s1-break="pc"][data-s1-density="normal"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-28);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+[data-s1-break="pc"][data-s1-density="narrow"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-28);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+/* bridge:pc 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="filter-chip"][data-size="sm"]:not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-28);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+:is([data-s1-break="pc"], [data-s1-density="wide"], [data-s1-density="normal"], [data-s1-density="narrow"]) [data-s1-component="filter-chip"][data-size="md"]:not([data-break="mobile"]) [data-s1-part="trigger"] {
+  height: var(--sizing-34);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="filter-chip"][data-size="md"]:not([data-break="pc"]) [data-s1-part="trigger"] {
+  height: var(--sizing-30);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="filter-chip"]:not([data-size]):not([data-break="pc"]) [data-s1-part="trigger"] {
+  height: var(--sizing-30);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-6);
+}
+
+/* component:tab */
+/* Line Tab — buildLineTab / buildLineTabSet 기준. 탭 자체에는 여백을 넣지 않아
+   인디케이터가 묶음 전체에서 끊기지 않고 이어진다. */
+[data-s1-component="tab"] {
+  align-items: stretch;
+  background: var(--color-navigation-bg);
+  display: inline-flex;
+  position: relative;
+}
+
+/* 기본선과 선택선 모두 탭 묶음의 같은 바닥선에서 시작한다.
+   버튼 안쪽 shadow를 기준선으로 쓰면 투명 2px 공간 위에 그려져 선택선보다 올라가 보인다. */
+[data-s1-component="tab"]::before {
+  background: var(--color-navigation-indicator-default);
+  bottom: 0;
+  content: "";
+  height: var(--border-width-1);
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+[data-s1-component="tab"] [data-s1-part="tab"] {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  /* 선택선 공간은 padding으로 미리 확보한다. pseudo-element는 레이아웃을 바꾸지 않는다. */
+  border: 0;
+  box-sizing: border-box;
+  color: var(--color-navigation-label-default);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 0;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  margin: 0;
+  min-width: 76px;
+  padding: 0 var(--spacing-16) var(--border-width-2);
+  position: relative;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+[data-s1-component="tab"][data-size="md"][data-break="pc"] [data-s1-part="tab"] { height: var(--sizing-44); font-size: var(--font-size-18); }
+[data-s1-component="tab"][data-size="sm"][data-break="pc"] [data-s1-part="tab"] { height: 42px; font-size: var(--font-size-16); }
+[data-s1-component="tab"][data-size="xsm"][data-break="pc"] [data-s1-part="tab"] { height: var(--sizing-40); font-size: var(--font-size-14); }
+[data-s1-component="tab"][data-size="sm"][data-break="mobile"] [data-s1-part="tab"] { height: var(--sizing-32); font-size: var(--font-size-16); }
+
+@media (hover: hover) {
+  [data-s1-component="tab"] [data-s1-part="tab"]:hover:not([aria-selected="true"]),
+  [data-s1-component="tab"] [data-s1-part="tab"][data-force-state="hover"]:not([aria-selected="true"]) { color: var(--color-navigation-label-hover); }
+}
+
+[data-s1-component="tab"] [data-s1-part="tab"]:hover:not([aria-selected="true"])::after,
+[data-s1-component="tab"] [data-s1-part="tab"][data-force-state="hover"]:not([aria-selected="true"])::after,
+[data-s1-component="tab"] [data-s1-part="tab"][aria-selected="true"]::after { bottom: 0; content: ""; height: var(--border-width-2); left: 0; position: absolute; right: 0; }
+[data-s1-component="tab"] [data-s1-part="tab"]:hover:not([aria-selected="true"])::after,
+[data-s1-component="tab"] [data-s1-part="tab"][data-force-state="hover"]:not([aria-selected="true"])::after { background: var(--color-navigation-indicator-hover); }
+[data-s1-component="tab"] [data-s1-part="tab"][aria-selected="true"] { color: var(--color-navigation-label-selected); }
+[data-s1-component="tab"] [data-s1-part="tab"][aria-selected="true"]::after { background: var(--color-navigation-indicator-selected); }
+[data-s1-component="tab"] [role="tabpanel"][hidden] { display: none; }
+
+/* component:pagination */
+/* Pagination — 28px control, 화살표 그룹 4px · 페이지 그룹과 8px 간격. */
+[data-s1-component="pagination"] { align-items: center; display: inline-flex; font-family: "Pretendard", sans-serif; gap: var(--spacing-8); }
+[data-s1-component="pagination"] [data-s1-part="arrow-group"], [data-s1-component="pagination"] [data-s1-part="pages"] { align-items: center; display: inline-flex; gap: var(--spacing-4); }
+[data-s1-component="pagination"] [data-s1-part="pages"] { gap: 0; }
+[data-s1-component="pagination"] button { align-items: center; appearance: none; background: var(--color-pagination-control-bg-default); border: var(--border-width-1) solid var(--color-pagination-control-border-default); border-radius: var(--radius-control-xs); box-sizing: border-box; color: var(--color-pagination-control-icon-default); cursor: pointer; display: inline-flex; font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-medium); height: var(--sizing-28); justify-content: center; margin: 0; min-width: var(--sizing-28); padding: 0; }
+[data-s1-component="pagination"] [data-s1-part="page"] { background: transparent; border-color: transparent; color: var(--color-pagination-number-default); }
+[data-s1-component="pagination"] [data-s1-part="icon"] { background-color: currentColor; display: block; height: var(--sizing-24); -webkit-mask: url("./assets/icons/chevron.svg") center / contain no-repeat; mask: url("./assets/icons/chevron.svg") center / contain no-repeat; width: var(--sizing-24); }
+[data-s1-component="pagination"] [data-s1-part="icon"][data-icon="edge"] { -webkit-mask-image: url("./assets/icons/pagination-edge.svg"); mask-image: url("./assets/icons/pagination-edge.svg"); }
+[data-s1-component="pagination"] [data-s1-action="previous"] [data-s1-part="icon"], [data-s1-component="pagination"] [data-s1-action="last"] [data-s1-part="icon"] { transform: rotate(180deg); }
+@media (hover: hover) { [data-s1-component="pagination"] button:hover:not(:disabled) { background: var(--color-pagination-control-bg-hover); color: var(--color-pagination-control-icon-hover); } [data-s1-component="pagination"] [data-s1-part="page"]:hover:not(:disabled) { color: var(--color-pagination-number-hover); } }
+[data-s1-component="pagination"] [data-s1-part="page"][aria-current="page"] { color: var(--color-pagination-number-selected); }
+[data-s1-component="pagination"] button:disabled { background: var(--color-pagination-control-bg-disabled); border-color: var(--color-pagination-control-border-disabled); color: var(--color-pagination-control-icon-disabled); cursor: not-allowed; }
+
+/* component:textarea */
+/* Textarea — 정본 buildTextarea(build-components.ts:1632) 기준.
+   축은 State 1개뿐(default·focus·filled·disabled·readonly) — size 축·helper·counter·label 부품 없음(1-inventory.md A).
+   색은 color/form-control/* 을 Input 과 그대로 공유한다(registry textarea.json doDont). */
+[data-s1-component="textarea"] {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+}
+
+[data-s1-component="textarea"] [data-s1-part="control"] {
+  appearance: none;
+  background: var(--color-form-control-bg-default);
+  border: var(--border-width-1) solid var(--color-form-control-border-default);
+  border-radius: var(--radius-control-sm);
+  box-sizing: border-box;
+  caret-color: var(--color-form-control-text-cursor);
+  color: var(--color-form-control-text-default);
+  display: block;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  margin: 0;
+  min-height: var(--sizing-80);
+  outline: 0;
+  padding: var(--spacing-12) var(--spacing-12) var(--spacing-10) var(--spacing-10);
+  resize: vertical;
+  width: 100%;
+}
+
+[data-s1-component="textarea"] [data-s1-part="control"]::placeholder {
+  color: var(--color-form-control-text-placeholder);
+  opacity: var(--opacity-100);
+}
+
+/* Focus — 정본은 텍스트+커서를 lead 프레임으로 묶어 표시하지만 웹은 네이티브 :focus-within 으로 동일 토큰을 적용한다. */
+[data-s1-component="textarea"]:focus-within [data-s1-part="control"] {
+  background: var(--color-form-control-bg-selected);
+  border-color: var(--color-form-control-border-selected);
+  color: var(--color-form-control-text-selected);
+}
+
+/* Filled — 정본 Filled variant 는 값이 있을 때의 문서 상태다. 웹은 강제 시각 상태를 만들지 않고 네이티브 값 존재로 다룬다(2-canon-readiness.md B). */
+
+[data-s1-component="textarea"] [data-s1-part="control"][readonly] {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-default);
+  color: var(--color-form-control-text-read-only);
+  cursor: default;
+}
+
+[data-s1-component="textarea"] [data-s1-part="control"]:disabled {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-disabled);
+  color: var(--color-form-control-text-disabled);
+  cursor: not-allowed;
+}
+
+[data-s1-component="textarea"] [data-s1-part="control"]:disabled::placeholder {
+  color: var(--color-form-control-text-disabled);
+}
+
+/* component:multi-toggle */
+/* Multi Toggle — 정본 buildMultiToggleElement(:5376) · buildMultiToggle(:5513) 기준.
+   셀 색은 자체 토큰 없이 color/button/* 을 그대로 쓴다(선택=primary, 비선택=secondary, 비활성=disabled).
+   위치(모서리·인접 보더)는 :first-child/:last-child + 선택 칸 기준 인접 규칙으로 구현한다(2-canon-readiness.md C). */
+[data-s1-component="multi-toggle"] {
+  box-sizing: border-box;
+  display: inline-flex;
+}
+
+[data-s1-component="multi-toggle"] [data-s1-part="cell"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-button-bg-secondary--default);
+  border: var(--border-width-1) solid var(--color-button-border-secondary--default);
+  box-sizing: border-box;
+  color: var(--color-button-label-secondary--default);
+  cursor: pointer;
+  display: inline-flex;
+  /* 선택 위치와 무관하게 각 칸의 외곽 폭을 고정한다. */
+  flex: 0 0 auto;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+[data-s1-component="multi-toggle"][data-size="md"] [data-s1-part="cell"] {
+  height: var(--sizing-44);
+  min-width: var(--sizing-64);
+  padding-inline: var(--spacing-12);
+}
+
+[data-s1-component="multi-toggle"][data-size="sm"] [data-s1-part="cell"] {
+  height: var(--sizing-34);
+  min-width: var(--sizing-56);
+  padding-inline: var(--spacing-8);
+}
+
+/* 첫/마지막 칸만 바깥 모서리를 둥글린다(정본 first·last cornerRadius). */
+[data-s1-component="multi-toggle"] [data-s1-part="cell"]:first-child {
+  border-bottom-left-radius: var(--radius-control-sm);
+  border-top-left-radius: var(--radius-control-sm);
+}
+
+[data-s1-component="multi-toggle"] [data-s1-part="cell"]:last-child {
+  border-bottom-right-radius: var(--radius-control-sm);
+  border-top-right-radius: var(--radius-control-sm);
+}
+
+/* 칸 사이 이중선은 음수 여백으로 겹친다. border를 없애면 오른쪽 선택 시
+   왼쪽 칸의 실제 폭이 1px 줄어드는 문제가 생긴다. */
+[data-s1-component="multi-toggle"] [data-s1-part="cell"]:not(:first-child) {
+  margin-left: calc(-1 * var(--border-width-1));
+}
+
+@media (hover: hover) {
+  [data-s1-component="multi-toggle"] [data-s1-part="cell"]:hover:not([aria-checked="true"]):not([aria-disabled="true"]) {
+    background: var(--color-button-bg-secondary--hover);
+    border-color: var(--color-button-border-secondary--hover);
+    color: var(--color-button-label-secondary--hover);
+  }
+}
+
+[data-s1-component="multi-toggle"] [data-s1-part="cell"][aria-checked="true"] {
+  background: var(--color-button-bg-primary--default);
+  border-color: var(--color-button-border-primary--default);
+  color: var(--color-button-label-primary--default);
+  position: relative;
+  z-index: 1;
+}
+
+[data-s1-component="multi-toggle"] [data-s1-part="cell"][aria-disabled="true"] {
+  background: var(--color-button-bg-disabled);
+  border-color: var(--color-button-border-disabled);
+  color: var(--color-button-label-disabled);
+  cursor: not-allowed;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="multi-toggle"]:not([data-size]) [data-s1-part="cell"] {
+  height: var(--sizing-44);
+  min-width: var(--sizing-64);
+  padding-inline: var(--spacing-12);
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="multi-toggle"]:not([data-size]) [data-s1-part="cell"] {
+  height: var(--sizing-34);
+  min-width: var(--sizing-56);
+  padding-inline: var(--spacing-8);
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="multi-toggle"]:not([data-size]) [data-s1-part="cell"] {
+  height: var(--sizing-34);
+  min-width: var(--sizing-56);
+  padding-inline: var(--spacing-8);
+}
+
+/* component:modal */
+/* Modal — 정본 buildModalShell(build-components.ts:5290) 기준.
+   변형축은 Break(PC·Mobile) × Footer(Single·Dual) 4가지뿐이다. 크기 축·상태 축은 정본에 없다.
+   딤(overlay)은 정본 빌더에 없고 registry modal.json anatomy·tokens 가 소유한다(의미의 정본). */
+[data-s1-component="modal"] {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000;
+}
+
+[data-s1-component="modal"][hidden] { display: none; }
+
+/* 딤 — color/overlay (라이트 rgba(0,0,0,0.5) · 다크 0.75, EX03 rgba 예외) */
+[data-s1-component="modal"] [data-s1-part="overlay"] {
+  background: var(--color-overlay);
+  inset: 0;
+  position: absolute;
+}
+
+/* 패널 — surface/raised · radius/8 · 1px modal/panel/border(INSIDE) · shadow/raised.
+   정본 clipsContent=true 라 넘치는 내용을 자른다(긴 본문은 콘텐츠 계열 담당 — registry guardrail). */
+[data-s1-component="modal"] [data-s1-part="panel"] {
+  background: var(--color-surface-raised);
+  border: var(--border-width-1) solid var(--color-modal-panel-border);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  /* 정본 패널은 고정 폭이다(PC 360 · Mobile 300). 좁은 자리에 놓여도 줄어들면 안 된다. */
+  flex: none;
+  flex-direction: column;
+  overflow: hidden;
+  padding-block: var(--spacing-20);
+  position: relative;
+}
+
+[data-s1-component="modal"] [data-s1-part="content"] {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-s1-component="modal"] [data-s1-part="header"] {
+  align-items: flex-end;          /* 정본 counterAxisAlignItems="MAX" */
+  display: flex;
+  gap: var(--spacing-8);
+  justify-content: space-between;
+}
+
+[data-s1-component="modal"] [data-s1-part="title"] {
+  color: var(--color-text-title-primary);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  margin: 0;
+}
+
+[data-s1-component="modal"] [data-s1-part="body"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);          /* 정본 body.itemSpacing = 8 */
+}
+
+[data-s1-component="modal"] [data-s1-part="message"] {
+  color: var(--color-text-body-primary);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  margin: 0;
+  white-space: pre-line;          /* 정본 예시 문구가 줄바꿈을 포함한다 */
+}
+
+[data-s1-component="modal"] [data-s1-part="footer"] {
+  display: flex;
+  gap: var(--spacing-8);          /* 정본 Dual itemSpacing = 8 */
+}
+
+/* 닫기 — 정본은 PC 헤더에만 close 아이콘 24px(color/icon/gray-dark)을 둔다.
+   버튼 자체(24×24)가 누르는 영역이자 hover 네모다 — 아이콘은 ::after 로 분리해 배경을 가릴 필요를 없앤다. */
+[data-s1-component="modal"] [data-s1-part="close"] {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control-sm);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: var(--sizing-24);
+  justify-content: center;
+  padding: 0;
+  width: var(--sizing-24);
+}
+
+[data-s1-component="modal"] [data-s1-part="close"]::after {
+  background: var(--color-icon-gray-dark);
+  content: "";
+  display: block;
+  height: 100%;
+  mask: url("./assets/icons/close.svg") center / contain no-repeat;
+  width: 100%;
+}
+
+/* hover — river 지시 2026-09-08. modal-content(콘텐츠 계열) 와 같은 close 부품이라 동일 규칙을 적용한다.
+   새 토큰 없이 color/control/bg/hover 재사용. 정본에는 없는 웹 추가분(§두 갈래 분류 (b)).
+   Mobile 은 정본에 close 자체가 없지만(위 주석) 셀렉터 안전을 위해 Input 과 같은 방식으로 명시 제외한다
+   (river 지시 2026-09-07 — 손가락엔 hover 가 없고 48×48 히트영역이 통째로 칠해지는 문제 재발 방지). */
+@media (hover: hover) {
+  [data-s1-component="modal"]:not([data-break="mobile"]) [data-s1-part="close"]:hover {
+    background: var(--color-control-bg-hover);
+  }
+}
+
+/* ── Break=PC — 폭 360 · 좌우 여백은 패널이 아니라 내부 블록이 24씩 가진다(정본 paddingLeft/Right=0) ── */
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="panel"] {
+  gap: var(--spacing-32);
+  width: 360px;                   /* 정본 comp.resize(360, …) build-components.ts:5368 — 대응 sizing 토큰 없음 */
+}
+
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="content"] { gap: var(--spacing-32); }
+
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="header"],
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="body"],
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="footer"] {
+  padding-inline: var(--spacing-24);
+}
+
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="title"] {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-bold);
+}
+
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="message"] {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
+}
+
+[data-s1-component="modal"][data-break="pc"] [data-s1-part="footer"] { justify-content: flex-end; }
+
+/* ── Break=Mobile — 폭 300 · 패널이 좌우 20 여백을 갖고 닫기 버튼이 없다 ── */
+[data-s1-component="modal"][data-break="mobile"] [data-s1-part="panel"] {
+  gap: 30px;                      /* 정본 comp.itemSpacing = 30 build-components.ts:5369 — 대응 spacing 토큰 없음 */
+  padding-inline: var(--spacing-20);
+  width: 300px;                   /* 정본 comp.resize(300, …) build-components.ts:5368 */
+}
+
+[data-s1-component="modal"][data-break="mobile"] [data-s1-part="content"] { gap: var(--spacing-24); }
+
+[data-s1-component="modal"][data-break="mobile"] [data-s1-part="title"] {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-bold);
+}
+
+[data-s1-component="modal"][data-break="mobile"] [data-s1-part="message"] {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-regular);
+}
+
+/* 정본은 모바일 푸터를 내부폭 260 에 두고 버튼을 FILL 로 채운다 — Single 은 풀폭, Dual 은 반반. */
+[data-s1-component="modal"][data-break="mobile"] [data-s1-part="footer"] > * { flex: 1 1 0; }
+
+/* component:table */
+/* Table — 정본 buildTableCell(38/44 높이, 글자 좌측 16, 하단 1px 구분선) ·
+   buildTable(외곽 상단 2px·하단 1px strong, 선택 컬럼 48px) 기준.
+   상태(Default·Hover·Selected)는 정본과 같이 '셀'이 소유하고, 행은 그 조합으로 표현한다.
+   푸터(페이지네이션·보기 셀렉트)는 이 모듈이 소유하지 않는다 — 승인된 pagination·select 배포본을 화면에서 조립한다. */
+[data-s1-component="table"] {
+  border-bottom: var(--border-width-1) solid var(--color-table-border-strong);
+  border-top: var(--border-width-2) solid var(--color-table-border-strong);
+  box-sizing: border-box;
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}
+
+[data-s1-component="table"] [data-s1-part="table"] {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* 셀 공통 — 높이·글자는 size 축(md 44/14, sm 38/13)을 따른다. */
+[data-s1-component="table"] [data-s1-part="header-cell"],
+[data-s1-component="table"] [data-s1-part="cell"] {
+  border-bottom: var(--border-width-1) solid var(--color-table-border-default);
+  box-sizing: border-box;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  height: var(--sizing-44);
+  letter-spacing: var(--letter-spacing-tight);
+  padding: 0 var(--spacing-16);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* sm 은 높이만 38 로 줄인다. 글자는 md 와 같은 14 — 정본의 13 표기는 텍스트 스타일에 없어
+   줄곧 14 로 치환돼 왔고 2026-09-02 river 결정으로 정본 표기도 14 로 정정됐다. */
+[data-s1-component="table"][data-size="sm"] [data-s1-part="header-cell"],
+[data-s1-component="table"][data-size="sm"] [data-s1-part="cell"] {
+  height: var(--sizing-38);
+}
+
+/* xsm — 표 전용 기준(river 승인 2026-09-02): 높이 34 · 글자 12.
+   다른 컴포넌트의 xsm(34/14)과 달리 표는 데이터가 빽빽해 글자를 한 단계 줄인다. */
+[data-s1-component="table"][data-size="xsm"] [data-s1-part="header-cell"],
+[data-s1-component="table"][data-size="xsm"] [data-s1-part="cell"] {
+  font-size: var(--font-size-12);
+  height: var(--sizing-34);
+}
+
+[data-s1-component="table"] [data-s1-part="header-cell"] {
+  background: var(--color-table-header-bg);
+  color: var(--color-text-body-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+[data-s1-component="table"] [data-s1-part="cell"] {
+  background: var(--color-table-cell-default);
+  color: var(--color-text-body-primary);
+  font-weight: var(--font-weight-regular);
+}
+
+/* 열 정렬 — river 결정(2026-09-02, HD-3 B)으로 공식 옵션. 기본은 정본과 같은 왼쪽 정렬. */
+[data-s1-component="table"] [data-s1-part="header-cell"][data-align="center"],
+[data-s1-component="table"] [data-s1-part="cell"][data-align="center"] {
+  text-align: center;
+}
+
+/* 선택 컬럼 — 정본 48px 전용 컬럼(체크박스만). 체크박스 시각은 코어 s1 checkbox 가 소유한다. */
+[data-s1-component="table"] [data-s1-part="header-cell"][data-selection],
+[data-s1-component="table"] [data-s1-part="cell"][data-selection] {
+  padding: 0 var(--spacing-8);
+  text-align: center;
+  width: var(--sizing-48);
+}
+
+[data-s1-component="table"] [data-s1-part="cell"][data-selection] > [data-s1-component="checkbox"],
+[data-s1-component="table"] [data-s1-part="header-cell"][data-selection] > [data-s1-component="checkbox"] {
+  vertical-align: middle;
+}
+
+/* 상태 — 정본 Cell 변형과 1:1. Hover 는 마우스가 있는 환경에서만. */
+@media (hover: hover) {
+  [data-s1-component="table"] [data-s1-part="row"]:hover > [data-s1-part="cell"] {
+    background: var(--color-table-cell-hover);
+  }
+}
+
+[data-s1-component="table"] [data-s1-part="row"][data-state="hover"] > [data-s1-part="cell"],
+[data-s1-component="table"] [data-s1-part="cell"][data-state="hover"] {
+  background: var(--color-table-cell-hover);
+}
+
+[data-s1-component="table"] [data-s1-part="row"][data-selected="true"] > [data-s1-part="cell"],
+[data-s1-component="table"] [data-s1-part="cell"][data-state="selected"] {
+  background: var(--color-table-cell-selected);
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="table"]:not([data-size]) [data-s1-part="header-cell"],
+[data-s1-density="normal"] [data-s1-component="table"]:not([data-size]) [data-s1-part="cell"] {
+  font-size: var(--font-size-12);
+  height: var(--sizing-34);
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="table"]:not([data-size]) [data-s1-part="header-cell"],
+[data-s1-density="narrow"] [data-s1-component="table"]:not([data-size]) [data-s1-part="cell"] {
+  font-size: var(--font-size-12);
+  height: var(--sizing-34);
+}
+
+/* component:mobile-bottom-nav */
+/* Mobile Bottom Nav — 정본 buildMobileBottomNav(build-components.ts) 기준.
+   축은 두 개다: icon(home·search·notification·settings) × state(unselected·selected).
+   정본은 "탭 1칸"만 만들고 4칸 바는 컴포넌트가 아니다 — 화면이 아이템 인스턴스를
+   role=tablist 컨테이너 안에 가로로 배열해 조립하고, 바 배경은 화면이 --color-navigation-bg 로 칠한다(D1).
+   2026-09-14 river 승인: 칸마다 아이콘이 달라야 바를 조립할 수 있어 icon 축을 신설했다. */
+[data-s1-component="mobile-bottom-nav"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: var(--spacing-4);
+  height: var(--sizing-60);
+  justify-content: center;
+  padding: 0;
+  width: var(--sizing-60);
+}
+
+/* 아이콘 32×32 — 정본이 아이콘 인스턴스를 32 로 리사이즈한다.
+   색은 선택 여부가 고르고, 모양은 두 갈래로 정해진다:
+     ① data-icon 이 고르는 **예시 아이콘** 4종(home·search·notification·settings)
+     ② 화면이 --s1-mobile-nav-icon 에 제 아이콘을 넣으면 그것이 이긴다
+   ②가 있는 이유 — 실제 서비스의 하단 내비는 칸 구성이 서비스마다 다르다(river 2026-09-14).
+   여기 4종은 "이렇게 쓴다"는 예시일 뿐이고, 개발자는 아이콘 라이브러리에서 받은 SVG 로 갈아 끼운다 —
+   칸의 style 에 --s1-mobile-nav-icon 을 받은 파일 경로로 지정하면 된다(쓰는 법은 배포본 README).
+   **받는 것은 Solid 변형이어야 한다**(river 지시 2026-09-14) — 하단 내비는 채운 도형이 기준이고,
+   한 바 안에서 Line 과 섞이면 칸마다 무게가 달라 보인다. 예시 4종도 전부 Solid 다.
+   받은 파일이 단색 도형이면 색은 이 컴포넌트가 계속 토큰으로 칠한다(마스크 방식). */
+[data-s1-component="mobile-bottom-nav"] [data-s1-part="icon"] {
+  background-color: var(--color-navigation-icon-default);
+  display: block;
+  flex: none;
+  height: var(--sizing-32);
+  -webkit-mask: var(--s1-mobile-nav-icon, url("./assets/icons/mobile-nav-home.svg")) center / contain no-repeat;
+  mask: var(--s1-mobile-nav-icon, url("./assets/icons/mobile-nav-home.svg")) center / contain no-repeat;
+  width: var(--sizing-32);
+}
+
+[data-s1-component="mobile-bottom-nav"][data-icon="search"] [data-s1-part="icon"] {
+  -webkit-mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-search.svg"));
+  mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-search.svg"));
+}
+
+[data-s1-component="mobile-bottom-nav"][data-icon="notification"] [data-s1-part="icon"] {
+  -webkit-mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-notification.svg"));
+  mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-notification.svg"));
+}
+
+[data-s1-component="mobile-bottom-nav"][data-icon="settings"] [data-s1-part="icon"] {
+  -webkit-mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-settings.svg"));
+  mask-image: var(--s1-mobile-nav-icon, url("./assets/icons/nav-settings.svg"));
+}
+
+/* 라벨 12/Medium (body/12M) — 아이콘과 간격 4(정본 itemSpacing). */
+[data-s1-component="mobile-bottom-nav"] [data-s1-part="label"] {
+  color: var(--color-navigation-label-default);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  margin: 0;
+}
+
+/* selected — aria-selected 는 네이티브 ARIA 상태다. 호스트(화면)가 현재 경로에 맞춰
+   설정하며 이 컴포넌트는 런타임 없이 그 값을 CSS 로만 반영한다(jsRequired=false). */
+[data-s1-component="mobile-bottom-nav"][aria-selected="true"] [data-s1-part="icon"] {
+  background-color: var(--color-icon-blue);
+}
+
+[data-s1-component="mobile-bottom-nav"][aria-selected="true"] [data-s1-part="label"] {
+  color: var(--color-navigation-label-selected);
+}
+
+/* component:mobile-header */
+/* Mobile Header — 정본 buildMobileHeaderVariant(build-components.ts:3474)·buildMobileHeader(:3160) 기준.
+   river 결정(D5): 상태바(StatusBar)를 웹 배포본에서 제외하고 AppBar 56px 만 배포한다.
+   Platform(App/Web) 축도 상태바 유무 차이일 뿐이라 함께 제외 — Type 1축만 남는다.
+   Type 은 7종이다(Home 3 · Standard 4) — Home / Title + 1 Icon 은 river 승인 2026-09-08 로 정본에 늘었고
+   2026-09-15 river 지시 "웹에도 넣어줘" 로 배포본에 들어왔다. */
+[data-s1-component="mobile-header"] {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  height: var(--sizing-56);
+  justify-content: center;
+  padding-block: var(--spacing-12);
+  padding-inline-end: var(--spacing-16);
+  width: 100%;
+}
+
+/* Home 계열 — 배경 color/bg/home, 좌측 여백 20 */
+[data-s1-component="mobile-header"][data-variant^="home-"] {
+  background: var(--color-bg-home);
+  padding-inline-start: var(--spacing-20);
+}
+
+/* Standard 계열 — 배경 color/bg/level-0, 좌측 여백 16, itemSpacing 8 */
+[data-s1-component="mobile-header"][data-variant^="standard-"] {
+  background: var(--color-bg-level-0);
+  gap: var(--spacing-8);
+  padding-inline-start: var(--spacing-16);
+}
+
+/* Home / Title + Subtitle + 1 Icon 만 상하 여백 6 (2줄 스택 44 + 6 + 6 = 56, 정본 주석 :3131-3134) */
+[data-s1-component="mobile-header"][data-variant="home-title-subtitle"] {
+  padding-block: var(--spacing-6);
+}
+
+/* ── 제목 ── */
+[data-s1-component="mobile-header"] [data-s1-part="title"] {
+  color: var(--color-text-title-primary);
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Standard — 중앙 정렬 18/Medium(title/18M) */
+[data-s1-component="mobile-header"][data-variant^="standard-"] [data-s1-part="title"] {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  text-align: center;
+}
+
+/* No Title — 텍스트 없는 빈 grow 영역(레이아웃 대칭용). heading 이 아니다(빈 heading 금지). */
+[data-s1-component="mobile-header"][data-variant="standard-no-title"] [data-s1-part="title"],
+[data-s1-component="mobile-header"][data-variant="standard-no-title-close"] [data-s1-part="title"] {
+  height: var(--sizing-24);
+}
+
+/* Home — 좌측 정렬 18/Bold(title/18B) */
+[data-s1-component="mobile-header"][data-variant="home-title"] [data-s1-part="title"],
+[data-s1-component="mobile-header"][data-variant="home-title-1icon"] [data-s1-part="title"],
+[data-s1-component="mobile-header"][data-variant="home-title-subtitle"] [data-s1-part="title"] {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  text-align: left;
+}
+
+/* Home / Title + 1 Icon 만 title-notification 사이 gap 8 (정본 appBar.itemSpacing = 8, build-components.ts:3614).
+   home-title 은 이 gap 이 없다 — 알림 슬롯이 아예 없는 유형이라서다. */
+[data-s1-component="mobile-header"][data-variant="home-title-1icon"] {
+  gap: var(--spacing-8);
+}
+
+/* ── Home / Title + Subtitle + 1 Icon 전용 ── */
+[data-s1-component="mobile-header"] [data-s1-part="stack"] {
+  align-items: flex-start;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="title-row"] {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-4);
+  max-width: 100%;
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="title-row"] [data-s1-part="title"] {
+  flex: 0 1 auto;
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="subtitle"] {
+  color: var(--color-text-body-tertiary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 서브타이틀 옆 아래화살표 — 원본은 아래 방향으로 쓴다(정본 :3166, Figma rotation=-90).
+   ⚠ Figma rotation 은 반시계 양수, CSS rotate 는 시계 양수라 부호가 반대다 — 같은 "아래"가 CSS 에서는 +90deg 다. */
+[data-s1-component="mobile-header"] [data-s1-part="arrow-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  flex: none;
+  height: var(--sizing-24);
+  -webkit-mask: url("./assets/icons/mobile-header-arrow-down.svg") center / contain no-repeat;
+  mask: url("./assets/icons/mobile-header-arrow-down.svg") center / contain no-repeat;
+  transform: rotate(90deg);
+  width: var(--sizing-24);
+}
+
+/* ── 액션 슬롯 — 뒤로/닫기/알림. 시각 32×32 는 정본 그대로(D4),
+   실제 터치 영역만 :before 로 44×44 까지 넓힌다(hit area 는 Registry·CSS 소유). ── */
+[data-s1-component="mobile-header"] [data-s1-part="back"],
+[data-s1-component="mobile-header"] [data-s1-part="close"],
+[data-s1-component="mobile-header"] [data-s1-part="notification"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  height: var(--sizing-32);
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: var(--sizing-32);
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="back"]::before,
+[data-s1-component="mobile-header"] [data-s1-part="close"]::before,
+[data-s1-component="mobile-header"] [data-s1-part="notification"]::before {
+  content: "";
+  inset: calc(var(--spacing-6) * -1);
+  position: absolute;
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="spacer"] {
+  flex: none;
+  height: var(--sizing-32);
+  width: var(--sizing-32);
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="back-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  height: var(--sizing-24);
+  -webkit-mask: url("./assets/icons/mobile-header-back.svg") center / contain no-repeat;
+  mask: url("./assets/icons/mobile-header-back.svg") center / contain no-repeat;
+  width: var(--sizing-24);
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="close-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  height: var(--sizing-24);
+  -webkit-mask: url("./assets/icons/mobile-header-close.svg") center / contain no-repeat;
+  mask: url("./assets/icons/mobile-header-close.svg") center / contain no-repeat;
+  width: var(--sizing-24);
+}
+
+/* 알림 — 2색. 본체는 마스크+currentColor(icon/gray-dark), 신규 점은 별색(icon/red) 2번째 마스크 레이어를
+   ::after 로 겹친다(마스크 1겹으로 2색을 표현할 수 없다 — river 결정 2026-09-02). */
+[data-s1-component="mobile-header"] [data-s1-part="notification-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  height: var(--sizing-24);
+  position: relative;
+  -webkit-mask: url("./assets/icons/mobile-header-notification.svg") center / contain no-repeat;
+  mask: url("./assets/icons/mobile-header-notification.svg") center / contain no-repeat;
+  width: var(--sizing-24);
+}
+
+[data-s1-component="mobile-header"] [data-s1-part="notification-icon"]::after {
+  background-color: var(--color-icon-red);
+  content: "";
+  inset: 0;
+  -webkit-mask: url("./assets/icons/mobile-header-notification-accent.svg") center / contain no-repeat;
+  mask: url("./assets/icons/mobile-header-notification-accent.svg") center / contain no-repeat;
+  position: absolute;
+}
+
+/* component:time-picker */
+/* Time Picker — 정본 buildTimePicker(트리거)·buildTimePickerDropdown(패널)·buildTimePickerCell(칸) 기준.
+   트리거는 form-control semantic, 패널·칸은 dropdown semantic 을 100% 재사용한다(전용 색 토큰 0개).
+   패널은 select 처럼 자식 코어를 조립하지 않는다 — Time Picker 는 자체 열 구조라 dropdown 모듈을 품지 않는다
+   (dropdown 의 semantic token 만 재사용, 컴포넌트 의존은 없음). */
+
+[data-s1-component="time-picker"] {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── 트리거 — build-components.ts buildTimePicker 2357-2422 ── */
+[data-s1-component="time-picker"] [data-s1-part="trigger"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-form-control-bg-default);
+  border: var(--border-width-1) solid var(--color-form-control-border-default);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-form-control-text-placeholder);
+  cursor: pointer;
+  display: flex;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  gap: var(--spacing-8);
+  justify-content: space-between;
+  /* 정본 trigger.resize(150, sc.h) (build-components.ts:2726). river 지시(2026-09-03):
+     ①기본 폭이 너무 좁고 ②값이 들어오면(Filled) 글자가 짧아져 입력칸이 줄어들었다 — 둘 다
+     내용에 따라 폭이 정해지던 탓이다. 정본 폭을 최소 폭으로 두면 상태가 바뀌어도 크기가 그대로다.
+     Select 가 정본 140 을 같은 방식으로 쓰는 선례와 동일(river 지시 2026-09-01, select.css:23).
+     width:100% 는 그대로라 소비자가 더 넓게 쓸 수 있다. */
+  min-width: 150px;
+  width: 100%;
+}
+
+/* Size × Break — build-components.ts:2682-2687 */
+[data-s1-component="time-picker"][data-size="xxsm"] [data-s1-part="trigger"] {
+  font-size: var(--font-size-12);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+  height: var(--sizing-28);
+  padding-left: var(--spacing-10);
+  padding-right: var(--spacing-6);
+}
+[data-s1-component="time-picker"][data-size="xsm"] [data-s1-part="trigger"] {
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  height: var(--sizing-34);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-8);
+}
+[data-s1-component="time-picker"][data-size="md"] [data-s1-part="trigger"] {
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  height: var(--sizing-44);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+[data-s1-component="time-picker"][data-size="md"][data-break="mobile"] [data-s1-part="trigger"] {
+  height: var(--sizing-48);
+}
+
+[data-s1-component="time-picker"] [data-s1-part="value"] {
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 아이콘 — clock. 크기: XXSM=20px, 그 외=24px (fcIconPx, build-components.ts:1506·2411). */
+[data-s1-component="time-picker"] [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-default);
+  flex: 0 0 auto;
+  mask: url("./assets/icons/clock.svg") center / contain no-repeat;
+}
+[data-s1-component="time-picker"][data-size="xxsm"] [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+[data-s1-component="time-picker"][data-size="xsm"] [data-s1-part="icon"],
+[data-s1-component="time-picker"][data-size="md"] [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+@media (hover: hover) {
+  [data-s1-component="time-picker"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]):not([data-filled="true"]) {
+    background: var(--color-form-control-bg-hover);
+  }
+  /* 정본 buildTimePicker 상태표 Hover=icon/hover(2026-09-10 신설). */
+  [data-s1-component="time-picker"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]):not([data-filled="true"]) [data-s1-part="icon"] {
+    background-color: var(--color-form-control-icon-hover);
+  }
+}
+
+/* Filled — 값이 선택된 뒤(닫힘). 정본: bg/default·border/default·text/default. */
+[data-s1-component="time-picker"] [data-s1-part="trigger"][data-filled="true"] {
+  background: var(--color-form-control-bg-default);
+  border-color: var(--color-form-control-border-default);
+  color: var(--color-form-control-text-default);
+}
+
+/* Focus(=열림) — 정본: bg/default·border/selected·icon/selected. */
+[data-s1-component="time-picker"] [data-s1-part="trigger"][aria-expanded="true"] {
+  background: var(--color-form-control-bg-default);
+  border-color: var(--color-form-control-border-selected);
+}
+[data-s1-component="time-picker"] [data-s1-part="trigger"][aria-expanded="true"] [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-selected);
+}
+
+[data-s1-component="time-picker"] [data-s1-part="trigger"]:disabled {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-disabled);
+  color: var(--color-form-control-text-disabled);
+  cursor: not-allowed;
+}
+[data-s1-component="time-picker"] [data-s1-part="trigger"]:disabled [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-disabled);
+}
+
+/* ── 드롭다운 패널 — build-components.ts buildTimePickerDropdown 2477-2624 ── */
+/* 패널 한 프레임이 테두리·모서리·그림자·위여백을 소유한다 — 정본 fillPanel(build-components.ts 2475-2519).
+   테두리를 border 가 아니라 inset 그림자로 그리는 이유: 정본 stroke 는 strokeAlign="INSIDE" 라
+   바깥 폭(121/194)을 유지한 채 안쪽 내용 위에 겹쳐 그려진다. CSS border 로 옮기면 내용 폭이
+   2px 줄어 열 폭이 44→43 으로 어긋난다(독립 검증 F-2 실측). inset 그림자가 그 동작의 정확한 대응이다.
+   트리거와의 간격은 정본 Time Picker 컴포넌트의 itemSpacing=4(build-components.ts:2730). */
+[data-s1-component="time-picker"] [data-s1-part="panel"] {
+  background: var(--color-dropdown-list-bg);
+  border-radius: var(--radius-4);
+  box-shadow: inset 0 0 0 var(--border-width-1) var(--color-dropdown-list-border), var(--shadow-dropdown);
+  box-sizing: border-box;
+  left: 0;
+  margin-top: var(--spacing-4);
+  /* 목록이 입력칸보다 좁아 보이지 않게 한다 — river 지시 2026-09-03 「24시간만 인풋에 맞춰줘,
+     12시간제는 현재 유지」. 정본 고정폭(24h=121 · 12h=194)은 width 로 그대로 두고 최소 폭만
+     트리거를 따르게 해서, 24h 는 121→트리거 폭(기본 150)으로 넓어지고 12h 는 194 를 유지한다
+     (194 > 150 이라 min-width 가 이기지 못한다). 소비자가 트리거를 더 넓히면 목록도 함께 따라간다.
+     같은 규칙을 Select 이 먼저 쓰고 있다(select.css:105, river 2차 지시 2026-09-01
+     「트리거보다 목록이 좁아 보이거나 어긋나 보이면 안 된다」). */
+  min-width: 100%;
+  overflow: hidden;                 /* 정본 clipsContent = true */
+  padding-top: var(--spacing-12);   /* 정본 TPD_PAD_TOP — 목록 192 '바깥' 위여백이다 */
+  position: absolute;
+  top: 100%;
+  z-index: 10;
+}
+[data-s1-component="time-picker"] [data-s1-part="panel"][hidden] {
+  display: none;
+}
+
+[data-s1-component="time-picker"][data-type="24h"] [data-s1-part="panel"] { width: 121px; }
+[data-s1-component="time-picker"][data-type="12h"] [data-s1-part="panel"] { width: 194px; }
+
+/* 목록 영역 — 정본 TPD_COLS_H=192 은 '열이 차지하는 높이' 자체다. 위여백 12 는 패널 몫이라
+   여기 padding 으로 넣지 않는다(넣으면 실제 열 높이가 179 로 줄어든다 — 독립 검증 F-2). */
+[data-s1-component="time-picker"] [data-s1-part="columns"] {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--spacing-8);
+  height: 192px;
+  padding-inline: var(--spacing-8);
+}
+
+[data-s1-component="time-picker"] [data-s1-part="column"] {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+[data-s1-component="time-picker"] [data-s1-part="divider"] {
+  background: var(--color-line-gray-subtle);
+  flex: 0 0 auto;
+  width: var(--border-width-1);
+}
+
+/* ── 목록 칸 — build-components.ts buildTimePickerCell 2437-2476(44×32, 테두리 없음, 2026-06-30 제거) ── */
+[data-s1-component="time-picker"] [data-s1-part="cell"] {
+  align-items: center;
+  background: var(--color-dropdown-option-bg-default);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-dropdown-option-label-default);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  font-weight: var(--font-weight-regular);
+  height: 32px;
+  justify-content: center;
+  padding-inline: var(--spacing-12);
+  /* 정본 셀은 폭 44(컬럼 폭으로 STRETCH)에 텍스트가 auto-width 라 줄바꿈이 없다.
+     12h 오전/오후 열은 컬럼 폭 48 에서 글자가 칸보다 넓어 가운데로 넘치며, 줄바꿈은 정본에 없다. */
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  [data-s1-component="time-picker"] [data-s1-part="cell"]:hover {
+    background: var(--color-dropdown-option-bg-hover);
+    color: var(--color-dropdown-option-label-hover);
+  }
+}
+
+[data-s1-component="time-picker"] [data-s1-part="cell"][aria-selected="true"] {
+  background: var(--color-dropdown-option-bg-selected);
+  color: var(--color-dropdown-option-label-selected);
+}
+
+/* ── 확인 줄 — 위 가로 1px 구분선 + 좌우16·위아래12, 우측 정렬(build-components.ts 2549-2565) ── */
+[data-s1-component="time-picker"] [data-s1-part="footer"] {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--spacing-12) var(--spacing-16);
+}
+/* 구분선은 패널 폭 전체가 아니라 좌우 8px 안쪽이다 — 정본은 padding 8 짜리 wrapper 안에
+   panelW-16 길이의 1px 선을 둔다(build-components.ts 2540-2547). 투명 border 로 정본의
+   1px 행 높이를 유지하고, 실제 선은 그 자리에 안쪽으로만 그린다. */
+[data-s1-component="time-picker"] [data-s1-part="columns"] + [data-s1-part="footer"] {
+  background: linear-gradient(var(--color-line-gray-subtle), var(--color-line-gray-subtle)) no-repeat 50% 0 / calc(100% - var(--spacing-16)) var(--border-width-1);
+  background-origin: border-box;
+  border-top: var(--border-width-1) solid transparent;
+}
+
+[data-s1-component="time-picker"] [data-s1-part="confirm"] {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-text-state-accent);
+  cursor: pointer;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  /* W-2 훑기에서 함께 발견 — footer 는 고정 높이가 없어(padding 만 있음) confirm 의 line-height 가
+     호스트에 상속되면 footer 높이, 나아가 패널 총높이가 화면마다 달라진다. 14px Medium 은 정본
+     body/14M 과 일치(textstyles-data.ts:59, lineHeightPercent 130 · letterSpacingPercent -2). */
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  padding: 0;
+}
+[data-s1-component="time-picker"] [data-s1-part="confirm"]:disabled {
+  color: var(--color-text-state-disabled);
+  cursor: not-allowed;
+}
+
+/* ── 모바일 시간 휠 바텀시트 — build-components.ts buildTimePickerMobileBottomSheet 3862-4060.
+   date-picker 시트와 같은 뼈대(헤더·닫기·적용 버튼)를 쓴다. data-mobile-ui="wheel" 일 때만 쓰인다
+   — 기본(list)은 그대로 유지되고, 이 시트는 추가 옵션이다(2-canon-readiness.md D1 해소, 2026-09-03).
+   시트 껍데기(딤·패널·헤더·제목·닫기)는 bottom-sheet 코어 배포본이 소유한다(2026-09-15 이관,
+   3-build-spec.md D). 루트에 data-s1-component="bottom-sheet" 를 함께 달아 그 CSS 를 그대로 받는다.
+   정본이 이 시트에 준 값만 여기서 준다 — 간격 32(buildTimePickerMobileBottomSheet itemSpacing) ·
+   그림자 없음(정본에 effects 없음). 독립 Bottom Sheet 정본은 48 + shadow/raised-up 이라 값이 다르다. */
+[data-s1-component="time-picker"] [data-s1-component="bottom-sheet"] {
+  --s1-bottom-sheet-gap: var(--spacing-32);
+  --s1-bottom-sheet-shadow: none;
+}
+
+/* DateTime 변형 전용 날짜/시간 탭 — 승인된 tab 코어(Line Tab Mobile/SM) 인스턴스를 그대로 조립한다
+   (build-components.ts 4004-4020). time-picker 는 배치 패딩만 소유하고 탭 자체 모양은 tab.css 소유. */
+[data-s1-component="time-picker"] [data-s1-part="tabs"] {
+  padding-inline: var(--spacing-24);
+}
+[data-s1-component="time-picker"] [data-s1-part="date-panel"] {
+  padding-inline: var(--spacing-24);
+}
+[data-s1-component="time-picker"] [data-s1-part="date-panel-note"] {
+  color: var(--color-text-body-secondary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  margin: 0;
+}
+
+/* 휠 — 4열(오전오후·시·콜론·분), 32px Regular, 전 셀 동일 accent 색(build-components.ts 3864-3882).
+   수치는 전부 정본에서 내려온다: 열 폭 WHEEL_COL_W(56/40/8/40) · 열 간격 36/32/32 ·
+   항목 높이 42 · 휠 창 270(Figma 원본 실측 node 2386:57682, river 승인 2026-09-07).
+   **웹 전용으로 남는 것은 스크롤 메커니즘뿐이다** — 정본은 정지 그림이라 굴러가는 목록의
+   중앙 판정·snap 규정이 없다(notInCanon.wheelScrollMechanism). */
+[data-s1-component="time-picker"] [data-s1-part="wheel"] {
+  display: flex;
+  /* 열 간격은 정본이 평탄하지 않다 — 오전오후↔시각묶음 36, 시↔콜론↔분 32
+     (build-components.ts:4833·4837 주석이 그 이유까지 적어 둔다). 기본을 32 로 두고
+     오전오후 다음 열에만 4 를 더해 36 을 만든다. 종전 웹은 간격 규칙이 아예 없었다. */
+  column-gap: var(--spacing-32);
+  height: 270px; /* 정본 그대로 — 위아래 여백 40 + 열 높이 190(항목 42 × 3 + 간격 32 × 2) */
+  justify-content: center;
+  padding-inline: var(--spacing-24);
+  position: relative;
+}
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="ampm"] + [data-s1-part="wheel-col"] {
+  margin-inline-start: var(--spacing-4);
+}
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"] {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 행 간격 32 는 정본 값이다(build-components.ts makeWheelCol gap 인자 :4276-4283).
+     종전 웹은 행을 44px 통짜로 잡아 간격이 정본보다 30px 가까이 좁았다(river 제보 2026-09-07).
+     여백 = (창 270 − 항목 42) / 2 = 114 — 첫/끝 항목도 정중앙까지 스크롤된다. 정수로 떨어진다. */
+  padding-block: 114px;
+  row-gap: var(--spacing-32);
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  text-align: center;
+}
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"]::-webkit-scrollbar { display: none; }
+/* 열 폭 = 정본 WHEEL_COL_W (build-components.ts, river 승인 2026-09-07).
+   종전 웹은 64/48/24 를 임의로 박아 넣어 휠 덩어리가 원본보다 60px 넓었고, 그만큼 좌우 여백이
+   좁아 보였다(river 제보 2026-09-07). 이제 값의 출처가 정본 한 곳이다. */
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="ampm"] { width: 56px; }
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="hour"],
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="minute"] { width: 40px; }
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="colon"] {
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding-block: 0;
+  row-gap: 0;
+  pointer-events: none;
+  scroll-snap-type: none;
+  width: 8px;
+}
+[data-s1-component="time-picker"] [data-s1-part="wheel-cell"] {
+  align-items: center;
+  color: var(--color-text-state-accent);
+  display: flex;
+  flex: 0 0 42px; /* 정본 텍스트 높이 그대로(Figma 실측 42) — 소수점 없이 피치 74(42+32)가 맞는다 */
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-32);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+  font-weight: var(--font-weight-regular);
+  justify-content: center;
+  scroll-snap-align: center;
+  cursor: pointer;
+}
+[data-s1-component="time-picker"] [data-s1-part="wheel-col"][data-column="colon"] [data-s1-part="wheel-cell"] {
+  cursor: default;
+  flex-basis: 100%;
+  height: 100%;
+  justify-content: center;
+}
+
+/* 상·하 흐림 — 정본 4-stop 비대칭 alpha 곡선을 그대로 옮긴다(3891-3924). 마스크 대신
+   color-mix() 로 같은 곡선을 직접 그린다 — 값·의미는 동일하고 semantic 토큰만 경유한다(HEX 없음). */
+[data-s1-component="time-picker"] [data-s1-part="fade-top"],
+[data-s1-component="time-picker"] [data-s1-part="fade-bottom"] {
+  height: 110px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+[data-s1-component="time-picker"] [data-s1-part="fade-top"] {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 90%, transparent) 0%,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 90%, transparent) 25%,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 70%, transparent) 65%,
+    transparent 100%);
+  top: 0;
+}
+[data-s1-component="time-picker"] [data-s1-part="fade-bottom"] {
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 70%, transparent) 35%,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 90%, transparent) 75%,
+    color-mix(in srgb, var(--color-overlay-wheel-fade) 90%, transparent) 100%);
+  bottom: 0;
+}
+
+[data-s1-component="time-picker"] [data-s1-part="sheet-footer"] {
+  padding-inline: var(--spacing-20);
+}
+[data-s1-component="time-picker"] [data-s1-part="apply"] { width: 100%; }
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="trigger"] {
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  height: var(--sizing-44);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+[data-s1-density="wide"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="trigger"] {
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  height: var(--sizing-34);
+  padding-left: var(--spacing-12);
+  padding-right: var(--spacing-8);
+}
+
+[data-s1-density="normal"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="trigger"] {
+  font-size: var(--font-size-12);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+  height: var(--sizing-28);
+  padding-left: var(--spacing-10);
+  padding-right: var(--spacing-6);
+}
+
+[data-s1-density="narrow"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="time-picker"][data-size="md"]:not([data-break="pc"]) [data-s1-part="trigger"] {
+  height: var(--sizing-48);
+}
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="trigger"] {
+  font-size: var(--font-size-14);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  height: var(--sizing-44);
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+}
+
+[data-s1-break="mobile"] [data-s1-component="time-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+[data-s1-break="mobile"] [data-s1-component="time-picker"]:not([data-size]):not([data-break="pc"]) [data-s1-part="trigger"] {
+  height: var(--sizing-48);
+}
+
+/* component:date-picker */
+/* Date Picker — 정본 buildDatePicker(트리거)·buildCalendar(패널 Date/Year/Month)·buildCalendarCell·buildCalendarTile·
+   buildDatePickerBottomSheet(모바일) 기준. 트리거는 form-control semantic, 패널·칸·타일은 color/date-picker/* 를
+   정본 그대로 경유한다(신규 토큰 0건). 배치·연월 전환·기간 hover 는 정본에 없어 2-canon-readiness.md 결정을 따른다. */
+
+[data-s1-component="date-picker"] {
+  display: inline-flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── 트리거 — build-components.ts buildDatePicker 3689-3702 ── */
+[data-s1-component="date-picker"] [data-s1-part="trigger"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-form-control-bg-default);
+  border: var(--border-width-1) solid var(--color-form-control-border-default);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-form-control-text-placeholder);
+  cursor: pointer;
+  display: flex;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  gap: var(--spacing-8);
+  justify-content: space-between;
+  min-width: 180px; /* 정본 trigger.resize(180, sc.h) — build-components.ts:4507 */
+  padding-left: var(--spacing-16);
+  padding-right: var(--spacing-8);
+  width: 100%;
+}
+
+[data-s1-component="date-picker"][data-size="xxsm"] [data-s1-part="trigger"] { font-size: var(--font-size-12); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-normal); height: var(--sizing-28); }
+[data-s1-component="date-picker"][data-size="xsm"] [data-s1-part="trigger"] { font-size: var(--font-size-14); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-tight); height: var(--sizing-34); }
+[data-s1-component="date-picker"][data-size="md"] [data-s1-part="trigger"] { font-size: var(--font-size-14); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-tight); height: var(--sizing-44); }
+[data-s1-component="date-picker"][data-size="md"][data-break="mobile"] [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+[data-s1-component="date-picker"] [data-s1-part="value"] {
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-s1-component="date-picker"] [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-default);
+  flex: 0 0 auto;
+  mask: url("./assets/icons/calendar.svg") center / contain no-repeat;
+}
+/* F-1: 정본 fcIconPx(h) — h<=28(XXSM)=20, 나머지(XSM 34·MD PC 44·MD Mobile 48)=24
+   (build-components.ts:1506, 4506). select·time-picker 와 동일한 사이즈별 분기 방식. */
+[data-s1-component="date-picker"][data-size="xxsm"] [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+[data-s1-component="date-picker"][data-size="xsm"] [data-s1-part="icon"],
+[data-s1-component="date-picker"][data-size="md"] [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+@media (hover: hover) {
+  [data-s1-component="date-picker"] [data-s1-part="trigger"]:hover:not(:disabled):not([aria-expanded="true"]):not([data-filled="true"]) {
+    background: var(--color-form-control-bg-hover);
+  }
+}
+
+[data-s1-component="date-picker"] [data-s1-part="trigger"][data-filled="true"] {
+  color: var(--color-form-control-text-default);
+}
+
+/* Open(=aria-expanded true) — 정본: bg/border/text 모두 selected, 아이콘도 icon/selected(2026-09-10 신설). */
+[data-s1-component="date-picker"] [data-s1-part="trigger"][aria-expanded="true"] {
+  background: var(--color-form-control-bg-selected);
+  border-color: var(--color-form-control-border-selected);
+  color: var(--color-form-control-text-selected);
+}
+[data-s1-component="date-picker"] [data-s1-part="trigger"][aria-expanded="true"] [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-selected);
+}
+
+[data-s1-component="date-picker"] [data-s1-part="trigger"]:disabled {
+  background: var(--color-form-control-bg-disabled);
+  border-color: var(--color-form-control-border-disabled);
+  color: var(--color-form-control-text-disabled);
+  cursor: not-allowed;
+}
+[data-s1-component="date-picker"] [data-s1-part="trigger"]:disabled [data-s1-part="icon"] {
+  background-color: var(--color-form-control-icon-disabled);
+}
+
+/* ── PC 팝오버 패널 — build-components.ts buildCalendar 3512-3670. M1(river 결정 없음, 오케스트레이터 배선):
+   트리거 아래 8px, 뷰포트 아래가 모자라면 위로 뒤집는다([data-flip="up"]). ── */
+[data-s1-component="date-picker"] [data-s1-part="panel"] {
+  align-items: center;
+  background: var(--color-date-picker-panel-bg);
+  border-radius: var(--radius-4);
+  /* R-2: 정본 stroke 는 strokeAlign INSIDE — CSS border 는 box-sizing:border-box 라도 레이아웃(내용 가용폭)을
+     먹는다. time-picker.css:114 선례와 동일하게 inset box-shadow 로 테두리를 그려 레이아웃에서 완전히 제외한다.
+     그래야 5주 달에서 바깥 352·내용 312·시작점 20 세 수치를 동시에 만족한다(border 를 빼면 그만큼 내용이 늘어나
+     min-height 를 넘겨버리는 문제가 없어진다). */
+  box-shadow: inset 0 0 0 var(--border-width-1) var(--color-date-picker-panel-border), var(--shadow-dropdown);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  margin-top: var(--spacing-8);
+  /* C-2: 정본 352(buildCalendar 3521 PANEL_H)는 5주 데모 기준 고정값이다. 웹은 달마다 주 수가 달라지므로
+     min-height 로 바닥을 주고, 6주 달은 콘텐츠에 맞춰 자연히 늘어난다(위/아래 padding 20 은 항상 유지). */
+  min-height: 352px;
+  padding: var(--spacing-20) var(--spacing-24);
+  position: absolute;
+  top: 100%;
+  width: 356px;
+  z-index: 10;
+}
+[data-s1-component="date-picker"] [data-s1-part="panel"][hidden] { display: none; }
+[data-s1-component="date-picker"] [data-s1-part="panel"][data-flip="up"] {
+  bottom: 100%;
+  margin-bottom: var(--spacing-8);
+  margin-top: 0;
+  top: auto;
+}
+
+/* ── 캘린더 본문(패널·시트 공용) — Date view gap 16 · Year/Month view gap 20(정본 itemSpacing). ── */
+[data-s1-component="date-picker"] [data-s1-part="calendar"] {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 308px;
+}
+[data-s1-component="date-picker"] [data-s1-part="calendar"][data-view="date"] { gap: var(--spacing-16); }
+[data-s1-component="date-picker"] [data-s1-part="calendar"][data-view="year"],
+[data-s1-component="date-picker"] [data-s1-part="calendar"][data-view="month"] { gap: var(--spacing-20); }
+
+[data-s1-component="date-picker"] [data-s1-part="header"] {
+  align-items: center;
+  display: flex;
+  height: 32px;
+  justify-content: space-between;
+  width: 308px;
+}
+[data-s1-component="date-picker"] [data-s1-part="prev"],
+[data-s1-component="date-picker"] [data-s1-part="next"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: none;
+  border-radius: var(--radius-control-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  /* 정본 화살표는 16×16 이고 hover 배경 규정이 없다. river 지시(2026-09-04)로 hover 배경을 넣되,
+     16px 면은 화살표에 붙어 답답해 24px 로 키우고 margin -4px 로 되돌려 **레이아웃 발자국은 정본 16px 그대로**
+     둔다(헤더 좌우 끝 위치·라벨 위치 불변, 누를 수 있는 넓이만 커진다). 새 토큰 0건.
+     모양은 **살짝 둥근 사각형**(radius/control/sm = 4) — 원(radius/full)이 아니다.
+     "아이콘 호버는 기본적으로 사각형에 r값이 살짝 들어간 형태"(river 지시 2026-09-04)이며,
+     저장소의 기존 아이콘 hover 관례와도 같다: Input 지우기 아이콘(input.css 28 상자 + radius-control-sm)·
+     Pagination 컨트롤(28 상자 + radius-control-xs). 달력 자신의 패널·타일 반경도 4 라 안에서도 어긋나지 않는다. */
+  height: var(--sizing-24);
+  margin: -4px;
+  width: var(--sizing-24);
+}
+[data-s1-component="date-picker"] [data-s1-part="prev"] [data-s1-part="chevron-icon"],
+[data-s1-component="date-picker"] [data-s1-part="next"] [data-s1-part="chevron-icon"] {
+  background-color: var(--color-date-picker-icon-default);
+  display: block;
+  height: 16px;
+  mask: url("./assets/icons/chevron.svg") center / contain no-repeat;
+  width: 16px;
+}
+[data-s1-component="date-picker"] [data-s1-part="prev"] [data-s1-part="chevron-icon"] { transform: rotate(180deg); }
+@media (hover: hover) {
+  /* 배경 = 달력이 이미 쓰는 hover 면색(cell/bg/hover · gray/50 · 다크 gray-dark/200) — 타일 hover·
+     페이지네이션 이전/다음 hover 와 같은 값이다. 새 토큰을 만들지 않는다. (river 지시 2026-09-04) */
+  [data-s1-component="date-picker"] [data-s1-part="prev"]:hover:not(:disabled),
+  [data-s1-component="date-picker"] [data-s1-part="next"]:hover:not(:disabled) {
+    background: var(--color-date-picker-cell-bg-hover);
+  }
+  [data-s1-component="date-picker"] [data-s1-part="prev"]:hover:not(:disabled) [data-s1-part="chevron-icon"],
+  [data-s1-component="date-picker"] [data-s1-part="next"]:hover:not(:disabled) [data-s1-part="chevron-icon"] {
+    background-color: var(--color-date-picker-icon-hover);
+  }
+}
+[data-s1-component="date-picker"] [data-s1-part="prev"]:disabled [data-s1-part="chevron-icon"],
+[data-s1-component="date-picker"] [data-s1-part="next"]:disabled [data-s1-part="chevron-icon"] {
+  background-color: var(--color-date-picker-icon-disabled);
+}
+
+/* D5/CU-2: 정본 단일 헤더 라벨을 연도·월 두 개의 누를 수 있는 라벨로 분리(새 시각 부품 없음 — 글자 크기·두께·색 그대로). */
+[data-s1-component="date-picker"] [data-s1-part="header-label"] {
+  align-items: baseline;
+  display: flex;
+  gap: var(--spacing-4);
+}
+[data-s1-component="date-picker"] [data-s1-part="year-label"],
+[data-s1-component="date-picker"] [data-s1-part="month-label"] {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-date-picker-text-primary);
+  cursor: pointer;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-24);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-normal);
+  font-weight: var(--font-weight-bold);
+  padding: 0;
+}
+@media (hover: hover) {
+  [data-s1-component="date-picker"] [data-s1-part="year-label"]:hover,
+  [data-s1-component="date-picker"] [data-s1-part="month-label"]:hover {
+    color: var(--color-date-picker-icon-hover);
+  }
+}
+
+/* ── 요일 헤더 — D3: 일요일 시작. ── */
+[data-s1-component="date-picker"] [data-s1-part="weekdays"] {
+  display: flex;
+}
+[data-s1-component="date-picker"] [data-s1-part="weekday"] {
+  align-items: center;
+  color: var(--color-date-picker-text-primary);
+  display: flex;
+  font-size: var(--font-size-16);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  font-weight: var(--font-weight-medium);
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+[data-s1-component="date-picker"] [data-s1-part="weekday"][data-weekday="0"] { color: var(--color-date-picker-text-sunday); }
+[data-s1-component="date-picker"] [data-s1-part="weekday"][data-weekday="6"] { color: var(--color-date-picker-text-saturday); }
+
+/* ── 날짜 그리드 — build-components.ts buildCalendarCell 3319-3406. ── */
+[data-s1-component="date-picker"] [data-s1-part="grid"] { display: flex; flex-direction: column; }
+[data-s1-component="date-picker"] [data-s1-part="week"] { display: flex; }
+
+[data-s1-component="date-picker"] [data-s1-part="cell"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: 44px;
+}
+[data-s1-component="date-picker"] [data-s1-part="cell"]:disabled { cursor: not-allowed; }
+
+/* Range 밴드(::before) — Calendar Cell Type=Range(3373-3387): h30 top7, start=우측절반 end=좌측절반 mid=풀폭. */
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-range-band]::before {
+  background: var(--color-date-picker-cell-bg-range);
+  content: "";
+  height: 30px;
+  position: absolute;
+  top: 7px;
+  z-index: 0;
+}
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-range-band="mid"]::before { left: 0; right: 0; }
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-range-band="start"]::before { left: 22px; right: 0; }
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-range-band="end"]::before { left: 0; right: 22px; }
+
+[data-s1-component="date-picker"] [data-s1-part="cell-inner"] {
+  align-items: center;
+  background: var(--color-date-picker-cell-bg-today);
+  border: var(--border-width-1) solid transparent;
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+  z-index: 1;
+}
+[data-s1-component="date-picker"] [data-s1-part="cell-num"] {
+  color: var(--color-date-picker-text-secondary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-16);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  font-weight: var(--font-weight-medium);
+  /* 원 안 세로 중앙정렬 — flex 중앙정렬은 "줄상자"를 중앙에 놓는데, 줄상자 안에서 글자는
+     폰트의 위/아래 여백이 비대칭이라(Pretendard ascent 0.9375em · descent 0.25em) 중앙이 아니다.
+     게다가 숫자는 아래로 내려오는 획이 없어 잉크가 위쪽에 몰린다 → 실측 결과 원 중앙보다 약 0.5px 위.
+     이 어긋남은 line-height 를 바꿔도 사라지지 않는다(어긋난 양 = (ascent − descent − capHeight)/2 로
+     line-height 와 무관). text-box 로 줄상자를 잉크상자(cap~baseline)로 잘라내면 보정값 없이 정확히 중앙에 온다.
+     미지원 브라우저는 이 선언을 무시하고 지금까지의 모양을 그대로 쓴다(퇴행 없음). (river 지시 2026-09-04) */
+  text-box: trim-both cap alphabetic;
+}
+
+/* 요일색은 default 상태의 기본값 — other-month·disabled·today·selected 가 아래에서 덮는다(소스 순서로 우선순위). */
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-weekday="0"][data-state="default"] [data-s1-part="cell-num"],
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-weekday="0"][data-state="range-mid"] [data-s1-part="cell-num"] { color: var(--color-date-picker-text-sunday); }
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-weekday="6"][data-state="default"] [data-s1-part="cell-num"],
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-weekday="6"][data-state="range-mid"] [data-s1-part="cell-num"] { color: var(--color-date-picker-text-saturday); }
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-other-month="true"] [data-s1-part="cell-num"] { color: var(--color-date-picker-text-other-month); }
+
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="disabled"] [data-s1-part="cell-num"],
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="range-disabled"] [data-s1-part="cell-num"] { color: var(--color-date-picker-text-disabled); }
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="range-disabled"] [data-s1-part="cell-inner"] {
+  background: var(--color-date-picker-cell-bg-range);
+  border-color: var(--color-date-picker-cell-bg-range);
+}
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="range-mid"] [data-s1-part="cell-inner"] {
+  background: var(--color-date-picker-cell-bg-range);
+  border-color: var(--color-date-picker-cell-bg-range);
+}
+
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="today"] [data-s1-part="cell-inner"] {
+  background: var(--color-date-picker-cell-bg-today);
+  border-color: var(--color-date-picker-cell-border-today);
+}
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="today"] [data-s1-part="cell-num"] { color: var(--color-date-picker-text-today); }
+
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="selected"] [data-s1-part="cell-inner"] {
+  background: var(--color-date-picker-cell-bg-selected);
+  border-color: var(--color-date-picker-cell-border-today);
+}
+[data-s1-component="date-picker"] [data-s1-part="cell"][data-state="selected"] [data-s1-part="cell-num"] {
+  color: var(--color-date-picker-text-selected);
+  font-weight: var(--font-weight-bold);
+}
+
+@media (hover: hover) {
+  /* M5: 정본 cell/bg/selected-hover. 2026-09-09 정본 시각 빌더(build-components.ts calCellCompsForSize)에도
+     State="Selected Hover" 로 배선돼 웹과 정본이 일치한다. 경위 = canon-approval-audit-2026-09-07.md §9 M-7. */
+  [data-s1-component="date-picker"] [data-s1-part="cell"]:not(:disabled)[data-state="default"]:hover [data-s1-part="cell-inner"] {
+    background: var(--color-date-picker-cell-bg-hover);
+  }
+  /* 오늘(파란 테두리) hover — 채움만 일반 hover 색으로 바뀌고 파란 테두리는 그대로 둔다.
+     "일반 셀과 같은 hover 채움 + 오늘 테두리 유지" (river 지시 2026-09-04). 새 토큰 0건. */
+  [data-s1-component="date-picker"] [data-s1-part="cell"]:not(:disabled)[data-state="today"]:hover [data-s1-part="cell-inner"] {
+    background: var(--color-date-picker-cell-bg-hover);
+  }
+  /* 선택된 날짜 hover — 채움이 진한 파랑으로 바뀔 때 테두리도 같은 색으로 따라간다.
+     테두리만 cell/border/today(blue/400)에 남으면 채움(blue/500)보다 밝은 링이 생겨 어긋나 보인다
+     (river 지시 2026-09-04). 새 토큰 0건 — 채움과 같은 변수를 테두리에도 쓴다. */
+  [data-s1-component="date-picker"] [data-s1-part="cell"]:not(:disabled)[data-state="selected"]:hover [data-s1-part="cell-inner"] {
+    background: var(--color-date-picker-cell-bg-selected-hover);
+    border-color: var(--color-date-picker-cell-bg-selected-hover);
+  }
+}
+
+/* ── 연/월 타일 — build-components.ts buildCalendarTile 3396-3424. ── */
+[data-s1-component="date-picker"] [data-s1-part="grid"][data-tile-grid] { display: flex; flex-direction: column; gap: var(--spacing-12); }
+[data-s1-component="date-picker"] [data-s1-part="tile-row"] { display: flex; gap: var(--spacing-12); }
+[data-s1-component="date-picker"] [data-s1-part="tile"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-date-picker-tile-bg-default);
+  border: var(--border-width-1) solid var(--color-date-picker-tile-border-default);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-date-picker-text-primary);
+  cursor: pointer;
+  display: flex;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-16);
+  /* 호스트 페이지 상속 차단 — 정본 텍스트 스타일은 전부 130% 이고(10px 만 140%, 여기선 미사용),
+     자간은 스타일마다 다르다: body/14·16 계열과 title/16M·18M 은 -2%(tight), 나머지는 0(normal).
+     정본 = textstyles-data.ts. 선언하지 않으면 화면마다 글자 높이·폭이 달라진다(독립 검증 W-2·X-1·Y-1). */
+  line-height: var(--line-height-130);
+  letter-spacing: var(--letter-spacing-tight);
+  font-weight: var(--font-weight-medium);
+  height: 56px;
+  justify-content: center;
+  width: 88px;
+}
+@media (hover: hover) {
+  [data-s1-component="date-picker"] [data-s1-part="tile"]:not(:disabled):not([aria-selected="true"]):hover {
+    background: var(--color-date-picker-tile-bg-hover);
+  }
+}
+[data-s1-component="date-picker"] [data-s1-part="tile"][aria-selected="true"] {
+  background: var(--color-date-picker-tile-bg-selected);
+  border-color: var(--color-date-picker-cell-border-today);
+  color: var(--color-date-picker-text-today);
+}
+[data-s1-component="date-picker"] [data-s1-part="tile"]:disabled {
+  background: var(--color-date-picker-tile-bg-disabled);
+  border-color: var(--color-date-picker-tile-border-disabled);
+  color: var(--color-date-picker-text-disabled);
+  cursor: not-allowed;
+}
+
+/* 연/월 타일 글자 세로 중앙정렬 — 날짜 셀(cell-num)과 같은 이유·같은 해법.
+   다만 타일은 글자를 직접 담은 flex 컨테이너라 text-box 가 걸리지 않는다(실측: flex 컨테이너에는 무효).
+   그래서 text-box 를 지원하는 브라우저에서만 블록 컨테이너로 바꾸고 align-content 로 중앙에 놓는다.
+   text-box(Chrome 133·Safari 18.2)를 지원하면 블록 align-content(Chrome 123·Safari 17.6)는 반드시 지원하므로
+   이 한 줄 조건으로 충분하다. 미지원 브라우저는 블록 안에 들어오지 않아 지금까지의 flex 중앙정렬을 그대로 쓴다.
+   (river 지시 2026-09-04) */
+@supports (text-box: trim-both cap alphabetic) {
+  [data-s1-component="date-picker"] [data-s1-part="tile"] {
+    align-content: center;
+    display: block;
+    text-align: center;
+    text-box: trim-both cap alphabetic;
+  }
+}
+
+/* ── SM 달력 (작은 달력) — 정본 build-components.ts CAL_GEO.SM ─────────────────────────────
+   Figma 원본 pc_timepicker_calendar 실측(Date 3381:15306 · Year 6434:270653 · Range 6434:272679/272680/272682).
+   **언제 뜨나**: 입력창이 작으면(XSM 34 · XXSM 28) 달력도 작아진다 — river 결정 2026-09-04
+   ("입력창이 작으면 달력도 자동으로 작게"). MD 입력창은 종전 그대로 큰 달력(356)이다.
+   종전의 "캘린더 패널은 사이즈 불변(356 단일)"(2026-06-25)을 대체하는 결정이다.
+   숫자는 원본 실측 그대로다(22.5·16.5·5.25 소수 포함) — 정규화·반올림하지 않았다.
+   MD 규칙은 위쪽에 그대로 두고 여기서 크기 관련 값만 덮는다(색·상태·hover 는 두 크기 공통). */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="panel"] {
+  min-height: 266px;      /* = 16 + 24(헤더) + 12(gap) + 33(요일) + 165(5주) + 16 */
+  padding: var(--spacing-16) 18px;  /* 좌우 18 은 정본 CAL_GEO.SM.padX — spacing 토큰에 18 이 없어 raw px */
+  width: 267px;           /* = 18 + 7×33 + 18 */
+}
+/* 연/월 타일 뷰만 아래 여백이 20 (정본 padBottomTile) — 패널에도 data-view 를 실어 뷰별로 구분한다. */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="panel"]:is([data-view="year"], [data-view="month"]) {
+  padding-bottom: var(--spacing-20);
+}
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="calendar"] { width: 231px; }
+/* 헤더-본문 간격은 SM 에서 세 뷰 모두 12 (정본 gapDate·gapTile 둘 다 12). */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="calendar"][data-view="date"],
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="calendar"][data-view="year"],
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="calendar"][data-view="month"] { gap: var(--spacing-12); }
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="header"] { width: 231px; }
+/* 날짜 뷰 헤더만 24 — 연/월 뷰는 MD 와 같은 32 (원본 실측 3381:15309=24 · 6434:270655=32). */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="calendar"][data-view="date"] [data-s1-part="header"] { height: 24px; }
+/* 헤더 라벨 title/24B → title/18B (둘 다 자간 0 이라 letter-spacing 은 그대로). */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="year-label"],
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="month-label"] { font-size: var(--font-size-18); }
+/* 요일·날짜 숫자·타일 라벨 title/16M(자간 -2) → body/12M(자간 0) — 자간까지 함께 바뀐다. */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="weekday"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  height: 33px;
+  width: 33px;
+}
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell"] { height: 33px; width: 33px; }
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell-inner"] { height: 22.5px; width: 22.5px; }
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell-num"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+}
+/* 기간 밴드 — 높이=안쪽 원 높이, 위 여백=(칸-원)/2. 시작/끝은 칸의 절반(16.5). 원본 실측과 일치. */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell"][data-range-band]::before {
+  height: 22.5px;
+  top: 5.25px;
+}
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell"][data-range-band="start"]::before { left: 16.5px; }
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="cell"][data-range-band="end"]::before { right: 16.5px; }
+/* 연/월 타일 88×56 → 68×40, 가로 간격 12 → 7 (세로 간격 12 는 두 크기 공통). */
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="tile-row"] { gap: 7px; }
+[data-s1-component="date-picker"]:is([data-size="xsm"], [data-size="xxsm"]) [data-s1-part="tile"] {
+  font-size: var(--font-size-12);
+  height: 40px;
+  letter-spacing: var(--letter-spacing-normal);
+  width: 68px;
+}
+
+/* ── M7/모바일 바텀시트 — build-components.ts buildDatePickerBottomSheet 3751-3833.
+   시트 껍데기(딤·패널·헤더·제목·닫기)는 bottom-sheet 코어 배포본이 소유한다(2026-09-15 이관,
+   3-build-spec.md D). 루트에 data-s1-component="bottom-sheet" 를 함께 달아 그 CSS 를 그대로 받는다.
+   정본이 이 시트에 준 값만 여기서 준다 — 간격 32(buildDatePickerBottomSheet itemSpacing) · 그림자
+   없음(정본에 effects 없음). 독립 Bottom Sheet 정본은 48 + shadow/raised-up 이라 값이 다르다. */
+[data-s1-component="date-picker"] [data-s1-component="bottom-sheet"] {
+  --s1-bottom-sheet-gap: var(--spacing-32);
+  --s1-bottom-sheet-shadow: none;
+}
+[data-s1-component="date-picker"] [data-s1-part="sheet"] [data-s1-part="calendar-wrap"] {
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--spacing-24);
+}
+[data-s1-component="date-picker"] [data-s1-part="sheet"] [data-s1-part="calendar"] {
+  height: auto;
+}
+[data-s1-component="date-picker"] [data-s1-part="sheet-footer"] {
+  padding-inline: var(--spacing-20);
+}
+[data-s1-component="date-picker"] [data-s1-part="apply"] { width: 100%; }
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-tight); height: var(--sizing-44); }
+
+[data-s1-density="wide"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-tight); height: var(--sizing-34); }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="panel"] {
+  min-height: 266px;      /* = 16 + 24(헤더) + 12(gap) + 33(요일) + 165(5주) + 16 */
+  padding: var(--spacing-16) 18px;  /* 좌우 18 은 정본 CAL_GEO.SM.padX — spacing 토큰에 18 이 없어 raw px */
+  width: 267px;           /* = 18 + 7×33 + 18 */
+}
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="panel"]:is([data-view="year"], [data-view="month"]) {
+  padding-bottom: var(--spacing-20);
+}
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"] { width: 231px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="date"],
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="year"],
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="month"] { gap: var(--spacing-12); }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="header"] { width: 231px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="date"] [data-s1-part="header"] { height: 24px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="year-label"],
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="month-label"] { font-size: var(--font-size-18); }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="weekday"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  height: 33px;
+  width: 33px;
+}
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"] { height: 33px; width: 33px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell-inner"] { height: 22.5px; width: 22.5px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell-num"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band]::before {
+  height: 22.5px;
+  top: 5.25px;
+}
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band="start"]::before { left: 16.5px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band="end"]::before { right: 16.5px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="tile-row"] { gap: 7px; }
+
+[data-s1-density="normal"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="tile"] {
+  font-size: var(--font-size-12);
+  height: 40px;
+  letter-spacing: var(--letter-spacing-normal);
+  width: 68px;
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-12); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-normal); height: var(--sizing-28); }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-20); height: var(--sizing-20); }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="panel"] {
+  min-height: 266px;      /* = 16 + 24(헤더) + 12(gap) + 33(요일) + 165(5주) + 16 */
+  padding: var(--spacing-16) 18px;  /* 좌우 18 은 정본 CAL_GEO.SM.padX — spacing 토큰에 18 이 없어 raw px */
+  width: 267px;           /* = 18 + 7×33 + 18 */
+}
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="panel"]:is([data-view="year"], [data-view="month"]) {
+  padding-bottom: var(--spacing-20);
+}
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"] { width: 231px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="date"],
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="year"],
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="month"] { gap: var(--spacing-12); }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="header"] { width: 231px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="calendar"][data-view="date"] [data-s1-part="header"] { height: 24px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="year-label"],
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="month-label"] { font-size: var(--font-size-18); }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="weekday"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+  height: 33px;
+  width: 33px;
+}
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"] { height: 33px; width: 33px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell-inner"] { height: 22.5px; width: 22.5px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell-num"] {
+  font-size: var(--font-size-12);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band]::before {
+  height: 22.5px;
+  top: 5.25px;
+}
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band="start"]::before { left: 16.5px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="cell"][data-range-band="end"]::before { right: 16.5px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="tile-row"] { gap: 7px; }
+
+[data-s1-density="narrow"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="tile"] {
+  font-size: var(--font-size-12);
+  height: 40px;
+  letter-spacing: var(--letter-spacing-normal);
+  width: 68px;
+}
+
+/* bridge:mobile 감싸기에 화면 구분을 적었으면 컴포넌트가 안 적어도 같은 규칙이 선다 */
+[data-s1-break="mobile"] [data-s1-component="date-picker"][data-size="md"]:not([data-break="pc"]) [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+/* density:mobile 모바일은 밀도 축이 없다 — 손가락 기준 높이 하나 */
+[data-s1-break="mobile"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="trigger"] { font-size: var(--font-size-14); line-height: var(--line-height-130); letter-spacing: var(--letter-spacing-tight); height: var(--sizing-44); }
+
+[data-s1-break="mobile"] [data-s1-component="date-picker"]:not([data-size]) [data-s1-part="icon"] { width: var(--sizing-24); height: var(--sizing-24); }
+
+[data-s1-break="mobile"] [data-s1-component="date-picker"]:not([data-size]):not([data-break="pc"]) [data-s1-part="trigger"] { height: var(--sizing-48); }
+
+/* component:gnb */
+/* GNB — 정본 buildGNB(build-components.ts:3627)·fillGnbMenu(:3133)·
+   buildGNBUtilIcon(:3155)·buildLanguageIcon 기준. PC 전용(registry gnb.json — 모바일에 쓰지 않는다).
+   정본은 바 폭을 1920 고정으로 표현하지만 웹은 full-width 반응형이다
+   (viewport 1280/1440/1920 는 full-width 반응형으로 통합 — registry gnb.json 선언, river 승인). */
+[data-s1-component="gnb"] {
+  align-items: center;
+  background: var(--color-navigation-bg);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+}
+
+/* 하단 1px 회색선 — 정본은 이 선을 바 높이를 깎지 않는 '겹쳐 그리는 선'으로 두고
+   맨 아래(insertChild(0, …))에 보내 메뉴의 2px 강조선이 위로 오게 한다(정본 :3600 부근).
+   border-bottom 으로 두면 메뉴가 쓸 수 있는 높이가 1px 줄어 정본 구조와 어긋나므로
+   흐름에서 빠진 겹침 레이어로 그린다. 자식보다 먼저 칠해지므로 강조선이 이 선을 덮는다. */
+[data-s1-component="gnb"]::before {
+  background: var(--color-line-gray-subtle);
+  bottom: 0;
+  content: "";
+  height: var(--border-width-default);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+/* 사이즈 3종 — 정본 GNB_MENU_SIZE(:3057)·barH(:3535). xsm 은 좌우 패딩이 반전된다(정본 :3538). */
+[data-s1-component="gnb"][data-size="md"] {
+  height: var(--sizing-56);
+  padding-left: var(--spacing-24);
+  padding-right: var(--spacing-20);
+}
+[data-s1-component="gnb"][data-size="sm"] {
+  height: var(--sizing-48);
+  padding-left: var(--spacing-24);
+  padding-right: var(--spacing-20);
+}
+[data-s1-component="gnb"][data-size="xsm"] {
+  height: var(--spacing-36);
+  padding-left: var(--spacing-20);
+  padding-right: var(--spacing-24);
+}
+
+/* Align — center-between(기본) = [로고 | 메뉴 | 유틸] 3분할.
+   start = [(로고+메뉴) gap64 | 유틸](정본 :3585-3600). */
+[data-s1-component="gnb"][data-variant="start"] {
+  justify-content: flex-start;
+}
+[data-s1-component="gnb"][data-variant="start"] [data-s1-part="util"] {
+  margin-left: auto;
+}
+
+/* ── 로고 ── */
+[data-s1-component="gnb"] [data-s1-part="logo"] {
+  color: var(--color-text-title-primary);
+  flex: none;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* start 정렬 전용 — 로고+메뉴 좌측 묶음, gap 64(정본 :3596) */
+[data-s1-component="gnb"] [data-s1-part="leading"] {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-64);
+  height: 100%;
+}
+
+/* ── 메뉴 슬롯 ── */
+[data-s1-component="gnb"] [data-s1-part="menus"] {
+  align-items: stretch;
+  display: flex;
+  height: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+[data-s1-component="gnb"] [data-s1-part="menu"] {
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--color-navigation-label-default-alt);
+  display: flex;
+  font-weight: var(--font-weight-medium);
+  height: 100%;
+  justify-content: center;
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  min-width: 116px;
+  position: relative;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* 메뉴 폭·글자 — 정본 md/sm 은 18 Medium·padX 40, xsm 은 14 Medium·padX 32(:3059) */
+[data-s1-component="gnb"][data-size="md"] [data-s1-part="menu"] {
+  font-size: var(--font-size-18);
+  padding-left: var(--spacing-40);
+  padding-right: var(--spacing-40);
+}
+[data-s1-component="gnb"][data-size="sm"] [data-s1-part="menu"] {
+  font-size: var(--font-size-18);
+  padding-left: var(--spacing-32);
+  padding-right: var(--spacing-32);
+}
+[data-s1-component="gnb"][data-size="xsm"] [data-s1-part="menu"] {
+  font-size: var(--font-size-14);
+  padding-left: var(--spacing-32);
+  padding-right: var(--spacing-32);
+}
+
+/* 하단 2px 강조선 — 기본은 투명(Default), Hover·Selected 에서만 칠한다(정본 fillGnbMenu :3141-3145).
+   inset 은 md 24 / sm·xsm 20(정본 :3059).
+   ⚠️ bottom 은 0 이다 — 정본은 이 2px 를 메뉴(=바와 같은 높이) 맨 아래 '안쪽'에 놓고(fillGnbMenu :3143,
+   `ul.y = S.h - 2`), 1px 회색 하단선(border.y = h - 1)은 그 뒤 z 에 깔린다. 음수 bottom 을 주면
+   2px 가 바 밖으로 1px 흘러내려 회색선 아래로 삐져나온 것처럼 보인다(river 지적 2026-09-10). */
+[data-s1-component="gnb"] [data-s1-part="menu"]::after {
+  background: transparent;
+  bottom: 0;
+  content: "";
+  height: 2px;
+  position: absolute;
+}
+[data-s1-component="gnb"][data-size="md"] [data-s1-part="menu"]::after {
+  left: var(--spacing-24);
+  right: var(--spacing-24);
+}
+[data-s1-component="gnb"][data-size="sm"] [data-s1-part="menu"]::after,
+[data-s1-component="gnb"][data-size="xsm"] [data-s1-part="menu"]::after {
+  left: var(--spacing-20);
+  right: var(--spacing-20);
+}
+
+/* Hover 와 Selected(aria-current) 는 정본에서 시각이 같다(fillGnbMenu active = state !== "Default", :3138).
+   ARIA 로 현재 위치를 구분하고, 시각은 hover 와 동일하게 겹쳐 쓴다.
+   data-force-state="hover" 는 안내 화면이 마우스 없이 Hover 칸을 미리보기로 흉내내는 용도다
+   (선례: tab.css:51,55,58). */
+[data-s1-component="gnb"] [data-s1-part="menu"]:hover,
+[data-s1-component="gnb"] [data-s1-part="menu"][data-force-state="hover"],
+[data-s1-component="gnb"] [data-s1-part="menu"][aria-current="page"] {
+  color: var(--color-navigation-label-selected);
+}
+[data-s1-component="gnb"] [data-s1-part="menu"]:hover::after,
+[data-s1-component="gnb"] [data-s1-part="menu"][data-force-state="hover"]::after,
+[data-s1-component="gnb"] [data-s1-part="menu"][aria-current="page"]::after {
+  background: var(--color-navigation-indicator-selected);
+}
+
+/* ── 유틸리티 — 언어·계정·메뉴. 정본 buildGNBUtilIcon 은 GNB 사이즈와 무관하게
+   32×32 프레임(24 glyph) 고정 1종만 만든다(:3157-3230, sk 를 받지 않는다) —
+   registry gnb.json 의 xsm 전용 축소값(24/18)은 정본 근거가 없어 따르지 않는다. */
+[data-s1-component="gnb"] [data-s1-part="util"] {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--spacing-8);
+}
+
+[data-s1-component="gnb"] [data-s1-part="lang"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  box-sizing: border-box;
+  color: var(--color-text-body-primary);
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  font: inherit;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  gap: var(--spacing-4);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  padding: 0 var(--spacing-8) 0 0;
+  white-space: nowrap;
+}
+
+[data-s1-component="gnb"] [data-s1-part="account"],
+[data-s1-component="gnb"] [data-s1-part="menu-toggle"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  height: var(--sizing-32);
+  justify-content: center;
+  padding: 0;
+  width: var(--sizing-32);
+}
+
+[data-s1-component="gnb"] [data-s1-part="lang-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  flex: none;
+  height: var(--sizing-32);
+  -webkit-mask: url("./assets/icons/globe.svg") center / contain no-repeat;
+  mask: url("./assets/icons/globe.svg") center / contain no-repeat;
+  width: var(--sizing-32);
+}
+
+[data-s1-component="gnb"] [data-s1-part="account-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  height: var(--sizing-32);
+  -webkit-mask: url("./assets/icons/account.svg") center / contain no-repeat;
+  mask: url("./assets/icons/account.svg") center / contain no-repeat;
+  width: var(--sizing-32);
+}
+
+[data-s1-component="gnb"] [data-s1-part="menu-icon"] {
+  background-color: var(--color-icon-gray-dark);
+  display: block;
+  height: var(--sizing-32);
+  -webkit-mask: url("./assets/icons/menu.svg") center / contain no-repeat;
+  mask: url("./assets/icons/menu.svg") center / contain no-repeat;
+  width: var(--sizing-32);
+}
+
+/* component:gnb-sub-menu-item */
+/* GNB Sub Menu Item — 정본 buildGNBSubMenuItem(build-components.ts:3822) 기준.
+   Depth(1depth=카테고리 제목 · 2depth=항목) 축이며 상태는 2depth 만 갖는다(Default·Hover·Selected) — 4변형.
+   들여쓰기 없음(A 기준 원본은 8px 들여쓰기가 없다, 정본 주석 3673·3689) · 배경 없음 · 아이콘 없음 · 크기는 hug.
+   단독으로 쓰지 않고 GNB Sub Menu 컬럼 안 <li> 에 넣어 쓴다. */
+[data-s1-component="gnb-sub-menu-item"] {
+  color: var(--color-navigation-label-default);
+  display: inline-flex;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* 1depth = 카테고리 제목. Bold 16(title/16B) · color/navigation/submenu/label/default.
+   2depth 와 letter-spacing 이 다른 것은 각각의 정본 텍스트 스타일(title/16B·title/16M)이 다르기 때문이다. */
+[data-s1-component="gnb-sub-menu-item"][data-depth="1depth"] {
+  color: var(--color-navigation-submenu-label-default);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+/* Hover 와 Selected 는 정본에서 색이 같다 — GNB 메뉴와 같은 구조다.
+   원본에 hover 표본이 없어 selected 와 같은 색으로 사전 등록한 개선이다(정본 주석 3688).
+   data-force-state="hover" 는 안내 화면이 마우스 없이 Hover 칸을 미리보기로 흉내내는 용도다
+   (선례: gnb.css, tab.css). Selected 는 <a href> 의 aria-current="page" 가 시각까지 겸한다. */
+/* ⚠️ 상태는 2depth(항목)만 갖는다 — 1depth(카테고리 제목)는 누를 수 없는 제목 글자라
+   마우스를 올려도 기본 색 그대로다. 정본에도 1depth 는 Default 하나뿐이라
+   이 컴포넌트의 변형은 4개다(river 지시 2026-09-10 "정본에서도 없애줘",
+   build-components.ts gnbSubMenuItemHasState). */
+[data-s1-component="gnb-sub-menu-item"][data-depth="2depth"]:hover,
+[data-s1-component="gnb-sub-menu-item"][data-depth="2depth"][data-force-state="hover"],
+[data-s1-component="gnb-sub-menu-item"][data-depth="2depth"][aria-current="page"] {
+  color: var(--color-navigation-label-selected);
+}
+
+/* component:gnb-sub-menu */
+/* GNB Sub Menu — 정본 buildGNBSubMenu(build-components.ts:3864) 기준. PC 전용.
+   정본은 폭 1920 고정이지만 웹은 GNB 바와 같은 이유로 full-width 반응형이다(gnb.css 선례).
+   Type(regular · compact-1 · compact-2) 3변형 — 2026-09-09 개편(종전 Depth 축은 없어졌다).
+   묶음 사이 80 은 세 유형 공통. 묶음 안 간격은 유형마다 다르다(regular·compact-1 = 24, compact-2 = 20). */
+[data-s1-component="gnb-sub-menu"] {
+  align-items: flex-start;
+  background: var(--color-navigation-bg);
+  box-shadow: var(--shadow-dropdown);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+
+/* 이 패널을 여닫는 host(gnb)가 hidden 속성으로 접고 편다 — 위 display:flex 는 같은 요소에
+   author 스타일로 얹혀 있어 UA 기본 [hidden]{display:none} 규칙을 덮어써 버린다(select.css·
+   date-picker.css 의 패널 선례와 같은 함정). 이 규칙이 없으면 hidden 을 줘도 화면에서 안 사라진다. */
+[data-s1-component="gnb-sub-menu"][hidden] {
+  display: none;
+}
+
+/* 하단 1px 선 — GNB 바와 같은 이유로 겹쳐 그리는 선(::before)으로 둔다. border-bottom 으로 두면
+   패널 높이가 1px 줄어 정본 구조(strokeBottomWeight=1, strokeAlign=INSIDE)와 어긋난다(gnb.css 선례). */
+[data-s1-component="gnb-sub-menu"]::before {
+  background: var(--color-line-gray-subtle);
+  bottom: 0;
+  content: "";
+  height: var(--border-width-default);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+/* 여백 — A 실측 그대로: regular(제목+항목) 위 32/아래 64, compact-1·compact-2(제목 없음) 상하 24.
+   좌우는 정본 주석대로 "값이 아니라 정렬 규칙"이라 최소값 24 만 둔다 — 실제 위치는 위 justify-content:center 가 정한다. */
+[data-s1-component="gnb-sub-menu"][data-type="regular"] {
+  padding: var(--spacing-32) var(--spacing-24) var(--spacing-64);
+}
+[data-s1-component="gnb-sub-menu"][data-type="compact-1"],
+[data-s1-component="gnb-sub-menu"][data-type="compact-2"] {
+  padding: var(--spacing-24);
+}
+
+/* 묶음 전체 — Figma 슬롯 "Columns" 에 대응한다. ⚠️ 폭을 늘리지 않는다(hug) — 늘리면 위 justify-content:center 가
+   정렬할 여백을 잃고 왼쪽에 붙는다(정본 주석 3814, 🤖 component-verifier 2026-09-08 적발 사례). */
+[data-s1-component="gnb-sub-menu"] [data-s1-part="columns"] {
+  display: flex;
+  gap: var(--spacing-80);
+}
+
+/* 묶음(컬럼) 하나 — GNB Sub Menu Item 을 세로로 쌓는 목록. 묶음 자체는 목록을 담는 그릇이며
+   그 자체가 목록이 아니다(registry a11y) — 실제 목록 마크업은 <ul>/<li> 다.
+   묶음 안 간격 기본값 24 는 regular·compact-1 이 쓴다(compact-1 은 묶음마다 항목이 1개라 간격이 안 보인다). */
+[data-s1-component="gnb-sub-menu"] [data-s1-part="column"] {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-24);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* compact-2 만 묶음 안 간격이 20 이다(원본 실측 — regular·compact-1 의 24 와 다르다). */
+[data-s1-component="gnb-sub-menu"][data-type="compact-2"] [data-s1-part="column"] {
+  gap: var(--spacing-20);
+}
+
+[data-s1-component="gnb-sub-menu"] [data-s1-part="column"] > li {
+  margin: 0;
+}
+
+/* component:assist-button */
+/* Assist Button — 정본 buildAssistButtonSet(build-components.ts:637) 기준.
+   크기 축 없음(h32 하나). 상태는 State=Default·Hover·Pressed·Disabled 4가지뿐이며
+   Pressed = Hover(코어 Button 과 같은 규칙)이라 CSS는 :hover와 :active를 합쳐 표현한다.
+   배경·기본 테두리는 원본처럼 Button Secondary 토큰을 그대로 빌려 쓴다(전용 토큰 아님). */
+[data-s1-component="assist-button"] {
+  align-items: center;
+  appearance: none;
+  background: var(--color-button-bg-secondary--default);
+  border-color: var(--color-button-border-secondary--default);
+  border-style: solid;
+  border-width: var(--border-width-1);
+  border-radius: var(--radius-4);
+  box-sizing: border-box;
+  color: var(--color-button-label-assist--default);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  height: var(--sizing-32);
+  justify-content: center;
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  margin: 0;
+  min-width: var(--sizing-60);
+  padding-inline: var(--spacing-12);
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+[data-s1-component="assist-button"] [data-s1-part="label"] {
+  pointer-events: none;
+  text-align: center;
+}
+
+/* Hover·Pressed = 같은 면(코어 Button 정본 규칙) — 배경은 secondary--hover, 테두리·글자는 assist 전용 토큰. */
+[data-s1-component="assist-button"]:is(:hover, :active):not(:disabled) {
+  background: var(--color-button-bg-secondary--hover);
+  border-color: var(--color-button-border-assist--hover);
+  color: var(--color-button-label-assist--hover);
+}
+
+[data-s1-component="assist-button"]:disabled {
+  background: var(--color-button-bg-disabled);
+  border-color: var(--color-button-border-disabled);
+  color: var(--color-button-label-disabled);
+  cursor: not-allowed;
+}
+
+/* component:text-button */
+/* Text Button — 정본 buildTextButtonSet(build-components.ts:711) 기준.
+   배경·테두리·고정 크기 없음(hug). 축 = Variant(Primary|Secondary) × State(Default·Hover·Pressed·Disabled).
+   Hover·Pressed 는 색을 바꾸지 않고 밑줄만 더한다(원본 그대로). Pressed = Hover(코어 Button 규칙). */
+[data-s1-component="text-button"] {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  justify-content: center;
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+  margin: 0;
+  padding: 0;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+[data-s1-component="text-button"] [data-s1-part="label"] {
+  pointer-events: none;
+}
+
+[data-s1-component="text-button"][data-variant="primary"] {
+  color: var(--color-text-state-accent);
+}
+
+[data-s1-component="text-button"][data-variant="secondary"] {
+  color: var(--color-text-body-tertiary);
+}
+
+/* ── 상태 표시: 누름(:active)은 어디서나 · 마우스오버(:hover)는 PC 에서만 ─────────────────
+   정본 상태는 Default·Hover·Pressed·Disabled 이고 Hover 와 Pressed 는 같은 모양(밑줄)이다.
+   그런데 **모바일에는 마우스오버가 없어야 한다** — 손가락에는 hover 가 없고, PC 브라우저로
+   모바일 화면을 볼 때 글자에 밑줄이 그어져 눌린 것처럼 보인다.
+   Input 의 suffix 액션(river 지시 2026-09-07)·Button(river 지시 2026-09-15)에 이어 같은 규칙을
+   여기에도 적용한다 — river 지시 2026-09-15 "텍스트버튼도 A로 빼줘".
+   이 컴포넌트는 크기 축이 없어(sizes: []) Button 처럼 LG 로 가려낼 수 없다. 그래서 화면 구분
+   선언으로 가른다: 자기가 mobile 이라고 적었거나 모바일 감싸개 안이면 hover 를 내지 않고,
+   자기가 pc 라고 적었으면 그쪽이 이긴다(Input 의 input.css:110 과 같은 형태). */
+[data-s1-component="text-button"]:active:not(:disabled) {
+  text-decoration: underline;
+}
+
+@media (hover: hover) {
+  [data-s1-component="text-button"]:not([data-break="mobile"]):is([data-break="pc"], :not([data-s1-break="mobile"] *)):hover:not(:disabled) {
+    text-decoration: underline;
+  }
+}
+
+[data-s1-component="text-button"]:disabled {
+  color: var(--color-text-state-disabled);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* component:modal-content */
+/* Modal Content — 정본 buildModalContent(build-components.ts) 기준. PC 전용.
+   확인 계열 Modal(data-s1-component="modal")과 별개 컴포넌트다 — river 결정 2026-07-15 계열 분리.
+   변형축 = Size(MD·LG·XL) × Footer(Single·Dual) 6가지. 제목·닫기·푸터 버튼은 확인 계열과 같은 규칙(16B·XXSM h28·close).
+
+   높이 규칙(웹 전용 동작 — reports/modal-content-family-backlog.md 「높이 규칙」):
+     정본의 336/587 은 "최소 높이"다. 콘텐츠가 늘면 패널이 커지고 딤 화면 높이의 85%(85vh)에서 멈춘 뒤
+     본문(content-area) 안에서만 스크롤한다. 헤더·푸터는 고정이다 — panel 자체는 overflow:hidden,
+     content-area 만 overflow-y:auto + min-height:0 로 스크롤 허용. Figma 마스터는 높이를 하나만 가질 수 있어
+     실측 고정값이 들어갔을 뿐이며(정본 주석 참고), 이 grow→cap→scroll 동작은 웹이 구현한다. */
+[data-s1-component="modal-content"] {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000;
+}
+
+[data-s1-component="modal-content"][hidden] { display: none; }
+
+/* 딤 — color/overlay (라이트 rgba(0,0,0,0.5) · 다크 0.75, EX03 rgba 예외). 확인 계열 Modal 과 같은 토큰. */
+[data-s1-component="modal-content"] [data-s1-part="overlay"] {
+  background: var(--color-overlay);
+  inset: 0;
+  position: absolute;
+}
+
+/* 패널 — surface/raised · radius/8 · 1px modal/panel/border(INSIDE) · shadow/raised.
+   폭은 크기별 고정값(레거시 실측 그대로) + 좁은 화면에서 넘치지 않도록 상한만 둔다.
+   높이는 크기별 "최소값" + 85vh 상한 — 그 사이는 content-area 가 늘어난다. */
+[data-s1-component="modal-content"] [data-s1-part="panel"] {
+  background: var(--color-surface-raised);
+  border: var(--border-width-1) solid var(--color-modal-panel-border);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-32);
+  max-height: 85vh;
+  max-width: calc(100vw - 48px);
+  overflow: hidden;
+  padding-block: var(--spacing-20);
+  position: relative;
+}
+
+[data-s1-component="modal-content"][data-size="md"] [data-s1-part="panel"] { min-height: 336px; width: 520px; }
+[data-s1-component="modal-content"][data-size="lg"] [data-s1-part="panel"] { min-height: 587px; width: 1000px; }
+[data-s1-component="modal-content"][data-size="xl"] [data-s1-part="panel"] { min-height: 587px; width: 1200px; }
+
+[data-s1-component="modal-content"] [data-s1-part="header"] {
+  align-items: center;
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  padding-inline: var(--spacing-24);
+}
+
+[data-s1-component="modal-content"] [data-s1-part="title"] {
+  color: var(--color-text-title-primary);
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+  margin: 0;
+}
+
+/* 닫기 — 확인 계열 Modal 과 같은 라이브러리 부품(close). 새 SVG를 그리지 않고 등록된 자산을 재사용한다.
+   버튼 자체(24×24)가 누르는 영역이자 hover 네모다 — 아이콘은 ::after 로 분리해 배경을 가릴 필요를 없앤다. */
+[data-s1-component="modal-content"] [data-s1-part="close"] {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control-sm);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: var(--sizing-24);
+  justify-content: center;
+  padding: 0;
+  width: var(--sizing-24);
+}
+
+[data-s1-component="modal-content"] [data-s1-part="close"]::after {
+  background: var(--color-icon-gray-dark);
+  content: "";
+  display: block;
+  height: 100%;
+  mask: url("./assets/icons/close.svg") center / contain no-repeat;
+  width: 100%;
+}
+
+/* hover — river 지시 2026-09-08. 새 토큰 없이 color/control/bg/hover 재사용(누르는 영역이 아이콘과 같은
+   24×24 라 form-control 계열보다 checkbox/radio 가 쓰는 control/bg/hover 가 더 맞다). 정본에는 없는
+   웹 추가분(§두 갈래 분류 (b)). Mobile 변형이 없는 컴포넌트라 (hover: hover) 만으로 충분하다. */
+@media (hover: hover) {
+  [data-s1-component="modal-content"] [data-s1-part="close"]:hover {
+    background: var(--color-control-bg-hover);
+  }
+}
+
+/* 본문 영역 — 유일하게 스크롤되는 자리. flex-grow + min-height:0 로 패널의 남는 높이를 전부 가져간다. */
+[data-s1-component="modal-content"] [data-s1-part="content-area"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline: var(--spacing-24);
+}
+
+/* 회색 자리표시 박스 — river 지시 2026-09-08 "샘플 텍스트 대신 회색계열 박스+안내문구".
+   실제 화면에서는 이 자리에 입력창·표·이미지가 들어간다.
+   면 = color/bg/level-3(river 지시 2026-09-08 "다크에서 컨텐츠 영역 박스가 안 보인다" — 다크의 bg/level-2
+   는 패널 면(surface/raised)과 같은 gray-dark/100 이라 구분이 안 됐다. bg/level-3(dark gray-dark/200)로
+   한 단계 밝게. 라이트도 gray/50→gray/100. 정본 build-components.ts buildModalContent(자리표시 박스 면) 과 동일.
+   새 토큰 0건. */
+[data-s1-component="modal-content"] [data-s1-part="content"] {
+  align-items: center;
+  background: var(--color-bg-level-3);
+  border-radius: var(--radius-4);
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+}
+
+[data-s1-component="modal-content"] [data-s1-part="content-label"] {
+  color: var(--color-text-body-tertiary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="modal-content"] [data-s1-part="footer"] {
+  display: flex;
+  flex: none;
+  gap: var(--spacing-8);
+  justify-content: flex-end;
+  padding-inline: var(--spacing-24);
+}
+
+/* component:bottom-sheet-option */
+/* Bottom Sheet Option — 정본 buildBottomSheetOption(build-components.ts:4957~5150) 기준.
+   변형축은 Type(Text·Checkbox·Radio·List) × State(Default·Selected·Disabled)지만 실제로 존재하는 칸은
+   9개뿐이다 — checkbox:disabled · radio:disabled · list:selected 는 정본에 없다(manifest absentCombinations).
+   이 컴포넌트는 시트 안 줄 모양만 소유한다. 목록 구조·고르기 동작은 화면(시트를 여는 쪽)이 소유한다. */
+[data-s1-component="bottom-sheet-option"] {
+  align-items: center;
+  background: var(--color-surface-raised);
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+}
+
+/* Text·Checkbox·Radio — 360×48 고정, 좌우 20 위아래 8, 사이 간격 8 (build-components.ts:5017-5028). */
+[data-s1-component="bottom-sheet-option"]:is([data-type="text"], [data-type="checkbox"], [data-type="radio"]) {
+  gap: var(--spacing-8);
+  height: 48px;
+  justify-content: flex-start;
+  padding-block: var(--spacing-8);
+  padding-inline: var(--spacing-20);
+}
+
+/* Text:Selected 만 주축 정렬이 SPACE_BETWEEN — 라벨과 check 아이콘이 양끝에 선다. */
+[data-s1-component="bottom-sheet-option"][data-type="text"][data-state="selected"] {
+  justify-content: space-between;
+}
+
+/* List — 360×hug, 좌우 20 위아래 12 (build-components.ts:5103-5116). itemSpacing 은 정본에 지정이 없어
+   웹은 space-between 양끝 배치로 대신한다(manifest notInCanon.listItemSpacing). */
+[data-s1-component="bottom-sheet-option"][data-type="list"] {
+  justify-content: space-between;
+  padding-block: var(--spacing-12);
+  padding-inline: var(--spacing-20);
+}
+
+/* 라벨 — body/16M, 정본 행 배경은 State 별 분기가 없다(선택 표시는 글자색·아이콘으로만 한다).
+   Checkbox·Radio 는 그 코어 자신의 label part 를 그대로 쓴다(코어 예시 그대로 복사) — 여기서
+   ">" 직계 자식으로 좁혀서 코어 내부로 스타일이 새지 않게 막는다(계약 "다른 코어 내부 part 선택 금지"). */
+[data-s1-component="bottom-sheet-option"] > [data-s1-part="label"] {
+  color: var(--color-text-body-primary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="bottom-sheet-option"][data-type="text"][data-state="selected"] > [data-s1-part="label"] {
+  color: var(--color-text-state-accent);
+}
+
+[data-s1-component="bottom-sheet-option"][data-type="text"][data-state="disabled"] > [data-s1-part="label"] {
+  color: var(--color-text-state-disabled);
+}
+
+/* Text:Selected 우측 체크 — color/icon/blue, 24×24.
+   ★ check.svg(16 프레임)가 아니라 check24.svg 를 쓴다. 둘은 같은 라이브러리 아이콘(ic_확인)의
+   다른 프레임 표출이며, 16 프레임 자산을 24 로 확대하면 **선 굵기까지 1.5배**가 되어 정본보다
+   굵어진다(2026-09-15 독립 검증 실측 2.27px vs 정본 1.5px · 면적 +26%). 이 줄은 chevron·lock 과
+   같은 목록 안에 같은 크기로 나란히 서기 때문에 굵기 차이가 그대로 보인다.
+   check(16)은 체크박스가 계속 쓰므로 건드리지 않는다. */
+[data-s1-component="bottom-sheet-option"] > [data-s1-part="check"] {
+  background-color: var(--color-icon-blue);
+  flex: none;
+  height: 24px;
+  mask: url("./assets/icons/check24.svg") center / contain no-repeat;
+  width: 24px;
+}
+
+/* List 좌측 묶음 — avatar + 제목/서브. gap 12 (build-components.ts List list-left). */
+[data-s1-component="bottom-sheet-option"] [data-s1-part="list-left"] {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-12);
+  min-width: 0;
+}
+
+/* avatar — 40×40 원형, color/icon/gray-light 배경. 안의 account 아이콘은 ::after 로 분리해
+   본체 배경을 가릴 필요를 없앤다(modal close 부품과 같은 방식). */
+[data-s1-component="bottom-sheet-option"] [data-s1-part="avatar"] {
+  align-items: center;
+  background-color: var(--color-icon-gray-light);
+  border-radius: var(--radius-full);
+  display: flex;
+  flex: none;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+[data-s1-component="bottom-sheet-option"] [data-s1-part="avatar"]::after {
+  background-color: var(--color-icon-white);
+  content: "";
+  display: block;
+  height: 24px;
+  mask: url("./assets/icons/account.svg") center / contain no-repeat;
+  width: 24px;
+}
+
+[data-s1-component="bottom-sheet-option"] [data-s1-part="list-text"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+[data-s1-component="bottom-sheet-option"] [data-s1-part="list-title"] {
+  color: var(--color-text-body-primary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="bottom-sheet-option"] [data-s1-part="list-sub"] {
+  color: var(--color-text-body-secondary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-130);
+}
+
+/* List:Default 우측 chevron — color/icon/gray-dark, 24×24.
+   방향 확인(T8 함정): 등록된 chevron.svg(M10.375 7.75L14.625 12L10.375 16.25)는 이미 오른쪽(▶)을
+   가리키는 자산이다 — Figma chevDown 을 아래 방향 자산으로 등록해 CSS 회전으로 다른 방향을 만드는
+   체계(icons/manifest.json chevron geometryEvidence)와 달리, 이 아이콘은 그 자체로 오른쪽이다.
+   정본 List 도 오른쪽 화살표를 쓰므로 여기서는 회전을 걸지 않는다. */
+[data-s1-component="bottom-sheet-option"] [data-s1-part="chevron"] {
+  background-color: var(--color-icon-gray-dark);
+  flex: none;
+  height: 24px;
+  mask: url("./assets/icons/chevron.svg") center / contain no-repeat;
+  width: 24px;
+}
+
+/* List:Disabled 우측 잠금 — color/icon/gray, 24×24. chevron 대신 이 칸에만 쓰인다. */
+[data-s1-component="bottom-sheet-option"] [data-s1-part="lock"] {
+  background-color: var(--color-icon-gray);
+  flex: none;
+  height: 24px;
+  mask: url("./assets/icons/lock.svg") center / contain no-repeat;
+  width: 24px;
+}
+
+/* component:bottom-sheet */
+/* Bottom Sheet — 정본 buildBottomSheet(build-components.ts:5152~5327) 기준.
+   변형축은 Footer 한 축(None·Single·Dual)뿐이다. 크기 축·Break 축은 정본에 없다 — 시트 자체가
+   모바일 전용이고, 폭은 화면 폭(정본 360=모바일 프레임 폭)을 따른다(modal 의 PC 360 고정과 다른 이유).
+
+   루트에 data-s1-part="sheet" 를 함께 달 수 있다 — 이미 배포된 date-picker·time-picker 시트가
+   그 이름으로 자기 부품을 부르고 있어서, 함께 달아두면 기존 JS 선택자가 그대로 산다(D. 이관 참고).
+
+   사용자 지정 속성 2개는 공개 계약이다(manifest cssContract.customization) — date-picker·time-picker 는
+   패널 안 간격·그림자가 독립 시트 정본과 달라서(32/없음 vs 48/raised-up) 이 손잡이로 자기 값을 준다. */
+[data-s1-component="bottom-sheet"] {
+  --s1-bottom-sheet-gap: var(--spacing-48);
+  --s1-bottom-sheet-shadow: var(--shadow-raised-up);
+  align-items: flex-end;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000;
+}
+
+[data-s1-component="bottom-sheet"][hidden] { display: none; }
+
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-backdrop"] {
+  background: var(--color-overlay);
+  inset: 0;
+  position: absolute;
+}
+
+/* 패널 — surface/raised · 위 모서리만 radius/8 · shadow/raised-up(공개 손잡이 경유) · 세로 패딩 20.
+   좌우 패딩은 0 — "좌우 20"은 root 가 아니라 header·footer 가 각자 갖는다(1-inventory.md §2). */
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-panel"] {
+  background: var(--color-surface-raised);
+  border-top-left-radius: var(--radius-8);
+  border-top-right-radius: var(--radius-8);
+  box-shadow: var(--s1-bottom-sheet-shadow);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1-bottom-sheet-gap);
+  max-height: 92vh;
+  /* 정본 360 은 Figma 모바일 프레임의 화면 폭이다(date-picker·time-picker 시트와 같은 처리, 이미 배포됨).
+     360 고정으로 두면 좁은 기기에서 넘치고 넓은 기기에서 옆이 뜬다. */
+  max-width: 360px;
+  overflow-y: auto;
+  padding-block: var(--spacing-20);
+  position: relative;
+  width: 100%;
+}
+
+/* Footer=None 은 아래 여백이 40 — 버튼이 없어 시트 끝이 손가락에 가깝기 때문(정본 5254-5255). */
+[data-s1-component="bottom-sheet"][data-footer="none"] [data-s1-part="sheet-panel"] {
+  padding-bottom: var(--spacing-40);
+}
+
+/* content — 정본 content 프레임의 웹 대응. 선택 부품(date-picker·time-picker 는 한 층이라 안 쓴다). */
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-content"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-24);
+}
+
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-header"] {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding-inline: var(--spacing-20);
+}
+
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-title"] {
+  color: var(--color-text-title-primary);
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-130);
+}
+
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-close"] {
+  appearance: none;
+  background-color: var(--color-icon-gray-dark);
+  border: none;
+  cursor: pointer;
+  height: 24px;
+  mask: url("./assets/icons/close.svg") center / contain no-repeat;
+  padding: 0;
+  width: 24px;
+}
+
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-footer"] {
+  display: flex;
+  gap: var(--spacing-8);
+  padding-inline: var(--spacing-20);
+}
+
+/* 푸터 버튼은 코어 Button 인스턴스를 그대로 조립한다 — FILL(정본), Single 은 1개, Dual 은 2개. */
+[data-s1-component="bottom-sheet"] [data-s1-part="sheet-footer"] > [data-s1-component="button"] {
+  flex: 1 1 0;
+  width: 100%;
+}
+/* s1-제외 끝 */
