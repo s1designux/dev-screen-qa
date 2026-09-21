@@ -1241,7 +1241,15 @@ function buildTextPolicy(design){
     }
   });
   // 표·메뉴 같은 "자리" 정보도 함께 넘긴다(후보 목록 규칙이 쓴다).
-  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.excludedRule=design.__excludeRule||{};map.tabSelected=design.__tabSelected||{};map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
+  // 메뉴·탭 줄의 이름은 자리로 보지 않고 이름으로 본다(2026-09-21 river 확정).
+  // 개발이 로고 자리에 다른 그림을 넣으면 그 줄이 통째로 당겨져, 같은 이름이 개발 화면에 그대로 있는데도
+  // '디자인에 있는데 개발에 없다'로 올라온다. 그래서 선택된 탭과 같은 대접을 한다 — 같은 줄을 가로로 넓게 훑어
+  // 찾고, 자리 차이는 후보로 올리지 않는다. 글자 내용 대조는 그대로 한다(자리만 자유롭게 하는 것이다).
+  // 다만 이 대접은 **줄 합의가 선 줄**에만 간다(refineMenuRows·menuRowFree) — menuLabelIds 는 폼 라벨·안내글·
+  // 드롭다운 값·표 컬럼 제목까지 메뉴로 가르므로, source 만 믿으면 메뉴 줄 밖으로 번진다(2026-09-21 되돌림).
+  // menus 맵이 아니라 source로 가른다 — 앞선 규칙(manual·pattern·tableHeader)이 이긴 요소까지 끌려오면 안 된다.
+  var menuLabel={};(design.elements||[]).forEach(function(e){var pr=map[e.id];if(pr&&pr.source==="menu")menuLabel[e.id]=true;});
+  map.screenType=x.st;map.excluded=buildExcludeMap(design,children);map.excludedRule=design.__excludeRule||{};map.tabSelected=design.__tabSelected||{};map.menuLabel=menuLabel;map.menuRowFree=design.__menuRowFree||{};map.repeats=repeats;map.headers=x.headers;map.menus=x.menus;return map;
 }
 // ── 목록 규칙: 후보 하나만 봐서는 알 수 없고, 여러 후보를 함께 봐야 아는 것 ─────────
 function inRepeatRow(map,c){
@@ -1321,7 +1329,12 @@ function excludeRuleFor(map,c){
 }
 function applyCandidatePolicy(c,map){
   var ex=excludedFor(map,c),rule=ex?excludeRuleFor(map,c):null;c.policyExcluded=ex||null;
-  if(!ex&&(c.kind==="position"||c.kind==="spacing")&&map&&map.tabSelected){var ids=c.designNodeIds||[];if(ids.length&&ids.every(function(id){return map.tabSelected[id];})){ex="선택된 탭 — 글자만 같으면 되고 자리는 달라도 됨";rule="tabSelected";}}
+  if(!ex&&(c.kind==="position"||c.kind==="spacing")&&map){var ids=c.designNodeIds||[];
+    if(ids.length&&map.tabSelected&&ids.every(function(id){return map.tabSelected[id];})){ex="선택된 탭 — 글자만 같으면 되고 자리는 달라도 됨";rule="tabSelected";}
+    // 메뉴·탭 줄의 이름도 같다(2026-09-21 river 확정). 이름이 다르거나 아예 없는 것은 여기서 걸러지지 않는다.
+    // 줄 합의가 선 메뉴 줄(menuRowFree)에서만이다 — 메뉴로 갈렸다는 것만으로는 자리를 봐준다.
+    else if(ids.length&&map.menuRowFree&&ids.every(function(id){return map.menuRowFree[id];})){ex="메뉴·탭 이름 — 이름이 같으면 자리는 달라도 됨";rule="menuLabel";}
+  }
   if(ex){ // 지우지 않고 '제외(오류 아님)' 묶음으로 내린다. 사람이 직접 누른 번호는 건드리지 않는다.
     if(c.exDetail==null)c.exDetail=c.detail||"";
     c.detail=ex+" — 검수 대상이 아닙니다. "+c.exDetail;
@@ -1853,17 +1866,87 @@ function textSegmentCheck(ctx,pb,dx,dy){
   if(cur)bad.push(cur);
   return{segments:segs.length,goodRatio:good/segs.length,ncc:worst,boxes:bad.slice(0,3),drift:slope,misaligned:misaligned};
 }
-function compareUnit(u,ctx){
-  var sec=u.section,lg=ctx.lg,p=unitPoints(u,ctx);if(p.pts.length<12)return null;
-  var base={dx:Math.round(sec.offset.dx),dy:Math.round(sec.offset.dy)},range=Math.round((u.container||isGapComponent(u.el)?48:36)*lg),step=Math.max(1,Math.round(2*lg));
-  // 선택된 탭은 열린 탭 수에 따라 탭 줄 안에서 가로로 얼마든지 움직인다(2026-09-08 river 확정).
-  // 제자리에서만 찾으면 '없어짐'이 되어 버리므로, 같은 줄을 가로로 넓게 훑어 글자를 찾은 뒤 내용만 대조한다.
-  var tabSel=!!(ctx.tabSelected&&ctx.tabSelected[u.el.id]);
-  var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,tabSel?Math.round(ctx.W*.45):range,tabSel?Math.round(8*lg):range,Math.max(step,Math.round(4*lg)),ctx.cEd);
-  if(r.score<.35&&p.pts.length>=24){ // 가까운 데서 못 찾으면 '없음'이라 하기 전에 한 번 더 멀리(3배) 찾아본다. 확실히 보일 때만 인정.
-    var wide=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range*3,range*3,Math.max(step,Math.round(4*lg)),ctx.cEd);if(wide.score>=.6&&wide.score>=r.zero+.3)r=wide;
+// ── 메뉴·탭 이름: 자리는 자유, 이름은 엄격 (2026-09-21 river 확정 · P26b) ───────────────
+// 자리를 풀어 준 만큼 이름은 더 엄하게 본다 — 이 둘은 한 쌍이다.
+// ① 자리: 메뉴 이름끼리 서로 닮아('운영 관리'·'알림 관리'·'귀성 관리' 는 뒤 두 글자가 같다)
+//    저마다 가장 잘 겹치는 자리를 혼자 고르면 옆 이름 위에 내려앉는다(실측: 일곱 중 다섯이 옆칸에 붙었다).
+//    줄은 통째로 함께 밀리므로, 또렷하게 찾은 이름들이 말하는 밀림(중앙값)을 먼저 정하고
+//    각 이름은 그 밀림 언저리의 자리로 간다.
+// ② 이름: 그렇게 제자리를 찾은 뒤의 글자 대조는 기본값보다 빡빡하게 본다(MENU_SAME_*, textCandidateFor).
+//    엄하게 보는 것은 ①이 선 줄에서만이다 — 줄이 제자리조차 못 찾았으면(기준이 얇은 화면) 잣대를 세우지 않는다.
+var MENU_PEAK_MIN=.5,        // 이만큼도 안 겹치는 자리는 앉을 자리 후보로 세지 않는다
+    MENU_FIRM_NCC=.9,        // 줄의 밀림을 말할 자격 — 또렷하게 겹친 이름만
+    MENU_FIRM_MARGIN=.05,    // 2등 자리와 이만큼 벌어져야 '또렷하다'
+    MENU_ROW_TOL=48,         // 줄의 밀림에서 이만큼(화면 기준 px) 안쪽이면 같은 줄로 본다
+                             // 48 인 까닭(2026-09-21 실측): 한 줄 안에서도 칸 사이 간격이 개발 쪽에서 좁아져
+                             // 뒤로 갈수록 더 밀린다(체류시간 상단 메뉴 -182~-216, 줄 합의 -188 에서 최대 28px 벗어남).
+                             // 그보다는 넉넉해야 낱개가 따라오고, 메뉴 칸 사이 간격(약 113px)의 절반보다는
+                             // 작아야 옆 이름 자리로 넘어가지 않는다.
+    MENU_SAME_NCC=.88,       // 이름이 같으면 밝기 패턴이 이만큼은 겹친다(실측: 같은 이름 .95~.97 · 공백 하나 빠진 이름 .78)
+    MENU_SAME_EXACT=.25;     // 윤곽도 함께 본다(실측: 같은 이름 .15~.18 · 공백 하나 빠진 이름 .28)
+function edgeColumnPrefix(edge,W,H,y0,y1){
+  // 가로 한 띠의 윤곽 점을 칸마다 미리 세어 둔다 — 줄 전체를 훑을 때 자리마다 다시 세지 않으려고.
+  var pre=new Int32Array(W+1),a=Math.max(0,y0),b=Math.min(H,y1);
+  for(var x=0;x<W;x++){var n=0;for(var y=a;y<b;y++)if(edge[y*W+x]>30)n++;pre[x+1]=pre[x]+n;}
+  return pre;
+}
+function menuNamePeaks(u,ctx,p,base,dy){
+  // 같은 줄에서 이 이름이 앉을 만한 자리들(글자가 있는 곳만)을 겹침 점수와 함께 모은다.
+  var pb=p.pb,W=ctx.W,H=ctx.H,rx=Math.round(W*.45),dCount=edgeCount(ctx.dE,W,H,pb,0,0);
+  if(dCount<16)return null;
+  var pre=edgeColumnPrefix(ctx.cE,W,H,Math.floor(pb.y+dy),Math.ceil(pb.y+pb.h+dy)),raw=[];
+  for(var dx=base.dx-rx;dx<=base.dx+rx;dx++){
+    var x0=Math.max(0,Math.floor(pb.x+dx)),x1=Math.min(W,Math.ceil(pb.x+pb.w+dx));
+    if(x1-x0<pb.w*.9)continue;
+    var cc=pre[x1]-pre[x0];
+    if(cc<dCount*.45||cc>dCount*2.5)continue;   // 글자가 없는 빈 자리·너무 빽빽한 자리는 건너뛴다
+    var n=grayPatchNCC(ctx.dd.data,ctx.cd.data,W,H,pb,dx,dy);
+    if(n>=MENU_PEAK_MIN)raw.push({dx:dx,ncc:n});
   }
-  if(r.score<r.zero+.08)r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};
+  if(!raw.length)return null;
+  raw.sort(function(a,b){return b.ncc-a.ncc;});
+  var peaks=[],sep=Math.max(8,Math.round(pb.w*.7));
+  for(var i=0;i<raw.length&&peaks.length<8;i++){
+    var c=raw[i],near=false;
+    for(var j=0;j<peaks.length;j++)if(Math.abs(peaks[j].dx-c.dx)<sep){near=true;break;}
+    if(!near)peaks.push(c);
+  }
+  return peaks.length?peaks:null;
+}
+function refineMenuRows(results,ctx){
+  // 줄이 함께 말해 줄 때만 고친다 — 근거가 얇으면 건드리지 않는다(2번-2).
+  var menu=results.filter(function(r){return r.menuPeaks&&r.menuPeaks.length;});
+  if(menu.length<3)return;
+  var rows=[];
+  menu.slice().sort(function(a,b){return a.pb.y-b.pb.y;}).forEach(function(res){
+    var cy=res.pb.y+res.pb.h/2,row=null;
+    for(var i=0;i<rows.length;i++)if(Math.abs(cy-rows[i].cy)<=res.pb.h){row=rows[i];break;}
+    if(row)row.items.push(res);else rows.push({cy:cy,items:[res]});
+  });
+  var tol=Math.max(8,Math.round(MENU_ROW_TOL*ctx.lg));
+  rows.forEach(function(row){
+    if(row.items.length<3)return;
+    var firm=row.items.filter(function(r){var pk=r.menuPeaks;return pk[0].ncc>=MENU_FIRM_NCC&&(pk.length<2||pk[0].ncc-pk[1].ncc>=MENU_FIRM_MARGIN);});
+    if(firm.length<3)return;
+    var consensus=median(firm.map(function(r){return r.menuPeaks[0].dx;}));
+    row.items.forEach(function(res){
+      // 줄이 제자리를 또렷하게 찾았다는 표시 — 이 표시가 있어야 이름을 엄하게 본다(textCandidateFor).
+      res.menuRowFirm=true;
+      var pick=null;
+      res.menuPeaks.forEach(function(pk){if(Math.abs(pk.dx-consensus)<=tol&&(!pick||pk.ncc>pick.ncc))pick=pk;});
+      if(!pick)return;
+      var p=unitPoints(res.u,ctx),dy=(res.menuDy!=null?res.menuDy:res.best.dy);
+      var nr={dx:pick.dx,dy:dy,score:componentEdgeMatch(ctx.cE,ctx.W,ctx.H,p.pts,pick.dx,dy),zero:res.zero};
+      var nres=finishUnit(res.u,ctx,p,res.base,nr,true);
+      Object.keys(nres).forEach(function(k){res[k]=nres[k];});
+      res.menuRowFixed=true;
+      // 여기까지 온 이름에만 자리를 자유롭게 해 준다 — 자리·간격 후보 제외와 밀림 통합 제외가 이 표시를 본다.
+      res.menuRowFree=true;if(ctx.menuRowFree)ctx.menuRowFree[res.u.el.id]=true;
+    });
+  });
+}
+function finishUnit(u,ctx,p,base,r,tabSel){
+  var lg=ctx.lg;
   var dCount=edgeCount(ctx.dE,ctx.W,ctx.H,p.pb,0,0),cCount=edgeCount(ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy),capRatio=dCount?cCount/dCount:1;
   var mismatch=textEdgeMismatch(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);
   var mx=(r.dx-base.dx)/lg,my=(r.dy-base.dy)/lg;
@@ -1875,7 +1958,33 @@ function compareUnit(u,ctx){
     // 글자는 옮긴 자리에서 거의 완전히 겹칠 때만 '이동'이다. 일부만 겹치면 내용이 달라진 것이므로 제자리에서 비교한다.
     r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};cCount=edgeCount(ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);capRatio=dCount?cCount/dCount:1;mismatch=textEdgeMismatch(ctx.dE,ctx.cE,ctx.W,ctx.H,p.pb,r.dx,r.dy);mx=0;my=0;if(u.kind==="text")textMetrics();
   }
-  return{u:u,sec:sec,pb:p.pb,pts:p.pts,base:base,best:r,zero:r.zero,capRatio:capRatio,mismatch:mismatch,moveX:mx,moveY:my,moved:Math.abs(mx)>=4||Math.abs(my)>=4,missing:r.score<.35&&capRatio<(u.kind==="text"?.25:.4),ncc:ncc,exact:exact};
+  return{u:u,sec:u.section,pb:p.pb,pts:p.pts,base:base,best:r,zero:r.zero,capRatio:capRatio,mismatch:mismatch,moveX:mx,moveY:my,moved:Math.abs(mx)>=4||Math.abs(my)>=4,missing:r.score<.35&&capRatio<(u.kind==="text"?.25:.4),ncc:ncc,exact:exact};
+}
+function compareUnit(u,ctx){
+  var sec=u.section,lg=ctx.lg,p=unitPoints(u,ctx);if(p.pts.length<12)return null;
+  var base={dx:Math.round(sec.offset.dx),dy:Math.round(sec.offset.dy)},range=Math.round((u.container||isGapComponent(u.el)?48:36)*lg),step=Math.max(1,Math.round(2*lg));
+  // 선택된 탭은 열린 탭 수에 따라 탭 줄 안에서 가로로 얼마든지 움직인다(2026-09-08 river 확정).
+  // 제자리에서만 찾으면 '없어짐'이 되어 버리므로, 같은 줄을 가로로 넓게 훑어 글자를 찾은 뒤 내용만 대조한다.
+  var tabSel=!!(ctx.tabSelected&&ctx.tabSelected[u.el.id]);
+  function find(rx,ry){
+    var r=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,rx,ry,Math.max(step,Math.round(4*lg)),ctx.cEd);
+    if(r.score<.35&&p.pts.length>=24){ // 가까운 데서 못 찾으면 '없음'이라 하기 전에 한 번 더 멀리(3배) 찾아본다. 확실히 보일 때만 인정.
+      var wide=searchShift(ctx.cE,ctx.W,ctx.H,p.pts,base,range*3,range*3,Math.max(step,Math.round(4*lg)),ctx.cEd);if(wide.score>=.6&&wide.score>=r.zero+.3)r=wide;
+    }
+    if(r.score<r.zero+.08)r={dx:base.dx,dy:base.dy,score:r.zero,zero:r.zero};
+    return r;
+  }
+  var r=find(tabSel?Math.round(ctx.W*.45):range,tabSel?Math.round(8*lg):range);
+  // 메뉴·탭 줄의 이름은 줄이 통째로 밀릴 수 있다(2026-09-21 river 확정). 다만 넓게 훑는 것은 여기서
+  // '앉을 만한 자리'를 모아 두는 데까지다 — 자리를 실제로 옮겨 주는 것은 **줄 합의가 선 뒤**(refineMenuRows)다.
+  // 메뉴로 갈렸다는 것만으로는 지금까지 하던 대로 제자리 언저리에서 재고 badMove 도 그대로 산다.
+  var menuName=!!(ctx.menuLabel&&ctx.menuLabel[u.el.id]);
+  var res=finishUnit(u,ctx,p,base,r,tabSel);
+  if(menuName&&u.kind==="text"){
+    var mdy=find(Math.round(ctx.W*.45),Math.round(8*lg)).dy,peaks=menuNamePeaks(u,ctx,p,base,mdy);
+    if(peaks){res.menuPeaks=peaks;res.menuDy=mdy;}
+  }
+  return res;
 }
 function resolveClaims(results){
   // 같은 모양이 여러 개일 때 사라진 하나가 이웃 자리로 '이동'한 척 매칭되는 것을 막는다. 먼저 자리 잡은 쪽이 임자.
@@ -1981,7 +2090,7 @@ function inkWidthCheck(res,ctx){
   return inkWidthVerdict(ds.w,cs.w,Math.max(0,pb.x-cbox.x),Math.max(0,(cbox.x+cbox.w)-(pb.x+pb.w)),sx);
 }
 function textCandidateFor(res,ctx){
-  var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H;
+  var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H,menuName=!!(ctx.menuLabel&&ctx.menuLabel[u.el.id]);
   var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";
   res.inkColorDiff=dInk&&cInk?colorDistance(dInk.color,cInk.color):0;res.heightRatio=null; // 가변 글자 판정 때 내용과 무관하게 남길 색·높이 차이
   var small=u.el.box.h<12,seg=textSegmentCheck(ctx,pb,r.dx,r.dy),same;res.segInfo=seg;
@@ -1990,6 +2099,10 @@ function textCandidateFor(res,ctx){
     if(seg.goodRatio>=.6&&seg.boxes.length){var onlyJump=seg.ncc>=.45;return{label:LABEL_TEXT_CONTENT,boxes:seg.boxes,detail:(onlyJump?"이 줄의 글자 수나 띄어쓰기가 디자인과 달라 보입니다(작은 글자는 정확한 자리를 눈으로 확인). ":"이 줄의 일부 글자가 다르게 보입니다. ")+"디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"”",confidence:onlyJump?(small?55:62):clamp(Math.round(55+(1-Math.max(0,seg.ncc))*30),55,88)};}
     same=seg.goodRatio>=.9&&!seg.boxes.length;
   }else same=res.mismatch<=.3&&res.ncc>=.6&&res.exact<=.42;
+  // 메뉴·탭 이름은 자리를 자유롭게 해 준 만큼 이름을 더 엄하게 본다 — 이 둘은 한 쌍이다(2026-09-21 river · P26b).
+  // 「운영 관리」와 「운영관리」는 같은 이름이 아니다. 두 잣대(밝기 패턴·윤곽)가 **함께** 다르다고 할 때만 뒤집는다.
+  var nameDiff=same&&menuName&&res.menuRowFirm&&res.ncc!=null&&res.exact!=null&&res.ncc<MENU_SAME_NCC&&res.exact>MENU_SAME_EXACT;
+  if(nameDiff)same=false;
   if(same){
     if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)return{label:LABEL_COLOR,detail:"디자인 글자색 "+(u.el.values&&u.el.values.color||"")+" · 개발 캡처의 글자색이 다르게 보입니다.",confidence:clamp(Math.round(50+colorDistance(dInk.color,cInk.color)/4),55,88)};
     var iw=inkWidthCheck(res,ctx);                                     // 상자 밖으로 이어진 글자까지 재고 나서 접는다(P17)
@@ -2008,6 +2121,7 @@ function textCandidateFor(res,ctx){
   if(ds.lines<=1&&ds.h&&cs.h>ds.h*1.35&&Math.abs(cs.w/Math.max(1,ds.w)-cs.h/ds.h)>.3)cs={count:cs.count,w:cs.w,h:ds.h,lines:1}; // 한 줄 글자의 높이는 폭과 같이 변한다. 따로 튀면 옆 요소가 섞인 것.
   res.heightRatio=ds.h?cs.h/ds.h:null;
   var label=classifyTextDifference(Math.max(res.mismatch,res.exact),0,0,ds,cs,res.ncc),detail=designText?"디자인 글자: “"+designText.slice(0,60)+(designText.length>60?"…":"")+"” — 개발 캡처의 글자와 눈으로 대조해 주세요.":null;
+  if(nameDiff)label=LABEL_TEXT_CONTENT; // 메뉴 이름은 자리가 자유롭다 — 여기까지 온 까닭은 이름이 다른 것뿐이다
   if(localBoxes)detail="이 줄의 일부 글자가 다르게 보입니다. "+(detail||"");
   if(dInk&&cInk&&colorDistance(dInk.color,cInk.color)>70)detail=(detail?detail+" ":"")+"글자색도 다르게 보입니다(디자인 "+(u.el.values&&u.el.values.color||"")+").";
   return{label:label,boxes:localBoxes,detail:detail,confidence:small?clamp(Math.round(50+Math.max(0,.68-res.ncc)*40),50,66):clamp(Math.round((.55+Math.min(.35,Math.max(res.mismatch,res.exact-.2))*.7)*100),52,92)};
@@ -2044,7 +2158,7 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   (function(occ){policyMap.excludedRule=policyMap.excludedRule||{};Object.keys(occ).forEach(function(id){if(!policyMap.excluded[id]){policyMap.excluded[id]=occ[id];policyMap.excludedRule[id]="occluded";}});})(occludedIds(design,childMap(design),ddF,W,H,lg));
   // 그림에 자국을 남기지 않는 껍데기(간격용 프레임)도 같은 자리에서 제외로 내린다.
   (function(un){Object.keys(un).forEach(function(id){if(!policyMap.excluded[id]){policyMap.excluded[id]=un[id];policyMap.excludedRule[id]="unpainted";}});})(unpaintedIds(design,childMap(design),ddF,W,H,lg));
-  var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId,tabSelected:policyMap.tabSelected||{}};
+  var ctx={W:W,H:H,lg:lg,dE:edgeData(ddF,W,H),cE:edgeData(cdF,W,H),dd:ddF,cd:cdF,design:design,byId:byId,tabSelected:policyMap.tabSelected||{},menuLabel:policyMap.menuLabel||{},menuRowFree:{}};
   ctx.cEd=dilateEdges(ctx.cE,W,H,Math.max(1,Math.round(1*lg)));
   var units=collectUnits(design),sectionInfo=buildSections(design,units),sections=sectionInfo.sections,notices=[];
   // 구역마다(구역 밖 요소 묶음도 포함) 전역 정렬 주변을 넓게 훑어 자기 밀림을 찾는다.
@@ -2067,12 +2181,23 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
       var wide=s.matched&&(s.support||0)>=2?{dx:s.offset.dx,dy:s.offset.dy,support:s.support}:null;
       estimateSectionOffset(s,ctx,prev.offset,{rxAbs:w,ryAbs:w,step:1,maxTry:8});
       if(!s.matched){if(wide){s.offset={dx:wide.dx,dy:wide.dy};s.matched=true;s.support=wide.support;s.wideFallback=true;}
-        else{s.offset={dx:prev.offset.dx,dy:prev.offset.dy};s.matched=true;s.inherited=true;}}return s;}
+        else{s.offset={dx:prev.offset.dx,dy:prev.offset.dy};s.matched=true;s.inherited=true;}}
+      // 넓은 창이 또렷하게 낸 답은 좁은 창이 지우지 못한다 — 표가 셋 이상 한 자리에 모였고(support>=3),
+      // 좁은 창이 그 자리에 닿지도 못했으면(두 값 차이가 창 w 보다 크다 = 애초에 볼 수 없던 자리) 넓은 창 값을 지킨다.
+      // 되재기가 '성공'해도 이웃 둘레 ±w 안에서 고른 것뿐이라, 참 밀림이 창 밖이면 엉뚱한 값으로 덮어썼다
+      // (게시판 탭 줄: 넓은 창 +64·+64·+65·+65 가 이웃 0 둘레의 +1 로 지워져 메뉴 넷이 '없습니다'로 올라왔다, 2026-09-21 실측).
+      // P9 가 원래 막으려던 사고(표 행 높이만큼 건너뛰어 옆 행에 붙기)는 그대로 막힌다 —
+      // 그런 구역은 표가 행마다 갈려 support 가 3까지 모이지 않고, 모이더라도 한 행 차이는 창 w 안이라 여기 걸리지 않는다.
+      else if(wide&&wide.support>=3&&(Math.abs(wide.dx-s.offset.dx)>w||Math.abs(wide.dy-s.offset.dy)>w)){
+        s.offset={dx:wide.dx,dy:wide.dy};s.support=wide.support;s.wideKept=true;}
+      return s;}
     var prev=anchor;for(var k=i+1;k<sections.length;k++){var r=step(k);if(r)prev=r;}
     prev=anchor;for(var k=i-1;k>=0;k--){var r=step(k);if(r)prev=r;}
   })();
   var results=[],resultByElId={};
   units.forEach(function(u){if(u.section.excluded||u.bandExcluded)return;var res=compareUnit(u,ctx);if(res){results.push(res);resultByElId[u.el.id]=res;}});
+  refineMenuRows(results,ctx); // 메뉴·탭 이름은 줄이 함께 말하는 밀림으로 제자리를 잡는다(P26b)
+  design.__menuRowFree=policyMap.menuRowFree=ctx.menuRowFree; // 줄 합의가 선 이름만 — 나중에 묶음을 다시 정할 때도 같은 목록을 본다
   resolveClaims(results);
   function toRaw(bx){var x0=(bx.x-model.tx)/model.s,y0=(bx.y-tyAt(model,bx.y))/model.s,w0=bx.w/model.s,h0=bx.h/model.s;
     var raw={x:x0,y:y0,w:w0,h:h0};raw.x=clamp(raw.x,0,capture.width);raw.y=clamp(raw.y,0,capture.height);raw.w=Math.max(2,Math.min(raw.w,capture.width-raw.x));raw.h=Math.max(2,Math.min(raw.h,capture.height-raw.y));
@@ -2111,8 +2236,10 @@ function buildDiff(design,designImg,capture,model,pairId,opts){
   });
   // 3) 위치 이동 — 부모와 같이 움직인 자식은 빼고, 같은 방향·같은 양으로 붙어서 움직인 요소는 한 번호로 묶는다.
   // 선택된 탭은 자리가 달라도 오류가 아니다(2026-09-08 river 확정) — 밀림 통합에도 넣지 않는다.
+  // 메뉴·탭 줄의 이름도 같다(2026-09-21 river 확정) — 단 **줄 합의가 서서 제자리를 찾은 이름**(menuRowFree)에만.
   var movedList=results.filter(function(res){if(res.missing||!res.moved||gapExplained[res.u.el.id])return false;
     if(ctx.tabSelected&&ctx.tabSelected[res.u.el.id])return false;
+    if(res.menuRowFree)return false;
     var anc=ancestorResult(res,byId,resultByElId);return !(anc&&anc.moved&&Math.abs(anc.moveX-res.moveX)<=2&&Math.abs(anc.moveY-res.moveY)<=2);}).sort(function(a,b){return a.pb.y-b.pb.y||a.pb.x-b.pb.x;}),groups=[];
   movedList.forEach(function(res){var g=null;for(var i=0;i<groups.length;i++){var o=groups[i];if(Math.abs(o.moveX-res.moveX)<=4&&Math.abs(o.moveY-res.moveY)<=4&&res.pb.y-(o.box.y+o.box.h)<=60*lg&&res.pb.x<o.box.x+o.box.w+40*lg&&res.pb.x+res.pb.w>o.box.x-40*lg){g=o;break;}}
     if(g){g.items.push(res);g.box=boxUnion(g.box,res.pb);}else groups.push({moveX:res.moveX,moveY:res.moveY,items:[res],box:res.pb});});
