@@ -20,11 +20,13 @@ import actions
 import 커서
 import nametag
 import webvalue
+import 창높이
 import 매체
 import 계정확인
 import 들어가는길
 
 기본폭 = 1440
+기본높이 = 창높이.기본높이   # 시안에서 못 정했을 때만 쓰는 창 높이
 기본기다림 = 0.6          # 동작 하나를 하고 화면이 가라앉기를 기다리는 초
 여는기다림 = 1.5          # 주소를 열고 기다릴 **최대** 초 — 조용해지면 그 전에 넘어간다
 찾는짧은초 = 0.4          # 화면에서 무엇을 찾을 때 첫 바퀴에 기다릴 초
@@ -384,7 +386,7 @@ def 한마디하기(쪽, 마디, 계정, 실패, 기다림, 갈래=None):
         수 = re.findall(r"[0-9.]+", 뒤)
         if len(수) != 2:
             raise 웹오류(f"자리를 가로%,세로% 로 적어 주세요 — 예: 탭좌표 86,41 ({마디})")
-        칸크기 = 쪽.viewport_size or {"width": 기본폭, "height": 900}
+        칸크기 = 쪽.viewport_size or {"width": 기본폭, "height": 기본높이}
         x = 칸크기["width"] * float(수[0]) / 100
         y = 칸크기["height"] * float(수[1]) / 100
         커서.자리로(쪽, x, y)
@@ -476,6 +478,9 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
     sync_playwright = 연장가져오기()
     os.makedirs(결과폴더, exist_ok=True)
     폭 = int(숫자(tag, "화면폭", 기본폭))
+    # 창 높이는 **화면마다** 시안에서 정해 온다(lib/창높이.py) — 시안과 같은 자로 찍으려는 것이다.
+    # 이름표에 적혀 있지 않은 옛 목록은 예전처럼 기본 높이로 찍는다.
+    첫높이 = 창높이.고르기(tag.get("화면", [{}])[0] if tag.get("화면") else {}, tag)
     기다림 = 숫자(tag, "기다림", 기본기다림)
     계정 = account.읽기(tag.get("앱이름", ""))   # 시험 아이디·비번은 apps/앱사전.json 에만 있다
     찍힌것, 실패 = [], []
@@ -485,9 +490,10 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
 
     with sync_playwright() as 연장:
         브라우저, 어느것 = 브라우저켜기(연장)
-        print(f"  브라우저: {어느것} · 폭 {폭}px"
+        높이말 = (f"{첫높이}px" if 첫높이 != 기본높이 else f"{기본높이}px(시안에서 못 정함)")
+        print(f"  브라우저: {어느것} · 폭 {폭}px · 높이 {높이말}"
               + ("" if 숨어서찍나() else " · 창이 보이게"), flush=True)
-        칸 = 브라우저.new_context(viewport={"width": 폭, "height": 900})
+        칸 = 브라우저.new_context(viewport={"width": 폭, "height": 첫높이})
         쪽 = 칸.new_page()
         try:
             # 고른 목록에 로그인 화면이 없으면 아무도 로그인하지 않은 채 주소를 열어
@@ -520,7 +526,7 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                     except Exception:
                         pass
                     브라우저, _ = 브라우저켜기(연장)
-                    칸 = 브라우저.new_context(viewport={"width": 폭, "height": 900})
+                    칸 = 브라우저.new_context(viewport={"width": 폭, "height": 첫높이})
                     쪽 = 칸.new_page()
                     앞장성공 = False
                     print("    · 브라우저 창이 닫혀 있어 다시 열었습니다", flush=True)
@@ -531,6 +537,11 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                               else f"    · 로그인을 다시 하지 못했습니다 — {다시['까닭']}",
                               flush=True)
                 try:
+                    # 이 화면의 시안 높이에 창을 맞춘다 — 시안과 같은 자로 찍어야 핀 자리가 맞는다.
+                    이높이 = 창높이.고르기(화면, tag)
+                    지금칸 = 쪽.viewport_size or {}
+                    if 지금칸.get("height") != 이높이:
+                        쪽.set_viewport_size({"width": 폭, "height": 이높이})
                     # '이어서: 예' 인 화면은 앞 화면에서 눌러 둔 상태 위에 이어 찍는다.
                     # 주소를 다시 열면 적어 둔 글자·로그인 실패 횟수가 도로 지워진다.
                     # 앞 화면이 실패했으면 이을 상태가 없으니 처음부터 다시 연다.
@@ -556,7 +567,7 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                 앞장성공 = True
                 한줄 = {"파일": 이름, "값파일": 값이름(이름), "화면번호": 화면["번호"],
                       "화면이름": 화면["이름"], "상태": 화면.get("상태", "default"),
-                      "잰것": len(값.get("elements", []))}
+                      "창높이": 이높이, "잰것": len(값.get("elements", []))}
                 if 화면.get("case_id"):
                     한줄["case_id"] = 화면["case_id"]
                 if 화면.get("디자인이름"):
@@ -568,4 +579,4 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
     찍힌것.sort(key=lambda x: x["화면번호"])
     return {"앱이름": tag["앱이름"], "플랫폼": tag["플랫폼"],
             "찍은때": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "화면폭": 폭, "찍힌것": 찍힌것, "못찍은것": 실패}
+            "화면폭": 폭, "창높이": 첫높이, "찍힌것": 찍힌것, "못찍은것": 실패}

@@ -37,6 +37,7 @@ import 주소기억
 import 메뉴훑기
 import intake as 접수하기
 import nametag
+import 창높이
 import 계정확인
 import 매체
 
@@ -1723,6 +1724,7 @@ def 화면_조건_웹(작업, 알림=""):
            + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
            if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
     준비됨 = bool(브라우저) and 연장 and 주소됨
+    높이말 = _높이말(작업)
     # 다 갖춰졌으면 확인 표를 굳이 보이지 않는다 — 모자란 것이 있을 때만 짚어 준다.
     준비카드 = "" if 준비됨 else f"""
     <div class="card"><h2>아직 모자란 것</h2><table><tbody>{검사}</tbody></table>
@@ -1732,6 +1734,7 @@ def 화면_조건_웹(작업, 알림=""):
       <table><tbody>
         <tr><td class="muted" style="width:120px">사이트</td><td>{_e(작업.get('앱이름'))} · {_e(바탕) or '<span class="muted">줄마다 전체 주소</span>'}</td></tr>
         <tr><td class="muted">찍을 폭</td><td>{작업.get('찍을폭') or 1440}px <span class="muted">· 시안과 같게</span></td></tr>
+        <tr><td class="muted">찍을 높이</td><td>{높이말}</td></tr>
         <tr><td class="muted">찍을 화면</td><td>{len(작업.get('초안',[]))}개</td></tr>
         <tr><td class="muted">사진 이름</td><td>{_e(작업.get('서비스코드'))}-WEB-번호@상태.png</td></tr>
         <tr><td class="muted">함께 남기는 것</td><td>값 파일(*.값.json) — 검수는 이 값으로 합니다</td></tr>
@@ -1744,6 +1747,21 @@ def 화면_조건_웹(작업, 알림=""):
           <button class="go" type="submit"{'' if 준비됨 else ' disabled'}>전체 촬영 시작 →</button></div>
       </form></div>"""
     return 껍데기("/조건", 본문, "찍기 전에 브라우저와 주소를 확인한다", 알림)
+
+
+def _높이말(작업):
+    """③ 조건 화면에 보일 창 높이 한 줄 — 시안에서 정한 높이가 화면마다 다를 수 있다."""
+    if not 웹인가(작업):
+        return '<span class="muted">앱은 기기 화면 그대로 찍습니다</span>'
+    잰것 = [창높이.초안높이(r)["높이"] for r in 작업.get("초안", [])]
+    정한것 = sorted({h for h in 잰것 if h})
+    못정함 = sum(1 for h in 잰것 if not h)
+    if not 정한것:
+        return (f'{창높이.기본높이}px <span class="muted">· 시안에서 정하지 못했습니다</span>')
+    말 = " · ".join(f"{h}px" for h in 정한것) + ' <span class="muted">· 시안에서 브라우저 틀을 뺀 높이</span>'
+    if 못정함:
+        말 += f' <span class="muted">(못 정한 {못정함}개는 {창높이.기본높이}px)</span>'
+    return 말
 
 
 def 계정한번(작업):
@@ -1952,6 +1970,10 @@ def 이름표쓰기(작업):
         줄 += ([f'    주소: {r.get("주소","")}'] if 웹 else [f'    누를것: {r["누를것"]}'])
         줄 += [f'    동작: {r.get("동작") or "-"}',
               f'    이어서: {r.get("이어서", "아니오")}']
+        # 창 높이는 시안 한 판에서 브라우저 틀을 뺀 높이다 — 시안과 같은 자로 찍으려는 것(lib/창높이.py).
+        잰것 = 창높이.초안높이(r) if 웹 else {"높이": None}
+        if 잰것["높이"]:
+            줄 += [f'    창높이: {잰것["높이"]}']
     코드 = re.sub(r"[^A-Za-z0-9_-]", "", 작업["서비스코드"]).lower() or "app"
     경로 = 뿌리 / "apps" / f"{코드}.yaml"
     경로.write_text("\n".join(줄) + "\n", encoding="utf-8")
