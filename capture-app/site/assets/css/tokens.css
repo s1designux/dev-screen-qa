@@ -1,4 +1,4 @@
-/* S-1 디자인가이드 tokens.css — 판 d90d84a · 받은 때 2026-09-14 16:45 (KST) · 원본 a7b8d3d · 손으로 고치지 말고 다시 받으세요 */
+/* S-1 디자인가이드 tokens.css — 판 9aca94a · 받은 때 2026-09-19 05:52 (KST) · 원본 a36c0e1 · 손으로 고치지 말고 다시 받으세요 */
 /* >>> GEN:FOUNDATION >>> Auto-generated from vars-data.ts (npm run tokens:gen:foundation) — Variables 정본. 수동 편집 금지. */
 /* ══════════════════════════════════════════════════
    0. FOUNDATION — Base & Brand
@@ -551,6 +551,7 @@
 
   /* ── navigation ── */
   --color-navigation-bg                   : var(--color-base-white);
+  --color-navigation-icon-default         : var(--color-gray-300);
   --color-navigation-indicator-default    : var(--color-gray-200);
   --color-navigation-indicator-hover      : var(--color-blue-400);
   --color-navigation-indicator-selected   : var(--color-blue-400);
@@ -780,6 +781,7 @@
 
   /* ── navigation ── */
   --color-navigation-bg                   : var(--color-gray-dark-100);
+  --color-navigation-icon-default         : var(--color-gray-dark-600);
   --color-navigation-indicator-default    : var(--color-gray-dark-300);
   --color-navigation-indicator-hover      : var(--color-blue-dark-300);
   --color-navigation-indicator-selected   : var(--color-blue-dark-300);

@@ -149,7 +149,7 @@ CSS = """
 /* S-1 Button · Size XSM(PC) — h34 / 좌우 spacing-8 / radius-4 / body 14M.
    두 단추는 같은 무게다(둘 다 이 카드의 할 일이다 — river 2026-09-14). */
 .s1-btn{display:inline-flex;align-items:center;justify-content:center;
-  height:34px;min-width:64px;padding:0 var(--spacing-8);
+  height:var(--sizing-34);min-width:var(--sizing-64);padding:0 var(--spacing-8);
   border-radius:var(--radius-button-md);border:var(--border-width-1) solid transparent;
   font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
   text-decoration:none;cursor:pointer}

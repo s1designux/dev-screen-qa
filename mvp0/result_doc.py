@@ -109,7 +109,7 @@ def 덧그림(항목들, vb_w, vb_h):
             tx = min(max(px, x), x + w)
             선 += f'<line x1="{px}" y1="{py + 핀반지름}" x2="{tx}" y2="{y}" stroke="{c}" stroke-width="2"/>'
         핀 += (f'<g transform="translate({px},{py})"><circle r="{핀반지름}" fill="{c}"/>'
-              f'<text y="9" text-anchor="middle" font-size="30" font-weight="700" fill="#fff">{i["번호"]}</text></g>')
+              f'<text y="9" text-anchor="middle" font-size="30" font-weight="700" fill="var(--color-text-inverse)">{i["번호"]}</text></g>')
     return (f'<svg class="ov" viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMin meet">'
             f'{상자}{선}{핀}</svg>')
 
@@ -319,8 +319,8 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 
 .cover{display:flex;flex-direction:column;justify-content:flex-end}
 .cover .brand{position:absolute;left:0;top:0;right:0;height:78mm;background:var(--color-action-primary-default)}
-.cover h1{position:relative;margin:0 0 var(--spacing-8);font-size:44px;font-weight:var(--font-weight-bold);letter-spacing:-.02em}
-.cover .sub{margin:0 0 var(--spacing-24);font-size:24px;color:var(--color-text-secondary)}
+.cover h1{position:relative;margin:0 0 var(--spacing-8);font-size:var(--font-size-32);font-weight:var(--font-weight-bold);letter-spacing:-.02em}
+.cover .sub{margin:0 0 var(--spacing-24);font-size:var(--font-size-24);color:var(--color-text-secondary)}
 .cover .facts{display:grid;grid-template-columns:34mm 1fr;gap:var(--spacing-6) var(--spacing-12);
  margin:0 0 var(--spacing-24);font-size:var(--font-size-14);max-width:150mm}
 .cover .facts dt{color:var(--color-text-caption)}
@@ -331,7 +331,7 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 
 .divider{display:flex;flex-direction:column;justify-content:center}
 .divider .key{margin:0 0 var(--spacing-8);font-size:var(--font-size-14);color:var(--color-text-caption)}
-.divider h2{margin:0 0 var(--spacing-10);font-size:38px;font-weight:var(--font-weight-bold)}
+.divider h2{margin:0 0 var(--spacing-10);font-size:var(--font-size-32);font-weight:var(--font-weight-bold)}
 .divider .sub{margin:0;font-size:var(--font-size-16);color:var(--color-text-secondary)}
 
 .page{display:flex;flex-direction:column;gap:var(--spacing-10)}
@@ -343,9 +343,9 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 .head .tags dt{color:var(--color-text-caption)}
 .head .tags dd{margin:0 0 0 var(--spacing-4);font-weight:var(--font-weight-bold);display:inline}
 .head .tags dt,.head .tags dd{display:inline}
-.pf{padding:var(--spacing-2) var(--spacing-8);border-radius:var(--radius-4);color:#fff}
+.pf{padding:var(--spacing-2) var(--spacing-8);border-radius:var(--radius-4);color:var(--color-text-inverse)}
 .pf.pass{background:var(--color-status-success)}
-.pf.fail{background:var(--color-status-critical)}
+.pf.fail{background:var(--color-status-error)}
 
 .body{flex:1;display:grid;grid-template-columns:1fr 1fr 78mm;gap:var(--spacing-12);min-height:0}
 .shot{display:flex;flex-direction:column;gap:var(--spacing-4);margin:0;min-height:0}
@@ -363,14 +363,14 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 .issues{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--spacing-8)}
 .issues li{display:flex;gap:var(--spacing-8);padding-bottom:var(--spacing-8);
  border-bottom:var(--border-width-1) dashed var(--color-border-subtle)}
-.issues .no{flex:0 0 auto;width:18px;height:18px;border-radius:50%;color:#fff;
+.issues .no{flex:0 0 auto;width:18px;height:18px;border-radius:50%;color:var(--color-text-inverse);
  font-size:var(--font-size-12);line-height:18px;text-align:center}
 .cont{font-size:var(--font-size-12);font-weight:var(--font-weight-regular);color:var(--color-text-caption)}
 .issues .ttl{margin:0;font-size:var(--font-size-12);font-weight:var(--font-weight-bold);word-break:keep-all}
-.issues .meta{margin:var(--spacing-2) 0 0;font-size:var(--font-size-11,11px);color:var(--color-text-caption)}
-.issues .v{margin:var(--spacing-2) 0 0;font-size:var(--font-size-11,11px);overflow-wrap:anywhere}
+.issues .meta{margin:var(--spacing-2) 0 0;font-size:var(--font-size-10);color:var(--color-text-caption)}
+.issues .v{margin:var(--spacing-2) 0 0;font-size:var(--font-size-10);overflow-wrap:anywhere}
 .issues .v b{font-weight:var(--font-weight-bold);color:var(--color-text-caption);margin-right:var(--spacing-4)}
-.issues .where{margin:var(--spacing-2) 0 0;font-size:var(--font-size-11,11px);color:var(--color-text-caption);overflow-wrap:anywhere}
+.issues .where{margin:var(--spacing-2) 0 0;font-size:var(--font-size-10);color:var(--color-text-caption);overflow-wrap:anywhere}
 .none{margin:0;font-size:var(--font-size-12);color:var(--color-text-caption)}
 
 @media print{

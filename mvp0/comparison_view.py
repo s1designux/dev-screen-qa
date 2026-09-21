@@ -30,7 +30,7 @@ JS = r'''
  // 이 화면의 자(尺) — 곱하고 나누는 셈은 자.py 한 곳에만 있다. 그림이 바뀌면 다시 잰다.
  function 자(){const ref=window.qaDesignRef,화면폭=(ref&&ref.w)||v.naturalWidth;
   return window.자({시안폭:화면폭,화면폭:화면폭,개발그림폭:v.naturalWidth,시안그림폭:d.naturalWidth});}
- const 색=(n,f)=>{const x=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return x||f;};   // 캔버스는 var(...)를 못 읽는다 — 값으로 풀어 준다
+ const 색=(n,대신)=>{const x=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return x||대신||'currentColor';};   // 캔버스는 var(...)를 못 읽는다 — 토큰 값을 풀어 준다(값을 베껴 적지 않는다)
  let lastPt={x:innerWidth/2,y:innerHeight/2};
  document.addEventListener('pointerdown',e=>{lastPt={x:e.clientX,y:e.clientY};if(!pop.hidden&&!pop.contains(e.target))pop.hidden=true;},true);
  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;pop.hidden=true;if(mode==='crop')setMode('side');});   // 부분 확대는 Esc 로 빠져나온다
@@ -66,7 +66,7 @@ JS = r'''
  const slider=tools.querySelector('input');
  function save(){userSet=true;try{localStorage.setItem(key,JSON.stringify({x:dx,y:dy}));}catch(e){}}
  function fit(){const w=host.clientWidth,h=host.clientHeight,s=Math.min(w/v.naturalWidth,h/v.naturalHeight);return {w,h,s,x:(w-v.naturalWidth*s)/2,y:(h-v.naturalHeight*s)/2};}
- function paint(){if(!v.naturalWidth||!d.naturalWidth)return;const f=fit();glass.width=f.w;glass.height=f.h;const c=glass.getContext('2d');if(mode==='over'){c.globalAlpha=Number(slider.value)/100;const scale=v.naturalWidth/d.naturalWidth;c.drawImage(d,f.x+dx*f.s,f.y+dy*f.s,v.naturalWidth*f.s,d.naturalHeight*scale*f.s);}if(mode==='crop'&&start?.end){c.strokeStyle=색('--color-action-primary-default','#2563eb');c.lineWidth=2;c.strokeRect(start.p.x,start.p.y,start.end.x-start.p.x,start.end.y-start.p.y);}}
+ function paint(){if(!v.naturalWidth||!d.naturalWidth)return;const f=fit();glass.width=f.w;glass.height=f.h;const c=glass.getContext('2d');if(mode==='over'){c.globalAlpha=Number(slider.value)/100;const scale=v.naturalWidth/d.naturalWidth;c.drawImage(d,f.x+dx*f.s,f.y+dy*f.s,v.naturalWidth*f.s,d.naturalHeight*scale*f.s);}if(mode==='crop'&&start?.end){c.strokeStyle=색('--color-action-primary-default');c.lineWidth=2;c.strokeRect(start.p.x,start.p.y,start.end.x-start.p.x,start.end.y-start.p.y);}}
  function setMode(m){mode=m;hover.hidden=true;start=null;pair.classList.toggle('cv-merged',m==='over');glass.hidden=m==='side';glass.style.cursor=m==='crop'?'crosshair':'move';tools.querySelector('label').hidden=m!=='over';tools.querySelector('[data-reset]').hidden=m!=='over';tools.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m||(b.dataset.mode==='side'&&m==='crop'))));requestAnimationFrame(paint);}
  tools.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode==='crop'&&mode==='crop'?'side':b.dataset.mode));slider.oninput=paint;tools.querySelector('[data-reset]').onclick=()=>{dx=0;dy=autoDy||0;userSet=false;try{localStorage.removeItem(key);}catch(e){}paint();};   // 자동으로 맞춘 자리로 되돌린다
  function point(e){const r=glass.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
@@ -77,7 +77,7 @@ JS = r'''
  const PW=320;let profCache=null,shiftCache=null;
  function profileOf(im){const h=Math.max(1,Math.round(im.naturalHeight*PW/im.naturalWidth));
   const c=document.createElement('canvas');c.width=PW;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});
-  g.fillStyle=색('--color-surface-default','#fff');g.fillRect(0,0,PW,h);g.drawImage(im,0,0,PW,h);
+  g.fillStyle=색('--color-base-white','white');g.fillRect(0,0,PW,h);g.drawImage(im,0,0,PW,h);
   const t=g.getImageData(0,0,PW,h).data,out=new Float32Array(h);
   for(let y=0;y<h;y++){let sum=0;for(let x=0;x<PW;x++){const i=(y*PW+x)*4;sum+=255-(t[i]+t[i+1]+t[i+2])/3;}out[y]=sum;}
   return{p:out,h:h,k:PW/im.naturalWidth};}
@@ -103,7 +103,7 @@ JS = r'''
  // zone: 'top'=위쪽 내용이 기준, 'bottom'=바닥이 기준(두 그림 높이가 다르면 푸터는 '바닥에서 몇 줄'에 있다), 'any'=화면 전체.
  let dyCache;
  function grayOf(draw,w,h){const t=document.createElement('canvas');t.width=w;t.height=h;
-  const g=t.getContext('2d',{willReadFrequently:true});g.fillStyle=색('--color-surface-default','#fff');g.fillRect(0,0,w,h);draw(g);
+  const g=t.getContext('2d',{willReadFrequently:true});g.fillStyle=색('--color-base-white','white');g.fillRect(0,0,w,h);draw(g);
   const q=t.getContext('2d').getImageData(0,0,w,h).data,out=new Float32Array(w*h);
   for(let i=0;i<out.length;i++)out[i]=(q[i*4]+q[i*4+1]+q[i*4+2])/3;return out;}
  function ncc2(a,b){const n=a.length;let sa=0,sb=0;for(let i=0;i<n;i++){sa+=a[i];sb+=b[i];}
@@ -196,7 +196,7 @@ JS = r'''
  const scale=자().시안그림배/자().개발그림배;const factor=Math.min(1400/w,1400/h,Math.max(1,400/w)),outW=Math.max(1,Math.round(w*factor)),outH=Math.max(1,Math.round(h*factor));
  const db=dbox?같은배율(dbox,w,h):null;   // 시안 쪽 자리를 알면 그 자리를 자른다(위아래로 밀린 화면도 제 짝끼리 보이게)
  window.qaLastCrop={dev:{x:x,y:y,w:w,h:h},design:db};   // 어느 자리를 잘라 왔는지 — 콘솔·검사판에서 확인용
- target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle=색('--color-surface-default','#fff');ctx.fillRect(0,0,outW,outH);
+ target.querySelectorAll('canvas').forEach((c,i)=>{c.width=outW;c.height=outH;const ctx=c.getContext('2d');ctx.fillStyle=색('--color-base-white','white');ctx.fillRect(0,0,outW,outH);
   if(i)ctx.drawImage(v,x,y,w,h,0,0,outW,outH);
   else if(db)ctx.drawImage(d,db.x,db.y,db.w,db.h,0,0,outW,outH);
   else ctx.drawImage(d,(x-dx)*scale,(y-dy)*scale,w*scale,h*scale,0,0,outW,outH);});

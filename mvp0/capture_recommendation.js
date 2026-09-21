@@ -14,7 +14,7 @@
   const img=new Image();img.src=src;await img.decode();
   const c=document.createElement('canvas');c.width=W;c.height=H;
   const ctx=c.getContext('2d',{willReadFrequently:true});
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='white';ctx.fillRect(0,0,W,H);   // 재는 판의 바탕 — 화면 색이 아니라 밝기 기준점이다
   ctx.drawImage(img,0,img.height*.045,img.width,img.height*.91,0,0,W,H);
   const d=ctx.getImageData(0,0,W,H).data, v=new Float32Array(W*H);
   for(let i=0,j=0;i<d.length;i+=4,j++)v[j]=1-(d[i]*.299+d[i+1]*.587+d[i+2]*.114)/255;

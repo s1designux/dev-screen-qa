@@ -365,7 +365,7 @@ CSS = '''
 .c-diff .now{color:var(--color-text-danger);font-weight:var(--font-weight-bold);word-break:break-all}
 .c-diff .to{color:var(--color-border-default);text-align:center}
 .c-diff .ref{color:var(--color-text-primary);font-weight:var(--font-weight-bold);word-break:break-all}
-.c-tok{display:block;font-size:var(--font-size-10);font-weight:var(--font-weight-bold);color:var(--color-purple-400);letter-spacing:.01em}
+.c-tok{display:block;font-size:var(--font-size-10);font-weight:var(--font-weight-bold);color:var(--color-text-secondary);letter-spacing:.01em}
 .c-eye{margin:var(--spacing-8) 0 0;color:var(--color-text-caption)}
 /* 윗선을 두지 않는다 — 차이 묶음을 가르는 판 테두리와 생김새가 같아 헷갈렸다(river 2026-09-14) */
 .c-where{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--spacing-4) var(--spacing-10);
@@ -374,6 +374,6 @@ CSS = '''
 .c-where dd{margin:0;color:var(--color-text-tertiary);font-size:var(--font-size-12);min-width:0}
 .c-sel{font-family:ui-monospace,monospace;font-size:var(--font-size-12);color:var(--color-text-secondary);background:var(--color-bg-subtle);
   border-radius:var(--radius-4);padding:var(--spacing-2) var(--spacing-6);word-break:break-all}
-.c-comp{font-weight:var(--font-weight-bold);color:var(--color-purple-400)}
+.c-comp{font-weight:var(--font-weight-bold);color:var(--color-text-secondary)}
 .c-note{margin-top:var(--spacing-8);color:var(--color-text-helper);font-size:var(--font-size-12)}
 '''

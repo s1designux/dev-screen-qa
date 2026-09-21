@@ -37,8 +37,8 @@ def build(db_path=dbmod.DB_PATH, out_path: Path = OUT, show_resolved: bool = Fal
           <td class="st">{_esc(iss['status'])}</td>
           <td>{_esc(iss['description'])}<br><span class="key">{_esc(iss['logical_element_key'])}</span></td>
           <td>{_esc(iss['category'])}</td>
-          <td class="exp">{_esc(iss['expected'])}</td>
-          <td class="act">{_esc(iss['actual'])}</td>
+          <td class="exp">{_esc(iss['expected'])}</td><!-- s1-제외: 검수한 값을 적는 자리(화면 색이 아니다) -->
+          <td class="act">{_esc(iss['actual'])}</td><!-- s1-제외: 검수한 값을 적는 자리(화면 색이 아니다) -->
           <td class="ctr">{_esc(iss['severity'])}</td>
           <td class="ctr">{_esc(iss['found_round'])}차</td>
           <td class="ctr">{('—' if iss['resolved_round'] is None else str(iss['resolved_round'])+'차')}</td>

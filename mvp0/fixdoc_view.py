@@ -244,7 +244,7 @@ body{margin:0;background:var(--color-bg-level-3);color:var(--color-text-primary)
 
 /* S-1 Button · Size XSM(PC) — h34 / 좌우 spacing-8 / radius-4 / body 14M */
 .s1-btn{display:inline-flex;align-items:center;justify-content:center;
-  height:34px;min-width:64px;padding:0 var(--spacing-8);
+  height:var(--sizing-34);min-width:var(--sizing-64);padding:0 var(--spacing-8);
   border-radius:var(--radius-button-md);border:var(--border-width-1) solid transparent;
   font:inherit;font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
   text-decoration:none;cursor:pointer}

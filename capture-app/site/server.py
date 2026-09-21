@@ -174,10 +174,11 @@ h1 { font-size:var(--font-size-18); margin:0; }
 .card h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-12); }
 label.f { display:block; font-size:var(--font-size-12); color:var(--color-form-control-label-default);
   margin:var(--spacing-10) 0 var(--spacing-4); }
-/* 입력칸·셀렉트·단추는 같은 크기 단계를 쓴다 — S-1 MD(PC) 44, 작은 칸(.s)은 XSM 34.
-   높이를 값으로 잡으므로 위아래 여백은 0 이다(가운데 정렬은 칸이 알아서 한다). */
+/* 한 줄자 — PC 34px (river 확정 2026-09-21). 입력칸·셀렉트·단추·칩이 모두 같은 높이로 선다.
+   크기 낱말은 컴포넌트마다 다른 높이를 뜻해서(버튼 md=44인데 칩 md=34) 낱말이 아니라 높이를 맞춘다.
+   Input/Select 는 XSM(34) 이고, 높이를 값으로 잡으므로 위아래 여백은 0 이다. */
 input[type=text], input[type=password], select { width:100%; max-width:420px;
-  height:44px; padding:0 var(--spacing-12) 0 var(--spacing-16);
+  height:var(--sizing-34); padding:0 var(--spacing-8) 0 var(--spacing-12);
   font-size:var(--font-size-14); color:var(--form-text); border:1px solid var(--form-border);
   border-radius:var(--radius-control-sm); font-family:inherit; background:var(--form-bg); }
 input::placeholder { color:var(--form-placeholder); }
@@ -197,14 +198,14 @@ input[type=text].is-correct, input[type=password].is-correct { border-color:var(
 .helper.is-correct { color:var(--input-correct-text); }
 input.w-xs { max-width:110px; } input.w-sm { max-width:200px; }
 input.w-md { max-width:300px; } input.w-lg { max-width:380px; }
-input.s { height:34px; padding:0 var(--spacing-8) 0 var(--spacing-12); font-size:var(--font-size-14); }
+input.s { font-size:var(--font-size-14); }   /* 줄자가 34 하나라 따로 줄일 것이 없다 */
 /* 찍을 목록 — '동작'은 문장이라 한 줄 칸에 가두면 앞부분만 보인다.
    여러 줄로 풀어 쓰는 칸으로 두고, 적은 만큼 칸이 자란다. */
 textarea.s { width:100%; box-sizing:border-box; padding:var(--spacing-6) var(--spacing-8);
   font-size:var(--font-size-14); line-height:1.55;
   color:var(--form-text); font-family:inherit; border:1px solid var(--form-border);
   border-radius:var(--radius-control-sm); background:var(--form-bg); resize:vertical;
-  overflow:hidden; min-height:34px; }
+  overflow:hidden; min-height:var(--sizing-34); }
 textarea.s:focus { outline:none; border-color:var(--color-border-focus); box-shadow:0 0 0 2px var(--color-blue-50); }
 textarea.s::placeholder { color:var(--form-placeholder); }
 table.list td { vertical-align:top; }
@@ -215,7 +216,7 @@ table.list select.s + input.s { margin-top:var(--spacing-4); }
 .pw { position:relative; display:inline-block; width:100%; max-width:300px; }
 .pw input[type=text], .pw input[type=password] { max-width:none; padding-right:var(--spacing-40); }
 .pw .eye { position:absolute; top:50%; right:6px; transform:translateY(-50%);
-  width:28px; height:28px; min-width:0; padding:var(--spacing-2); border:0; background:none;
+  width:var(--sizing-28); height:var(--sizing-28); min-width:0; padding:var(--spacing-2); border:0; background:none;
   border-radius:var(--radius-control-sm);
   color:var(--color-form-control-icon-default); display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .pw .eye:hover { background:var(--color-bg-level-2); }
@@ -223,9 +224,9 @@ table.list select.s + input.s { margin-top:var(--spacing-4); }
 .pw .eye .show { display:none; }
 .pw .eye[aria-pressed="true"] .show { display:block; }
 .pw .eye[aria-pressed="true"] .hide { display:none; }
-/* 단추 — S-1 Button (Secondary 기본 · 주요 액션은 Primary) */
-button, .btn { font-size:var(--font-size-14); height:44px; min-width:80px;
-  padding:0 var(--spacing-16);
+/* 단추 — S-1 Button XSM(34) · Secondary 기본 · 주요 액션은 Primary */
+button, .btn { font-size:var(--font-size-14); height:var(--sizing-34); min-width:var(--sizing-64);
+  padding:0 var(--spacing-8);
   border-radius:var(--radius-button-md); border:1px solid var(--button-secondary-default-border);
   background:var(--button-secondary-default-bg); color:var(--button-secondary-default-text);
   cursor:pointer; text-decoration:none; font-family:inherit;
@@ -240,9 +241,10 @@ button:disabled { background:var(--button-secondary-disabled-bg);
   cursor:not-allowed; }
 button.go:disabled { background:var(--button-primary-disabled-bg);
   border-color:var(--button-primary-disabled-border); color:var(--button-primary-disabled-text); }
-table { width:100%; border-collapse:collapse; font-size:var(--font-size-14); }
-th, td { padding:var(--spacing-8) var(--spacing-10); border-bottom:1px solid var(--color-border-subtle);
-  text-align:left; vertical-align:middle; }
+/* 표도 같은 줄자 — Table XSM(34) */
+table { width:100%; border-collapse:collapse; font-size:var(--font-size-12); }
+th, td { height:var(--sizing-34); padding:var(--spacing-8) var(--spacing-10);
+  border-bottom:1px solid var(--color-border-subtle); text-align:left; vertical-align:middle; }
 th { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); font-weight:var(--font-weight-medium); }
 .muted { color:var(--color-text-helper); }
 /* 알림 띠 — 스크롤해도 화면 맨 위에 붙어 있다(찍을 목록이 길면 위로 밀려 안 보였다, river 2026-09-16).
@@ -250,7 +252,7 @@ th { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); font-
 .alertbar { position:sticky; top:var(--spacing-8); z-index:30; margin:0 0 var(--spacing-14);
   padding:0; background:none; }
 .alertbar .err, .alertbar .ok { margin:0; padding-right:var(--spacing-40);
-  box-shadow:0 6px 16px -8px rgba(0,0,0,.28); }
+  box-shadow:var(--shadow-dropdown); }
 .alertbar .jump { color:inherit; text-decoration:underline; text-underline-offset:2px; }
 .alertdo { margin-top:var(--spacing-10); }
 tr { scroll-margin-top:140px; }   /* 알림 띠에 가리지 않게 — 줄로 뛰었을 때 */
@@ -262,8 +264,9 @@ tr { scroll-margin-top:140px; }   /* 알림 띠에 가리지 않게 — 줄로 �
   border:1px solid var(--color-red-100); border-radius:var(--radius-8);
   padding:var(--spacing-10) var(--spacing-12);
   font-size:var(--font-size-14); margin-bottom:var(--spacing-14); }
-.ok { background:var(--color-green-50); color:var(--color-green-450);
-  border:1px solid var(--color-green-150); border-radius:var(--radius-8);
+/* 잘 됐다는 알림도 파랑이다 — 가이드 §2 "성공·정보 피드백은 파란색 계열"(초록은 다크 값) */
+.ok { background:var(--color-blue-50); color:var(--color-status-success);
+  border:1px solid var(--color-blue-100); border-radius:var(--radius-8);
   padding:var(--spacing-10) var(--spacing-12);
   font-size:var(--font-size-14); margin-bottom:var(--spacing-14); }
 .hint { font-size:var(--font-size-12); color:var(--color-text-body-tertiary);
@@ -277,7 +280,7 @@ tr { scroll-margin-top:140px; }   /* 알림 띠에 가리지 않게 — 줄로 �
   border-radius:var(--radius-8); padding:var(--spacing-8); margin-bottom:var(--spacing-10); }
 .g4 .pic svg, .g4 .pic img { display:block; width:100%; height:auto; border-radius:var(--radius-4); }
 .g4 .no { position:absolute; top:10px; left:12px; width:19px; height:19px; border-radius:50%;
-  background:var(--color-blue-400); color:var(--color-text-inverse); font-size:var(--font-size-10);
+  background:var(--color-action-primary-default); color:var(--color-text-inverse); font-size:var(--font-size-10);
   font-weight:var(--font-weight-bold); text-align:center; line-height:19px; }
 .g4 .tt { font-size:var(--font-size-14); font-weight:var(--font-weight-bold); margin-bottom:var(--spacing-2); }
 .g4 .dd { font-size:var(--font-size-12); color:var(--color-text-body-secondary); line-height:1.6; }
@@ -303,27 +306,30 @@ tr.tie td { background:var(--color-bg-level-1); }
 .ties { color:var(--color-text-helper); font-size:var(--font-size-12); }
 .bad { color:var(--color-text-state-error); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
 /* 그림 위에서 고르기 — 시안 두 장을 나란히 놓고 누를 자리를 클릭한다 */
-.pickbtn { margin-top:var(--spacing-4); font-size:var(--font-size-12); padding:2px 8px; height:auto; }
-.data { color:var(--color-text-state-warning, var(--color-text-body-tertiary)); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
+.pickbtn { margin-top:var(--spacing-4); font-size:var(--font-size-12); padding:var(--spacing-2) var(--spacing-8); height:auto; }
+.data { color:var(--color-text-state-caution); font-size:var(--font-size-12); margin-top:var(--spacing-2); }
 tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .pickq { font-size:var(--font-size-14); margin-bottom:var(--spacing-8); display:flex; align-items:center; gap:var(--spacing-8); }
 .figs { display:flex; gap:var(--spacing-12); align-items:flex-start; }
 .fig { flex:1; min-width:0; }
 .figt { font-size:var(--font-size-12); color:var(--color-text-helper); margin-bottom:var(--spacing-4);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.figbox { position:relative; border:1px solid var(--color-border-subtle); background:#fff; }
+.figbox { position:relative; border:1px solid var(--color-border-subtle); background:var(--color-base-white); }
 .figbox img { display:block; width:100%; height:auto; }
-.figarrow { align-self:center; color:var(--color-text-helper); font-size:20px; }
+.figarrow { align-self:center; color:var(--color-text-helper); font-size:var(--font-size-20); }
+/* 그림 위에 얹는 자리표는 밑그림이 비쳐야 한다 — 색은 토큰에서 오고 옅기만 color-mix 로 준다 */
 .hot { position:absolute; box-sizing:border-box; padding:0; margin:0; min-width:8px; min-height:8px;
-  border:1.5px dashed var(--color-border-default); border-radius:4px; background:transparent; cursor:pointer; }
-.hot:hover { border-style:solid; border-color:var(--color-border-focus); background:rgba(29,108,235,.10); }
-.hot.on { border:2px solid var(--color-border-focus); background:rgba(29,108,235,.18); }
+  border:1.5px dashed var(--color-border-default); border-radius:var(--radius-4); background:transparent; cursor:pointer; }
+.hot:hover { border-style:solid; border-color:var(--color-border-focus);
+  background:color-mix(in srgb, var(--color-border-focus) 10%, transparent); }
+.hot.on { border:2px solid var(--color-border-focus);
+  background:color-mix(in srgb, var(--color-border-focus) 18%, transparent); }
 .hot span { display:none; position:absolute; left:0; top:100%; background:var(--color-surface-default);
-  border:1px solid var(--color-border-default); font-size:var(--font-size-12); padding:2px 6px; white-space:nowrap; z-index:2; color:var(--color-text-primary); }
+  border:1px solid var(--color-border-default); font-size:var(--font-size-12); padding:var(--spacing-2) var(--spacing-6); white-space:nowrap; z-index:2; color:var(--color-text-primary); }
 .hot:hover span { display:block; }
-.hot.box { border-color:var(--color-green-450, #2a7); border-style:dashed; }
-.hot.box:hover { background:rgba(34,153,119,.12); }
-.hot.box.on { border:2px solid var(--color-green-450, #2a7); background:rgba(34,153,119,.20); }
+/* 적는 칸은 '누를 것'과 갈라 보여야 한다. 파랑은 고른 것 하나에만 쓰므로(가이드 §1)
+   갈래는 짙은 회색 테두리로 표시하고, 고르면 똑같이 파래진다. */
+.hot.box { border-color:var(--color-border-emphasis); border-style:dashed; }
 .fix { font-size:var(--font-size-12); margin-top:var(--spacing-2);
   color:var(--color-text-body-secondary); display:flex; align-items:center; gap:var(--spacing-6);
   flex-wrap:wrap; }
@@ -334,7 +340,7 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
   font-size:var(--font-size-12); }
 .valrow span { min-width:160px; color:var(--color-text-body-secondary);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.valrow input { flex:0 0 200px; font-size:var(--font-size-12); padding:2px 6px; }
+.valrow input { flex:0 0 200px; font-size:var(--font-size-12); padding:var(--spacing-2) var(--spacing-6); }
 .picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
   gap:var(--spacing-12); margin-top:var(--spacing-12); }
 .picks figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-default);
@@ -344,7 +350,7 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .picks figcaption { font-size:var(--font-size-12); color:var(--color-text-body-secondary);
   margin-top:var(--spacing-6); word-break:break-all; }
 .dim2 { display:block; color:var(--color-text-helper); margin-top:var(--spacing-2); }
-.dim2.warn { color:var(--color-red-400); }
+.dim2.warn { color:var(--color-text-state-error); }
 .sect { font-size:var(--font-size-12); font-weight:var(--font-weight-bold);
   color:var(--color-text-body-primary); margin:var(--spacing-14) 0 var(--spacing-6); }
 /* 동작 사양 — 시안에서 채우면 좋을 것. 칸째로 접었다 펴고, 안에서 갈래로 또 접는다. */
@@ -387,7 +393,7 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .spec .more { padding:0 var(--spacing-2) var(--spacing-10) var(--spacing-20); font-size:var(--font-size-12); }
 .spec .more a { color:var(--color-text-link); cursor:pointer; }
 .cnt { float:right; font-size:var(--font-size-12); font-weight:var(--font-weight-medium);
-  color:var(--color-green-450); }
+  color:var(--color-status-success); }
 .dim { font-size:var(--font-size-12); color:var(--color-text-helper);
   margin-left:auto; white-space:nowrap; }
 /* 보낼 사진 고르기 — 이름이 길어 칸에 갇히면 세로로 쪼개져 읽히지 않는다.
@@ -437,7 +443,9 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .two { display:flex; gap:var(--spacing-16); flex-wrap:wrap; align-items:flex-start; }
 .two > div { flex:1 1 0; min-width:140px; }
 .bar .right { margin-left:auto; }
-pre.log { background:var(--color-gray-dark-0); color:var(--color-gray-dark-800);
+/* 기록 판은 어두운 창이다 — 다크 팔레트를 바로 쓰지 않고 그 자리에만 다크 테마를 켜고(data-theme)
+   역할 토큰으로 색을 받는다(가이드 §2: 라이트/다크 전환은 semantic 층에서 일어난다). */
+pre.log { background:var(--color-bg-level-0); color:var(--color-text-primary);
   font-size:var(--font-size-12); padding:var(--spacing-14); border-radius:var(--radius-10);
   max-height:280px; overflow:auto; margin:0; white-space:pre-wrap; }
 .shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
@@ -1593,7 +1601,7 @@ def _계정카드(작업):
     계정 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
           + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
           if 작업.get("시험아이디") else '<span class="muted">적지 않음</span>')
-    말 = {True: ("✅", "로그인됩니다", "var(--color-green-450)"),
+    말 = {True: ("✅", "로그인됩니다", "var(--color-status-success)"),
          False: ("⚠️", "로그인이 안 됩니다", "var(--color-text-state-error)"),
          None: ("ℹ️", "미리 해 보지 못했습니다", "var(--color-text-body-tertiary)")}.get(됨) \
         if 본것 else ("", "아직 해 보지 않았습니다", "var(--color-text-body-tertiary)")
@@ -1803,8 +1811,8 @@ def 진행바(글, 끝남=False):
          else f'{r["지금"]} / {r["전부"]}번째 — {_e(r["이름"])} <span class="muted">· {센말}</span>')
     return f"""
     <div style="margin:var(--spacing-10) 0 0">
-      <div style="height:8px;border-radius:var(--radius-full);background:var(--color-gray-100);overflow:hidden">
-        <div style="height:100%;width:{찬만큼}%;background:var(--color-blue-400);transition:width .3s"></div>
+      <div style="height:8px;border-radius:var(--radius-full);background:var(--color-bg-level-3);overflow:hidden">
+        <div style="height:100%;width:{찬만큼}%;background:var(--color-action-primary-default);transition:width .3s"></div>
       </div>
       <div class="hint" style="margin:var(--spacing-6) 0 0">{말}</div>
     </div>"""
@@ -1913,7 +1921,7 @@ def 화면_촬영():
     <div class="card"><h2>{('멎었습니다' if 멎음 else '끝났습니다') if 끝남 else '찍는 중…'}
       <span class="muted">· {_e(폴더.name)}</span></h2>
       {진행바(글, 끝남 and not 멎음)}
-      <pre class="log">{_e(글)}</pre>
+      <pre class="log" data-theme="dark">{_e(글)}</pre>
       <div class="bar">{'<a class="btn" href="/">처음으로</a>' if 끝남 else f'<span class="hint">{찍는중안내(작업)}</span>'}</div>
     </div>{막힘}{보내기}{결과}"""
     return 껍데기("/촬영", 본문, "찍고 이름 붙이는 중")

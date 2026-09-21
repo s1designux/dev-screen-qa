@@ -4,9 +4,12 @@
 단추 높이·모서리, 표 머리·줄 높이, 탭 밑줄이 가이드와 다르다. 그 한 층을 여기서 맞춘다.
 
 수치는 가이드 정본(`design/DESIGN.core.md` §4 · `pages/components.html`)의 것이다:
-  Button   XSM 34px / XXSM 28px / MD 44px · 모서리 4 · 테두리 1 · 라벨 14 Medium
-  Table    머리 위 2px 진한 선 · 아래 1px 진한 선 · 칸 경계 연한 선 · 줄 높이 38(SM)
-  Line Tab 높이 40 · 좌우 16 · 고른 것은 아래 2px 파란 줄(칸을 칠하지 않는다)
+**한 줄자: PC 34px** (river 확정 2026-09-21).
+크기 낱말은 컴포넌트마다 다른 높이를 뜻해서(버튼 md=44인데 칩 md=34) '전부 sm 으로' 는 줄을 어긋나게 한다.
+그래서 낱말이 아니라 **높이 하나**를 정하고, 그 높이가 되는 크기를 컴포넌트마다 고른다:
+  Button XSM 34 · Chip MD 34 · Input/Select XSM 34 · Multi Toggle SM 34 · Table XSM 34
+자기 눈금을 쓰는 둘은 줄자 밖이다(가이드 §8): **Line Tab 40**(PC 최소) · **Pagination 28**.
+카드 안 이름표(.tag)는 조작하는 것이 아니라 한 줄에 서지 않는다 — Chip SM 28 을 그대로 쓴다.
 
 포털은 낱낱의 화면에서 이 모양을 **덮어쓰지 않는다**(가이드 §9-7). 그래서 여기 선택자는
 포털이 이미 쓰고 있는 자리(`button`, `.btn`, `table`, `.tab`)까지 함께 받아 적는다 —
@@ -36,10 +39,10 @@ CSS = """
   border-color:var(--color-button-border-secondary--hover);
   color:var(--color-button-label-secondary--hover)}
 
-.s1-btn-md,.btn.md{height:var(--sizing-44);padding:0 var(--spacing-16)}
-.s1-btn-xxsm,.btn.xxsm,
-.auto-actions button,.auto-range button,.auto-range-form button,
-.passform button,button.upl{height:var(--sizing-28);padding:0 var(--spacing-8)}
+/* 크기를 따로 고르는 자리를 두지 않는다 — 높이는 한 줄자(34) 하나다.
+   최소 너비는 정본 XSM 값(64)을 쓰되, 아이콘만 있는 작은 단추까지 넓히지 않으려고
+   맨 element 가 아니라 이름을 붙인 단추에만 준다. */
+.s1-btn,.btn{min-width:var(--sizing-64)}
 
 .s1-btn-primary,.primary,.passform button{
   background:var(--color-button-bg-primary--default);
@@ -66,7 +69,7 @@ CSS = """
   cursor:default;pointer-events:none;opacity:1}
 
 /* ── Table (S-1 코어) ──────────────────────────────────────
-   머리 위에 진한 2px, 표 아래에 진한 1px, 칸 사이는 연한 선. 줄 높이는 SM(38). */
+   머리 위에 진한 2px, 표 아래에 진한 1px, 칸 사이는 연한 선. 줄 높이는 **XSM(34)** — 한 줄자. */
 .s1-table,
 .wrap table,main table,.card table,.cards table,dialog table{
   width:100%;border-collapse:collapse;
@@ -74,17 +77,17 @@ CSS = """
   border-bottom:var(--border-width-1) solid var(--color-table-border-strong)}
 .s1-table th,
 .wrap table th,main table th,.card table th,.cards table th,dialog table th{
-  height:var(--sizing-38);padding:0 var(--spacing-12);
+  height:var(--sizing-34);padding:0 var(--spacing-12);
   background:var(--color-table-header-bg);color:var(--color-text-secondary);
   border-bottom:var(--border-width-1) solid var(--color-table-border-default);
-  font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
+  font-size:var(--font-size-12);font-weight:var(--font-weight-medium);
   text-align:left;white-space:nowrap;letter-spacing:-.02em}
 .s1-table td,
 .wrap table td,main table td,.card table td,.cards table td,dialog table td{
-  height:var(--sizing-38);padding:var(--spacing-8) var(--spacing-12);
+  height:var(--sizing-34);padding:var(--spacing-8) var(--spacing-12);
   background:var(--color-table-cell-default);color:var(--color-text-body-primary);
   border-bottom:var(--border-width-1) solid var(--color-table-border-default);
-  font-size:var(--font-size-14);font-weight:var(--font-weight-regular);
+  font-size:var(--font-size-12);font-weight:var(--font-weight-regular);
   letter-spacing:-.02em;vertical-align:middle}
 .s1-table tbody tr:hover td,
 .wrap table tbody tr:hover td,main table tbody tr:hover td{
@@ -183,16 +186,17 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{
   border-color:var(--color-control-border-disabled);cursor:default}
 
 /* ── Chip (S-1 코어) ───────────────────────────────────────
-   거르개(고르는 것)는 Line, 카드 안 이름표는 Solid. 둘 다 SM(28). */
+   거르개(고르는 것)는 Line **MD(34)** — 단추와 한 줄에 서므로 줄자를 따른다.
+   카드 안 이름표(.tag)는 Solid **SM(28)** — 한 줄에 서지 않는 표시라 줄자 밖이다. */
 .s1-chip,.chip{
   display:inline-flex;align-items:center;gap:var(--spacing-4);
-  box-sizing:border-box;height:var(--sizing-28);padding:0 var(--spacing-16);
+  box-sizing:border-box;height:var(--sizing-34);padding:0 var(--spacing-16);
   border-radius:var(--radius-full);
   border:var(--border-width-1) solid var(--color-chip-line-border-default);
   background:var(--color-chip-line-bg-default);
   color:var(--color-chip-line-label-default);
-  font-family:inherit;font-size:var(--font-size-12);font-weight:var(--font-weight-medium);
-  line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;transition:all .15s}
+  font-family:inherit;font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
+  line-height:normal;white-space:nowrap;text-decoration:none;cursor:pointer;transition:all .15s}
 .s1-chip:hover,.chip:hover{background:var(--color-chip-line-bg-hover)}
 .s1-chip.is-selected,.chip.on{
   background:var(--color-chip-line-bg-selected);
@@ -213,7 +217,7 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{
 .s1-mt,.cv-segments{display:inline-flex;align-items:center;gap:0;
   background:none;border:0;border-radius:0;padding:0}
 .s1-mt>button,.cv-tools .cv-segments button{
-  box-sizing:border-box;height:var(--sizing-34);min-width:56px;
+  box-sizing:border-box;height:var(--sizing-34);min-width:var(--sizing-56);
   padding:0 var(--spacing-8);border-radius:0;
   border:var(--border-width-1) solid var(--color-button-border-secondary--default);
   background:var(--color-button-bg-secondary--default);

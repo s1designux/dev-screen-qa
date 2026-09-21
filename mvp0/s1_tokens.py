@@ -27,4 +27,7 @@ def 품기():
         if p.exists():
             글.append(p.read_text(encoding="utf-8"))
     글.append(s1_components.CSS)
-    return "<style>%s</style>" % "\n".join(글)
+    # 품고 나가는 것은 가이드 CSS 원본 그대로다 — 토큰 점검기가 '우리가 적은 값' 으로 세지 않게 표시해 둔다
+    # (점검기는 tokens.css 같은 낱장은 이름으로 건너뛰지만, 문서 안에 품은 사본은 알아보지 못한다).
+    return ("<style>/* s1-제외 시작 — 아래는 S-1 가이드 CSS 원본 사본 */\n%s\n/* s1-제외 끝 */</style>"
+            % "\n".join(글))
