@@ -6,12 +6,12 @@ $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path
 $dir  = Join-Path $Root 'capture-app'
 
-# 이미 켜져 있으면 또 켜지 않는다 (포털 켜기에서 같이 불러도 두 번 뜨지 않게)
-$busy = (netstat -ano | Select-String ':8767' | Select-String 'LISTENING')
-if ($busy) {
-    Write-Host '촬영 준비 사이트가 이미 켜져 있습니다. 이 창은 닫아도 됩니다.'
-    Start-Sleep -Seconds 10
-    exit 0
+# 켜져 있던 옛 창은 끄고 최신으로 다시 켠다
+#  (새로 받은 파일이 깔려도 옛 창이 계속 화면을 내주던 일을 막는다)
+. (Join-Path $PSScriptRoot 'free-port.ps1')
+if (-not (포트비우기 8767 '촬영 준비 사이트')) {
+    Start-Sleep -Seconds 15
+    exit 1
 }
 
 if (-not (Test-Path (Join-Path $dir 'site\server.py'))) {

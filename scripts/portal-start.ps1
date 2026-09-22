@@ -6,18 +6,18 @@ $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path
 $dir  = Join-Path $Root 'mvp0'
 
-# 촬영 준비 사이트도 같이 켠다. 이미 켜져 있으면 그 창이 스스로 알린다.
+# 촬영 준비 사이트도 같이 켠다. 켜져 있던 옛 창은 그쪽이 스스로 끄고 다시 켠다.
 $촬영 = Join-Path $Root '촬영준비-켜기-윈도우.bat'
 if (Test-Path $촬영) {
     Start-Process -FilePath $촬영 -WorkingDirectory $Root
 }
 
-# 이미 켜져 있으면 또 켜지 않는다 (자동 시작으로 켜진 뒤 두 번 눌렀을 때)
-$busy = (netstat -ano | Select-String ':8765' | Select-String 'LISTENING')
-if ($busy) {
-    Write-Host '포털이 이미 켜져 있습니다. 이 창은 닫아도 됩니다.'
-    Start-Sleep -Seconds 10
-    exit 0
+# 켜져 있던 옛 포털은 끄고 최신으로 다시 켠다
+#  (새로 받은 파일이 깔려도 옛 창이 계속 화면을 내주던 일을 막는다)
+. (Join-Path $PSScriptRoot 'free-port.ps1')
+if (-not (포트비우기 8765 '포털')) {
+    Start-Sleep -Seconds 15
+    exit 1
 }
 
 if (-not (Test-Path (Join-Path $dir 'portal.py'))) {
