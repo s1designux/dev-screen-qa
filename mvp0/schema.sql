@@ -5,8 +5,14 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS project (
-    uuid  TEXT PRIMARY KEY,
-    name  TEXT NOT NULL
+    uuid          TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    -- 포털에서 과제를 만들 때 사람이 적는 것 (river 확정 2026-09-22).
+    -- 예전 자료함에는 이 칸이 없어 `project_form.표채우기()` 가 열 때 더한다.
+    code          TEXT,   -- 과제 번호 (조직에서 쓰는 번호)
+    service_code  TEXT,   -- 화면 사람키 앞머리 — TB-WEB-012 의 TB (7번)
+    owner         TEXT,   -- 담당자 이름 (person.name 과 같은 이름을 쓴다)
+    created_at    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS screen (

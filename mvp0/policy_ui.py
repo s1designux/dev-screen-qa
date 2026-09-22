@@ -5,6 +5,7 @@ GET  /policy/service/<project uuid>  : 그 서비스의 값(시스템 기본을 
 GET  /policy/screen/<screen uuid>    : 그 화면의 값 + 요소 층(사람이 후보에서 가변·제외로 내린 것)
 POST /policy/set                     : scope·target·rule·(key)·value·actor  → 쌓기(값 비우면 그 층 예외 거둠)
 """
+import gnb as gnb_bar
 import json
 from html import escape as _e
 from urllib.parse import parse_qs
@@ -41,7 +42,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 def _shell(title, body, back=('/', '← 목록')):
     return (f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{_e(title)}</title>{s1_tokens.링크()}<style>{CSS}</style></head><body><div class="wrap">'
+            f'<title>{_e(title)}</title>{s1_tokens.링크()}<style>{CSS}</style></head><body>{gnb_bar.바("policy")}<div class="wrap">'
             f'<a class="back" href="{_e(back[0])}">{_e(back[1])}</a>{body}</div></body></html>')
 
 

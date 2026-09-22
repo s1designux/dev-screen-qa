@@ -1,4 +1,5 @@
 """Server-rendered intake screens: browser holds no authoritative state."""
+import gnb as gnb_bar
 import html
 import json
 from urllib.parse import quote
@@ -18,7 +19,7 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 
 def page(title,body,notice='',error=False):
     banner=f'<div class="notice {"error" if error else ""}" role="status">{e(notice)}</div>' if notice else ''
-    return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} · 검수 포털</title>{s1_tokens.링크()}<style>{CSS}</style></head><body><header><strong>검수 포털</strong><nav><a href="/">화면 목록</a><a href="/intake">가져온 기록</a><a href="/intake/new">촬영본 가져오기</a></nav></header><main>{banner}{body}</main></body></html>'''
+    return f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} · 검수 포털</title>{s1_tokens.링크()}<style>{CSS}</style></head><body>{gnb_bar.바("intake")}<header><strong>{e(title)}</strong><nav><a href="/intake/new">촬영본 가져오기</a></nav></header><main>{banner}{body}</main></body></html>'''
 
 
 def hidden(name,value):

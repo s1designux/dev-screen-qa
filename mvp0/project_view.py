@@ -24,6 +24,8 @@ import json
 from urllib.parse import quote
 
 import fixdoc_http
+import gnb as gnb_bar
+import project_form
 import queries
 from constants import UNRESOLVED_STATUSES
 
@@ -73,12 +75,14 @@ def 최근작성(conn, screen_ids):
     return (값 or "").replace("T", " ")[:10]
 
 
-def 과제번호(conn, project_uuid):
-    """화면 사람키 앞머리(서비스 코드)를 과제 번호 자리에 쓴다.
+def 과제번호(conn, project_uuid, 적힌번호=None):
+    """과제 카드에 적는 번호.
 
-    project 표에는 아직 번호 칸이 없다 — 사람키 규칙 {SERVICE}-{PLATFORM}-{NNN} (7번)의
-    앞머리를 모아 보인다. 과제마다 손으로 적는 번호가 필요하면 그때 칸을 만든다.
+    과제를 만들 때 사람이 적은 번호가 있으면 그것을 쓴다(river 확정 2026-09-22).
+    없으면 예전처럼 화면 사람키의 앞머리({SERVICE}-{PLATFORM}-{NNN} 의 SERVICE, 7번)를 모아 보인다.
     """
+    if (적힌번호 or "").strip():
+        return 적힌번호.strip()
     앞 = []
     for r in conn.execute("SELECT human_key FROM screen WHERE project_id=?", (project_uuid,)):
         코드 = (r["human_key"] or "").split("-")[0]
@@ -206,6 +210,23 @@ CSS = """
   .pj .head .st { margin-left:auto; }   /* 카드에서는 오른쪽 위에 붙는다 */
   .pj .foot { margin-top:auto; display:flex; justify-content:flex-end; position:relative; z-index:1; }
 
+  /* '과제 만들기' 카드 — 다른 카드와 같은 그릇에 가운데 정렬만 다르다.
+     DESIGN_SYSTEM_GAP: 가이드에 '새로 만들기 카드' 부품이 없다. 값은 전부 토큰이다. */
+  .pj.new { align-items:center; justify-content:center; border-style:dashed;
+    background:var(--color-bg-level-1); min-height:var(--sizing-128); }
+  .pj.new .go { display:flex; flex-direction:column; align-items:center;
+    gap:var(--spacing-10); color:var(--color-text-body-tertiary); }
+  .pj.new:hover .go { color:var(--color-action-primary-default); }
+  .pj.new .nm { font-size:var(--font-size-14); font-weight:var(--font-weight-medium); }
+  /* 더하기 표 — 가로선·세로선 둘로 그린다(아이콘 목록에 '더하기'가 없다). */
+  .pj.new .plus { position:relative; width:var(--sizing-24); height:var(--sizing-24); }
+  .pj.new .plus::before, .pj.new .plus::after { content:""; position:absolute;
+    background:currentColor; border-radius:var(--radius-full); }
+  .pj.new .plus::before { left:0; right:0; top:50%; height:var(--border-width-2);
+    transform:translateY(-50%); }
+  .pj.new .plus::after { top:0; bottom:0; left:50%; width:var(--border-width-2);
+    transform:translateX(-50%); }
+
   /* 상태 한 마디 — 글자와 점만. 색은 역할 토큰에서 온다. */
   .st { display:inline-flex; align-items:center; gap:var(--spacing-6); flex:none;
     font-size:var(--font-size-12); font-weight:var(--font-weight-medium);
@@ -268,13 +289,13 @@ CSS = """
 """
 
 
-def _문서(제목, 머리, 속, 토큰CSS):
+def _문서(제목, 머리, 속, 토큰CSS, 꼬리=""):
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(제목)}</title>
-{토큰CSS}<style>{CSS}{fixdoc_http.CSS}</style></head>
-<body data-s1-break="pc">{머리}{속}</body></html>"""
+{토큰CSS}<style>{CSS}{fixdoc_http.CSS}{project_form.CSS}</style></head>
+<body data-s1-break="pc">{gnb_bar.바("project")}{머리}{속}{꼬리}</body></html>"""
 
 
 # ────────────────────────────────────────────────────── 첫 화면 = 과제 카드
@@ -284,14 +305,17 @@ def _문서(제목, 머리, 속, 토큰CSS):
 
 
 def render_home(conn, 고른묶음, 토큰CSS):
+    project_form.표채우기(conn)
     과제 = []
-    for p in conn.execute("SELECT uuid, name FROM project ORDER BY name"):
+    for p in conn.execute(
+            "SELECT uuid, name, code, owner FROM project ORDER BY name"):
         sids = [r["uuid"] for r in conn.execute(
             "SELECT uuid FROM screen WHERE project_id=?", (p["uuid"],))]
         말, 갈래 = 상태(conn, sids)
         과제.append({"uuid": p["uuid"], "name": p["name"], "말": 말, "갈래": 갈래,
-                   "묶음": 묶음[갈래], "번호": 과제번호(conn, p["uuid"]),
-                   "날": 최근작성(conn, sids), "이력": 차수이력(conn, sids)})
+                   "묶음": 묶음[갈래], "번호": 과제번호(conn, p["uuid"], p["code"]),
+                   "담당": p["owner"] or "", "날": 최근작성(conn, sids),
+                   "이력": 차수이력(conn, sids)})
 
     센것 = {이름: sum(1 for x in 과제 if x["묶음"] == 이름) for 이름 in 칩차례[1:]}
     센것["전체"] = len(과제)
@@ -306,9 +330,16 @@ def render_home(conn, 고른묶음, 토큰CSS):
                f'<span data-s1-part="label">{_esc(이름)} {센것[이름]}</span></button>')
 
     보일것 = [x for x in 과제 if 고른묶음 == "전체" or x["묶음"] == 고른묶음]
-    칸 = ""
+    칸 = """
+        <div class="pj new">
+          <a class="go" href="/project/new">
+            <span class="plus" aria-hidden="true"></span>
+            <span class="nm">과제 만들기</span>
+          </a>
+        </div>"""
     for x in 보일것:
         줄 = f'<div class="row"><dt>과제번호</dt><dd>{_esc(x["번호"]) or "—"}</dd></div>'
+        줄 += f'<div class="row"><dt>담당자</dt><dd>{_esc(x["담당"]) or "—"}</dd></div>'
         줄 += f'<div class="row"><dt>최근 작성</dt><dd>{_esc(x["날"]) or "—"}</dd></div>'
         for 차, 값 in x["이력"]:
             줄 += f'<div class="row"><dt>{_esc(차)}</dt><dd>{_esc(값)}</dd></div>'
@@ -327,12 +358,8 @@ def render_home(conn, 고른묶음, 토큰CSS):
               <span data-s1-part="label">검수결과서</span></button>
           </span>
         </div>"""
-    if not 칸:
-        칸 = '<p class="empty">이 묶음에 과제가 없습니다.</p>'
-    머리 = """<header><h1>검수 포털</h1>
-      <span class="sub">과제를 고르면 검수 화면을 볼 수 있습니다.</span></header>"""
     속 = f'<div class="wrap"><div class="filters">{칩}</div><div class="cards">{칸}</div></div>'
-    return _문서("검수 포털", 머리, 속, 토큰CSS)
+    return _문서("검수 포털", "", 속, 토큰CSS)
 
 
 # ────────────────────────────────────────────────────── 과제 안
@@ -375,8 +402,24 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
       <span class="st {갈래}">{_esc(말)}</span>
       <span class="right">{표로}
         <button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"
+          onclick="location.href='/project/{_esc(project_uuid)}/edit'">
+          <span data-s1-part="label">과제 고치기</span></button>
+        <button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"
           onclick="window.open('/result/{_esc(project_uuid)}?scope=all','_blank')">
           <span data-s1-part="label">검수결과서</span></button></span>
     </header>"""
     속 = f'<div class="wrap"><div class="split"><nav class="lnb">{lnb}</nav><div class="body">{본문}</div></div></div>'
     return _문서(f"{p['name']} — 검수 화면", 머리, 속, 토큰CSS)
+
+
+# ────────────────────────────────────────────────────── 과제 만들기 · 고치기
+def render_project_form(conn, 토큰CSS, project_uuid=None, 알림="", 적은것=None):
+    """과제 한 개를 만들거나 고치는 화면. 없는 과제면 None."""
+    과제 = None
+    if project_uuid:
+        과제 = project_form.읽기(conn, project_uuid)
+        if 과제 is None:
+            return None
+    머리, 속, 꼬리 = project_form.그리기(conn, 토큰CSS, 과제, 알림, 적은것)
+    제목 = "과제 고치기" if 과제 is not None else "과제 만들기"
+    return _문서(제목, 머리, 속, 토큰CSS, 꼬리)

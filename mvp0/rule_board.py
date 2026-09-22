@@ -12,6 +12,7 @@ GET /policy/쓰는규칙
  2. 사람이 정해 지금 쓰는 규칙 — 쉬운 말 한 줄 + **그 규칙이 죽으면 채점에 걸리나**.
  3. 검수기가 화면마다 읽는 규칙표(제외·가변·그림·촬영본) — 검수기 파일에서 그대로 읽어 온다.
 """
+import gnb as gnb_bar
 import hashlib
 import json
 import re
@@ -241,7 +242,7 @@ def page() -> str:
     return (f'<!doctype html><html lang="ko"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>지금 쓰는 검수 규칙</title>{s1_tokens.링크()}'
-            f'<style>{policy_ui.CSS}</style></head><body><div class="wrap">'
+            f'<style>{policy_ui.CSS}</style></head><body>{gnb_bar.바("policy")}<div class="wrap">'
             f'<a class="back" href="/policy">← 검수 규칙</a>{몸}</div></body></html>')
 
 

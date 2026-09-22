@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <svg data-s1-part="glyph" x="0" y="0" width="24" height="24" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+    <circle cx="12" cy="12" r="8.5" stroke="black" stroke-width="1"/>
+    <path d="M12 7.25V12.2L9.5 15" stroke="black" stroke-width="1" stroke-linecap="round"/>
+  </svg>
+</svg>

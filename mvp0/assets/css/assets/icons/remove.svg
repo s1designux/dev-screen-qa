@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <svg data-s1-part="glyph" x="4" y="4" width="16" height="16" viewBox="0 0 16 16" preserveAspectRatio="xMidYMid meet">
+    <path d="M16 8C16 3.58588 12.4141 0 8 0C3.58588 0 0 3.58588 0 8C0 12.4141 3.58588 16 8 16C12.4141 16 16 12.4141 16 8ZM8 15.0588C4.10353 15.0588 0.941176 11.8965 0.941176 8C0.941176 4.10353 4.10353 0.941176 8 0.941176C11.8965 0.941176 15.0588 4.10353 15.0588 8C15.0588 11.8965 11.8965 15.0588 8 15.0588Z" fill="black"/>
+    <path d="M5.5 5.5L10.8333 10.8333" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M10.8333 5.5L5.5 10.8333" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+</svg>

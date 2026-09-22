@@ -25,6 +25,8 @@ import 자 as 자모듈                                   # 좌표를 바꾸는 
 import auto_inspect
 import design_receive
 import policy_ui
+import gnb as gnb_bar
+import project_form
 import project_view
 import policy_api
 import rule_board
@@ -408,6 +410,7 @@ def render_list(unresolved_only: bool, round_filter):
 <title>검수 포털 — 화면 목록</title>
 {_토큰CSS}<style>{_LIST_CSS}</style></head>
 <body>
+  {gnb_bar.바("project")}
   <header>
     <h1>검수 포털 <span class="muted" style="font-weight:var(--font-weight-regular);font-size:var(--font-size-14);">· 화면 목록</span></h1>
     <div class="sub">화면을 선택하면 검수 페이지를 볼 수 있습니다.</div>
@@ -569,6 +572,7 @@ def render_screen(human_key: str, notice=""):
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
 {_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}{page_group.CSS}</style></head>
 <body>
+  {gnb_bar.바("project")}
   <header class="row">
     <a class="s1-btn back" href="/">전체목록 보기</a>
     <h1>{_esc(s['name'])}</h1>
@@ -991,6 +995,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <title>{_esc(page['name'])} — 페이지 상세</title>
 {_토큰CSS}<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{card_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
 <body class="{'app-view' if native_app else 'web-view'}">
+  {gnb_bar.바("project")}
   <header>
     <div class="head-left">
       <a class="s1-btn back" href="{_esc(parent_href)}">그룹목록 보기</a>
@@ -1070,6 +1075,15 @@ class Handler(BaseHTTPRequestHandler):
             # 옛 표 목록 — 과제를 가로질러 한눈에 볼 때만 쓴다(첫 화면은 과제 카드다)
             round_filter = int(q["round"][0]) if "round" in q else None
             self._html(render_list(unresolved_only, round_filter))
+        elif path == "/project/new" or (
+                path.startswith("/project/") and path.endswith("/edit")):
+            pid = None if path == "/project/new" else path[len("/project/"):-len("/edit")]
+            conn = dbmod.connect(REAL_DB)
+            try:
+                쪽 = project_view.render_project_form(conn, _부품CSS, pid)
+            finally:
+                conn.close()
+            self._html(쪽 if 쪽 else self._nf("과제 없음"), 200 if 쪽 else 404)
         elif path.startswith("/project/"):
             conn = dbmod.connect(REAL_DB)
             try:
@@ -1114,6 +1128,14 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+        elif path.endswith(".svg") and "/assets/icons/" in path:
+            # 부품 CSS 가 mask:url("./assets/icons/…") 로 부르는 아이콘 — CSS 자리 기준이라
+            # 실제로 오는 주소는 /assets/css/assets/icons/… 다. `부품받기.sh` 가 받아 둔 것.
+            fp = BASE / "assets" / "css" / "assets" / "icons" / Path(path).name
+            self._정적(fp, "image/svg+xml")
+        elif path.startswith("/assets/js/") and path.endswith(".js"):
+            fp = BASE / "assets" / "js" / Path(path).name
+            self._정적(fp, "application/javascript; charset=utf-8")
         elif path.startswith("/uploads/"):
             fp = UPLOADS / Path(path[len("/uploads/"):]).name   # basename만 → 경로 탈출 방지
             if fp.exists() and fp.suffix == ".png":
@@ -1168,6 +1190,30 @@ class Handler(BaseHTTPRequestHandler):
         if policy_ui.post(self, intake(), path):
             return
         length = int(self.headers.get("Content-Length", 0))
+        if path == "/project/new" or (
+                path.startswith("/project/") and path.endswith("/edit")):
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            만들기 = path == "/project/new"
+            pid = None if 만들기 else path[len("/project/"):-len("/edit")]
+            conn = dbmod.connect(REAL_DB)
+            try:
+                if 만들기:
+                    pid, 막힌까닭 = project_form.만들기(conn, form)
+                else:
+                    됐나, 막힌까닭 = project_form.고치기(conn, pid, form)
+                if 막힌까닭:
+                    # 적은 것을 그대로 돌려주어 다시 치지 않게 한다
+                    쪽 = project_view.render_project_form(
+                        conn, _부품CSS, None if 만들기 else pid, 막힌까닭,
+                        {이름: (값[0] if 값 else "") for 이름, 값 in form.items()})
+                    self._html(쪽 if 쪽 else self._nf("과제 없음"), 200 if 쪽 else 404)
+                    return
+            finally:
+                conn.close()
+            self.send_response(303)
+            self.send_header("Location", f"/project/{pid}")
+            self.end_headers()
+            return
         if path.startswith("/screen/") and path.endswith("/pages/move"):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             key = unquote(path[len("/screen/"):-len("/pages/move")])
@@ -1366,6 +1412,19 @@ class Handler(BaseHTTPRequestHandler):
     @staticmethod
     def _nf(msg):
         return f"<p style='font-family:sans-serif;padding:var(--spacing-40)'>{_esc(msg)} <a href='/'>← 목록</a></p>"
+
+    def _정적(self, fp, 종류):
+        """파일 한 장 그대로 내보내기. 없으면 404."""
+        if not fp.exists():
+            self.send_response(404)
+            self.end_headers()
+            return
+        data = fp.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", 종류)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _html(self, body, code=200):
         body = intake_http.decorate(body)
