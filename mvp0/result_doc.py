@@ -215,6 +215,19 @@ def 간지(화면, 쪽수, 지적수):
             f'<p class="sub">{_e(화면["platform"])} · 검수 페이지 {쪽수}장 · 수정필요 {지적수}건</p></section>')
 
 
+def 상하배치(화면, vb_w):
+    """PC 웹처럼 가로가 넓은 화면은 시안·개발을 **위아래로** 쌓는다.
+
+    좌우로 나누면 한 장에 그림이 두 번 들어가 폭이 절반이 되고, 넓은 화면일수록
+    글씨가 뭉개져 안 보인다. 앱(안드로이드·iOS)과 모바일 웹은 세로로 길어
+    위아래로 쌓으면 오히려 더 작아지므로 좌우를 그대로 둔다(river 2026-09-22).
+    """
+    플랫 = (화면['platform'] or '').strip().lower()
+    if 플랫 in ('android', 'ios'):
+        return False
+    return (vb_w or 0) >= 1280        # 모바일 웹은 폭이 이보다 좁다
+
+
 def 한장들(자료):
     """한 장에 다 안 들어가면 같은 그림을 다시 얹고 다음 줄부터 이어 붙인다."""
     지적 = 자료['지적']
@@ -237,6 +250,7 @@ def 한장(자료, 조각, 순번=0, 전체=1):
     줄 = ''.join(지적줄(항) for 항 in 조각)
     목록 = f'<ol class="issues">{줄}</ol>' if 줄 else '<p class="none">수정필요 없음</p>'
     이어 = f' <span class="cont">({순번 + 1}/{전체})</span>' if 전체 > 1 else ''
+    쌓기 = ' stack' if 상하배치(화면, 자료['vb_w']) else ''
     return (f'<section class="sheet page">'
             f'<header class="head"><h3>{_e(쪽["name"])}{이어}</h3>'
             f'<p class="crumb">{_e(화면["name"])}</p>'
@@ -244,7 +258,7 @@ def 한장(자료, 조각, 순번=0, 전체=1):
             f'<dt>검수일</dt><dd>{_e(자료["검수일"])}</dd>'
             f'<dt>차수</dt><dd>{차수}</dd>'
             f'<dt>Pass/Fail</dt><dd>{판정칸}</dd></dl></header>'
-            f'<div class="body"><figure class="shot"><figcaption>시안</figcaption><div class="frame">{왼쪽}</div></figure>'
+            f'<div class="body{쌓기}"><figure class="shot"><figcaption>시안</figcaption><div class="frame">{왼쪽}</div></figure>'
             f'<figure class="shot"><figcaption>개발 화면</figcaption><div class="frame">{가운데}</div></figure>'
             f'<div class="list"><h4>수정필요 {len(자료["지적"])}건</h4>{목록}</div></div></section>')
 
@@ -355,6 +369,12 @@ body{margin:0;background:var(--color-bg-subtle);color:var(--color-text-primary);
 .frame{position:relative;align-self:flex-start;display:inline-flex;max-width:100%;
  background:var(--color-bg-default);border:var(--border-width-1) solid var(--color-border-subtle)}
 .frame img{display:block;width:auto;max-width:100%;max-height:150mm}
+/* PC 웹은 시안·개발을 위아래로 쌓는다 — 그림 하나가 쓸 수 있는 폭이 두 배 가까이 넓어진다.
+   오른쪽 수정필요 목록은 두 줄을 가로질러 그대로 선다. */
+.body.stack{grid-template-columns:1fr 78mm;grid-template-rows:1fr 1fr}
+.body.stack .shot{grid-column:1}
+.body.stack .list{grid-column:2;grid-row:1/3}
+.body.stack .frame img{max-height:74mm}
 .frame .ov{position:absolute;inset:0;width:100%;height:100%}
 .frame .ph{padding:var(--spacing-16);font-size:var(--font-size-12);color:var(--color-text-caption)}
 
