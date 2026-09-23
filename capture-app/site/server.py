@@ -19,7 +19,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, unquote, quote
+from urllib.parse import urlparse, parse_qs, unquote, quote, urlencode
 
 여기 = Path(__file__).resolve().parent
 뿌리 = 여기.parent
@@ -541,6 +541,15 @@ _그림_복사 = _틀 + \
 # s1-제외 끝
 
 
+# 포털에서 달고 온 과제 이름 — 지금 어느 과제를 찍는 중인지 늘 보이게 한다.
+CSS += """
+.과제띠{display:inline-flex;align-items:center;margin-left:var(--spacing-10);
+  padding:var(--spacing-4) var(--spacing-10);border-radius:var(--radius-full);
+  background:var(--color-action-primary-subtle);color:var(--color-action-primary-pressed);
+  font-size:var(--font-size-12);font-weight:var(--font-weight-medium);vertical-align:middle}
+"""
+
+
 def _그림(번호, 기본):
     """site/그림/<번호>.png 가 있으면 그 사진을, 없으면 그린 그림을 보여 준다."""
     if (여기 / "그림" / f"{번호}.png").exists():
@@ -603,6 +612,9 @@ def _알림띠(알림):
 
 def 껍데기(지금, 본문, 부제="", 알림=""):
     작업 = 작업읽기()
+    # 포털에서 과제를 달고 들어왔으면 어느 과제를 찍는 중인지 늘 보인다.
+    과제띠 = (f'<span class="과제띠">{_e(작업.get("앱이름"))}</span>'
+           if 작업.get("과제uuid") else "")
     칩 = ""
     for 길, 이름 in 걸음:
         # 지금 걸음만 고른 것으로 보인다. 지나온 걸음도 '고르지 않은 것'이다(S-1 Chip 상태: default/selected).
@@ -612,7 +624,7 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head><body>
-<header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span></h1>
+<header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span>{과제띠}</h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
 <div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
@@ -679,6 +691,27 @@ def _동작사양칸(고른것, 유형=None):
       </script>
       </div>
     </details>"""
+
+
+def 화면_과제받기(과제, 이름, 코드):
+    """포털에서 '촬영하기'로 들어왔는데, 다른 과제 준비가 이미 있을 때 물어본다.
+
+    말없이 덮지 않는다 — 준비하던 것이 사라지면 사람이 처음부터 다시 해야 한다.
+    """
+    작업 = 작업읽기()
+    값 = urlencode({"과제": 과제, "이름": 이름, "코드": 코드, "덮기": "1"})
+    본문 = f"""
+    <div class="card">
+      <h2>준비하던 촬영이 있습니다</h2>
+      <p class="hint" style="margin-top:0">
+        <b>{_e(작업.get("앱이름") or "이름 없는 과제")}</b> 를 준비하던 중입니다.
+        <b>{_e(이름)}</b> 로 새로 시작하면 준비하던 것은 사라집니다.</p>
+      <div class="bar">
+        <a class="btn" href="/">준비하던 것 이어서 하기</a>
+        <a class="go" href="/과제시작?{값}">새로 시작</a>
+      </div>
+    </div>"""
+    return 껍데기("/", 본문, 부제=f"{이름} 를 찍으러 왔습니다")
 
 
 def 화면_디자인(오류=""):
@@ -1995,6 +2028,29 @@ class 손님(BaseHTTPRequestHandler):
                 작업쓰기(작업)
                 return self._이동("/")
             return self._html(화면_디자인(q.get("오류", [""])[0]))
+        if 길 == "/과제시작":
+            # 포털 '촬영하기'에서 과제를 달고 들어오는 문. 이 과제 아래로 접수된다.
+            과제 = q.get("과제", [""])[0]
+            이름 = q.get("이름", [""])[0]
+            코드 = q.get("코드", [""])[0]
+            if not 과제:
+                return self._이동("/")
+            작업 = 작업읽기()
+            같은과제 = 작업.get("과제uuid") == 과제
+            준비중 = any(작업.get(k) for k in ("고른화면", "초안", "결과폴더"))
+            # 과제를 달기 전에 준비해 둔 것(과제uuid 가 없는 옛 작업)도 준비하던 것이다 — 말없이 덮지 않는다.
+            if 준비중 and not 같은과제 and q.get("덮기", [""])[0] != "1":
+                return self._html(화면_과제받기(과제, 이름, 코드))
+            if not 같은과제:
+                # 다른 과제로 넘어가면 준비하던 것은 두고 가지 않는다(섞이면 엉뚱한 화면을 찍는다).
+                작업 = {}
+            작업["과제uuid"] = 과제
+            if 이름:
+                작업["앱이름"] = 이름
+            if 코드:
+                작업["서비스코드"] = 코드
+            작업쓰기(작업)
+            return self._이동("/")
         if 길 == "/초안":
             return self._html(화면_초안())
         if 길 == "/메뉴훑기/상태":

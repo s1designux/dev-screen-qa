@@ -18,7 +18,7 @@ from datetime import date
 
 import queries
 
-칸들 = ("code", "service_code", "owner", "created_at")
+더할칸 = ("code", "service_code", "owner", "created_at")
 
 
 def _esc(v):
@@ -28,7 +28,7 @@ def _esc(v):
 def 표채우기(conn):
     """`project` 에 빠진 칸만 더한다. 있는 자료는 그대로 둔다."""
     있는것 = {r["name"] for r in conn.execute("PRAGMA table_info(project)")}
-    for 칸 in 칸들:
+    for 칸 in 더할칸:
         if 칸 not in 있는것:
             conn.execute(f"ALTER TABLE project ADD COLUMN {칸} TEXT")
     conn.commit()
@@ -51,27 +51,35 @@ CSS = """
     border-radius:var(--radius-12); padding:var(--spacing-28);
     display:flex; flex-direction:column; gap:var(--spacing-20); }
   .sheet .hint { margin:0; font-size:var(--font-size-12); color:var(--color-text-state-helper); }
-  .sheet [data-s1-component="select"] { width:100%; }
+  /* DESIGN_SYSTEM_GAP: 고르는 부품(Select)에는 이름표 자리가 없다 — 이름표를 얹으면 붙을 간격도 없다.
+     입력 부품이 쓰는 6px 을 그대로 맞춰 둔다(river 확정 2026-09-23 — 가이드에 패턴이 서면 다시 정한다). */
+  .sheet [data-s1-component="select"],
+  .modal-fields [data-s1-component="select"] { width:100%; gap:var(--spacing-6); }
   .acts { display:flex; justify-content:flex-end; gap:var(--spacing-8);
     padding-top:var(--spacing-4); }
+  /* 모달 안에서는 폼이 패널의 3층(머리·본문·푸터) 자리를 그대로 이어받는다. */
+  .modal-form { display:flex; flex-direction:column; gap:var(--spacing-32);
+    flex:1 1 auto; min-height:0; margin:0; }
+  .modal-fields { display:flex; flex-direction:column; gap:var(--spacing-20); }
   .warn { margin:0; padding:var(--spacing-12) var(--spacing-16);
     border-radius:var(--radius-8); background:var(--color-red-50);
     color:var(--color-status-error); font-size:var(--font-size-12); }
 """
 
 
-def _입력(이름, 라벨, 값="", 안내="", 자리글="", 필수=False):
+def _입력(이름, 라벨, 값="", 안내="", 자리글="", 필수=False, 칸id=None):
     필 = ' required' if 필수 else ''
+    칸id = 칸id or 이름
     도움 = f'<p data-s1-part="message">{_esc(안내)}</p>' if 안내 else ''
     return (f'<div data-s1-component="input" data-size="xsm" data-break="pc">'
-            f'<label data-s1-part="label" for="{이름}">{_esc(라벨)}</label>'
+            f'<label data-s1-part="label" for="{칸id}">{_esc(라벨)}</label>'
             f'<span data-s1-part="field">'
-            f'<input data-s1-part="control" type="text" id="{이름}" name="{이름}"'
+            f'<input data-s1-part="control" type="text" id="{칸id}" name="{이름}"'
             f' value="{_esc(값)}" placeholder="{_esc(자리글)}"{필}></span>'
             f'{도움}</div>')
 
 
-def _담당자(사람들, 고른값):
+def _담당자(사람들, 고른값, 앞머리="owner"):
     """명단에서 고르거나 직접 적는다. 고른 값은 숨은 칸에 담겨 폼과 함께 간다."""
     보기 = [(p["name"], p["name"]) for p in 사람들]
     직접 = 고른값 and 고른값 not in [x for x, _ in 보기]
@@ -93,20 +101,20 @@ def _담당자(사람들, 고른값):
     return (
         '<div>'
         '<div data-s1-component="select" data-size="xsm" data-break="pc">'
-        '<label data-s1-part="label" for="owner-trigger">담당자</label>'
-        f'<button type="button" data-s1-part="trigger" id="owner-trigger"'
+        f'<label data-s1-part="label" for="{앞머리}-trigger">담당자</label>'
+        f'<button type="button" data-s1-part="trigger" id="{앞머리}-trigger"'
         f' aria-haspopup="listbox" aria-expanded="false" data-filled="{찼나}">'
         f'<span data-s1-part="value">{_esc(글)}</span>'
         '<span data-s1-part="icon" aria-hidden="true"></span></button>'
         '<div data-s1-part="panel" hidden>'
         '<div data-s1-component="dropdown" data-type="text" data-size="xsm" role="listbox"'
-        ' aria-labelledby="owner-trigger">'
+        f' aria-labelledby="{앞머리}-trigger">'
         f'{줄}</div></div>'
         f'<input type="hidden" name="owner" value="{_esc(지금)}">'
         '</div>'
-        f'<div id="owner-new-row"{숨김} style="margin-top:var(--spacing-12)">'
+        f'<div class="owner-new-row"{숨김} style="margin-top:var(--spacing-12)">'
         + _입력("owner_new", "담당자 이름", 고른값 if 직접 else "",
-                자리글="예) 배가람")
+                자리글="예) 배가람", 칸id=f"{앞머리}-new")
         + '</div></div>')
 
 
@@ -119,16 +127,67 @@ def _단추(이름, 갈래="primary", 종류="submit", 동작=""):
 
 JS = """
 (function(){
-  var 숨은칸 = document.querySelector('input[type=hidden][name=owner]');
-  var 줄 = document.getElementById('owner-new-row');
-  if(!숨은칸 || !줄) return;
-  숨은칸.addEventListener('change', function(){
-    var 직접 = 숨은칸.value === '__new__';
-    줄.hidden = !직접;
-    if(직접){ var i = 줄.querySelector('input'); if(i) i.focus(); }
+  // 담당자 칸은 한 화면에 여럿일 수 있다(페이지 한 장 + 모달). 각자 자기 상자 안에서만 찾는다.
+  document.querySelectorAll('input[type=hidden][name=owner]').forEach(function(숨은칸){
+    var 상자 = 숨은칸.closest('form') || document;
+    var 줄 = 상자.querySelector('.owner-new-row');
+    if(!줄) return;
+    숨은칸.addEventListener('change', function(){
+      var 직접 = 숨은칸.value === '__new__';
+      줄.hidden = !직접;
+      if(직접){ var i = 줄.querySelector('input'); if(i) i.focus(); }
+    });
   });
 })();
 """
+
+
+def 칸들(사람들, 값, 앞머리="owner"):
+    """과제에 적는 칸 넷. 페이지 한 장과 모달이 같은 것을 쓴다."""
+    return (
+        _입력("name", "과제 이름", 값.get("name", ""),
+              자리글="예) 삼성 통근버스 운영 시스템", 필수=True,
+              칸id=f"{앞머리}-name")
+        + _입력("code", "과제 번호", 값.get("code", ""),
+                안내="비워 두면 '—' 로 남습니다.", 자리글="예) 2026-041",
+                칸id=f"{앞머리}-code")
+        + _입력("service_code", "화면 코드", 값.get("service_code", ""),
+                안내="화면 이름 앞에 붙습니다. TB-WEB-012 의 TB 자리입니다.",
+                자리글="예) TB", 칸id=f"{앞머리}-svc")
+        + _담당자(사람들, 값.get("owner", ""), 앞머리))
+
+
+def 모달(conn, 모달id="과제만들기"):
+    """첫 화면에서 '과제 만들기' 카드를 누르면 뜨는 모달 (river 지시 2026-09-23).
+
+    S-1 Modal Content(크기 MD · 푸터 둘)를 그대로 쓴다 — 확인 계열 Modal 은 글만 담는 그릇이라
+    칸이 들어가는 자리는 이쪽이다(가이드 §4 Modal Content).
+    보내는 곳은 페이지 한 장과 같다 — 막히면 그 페이지에서 까닭과 함께 다시 보인다.
+    """
+    사람들 = queries.list_persons(conn, active_only=True)
+    제목id = f"{모달id}-제목"
+    return f'''
+    <div id="{모달id}" data-s1-component="modal-content" data-size="md" hidden>
+      <div data-s1-part="overlay"></div>
+      <div data-s1-part="panel" role="dialog" aria-modal="true" aria-labelledby="{제목id}">
+        <form method="post" action="/project/new" class="modal-form">
+          <div data-s1-part="header">
+            <h2 data-s1-part="title" id="{제목id}">과제 만들기</h2>
+            <button type="button" data-s1-part="close" aria-label="닫기"></button>
+          </div>
+          <div data-s1-part="content-area">
+            <div class="modal-fields">{칸들(사람들, {}, "m")}</div>
+          </div>
+          <div data-s1-part="footer">
+            {_단추("취소", "secondary", "button", f"document.getElementById('{모달id}').s1Modal.close()")}
+            {_단추("만들기")}
+          </div>
+        </form>
+      </div>
+    </div>
+    <script src="/assets/js/s1-select.js"></script>
+    <script src="/assets/js/s1-modal.js"></script>
+    <script>{JS}</script>'''
 
 
 def 그리기(conn, 토큰CSS, 과제=None, 알림="", 적은것=None):
@@ -147,14 +206,7 @@ def 그리기(conn, 토큰CSS, 과제=None, 알림="", 적은것=None):
     경고 = f'<p class="warn">{_esc(알림)}</p>' if 알림 else ''
     속 = f"""<div class="form-wrap"><form class="sheet" method="post" action="{보낼곳}">
       {경고}
-      {_입력("name", "과제 이름", 값.get("name", ""),
-             자리글="예) 삼성 통근버스 운영 시스템", 필수=True)}
-      {_입력("code", "과제 번호", 값.get("code", ""),
-             안내="비워 두면 '—' 로 남습니다.", 자리글="예) 2026-041")}
-      {_입력("service_code", "화면 코드", 값.get("service_code", ""),
-             안내="화면 이름 앞에 붙습니다. TB-WEB-012 의 TB 자리입니다.",
-             자리글="예) TB")}
-      {_담당자(사람들, 값.get("owner", ""))}
+      {칸들(사람들, 값)}
       <div class="acts">
         {_단추("취소", "secondary", "button", f"location.href='{돌아갈곳}'")}
         {_단추("고치기" if 고침 else "만들기")}

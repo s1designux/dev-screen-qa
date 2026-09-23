@@ -332,7 +332,7 @@ def render_home(conn, 고른묶음, 토큰CSS):
     보일것 = [x for x in 과제 if 고른묶음 == "전체" or x["묶음"] == 고른묶음]
     칸 = """
         <div class="pj new">
-          <a class="go" href="/project/new">
+          <a class="go" href="/project/new" data-s1-modal-open="과제만들기">
             <span class="plus" aria-hidden="true"></span>
             <span class="nm">과제 만들기</span>
           </a>
@@ -359,12 +359,14 @@ def render_home(conn, 고른묶음, 토큰CSS):
           </span>
         </div>"""
     속 = f'<div class="wrap"><div class="filters">{칩}</div><div class="cards">{칸}</div></div>'
-    return _문서("검수 포털", "", 속, 토큰CSS)
+    return _문서("검수 포털", "", 속, 토큰CSS, project_form.모달(conn))
 
 
 # ────────────────────────────────────────────────────── 과제 안
 def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=None):
-    p = conn.execute("SELECT uuid, name FROM project WHERE uuid=?", (project_uuid,)).fetchone()
+    project_form.표채우기(conn)
+    p = conn.execute("SELECT uuid, name, service_code FROM project WHERE uuid=?",
+                     (project_uuid,)).fetchone()
     if not p:
         return None
     목록 = 화면들(conn, store, project_uuid)
@@ -401,6 +403,9 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
       <h1>{_esc(p['name'])}</h1>
       <span class="st {갈래}">{_esc(말)}</span>
       <span class="right">{표로}
+        <button type="button" data-s1-component="button" data-variant="primary" data-size="xsm"
+          onclick="window.open('{gnb_bar.촬영시작주소(project_uuid, p["name"], p["service_code"])}','_blank')">
+          <span data-s1-part="label">촬영하기</span></button>
         <button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"
           onclick="location.href='/project/{_esc(project_uuid)}/edit'">
           <span data-s1-part="label">과제 고치기</span></button>

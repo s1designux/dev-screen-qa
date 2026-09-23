@@ -12,6 +12,7 @@
 """
 import html
 import sys
+from urllib.parse import urlencode
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -24,6 +25,17 @@ def _e(v):
 
 def _촬영주소():
     return f"http://127.0.0.1:{설정.값('촬영준비.포트')}/"
+
+
+def 촬영시작주소(project_uuid, 이름, 화면코드=""):
+    """이 과제를 달고 촬영 준비로 간다.
+
+    과제를 달고 가야 접수할 때 그 과제 아래로 들어간다. 달지 않으면 촬영기가
+    적힌 이름으로 과제를 찾고 없으면 새로 만들어, 이름이 한 글자만 달라도 쪼개진다.
+    """
+    값 = urlencode({"과제": project_uuid, "이름": 이름 or "",
+                   "코드": 화면코드 or ""})
+    return f"{_촬영주소()}과제시작?{값}"
 
 
 #  (열쇠, 보이는 이름, 주소, 새 창으로 열까)

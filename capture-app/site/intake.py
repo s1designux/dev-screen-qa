@@ -176,8 +176,15 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
     conn.execute("PRAGMA foreign_keys = ON")
     지금 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # 포털에서 '촬영하기'로 들어왔으면 그 과제를 그대로 쓴다 (river 확정 2026-09-22).
+    # 이름으로 찾아 없으면 만들던 옛 길은 뒤로 물린다 — 이름이 한 글자만 달라도 과제가 쪼개졌다.
     프로젝트 = 목록.get("앱이름") or "이름없는 앱"
-    pid = _하나(conn, "SELECT uuid FROM project WHERE name=?", (프로젝트,))
+    pid = None
+    달고온것 = (작업.get("과제uuid") or "").strip()
+    if 달고온것:
+        pid = _하나(conn, "SELECT uuid FROM project WHERE uuid=?", (달고온것,))
+    if not pid:
+        pid = _하나(conn, "SELECT uuid FROM project WHERE name=?", (프로젝트,))
     if not pid:
         pid = uuidmod.uuid4().hex
         conn.execute("INSERT INTO project (uuid, name) VALUES (?,?)", (pid, 프로젝트))
