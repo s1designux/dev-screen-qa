@@ -363,8 +363,6 @@ CSS = """
 /* 로그인 화면 — 시안 `웹_로그인 화면`(SW-UX-GUIDE V3.0 · 2601:21357) 의 자리 그대로.
    생김새는 정본 부품(s1-ui.css)이 맡는다 — 여기 있는 것은 **놓는 자리**뿐이고 값은 전부 토큰이다. */
 body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:flex;flex-direction:column}
-/* 로고 글자는 정본 20 의 80% — river 지시 2026-09-28. 16 은 토큰에 있는 값이다. */
-.login [data-s1-component="gnb"] [data-s1-part="logo"]{font-size:var(--font-size-16)}
 /* CI 위 간격 123 — river 지시 2026-09-28. 토큰에 없는 값이라 그대로 적는다(시안은 120). */
 .login .판{flex:1;display:flex;align-items:flex-start;justify-content:center;
   padding:123px var(--spacing-16) var(--spacing-64)}
@@ -390,14 +388,14 @@ body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:
   color:var(--color-text-body-tertiary);text-align:center}
 /* 맨 아래 띠 — 시안 login_Footer(h120 · 위아래 여백 · 좌우 넓은 여백 · 윗줄 1px).
    정본에 Footer 부품 CSS 가 아직 없어 자리만 잡는다(DESIGN_SYSTEM_GAP). */
-/* 시안(1920)은 글과 마크를 양 끝 320 안쪽에 둔다 — 넓이를 타지 않게 가운데 1280 띠로 옮겼다.
-   좁은 창에서는 띠가 줄고 좌우 여백 24 가 남는다. */
-.login footer{display:flex;justify-content:center;
-  padding:var(--spacing-32) var(--spacing-24);
+/* 좌우 여백은 맨 위 줄과 같은 정본 값이다 — 왼 24 · 오른 20(registry gnb.json).
+   시안은 양 끝 320 안쪽이지만 그것은 그 화면의 자리 잡기이지 부품 규정이 아니다
+   (river 확정 2026-09-28 — 정본대로 간다). */
+.login footer{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--spacing-24);
+  padding:var(--spacing-32) var(--spacing-20) var(--spacing-32) var(--spacing-24);
   background:var(--color-navigation-bg);
   border-top:var(--border-width-default) solid var(--color-line-gray-subtle)}
-.login footer .속{display:flex;align-items:flex-start;justify-content:space-between;
-  gap:var(--spacing-24);width:1280px;max-width:100%}
 /* 글 크기·행간·자간은 가이드 타이포 body-10r 그대로다(10 · 140% · wide). */
 .login footer .글{display:flex;flex-direction:column;gap:var(--spacing-10);
   font-size:var(--font-size-10);color:var(--color-text-body-tertiary);
@@ -433,8 +431,9 @@ def _머리(제목, 몸클래스="", 덧CSS=""):
 def _로그인줄():
     """시안의 login_GNB — 왼쪽에 서비스 이름, 오른쪽에 쓰는 말.
     정본에 LoginGNB 부품 CSS 가 아직 없어 같은 치수(h56)인 GNB 부품을 쓴다."""
-    return ('<link rel=stylesheet href=\'/assets/css/s1-gnb.css\'>'
-            '<nav data-s1-component="gnb" data-size="md" aria-label="서비스">'
+    import gnb as gnb_bar
+    return ('<link rel=stylesheet href=\'/assets/css/s1-gnb.css\'>' + gnb_bar.바CSS
+            + '<nav data-s1-component="gnb" data-size="md" aria-label="서비스">'
             '<a data-s1-part="logo" href="/login">에스원 개발화면 검수 포털</a>'
             '<ul data-s1-part="menus"></ul>'
             '<span data-s1-part="util">'
@@ -452,7 +451,7 @@ def _씨아이():
 
 def _꼬리():
     """시안의 login_Footer 그대로 — 글줄도 마크도 시안에서 가져온 것이다."""
-    return ('<footer><span class="속"><span class="글">'
+    return ('<footer><span class="글">'
             '<span class="줄">개인정보 처리방침'
             '<span class="가름" aria-hidden="true"></span>'
             '위치기반 서비스 이용약관</span>'
@@ -461,7 +460,7 @@ def _꼬리():
             '<span>© S-1 Corp. All Rights Reserved.</span>'
             '</span>'
             '<img src="/assets/img/logo-s1-gray.svg" alt="에스원" width="42" height="16">'
-            '</span></footer>')
+            '</footer>')
 
 
 def _입력(이름, 라벨, 값="", 종류="text", 안내="", 자리글="", 라벨보이기=True):
