@@ -23,6 +23,7 @@ import card_view
 import comparison_view
 import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import auto_inspect
+import auth
 import design_receive
 import policy_ui
 import gnb as gnb_bar
@@ -60,6 +61,7 @@ if str(BASE.parent) not in _sys.path:
 import 설정 as 설정                                    # 이 컴퓨터에서만 쓰는 값 (설정.json → 환경변수 → 기본값)
 
 REAL_DB = 설정.자리("포털.자료함")   # 실제본만. 합성본 mvp0.db는 의도적으로 제외.
+auth.설정하기(REAL_DB)                 # 문지기도 같은 자료함을 본다
 UPLOADS = 설정.자리("포털.그림보관")      # 업로드된 PNG 로컬 저장 (경로만 DB, 파일은 .gitignore)
 PORT = 설정.값("포털.포트")
 # 기본은 이 컴퓨터에서만. 설정.json 의 포털.동료공유 를 true 로 하면 같은 네트워크의 동료도 들어올 수 있다.
@@ -801,7 +803,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     else:
         right_body = f'<span class="ph">{"디자인 시안과 같은 상태의 개발 화면을 등록해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
 
-    person_options = "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons)
+    # 이력에 남는 '누가'는 로그인한 사람이다 — 고르게 하지 않는다(auth.py).
+    person_options = auth.나의옵션()
 
     def issue_card(i):
         n = number[i["rid"]]
@@ -1042,6 +1045,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._local_host():
             self.send_error(403)
             return
+        if auth.문(self, "GET"):      # 로그인 문지기 — 로그인·계정 화면은 여기서 끝난다
+            return
         if path == "/__rev":
             data = BOOT_ID.encode()
             self.send_response(200)
@@ -1056,10 +1061,7 @@ class Handler(BaseHTTPRequestHandler):
         if rule_board.get(self, unquote(path)):
             return
         if path == '/policy' or path.startswith('/policy/'):
-            conn = dbmod.connect(REAL_DB)
-            persons = queries.list_persons(conn, active_only=True)
-            conn.close()
-            policy_ui.get(self, intake(), path, "".join(f'<option value="{_esc(p["name"])}">{_esc(p["name"])}</option>' for p in persons))
+            policy_ui.get(self, intake(), path, auth.나의옵션())
             return
         if path.startswith('/design'):
             design_plan_http.get(self, intake(), path)
@@ -1133,6 +1135,10 @@ class Handler(BaseHTTPRequestHandler):
             # 실제로 오는 주소는 /assets/css/assets/icons/… 다. `부품받기.sh` 가 받아 둔 것.
             fp = BASE / "assets" / "css" / "assets" / "icons" / Path(path).name
             self._정적(fp, "image/svg+xml")
+        elif path.startswith("/assets/img/") and path.endswith(".svg"):
+            # 시안에서 내려받아 둔 그림(로고 등). 파일 이름만 받아 경로 탈출을 막는다.
+            fp = BASE / "assets" / "img" / Path(path[len("/assets/img/"):]).name
+            self._정적(fp, "image/svg+xml")
         elif path.startswith("/assets/js/") and path.endswith(".js"):
             fp = BASE / "assets" / "js" / Path(path).name
             self._정적(fp, "application/javascript; charset=utf-8")
@@ -1174,6 +1180,8 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if not self._local_host():
             self.send_error(403)
+            return
+        if auth.문(self, "POST"):
             return
         if design_receive.post(self, intake(), path):
             return

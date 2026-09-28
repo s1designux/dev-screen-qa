@@ -65,11 +65,28 @@ def 바(지금="", size="sm"):
         창 = ' target="_blank" rel="noopener"' if 새창 else ""
         줄 += (f'<li><a data-s1-part="menu" href="{_e(주소)}"{창}{여기}>'
                f'{_e(이름)}</a></li>')
-    # 유틸(언어·계정·메뉴) 자리는 비워 둔다 — 포털은 로그인도 언어 고르기도 없다.
-    # 3분할이라 이 빈 자리가 있어야 메뉴가 가운데에 선다.
+    # 유틸 자리에는 들어온 사람만 둔다(언어 고르기는 없다).
+    # 3분할이라 이 자리가 비어 있어도 메뉴가 가운데에 선다.
     return (_CSS링크
             + f'<nav data-s1-component="gnb" data-size="{_e(size)}"'
             f' aria-label="주 메뉴">'
             f'<a data-s1-part="logo" href="/">검수 포털</a>'
             f'<ul data-s1-part="menus">{줄}</ul>'
-            f'<span data-s1-part="util"></span></nav>')
+            f'<span data-s1-part="util">{_유틸()}</span></nav>')
+
+
+def _유틸():
+    """들어온 사람 · 계정 관리(관리자만) · 로그아웃."""
+    import auth
+    사람 = auth.지금사람()
+    if not 사람:
+        return ""
+    칸 = (f'<a data-s1-part="account" href="/account"'
+          f' aria-label="내 계정 · {_e(사람["name"])}">'
+          f'<span data-s1-part="account-icon" aria-hidden="true"></span></a>')
+    if 사람["role"] == auth.관리자:
+        칸 += ('<a data-s1-component="text-button" data-variant="primary" href="/accounts">'
+               '<span data-s1-part="label">계정 관리</span></a>')
+    칸 += ('<a data-s1-component="text-button" data-variant="primary" href="/logout">'
+           '<span data-s1-part="label">로그아웃</span></a>')
+    return 칸
