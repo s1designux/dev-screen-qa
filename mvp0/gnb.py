@@ -53,6 +53,19 @@ def 메뉴들():
 # 이미 s1-ui.css 를 이은 화면에 이 줄이 또 와도 같은 규칙이라 달라지는 것이 없다.
 _CSS링크 = "<link rel=stylesheet href='/assets/css/s1-gnb.css'>"
 
+# 놓는 자리만 — 쪽지 생김새(바탕·그림자·줄 높이)는 위 정본 Dropdown 부품이 전부 입힌다.
+# ① 유틸 칸을 기준점으로 삼아 ② 쪽지를 아이콘 바로 아래 오른쪽 끝에 맞춘다.
+# ③ 정본 옵션 줄은 <div> 라 밑줄 규칙이 없다 — 우리는 <a> 로 두므로 밑줄만 거둔다.
+_자리CSS = """<style>
+[data-s1-component="gnb"] [data-s1-part="util"]{position:relative}
+#gnb-account-menu{position:absolute;top:100%;right:0;z-index:20;margin-top:var(--spacing-4)}
+/* 정본 Dropdown 은 display:flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다 */
+#gnb-account-menu[hidden]{display:none}
+#gnb-account-menu [data-s1-part="option"]{text-decoration:none}
+</style>"""
+
+_동작 = "<script src='/assets/js/gnb-account.js' defer></script>"
+
 
 def 바(지금="", size="sm"):
     """맨 위 메뉴 줄 한 개. `지금` 은 메뉴 열쇠(project·intake·policy·capture).
@@ -67,26 +80,40 @@ def 바(지금="", size="sm"):
                f'{_e(이름)}</a></li>')
     # 유틸 자리에는 들어온 사람만 둔다(언어 고르기는 없다).
     # 3분할이라 이 자리가 비어 있어도 메뉴가 가운데에 선다.
-    return (_CSS링크
+    유틸, 쪽지 = _유틸()
+    return (_CSS링크 + (_자리CSS if 쪽지 else "")
             + f'<nav data-s1-component="gnb" data-size="{_e(size)}"'
             f' aria-label="주 메뉴">'
-            f'<a data-s1-part="logo" href="/">검수 포털</a>'
+            f'<a data-s1-part="logo" href="/">에스원 개발화면 검수 포털</a>'
             f'<ul data-s1-part="menus">{줄}</ul>'
-            f'<span data-s1-part="util">{_유틸()}</span></nav>')
+            f'<span data-s1-part="util">{유틸}{쪽지}</span></nav>'
+            + (_동작 if 쪽지 else ""))
 
 
 def _유틸():
-    """들어온 사람 · 계정 관리(관리자만) · 로그아웃."""
+    """유틸 아이콘 하나(사람) + 그 아래 열리는 계정 쪽지.
+
+    들어온 사람 · 계정 관리(관리자만) · 로그아웃을 바에 늘어놓지 않고 쪽지 한 장에 담는다
+    (river 지시 2026-09-28 — 개발 화면의 오른쪽 위 유틸 단추와 같은 모양).
+    쪽지는 정본 Dropdown 부품이고, 여닫는 것은 `assets/js/gnb-account.js` 가 한다.
+    """
     import auth
     사람 = auth.지금사람()
     if not 사람:
-        return ""
-    칸 = (f'<a data-s1-part="account" href="/account"'
+        return "", ""
+    단추 = (f'<button type="button" data-s1-part="account" id="gnb-account"'
+          f' aria-haspopup="menu" aria-expanded="false" aria-controls="gnb-account-menu"'
           f' aria-label="내 계정 · {_e(사람["name"])}">'
-          f'<span data-s1-part="account-icon" aria-hidden="true"></span></a>')
+          f'<span data-s1-part="account-icon" aria-hidden="true"></span></button>')
+    길 = [("내 계정", "/account")]
     if 사람["role"] == auth.관리자:
-        칸 += ('<a data-s1-component="text-button" data-variant="primary" href="/accounts">'
-               '<span data-s1-part="label">계정 관리</span></a>')
-    칸 += ('<a data-s1-component="text-button" data-variant="primary" href="/logout">'
-           '<span data-s1-part="label">로그아웃</span></a>')
-    return 칸
+        길.append(("계정 관리", "/accounts"))
+    길.append(("로그아웃", "/logout"))
+    줄 = "".join(
+        f'<a data-s1-part="option" role="menuitem" href="{_e(주소)}">'
+        f'<span data-s1-part="option-label">{_e(이름)}</span></a>'
+        for 이름, 주소 in 길)
+    쪽지 = ('<div id="gnb-account-menu" data-s1-component="dropdown" data-type="text"'
+          ' data-size="xsm" role="menu" aria-labelledby="gnb-account" hidden>'
+          f'{줄}</div>')
+    return 단추, 쪽지

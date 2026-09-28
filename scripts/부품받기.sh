@@ -29,15 +29,23 @@ ver=$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(d['versio
 # 맨 위 메뉴 줄(GNB)만 따로 한 장 더 뽑는다.
 # 옛 화면(가져온 기록·검수 규칙)은 손으로 옮겨 적은 부품 CSS 를 쓰고 있어 s1-ui.css 를 통째로 이으면
 # 단추·표까지 함께 바뀐다. 그래서 GNB 칸만 잘라 둔다 — 내용은 정본 그대로다.
+# Dropdown 칸도 함께 담는다 — 유틸 아이콘을 누르면 열리는 계정 쪽지가 정본 Dropdown 부품이라,
+# 이 줄이 가는 화면이면 어디서든 그 부품이 있어야 한다(옛 화면에는 Dropdown 규칙이 없었다).
 python3 - "$dest" "$(dirname "$dest")/s1-gnb.css" <<'PYEOF'
 import sys, pathlib
 원본 = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-시작 = 원본.index("/* component:gnb */")
-끝 = 원본.index("/* component:gnb-sub-menu-item */")
+
+
+def 칸(앞, 뒤):
+    return 원본[원본.index(앞):원본.index(뒤)]
+
+
 pathlib.Path(sys.argv[2]).write_text(
-    "/* s1-제외 시작 — S-1 정본 부품 CSS 에서 GNB 칸만 잘라 둔 것입니다.\n"
+    "/* s1-제외 시작 — S-1 정본 부품 CSS 에서 GNB · Dropdown 칸만 잘라 둔 것입니다.\n"
     "   손으로 고치지 마세요. 다시 받기: bash scripts/부품받기.sh */\n"
-    + 원본[시작:끝] + "/* s1-제외 끝 */\n", encoding="utf-8")
+    + 칸("/* component:gnb */", "/* component:gnb-sub-menu-item */")
+    + 칸("/* component:dropdown */", "/* component:select */")
+    + "/* s1-제외 끝 */\n", encoding="utf-8")
 PYEOF
 
 # 아이콘도 함께 받는다 — 부품 CSS 가 mask:url("./assets/icons/…") 로 아이콘을 부른다.

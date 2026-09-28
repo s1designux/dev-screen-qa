@@ -1,4 +1,4 @@
-/* s1-제외 시작 — S-1 정본 부품 CSS 에서 GNB 칸만 잘라 둔 것입니다.
+/* s1-제외 시작 — S-1 정본 부품 CSS 에서 GNB · Dropdown 칸만 잘라 둔 것입니다.
    손으로 고치지 마세요. 다시 받기: bash scripts/부품받기.sh */
 /* component:gnb */
 /* GNB — 정본 buildGNB(build-components.ts:3627)·fillGnbMenu(:3133)·
@@ -228,6 +228,161 @@
   -webkit-mask: url("./assets/icons/menu.svg") center / contain no-repeat;
   mask: url("./assets/icons/menu.svg") center / contain no-repeat;
   width: var(--sizing-32);
+}
+
+/* component:dropdown */
+/* Dropdown — 정본 buildDropdown(패널)·buildDropdownList(옵션 행) 기준.
+   패널 자체는 State 축이 없다(항상 Default) — 상태는 옵션 행이 담당한다.
+   체크박스 유형 옵션은 코어 checkbox 배포본을 그대로 내부에 배치한다(복제 금지).
+
+   ── 폭 규칙 (river 최종 확정 2026-09-07) ────────────────────────────────
+   ① **목록 최소 폭 = 100px.** 어떤 경우에도 이보다 좁아지지 않는다.
+   ② **트리거(칩·셀렉트)가 100px 보다 좁으면 목록은 100px 로 뜬다.**
+   ③ **트리거가 100px 이상이면 목록 폭 = 트리거 폭과 동일.**
+   ④ 최대 폭 상한은 없다 — 폭을 트리거가 정하므로 상한이 따로 필요 없다.
+   ⑤ 트리거 폭을 넘는 긴 옵션은 **말줄임(…)**, 마우스를 올리면 전체 글자를 보여준다(dropdown.js).
+   river 원문: "드롭다운은 최소 100px / 칩이 드롭다운보다 width값이 작은경우 드롭다운은 100px로 보여진다 /
+   칩의 width가 100px이상이 되는경우 드롭다운의 width는 칩의 width와 동일하게 표출된다".
+   ①~③ 은 min-width:100px + 소비자(select·filter-chip)의 width:100% 조합 하나로 전부 성립한다.
+   경위(320 상한 → 폐기 → 하한 140 → 100 확정) = reports/ui-library/dropdown-max-width/ · workflow-state D22~D27.
+   ※ 100 은 정본 리터럴 140(설치기 기본 크기)과 다른 값이다 — river 가 별도로 정한 웹 표출 기준이다. */
+
+[data-s1-component="dropdown"] {
+  background: var(--color-dropdown-list-bg);
+  border: var(--border-width-1) solid var(--color-dropdown-list-border);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-dropdown);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  padding-block: var(--spacing-4);
+  width: max-content; /* 트리거 없이 코어만 단독으로 쓸 때의 값(폭을 정해 줄 트리거가 없으므로 내용만큼).
+     트리거가 있는 소비자(select·filter-chip)는 이 값을 width:100% 로 덮어 「목록 폭 = 트리거 폭」을 만든다.
+     width:auto 를 쓰지 않는 이유 — 블록 요소라 부모 폭 채우기로 동작해 내용을 따라 커지지 않는다(2026-09-01 실측). */
+}
+
+/* 사이즈 축 — Size=XXSM/XSM/MD (build-components.ts buildDropdownList 1570-1574).
+   height→min-height 로 둔 이유(긴 글자의 줄바꿈)는 2026-09-07 말줄임 결정으로 사라졌다 — 옵션은 항상 한 줄이라
+   정본의 고정 높이 28/34/44 와 결과가 같다. 값은 정본 그대로이므로 그대로 둔다(변경 범위를 넓히지 않는다). */
+[data-s1-component="dropdown"][data-size="xxsm"] [data-s1-part="option"] {
+  font-size: var(--font-size-12);
+  min-height: var(--sizing-28);
+}
+
+[data-s1-component="dropdown"][data-size="xsm"] [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-34);
+}
+
+[data-s1-component="dropdown"][data-size="md"] [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-44);
+}
+
+/* 전체 선택 줄만 내용 행을 1px 낮춰 아래 구분선(1px)과 합쳐 다른 줄과 같은 총높이를 만든다.
+   정본 주석 "총높이는 다른 줄과 같게 유지(내용 = h-1)"(build-components.ts:1877-1889) 그대로. */
+[data-s1-component="dropdown"][data-size="xxsm"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-28) - var(--border-width-1));
+}
+[data-s1-component="dropdown"][data-size="xsm"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-34) - var(--border-width-1));
+}
+[data-s1-component="dropdown"][data-size="md"] [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-44) - var(--border-width-1));
+}
+
+[data-s1-component="dropdown"] [data-s1-part="option"] {
+  align-items: center;
+  background: var(--color-dropdown-option-bg-default);
+  box-sizing: border-box;
+  color: var(--color-dropdown-option-label-default);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-family: "Pretendard", sans-serif;
+  font-weight: var(--font-weight-regular);
+  padding-block: var(--spacing-4);
+  padding-inline: var(--spacing-12);
+}
+
+/* 체크박스 유형만 체크박스↔글자 간격(8px)을 갖는다 — 글자 유형은 itemSpacing 0(build-components.ts:1854) */
+[data-s1-component="dropdown"][data-type="checkbox"] [data-s1-part="option"] {
+  gap: var(--spacing-8);
+}
+
+/* 정본 주석: Selected 배경은 default 재사용 — 강조는 글자색만(hover 색과 다른 계열) */
+@media (hover: hover) {
+  [data-s1-component="dropdown"] [data-s1-part="option"]:hover {
+    background: var(--color-dropdown-option-bg-hover);
+    color: var(--color-dropdown-option-label-hover);
+  }
+}
+
+/* 단일 선택(Text 유형)만 선택된 옵션의 글자를 강조한다.
+   체크박스 유형은 선택돼도 라벨을 강조하지 않는다 — 체크 표시가 이미 선택을 표현한다(정본 2026-08-14 결정). */
+[data-s1-component="dropdown"][data-type="text"] [data-s1-part="option"][aria-selected="true"] {
+  color: var(--color-dropdown-option-label-selected);
+}
+
+/* river 결정 2026-09-07: 폭(=트리거 폭, 최소 100)을 넘는 긴 옵션은 줄바꿈이 아니라 **말줄임(…)** 으로 자른다.
+   min-width:0 은 flex item 기본값(auto)이 축소를 막는 것을 해제하기 위함 — 이게 없으면 말줄임이 걸리지 않는다.
+   잘린 글자는 마우스 올림으로 전체를 보여준다 — river 결정 2026-09-07. 실제로 잘린 옵션에만 붙이며,
+   폭 측정이 필요해 dropdown.js 의 syncEllipsisTitles 가 담당한다(정적 HTML만 쓰고 런타임을 안 붙이면 안내도 없다). */
+[data-s1-component="dropdown"] [data-s1-part="option"] [data-s1-part="option-label"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 체크박스는 글자에 밀려 찌그러지면 안 된다 — 줄이는 건 글자 쪽만. */
+[data-s1-component="dropdown"][data-type="checkbox"] [data-s1-part="option"] [data-s1-component="checkbox"] {
+  flex: 0 0 auto;
+}
+
+/* 전체 선택 줄 아래 1px 구분선 — 패널이 아니라 이 줄이 들고 있다(build-components.ts:1913-1921) */
+[data-s1-component="dropdown"] [data-s1-part="divider"] {
+  background: var(--color-dropdown-list-border);
+  flex: 0 0 auto;
+  height: var(--border-width-1);
+}
+
+/* 체크박스 유형 옵션에 얹는 코어 checkbox 인스턴스는 장식(aria-hidden) — 접근성 이름·상태는 option 자신이 role=checkbox로 낸다. */
+[data-s1-component="dropdown"] [data-s1-part="option"] [data-s1-component="checkbox"] {
+  pointer-events: none;
+}
+
+
+/* ── 밀도(density) — registry/governance/density-policy.json 에서 생성. 손편집 금지 ── */
+/* density:wide 넓게(44px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="wide"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-44);
+}
+
+[data-s1-density="wide"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-44) - var(--border-width-1));
+}
+
+/* density:normal 보통(34px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="normal"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-14);
+  min-height: var(--sizing-34);
+}
+
+[data-s1-density="normal"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-34) - var(--border-width-1));
+}
+
+/* density:narrow 좁게(28px) — data-size 를 직접 주면 그쪽이 이긴다 */
+[data-s1-density="narrow"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"] {
+  font-size: var(--font-size-12);
+  min-height: var(--sizing-28);
+}
+
+[data-s1-density="narrow"] [data-s1-component="dropdown"]:not([data-size]) [data-s1-part="option"][data-select-all="true"] {
+  min-height: calc(var(--sizing-28) - var(--border-width-1));
 }
 
 /* s1-제외 끝 */

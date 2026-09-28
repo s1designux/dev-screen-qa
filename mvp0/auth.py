@@ -363,9 +363,14 @@ CSS = """
 /* 로그인 화면 — 시안 `웹_로그인 화면`(SW-UX-GUIDE V3.0 · 2601:21357) 의 자리 그대로.
    생김새는 정본 부품(s1-ui.css)이 맡는다 — 여기 있는 것은 **놓는 자리**뿐이고 값은 전부 토큰이다. */
 body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:flex;flex-direction:column}
+/* 로고 글자는 정본 20 의 80% — river 지시 2026-09-28. 16 은 토큰에 있는 값이다. */
+.login [data-s1-component="gnb"] [data-s1-part="logo"]{font-size:var(--font-size-16)}
+/* CI 위 간격 123 — river 지시 2026-09-28. 토큰에 없는 값이라 그대로 적는다(시안은 120). */
 .login .판{flex:1;display:flex;align-items:flex-start;justify-content:center;
-  padding:var(--spacing-80) var(--spacing-16) var(--spacing-64)}
-.login .상자{width:460px;max-width:100%}
+  padding:123px var(--spacing-16) var(--spacing-64)}
+/* 칸과 단추 너비 300 — river 지시 2026-09-28(시안 460 에서 좁혔다).
+   상자 하나로 정한다: 칸·단추·아이디 저장·아래 글이 모두 같은 선에 서야 한다. */
+.login .상자{width:300px;max-width:100%}
 /* 시안: CI 아래 50 띄우고 칸이 온다(spacing-48 이 가장 가깝다). */
 .login .씨아이{display:flex;justify-content:center;margin:0 0 var(--spacing-48)}
 .login .씨아이 img{display:block}
@@ -375,8 +380,6 @@ body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:
 /* 시안의 로그인 단추는 칸과 같은 너비로 눕는다 — 자리만 정하고 생김새는 부품이 맡는다. */
 .login .단추자리{display:block}
 .login .단추자리 [data-s1-component="button"]{width:100%}
-.login .아래{display:flex;align-items:center;justify-content:center;gap:var(--spacing-12);
-  margin-top:var(--spacing-24)}
 .login .가름{width:var(--border-width-default);height:var(--spacing-12);
   background:var(--color-icon-gray-light);display:inline-block}
 .login .막힘{margin:0 0 var(--spacing-16);padding:var(--spacing-12) var(--spacing-16);
@@ -387,13 +390,18 @@ body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:
   color:var(--color-text-body-tertiary);text-align:center}
 /* 맨 아래 띠 — 시안 login_Footer(h120 · 위아래 여백 · 좌우 넓은 여백 · 윗줄 1px).
    정본에 Footer 부품 CSS 가 아직 없어 자리만 잡는다(DESIGN_SYSTEM_GAP). */
-.login footer{display:flex;align-items:flex-start;justify-content:space-between;
-  gap:var(--spacing-24);padding:var(--spacing-32) var(--spacing-64);
+/* 시안(1920)은 글과 마크를 양 끝 320 안쪽에 둔다 — 넓이를 타지 않게 가운데 1280 띠로 옮겼다.
+   좁은 창에서는 띠가 줄고 좌우 여백 24 가 남는다. */
+.login footer{display:flex;justify-content:center;
+  padding:var(--spacing-32) var(--spacing-24);
   background:var(--color-navigation-bg);
   border-top:var(--border-width-default) solid var(--color-line-gray-subtle)}
+.login footer .속{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--spacing-24);width:1280px;max-width:100%}
+/* 글 크기·행간·자간은 가이드 타이포 body-10r 그대로다(10 · 140% · wide). */
 .login footer .글{display:flex;flex-direction:column;gap:var(--spacing-10);
   font-size:var(--font-size-10);color:var(--color-text-body-tertiary);
-  line-height:var(--line-height-130)}
+  line-height:var(--line-height-140);letter-spacing:var(--letter-spacing-wide)}
 .login footer .줄{display:flex;align-items:center;gap:var(--spacing-4)}
 .login footer .줄 .가름{height:var(--spacing-8)}
 .login footer img{display:block;flex:none}
@@ -427,7 +435,7 @@ def _로그인줄():
     정본에 LoginGNB 부품 CSS 가 아직 없어 같은 치수(h56)인 GNB 부품을 쓴다."""
     return ('<link rel=stylesheet href=\'/assets/css/s1-gnb.css\'>'
             '<nav data-s1-component="gnb" data-size="md" aria-label="서비스">'
-            '<a data-s1-part="logo" href="/login">S-1 디자인 검수 포털</a>'
+            '<a data-s1-part="logo" href="/login">에스원 개발화면 검수 포털</a>'
             '<ul data-s1-part="menus"></ul>'
             '<span data-s1-part="util">'
             '<span data-s1-part="lang">'
@@ -444,7 +452,7 @@ def _씨아이():
 
 def _꼬리():
     """시안의 login_Footer 그대로 — 글줄도 마크도 시안에서 가져온 것이다."""
-    return ('<footer><span class="글">'
+    return ('<footer><span class="속"><span class="글">'
             '<span class="줄">개인정보 처리방침'
             '<span class="가름" aria-hidden="true"></span>'
             '위치기반 서비스 이용약관</span>'
@@ -453,7 +461,7 @@ def _꼬리():
             '<span>© S-1 Corp. All Rights Reserved.</span>'
             '</span>'
             '<img src="/assets/img/logo-s1-gray.svg" alt="에스원" width="42" height="16">'
-            '</footer>')
+            '</span></footer>')
 
 
 def _입력(이름, 라벨, 값="", 종류="text", 안내="", 자리글="", 라벨보이기=True):
@@ -482,13 +490,6 @@ def _단추(글, variant="primary", size="md", 종류="submit", 꺼둠=False):
     끔 = " disabled" if 꺼둠 else ""       # 가이드 Button 계약 — 끄는 것은 native disabled 로만
     return (f'<button type="{종류}" data-s1-component="button" data-variant="{variant}"'
             f' data-size="{size}"{끔}><span data-s1-part="label">{_esc(글)}</span></button>')
-
-
-def _글단추(글, 누르면="", variant="secondary"):
-    """정본 Text Button. 시안의 아래 두 글은 회색(secondary)이다."""
-    동작 = f' onclick="{누르면}"' if 누르면 else ""
-    return (f'<button type="button" data-s1-component="text-button" data-variant="{variant}"{동작}>'
-            f'<span data-s1-part="label">{_esc(글)}</span></button>')
 
 
 _입력JS = ('<script type="module" src="/assets/js/s1-input.js"></script>'
@@ -521,7 +522,9 @@ def 로그인화면(막힘="", 아이디="", 다음="/"):
 
     여기서 하는 일은 **들어오는 것 하나**다. 계정을 만드는 길은 이 화면에 없다
     (관리자 계정은 자료함에만 둔다 — river 확정 2026-09-28).
-    부품은 정본에 있는 것만 쓴다(Input · Checkbox · Button · Text Button · GNB).
+    시안에 있는 '아이디 찾기 · 비밀번호 찾기' 는 두지 않는다 — 포털은 그 길을 주지 않는다
+    (잊으면 관리자가 임시 비밀번호로 초기화한다 — river 확정 2026-09-28).
+    부품은 정본에 있는 것만 쓴다(Input · Checkbox · Button · GNB).
     시안의 web tab bar 는 그림으로 그린 브라우저 창틀이라 화면에 넣지 않는다.
     """
     말썽 = f'<p class="막힘">{_esc(막힘)}</p>' if 막힘 else ""
@@ -536,12 +539,7 @@ def 로그인화면(막힘="", 아이디="", 다음="/"):
           + (" checked" if 아이디 else "") + '>'
           + '<label data-s1-part="label" for="remember">아이디 저장</label></div>'
           + f'<div class="단추자리">{_단추("로그인", 꺼둠=True)}</div>'
-          + '</form>'
-          + '<div class="아래">'
-          + _글단추("아이디 찾기", "알림('아이디는 관리자에게 물어보세요.')")
-          + '<span class="가름" aria-hidden="true"></span>'
-          + _글단추("비밀번호 찾기", "알림('관리자가 임시 비밀번호로 초기화해 드립니다.')")
-          + '</div>')
+          + '</form>')
     return (_머리("로그인 · 검수 포털", "login") + _로그인줄()
             + f'<div class="판"><div class="상자">{속}</div></div>' + _꼬리()
             + _입력JS + f"<script>{로그인JS}</script></body></html>")
@@ -558,7 +556,6 @@ def 로그인화면(막힘="", 아이디="", 다음="/"):
   function 살핀다(){ 단추.disabled=칸들.some(function(칸){return !칸||!칸.value.trim();}); }
   칸들.forEach(function(칸){ if(칸){ ['input','change'].forEach(function(일){ 칸.addEventListener(일,살핀다); }); } });
   살핀다();
-  window.알림=function(말){ alert(말); };
 })();
 """
 
