@@ -1,0 +1,139 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>디자인소스 전수조사</title>
+<style>
+:root{--ink:#1a1c1e;--sub:#5f6469;--line:#e3e6e8;--bg:#f5f6f7;--ok:#0f62d6;--no:#d64545;--mid:#c98a00}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 24px 80px;background:var(--bg);color:var(--ink);
+ font:15px/1.6 "Pretendard","Apple SD Gothic Neo",system-ui,sans-serif;letter-spacing:-.01em}
+.w{max-width:1000px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--sub);font-size:13px;margin:0 0 28px}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:20px 22px;margin:0 0 16px}
+h2{font-size:17px;margin:0 0 4px}
+h2 .n{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;
+ background:var(--ink);color:#fff;font-size:12px;margin-right:8px;vertical-align:1px}
+.lead{color:var(--sub);font-size:13px;margin:0 0 14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600;font-size:12px;color:var(--sub);border-bottom:2px solid #9aa0a6;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok);font-weight:600}
+.no{color:var(--no);font-weight:600}
+.mid{color:var(--mid);font-weight:600}
+tr.bad td:first-child{border-left:3px solid var(--no);padding-left:9px}
+tr.good td:first-child{border-left:3px solid var(--ok);padding-left:9px}
+code{background:#f0f1f2;padding:1px 5px;border-radius:3px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
+.box{background:#fbfbfc;border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:10px 0 0;font-size:13.5px}
+.box b{color:var(--no)}
+.big{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 22px}
+.big div{flex:1 1 150px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.big strong{display:block;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.big span{font-size:12.5px;color:var(--sub)}
+.tail{color:var(--sub);font-size:12.5px;margin-top:26px}
+</style></head><body><div class="w">
+
+<h1>디자인소스 전수조사</h1>
+<p class="sub">포털 화면 전부 · 2026-09-29 · 정본 가이드 판 4e73853 (2026-09-29 08:13)</p>
+
+<div class="big">
+ <div><strong class="no">10 / 15</strong><span>정본 부품을 안 쓰는 화면</span></div>
+ <div><strong class="no">11판</strong><span>받아 둔 부품이 뒤처진 정도</span></div>
+ <div><strong class="no">135곳</strong><span>손으로 만든 부품 자리</span></div>
+ <div><strong class="ok">0곳</strong><span>토큰(색·크기) 어긋남</span></div>
+</div>
+
+<section>
+<h2><span class="n">1</span>화면 15개 중 5개만 정본 부품을 씁니다</h2>
+<p class="lead">최근에 만든 화면은 정본 부품 파일(s1-ui.css)을 그대로 입습니다. 그 전에 만든 화면 열 개는 정본을 손으로 옮겨 적은 사본을 씁니다 — 모양은 비슷하지만 정본이 아닙니다.</p>
+<table>
+<tr><th>화면</th><th>무엇을 입고 있나</th><th class="n">정본 표시</th><th>판정</th></tr>
+<tr class="good"><td>로그인</td><td>정본 부품</td><td class="n">11</td><td class="ok">정본</td></tr>
+<tr class="good"><td>내 계정 · 계정 관리</td><td>정본 부품</td><td class="n">↑ 같음</td><td class="ok">정본</td></tr>
+<tr class="good"><td>프로젝트 목록</td><td>정본 부품</td><td class="n">11</td><td class="ok">정본</td></tr>
+<tr class="good"><td>프로젝트 만들기 · 고치기</td><td>정본 부품</td><td class="n">7</td><td class="ok">정본</td></tr>
+<tr class="good"><td>과제 안 (촬영 · 검수 · 이력관리)</td><td>정본 부품</td><td class="n">11</td><td class="mid">정본 · 단 2곳 어긋남 (4번)</td></tr>
+<tr class="bad"><td>검수 페이지 목록</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>페이지 상세 (검수하는 화면)</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>검수 규칙</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>규칙 성적표</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>가져온 기록 (접수함)</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>시안 계획</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>수정요청서</td><td>손으로 옮겨 적은 사본</td><td class="n">4</td><td class="no">섞임</td></tr>
+<tr class="bad"><td>페이지 옮기기 · 묶기</td><td>손으로 옮겨 적은 사본</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>결과서 반출 (A4)</td><td>사본을 문서 안에 품음</td><td class="n">0</td><td class="no">사본</td></tr>
+<tr class="bad"><td>옛 A4 결과서</td><td>사본을 문서 안에 품음</td><td class="n">0</td><td class="no">사본</td></tr>
+</table>
+<div class="box">사본에는 부품이 아홉 갈래만 들어 있습니다(단추·표·탭·입력칸·체크·칩·토글·쪽번호·대화창). 정본에는 <b>51갈래</b>가 있습니다 — 나머지는 그 화면들에서 쓸 수 없습니다.</div>
+</section>
+
+<section>
+<h2><span class="n">2</span>받아 둔 정본 부품이 11판 낡았습니다</h2>
+<p class="lead">부품 파일은 받아 두고 쓰는 것이라 가만두면 뒤처집니다. 지금 포털이 입고 있는 것은 9월 17일 판입니다.</p>
+<table>
+<tr><th>무엇</th><th>포털이 가진 것</th><th>지금 정본</th><th>차이</th></tr>
+<tr class="bad"><td>부품 (s1-ui.css)</td><td>0.8.1 · 2026-09-17</td><td>0.13.14 · 2026-09-28</td><td class="no">11판 뒤 · 286줄 다름</td></tr>
+<tr class="good"><td>토큰 네 장</td><td>2026-09-21</td><td>2026-09-29</td><td class="ok">머릿줄만 다름 (값 같음)</td></tr>
+</table>
+<div class="box">그 사이에 <b>목록 줄(list-row)</b> 부품이 새로 생겼습니다. 이력관리 화면이 지금 손으로 그리고 있는 것이 바로 그 모양입니다.</div>
+</section>
+
+<section>
+<h2><span class="n">3</span>정본이 주는 동작 파일을 안 쓰고 직접 썼습니다</h2>
+<p class="lead">정본은 생김새(CSS)뿐 아니라 여닫고 지우는 동작(JS)도 함께 줍니다. 포털은 그것을 받지 않고 세 개를 직접 만들었습니다.</p>
+<table>
+<tr><th>정본이 주는 것</th><th>포털이 쓰는 것</th><th class="n">직접 쓴 줄</th></tr>
+<tr class="bad"><td>부품 16갈래 동작 한 벌 (s1-ui.js)</td><td>입력칸 동작 직접</td><td class="n">131</td></tr>
+<tr class="bad"><td>〃</td><td>고르는 칸 동작 직접</td><td class="n">137</td></tr>
+<tr class="bad"><td>〃</td><td>대화창 동작 직접</td><td class="n">99</td></tr>
+</table>
+<div class="box">부품 받는 도구가 <b>CSS와 아이콘만</b> 받아 오고 동작 파일은 빼놓고 있습니다.</div>
+</section>
+
+<section>
+<h2><span class="n">4</span>왼쪽 메뉴 입력칸 두 곳이 정본 규격 밖입니다</h2>
+<p class="lead">보내 주신 그림에서 <b>묶음 이름</b> 칸만 맨 상자로 보이는 이유입니다. 정본 부품을 부르긴 했는데 부르는 법이 틀려서 아무 옷도 입지 않았습니다.</p>
+<table>
+<tr><th>자리</th><th>적혀 있는 것</th><th>정본이 받는 것</th><th>결과</th></tr>
+<tr class="bad"><td>묶음 이름 고치기</td><td>겉만 있고 속뼈대 없음</td><td>겉 → 칸 → 알맹이 3층</td><td class="no">옷 안 입음</td></tr>
+<tr class="bad"><td>새 묶음 이름 넣기</td><td>크기 <code>sm</code></td><td><code>xxsm</code>·<code>xsm</code>·<code>md</code></td><td class="no">옷 안 입음</td></tr>
+</table>
+<div class="box">같은 화면의 프로젝트 고르개·단추·칩은 제대로 불러서 잘 나옵니다. 이 두 칸만 빠졌습니다.</div>
+</section>
+
+<section>
+<h2><span class="n">5</span>옛 화면에서 손으로 만든 부품이 135곳입니다</h2>
+<p class="lead">정본에 같은 부품이 있는데 화면마다 직접 짜 넣은 자리입니다.</p>
+<table>
+<tr><th>화면</th><th class="n">단추</th><th class="n">입력칸</th><th class="n">고르개</th><th class="n">대화창</th><th class="n">칩·이름표</th><th class="n">탭</th><th class="n">합</th></tr>
+<tr><td>검수 페이지 목록</td><td class="n">17</td><td class="n">11</td><td class="n">1</td><td class="n">1</td><td class="n">4</td><td class="n">1</td><td class="n"><b>35</b></td></tr>
+<tr><td>페이지 상세</td><td class="n">13</td><td class="n">4</td><td class="n">1</td><td class="n">1</td><td class="n">0</td><td class="n">0</td><td class="n"><b>19</b></td></tr>
+<tr><td>시안 계획</td><td class="n">12</td><td class="n">8</td><td class="n">2</td><td class="n">1</td><td class="n">2</td><td class="n">0</td><td class="n"><b>25</b></td></tr>
+<tr><td>가져온 기록</td><td class="n">6</td><td class="n">10</td><td class="n">3</td><td class="n">1</td><td class="n">5</td><td class="n">0</td><td class="n"><b>25</b></td></tr>
+<tr><td>검수 규칙</td><td class="n">2</td><td class="n">11</td><td class="n">3</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n"><b>16</b></td></tr>
+<tr><td>페이지 옮기기·묶기</td><td class="n">3</td><td class="n">6</td><td class="n">2</td><td class="n">1</td><td class="n">0</td><td class="n">0</td><td class="n"><b>12</b></td></tr>
+<tr><td>수정요청서</td><td class="n">2</td><td class="n">1</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n"><b>3</b></td></tr>
+<tr><td><b>합계</b></td><td class="n"><b>55</b></td><td class="n"><b>51</b></td><td class="n"><b>12</b></td><td class="n"><b>5</b></td><td class="n"><b>11</b></td><td class="n"><b>1</b></td><td class="n"><b>135</b></td></tr>
+</table>
+<div class="box">이 가운데 단추·표·탭은 사본 덕에 <b>겉모습은 맞습니다.</b> 고르개 12곳·대화창 5곳은 브라우저 기본 모양 그대로라 눈에 띄게 다릅니다.</div>
+</section>
+
+<section>
+<h2><span class="n">6</span>아이콘은 네 개가 정본 밖입니다</h2>
+<table>
+<tr><th>아이콘</th><th>어디</th><th>판정</th></tr>
+<tr class="mid"><td>사진기</td><td>과제 안 왼쪽 메뉴</td><td class="mid">정본에 없음 · 적어 둠</td></tr>
+<tr class="mid"><td>문서</td><td>과제 안 왼쪽 메뉴</td><td class="mid">정본에 없음 · 적어 둠</td></tr>
+<tr class="bad"><td>주의(세모)</td><td>수정요청서</td><td class="no">직접 그림 · 적어 두지 않음</td></tr>
+<tr class="bad"><td>아래 화살표</td><td>수정요청서</td><td class="no">정본에 <code>chevron</code> 이 있는데 직접 그림</td></tr>
+</table>
+</section>
+
+<section>
+<h2><span class="n">7</span>색·크기 값은 어긋난 곳이 없습니다</h2>
+<p class="lead">점검기가 화면 파일 52장을 훑어 <b class="ok">0곳</b>입니다. 값은 전부 토큰으로 되어 있습니다.</p>
+<div class="box">그래서 이번에 나온 것은 전부 <b>값이 아니라 부품</b> 문제입니다. 점검기는 "이 색이 토큰인가"만 보고 "이 단추가 정본 단추인가"는 못 봅니다.</div>
+</section>
+
+<p class="tail">세는 법 — 정본 부품을 쓴다 = 마크업에 <code>data-s1-component</code> 표시가 있고 정본 CSS 를 입는다. 손으로 만든 것 = 정본에 같은 부품이 있는데 화면 쪽에서 직접 짠 것.</p>
+</div></body></html>

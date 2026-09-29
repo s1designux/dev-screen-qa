@@ -24,8 +24,11 @@ BASE_PATH = "/dev-screen-qa"
 
 _FORM_UPL_RE = re.compile(r'<form class="upl".*?</form>', re.S)
 _FORM_PASS_RE = re.compile(r'<form class="passform".*?</form>', re.S)
-_BTN_A4_RE = re.compile(r'<a class="btn" href="/report/[^"]*"[^>]*>화면 전체 A4</a>')
-_RCHIP_RE = re.compile(r'<a class="rchip([^"]*)" href="[^"]*">(\d+차)</a>')
+# 정본 Button 마크업(<a data-s1-component="button" …><span data-s1-part="label">…</span></a>)
+_BTN_A4_RE = re.compile(r'<a href="/report/[^"]*"[^>]*data-s1-component="button".*?</a>', re.S)
+# 차수 칩은 정본 Chip 링크다 — 정적 보기에서는 누를 수 없으니 <span> 으로 굳힌다.
+_RCHIP_RE = re.compile(r'<a href="[^"]*\?round=\d+"([^>]*data-s1-component="chip"[^>]*)>'
+                       r'(.*?)</a>', re.S)
 _SCREEN_HREF_RE = re.compile(r'href="(/screen/[^"?]+)"')
 _SCREEN_JS_RE = re.compile(r"location\.href='(/screen/[^']+)'")
 
@@ -37,7 +40,7 @@ def transform(html: str) -> str:
         '<div class="passed">정적 보기 전용 — 처리는 로컬 포털에서</div>', html
     )
     html = _BTN_A4_RE.sub("", html)
-    html = _RCHIP_RE.sub(r'<span class="rchip\1">\2</span>', html)
+    html = _RCHIP_RE.sub(r'<span\1>\2</span>', html)
     html = html.replace('href="/?unresolved=1"', 'href="/unresolved/"')
     html = _SCREEN_HREF_RE.sub(lambda m: f'href="{m.group(1)}/"', html)
     # 행 클릭(JS location.href)도 href처럼 BASE_PATH 접두어를 붙인다(안 붙이면 루트로 가 404).

@@ -17,6 +17,7 @@ import uuid as uuidmod
 from datetime import date
 
 import queries
+import s1_tokens
 
 더할칸 = ("code", "service_code", "owner", "created_at")
 
@@ -185,8 +186,7 @@ def 모달(conn, 모달id="과제만들기"):
         </form>
       </div>
     </div>
-    <script src="/assets/js/s1-select.js"></script>
-    <script src="/assets/js/s1-modal.js"></script>
+    {s1_tokens.동작()}
     <script>{JS}</script>'''
 
 
@@ -214,7 +214,7 @@ def 그리기(conn, 토큰CSS, 과제=None, 알림="", 적은것=None):
     </form></div>"""
     머리 = (f'<header><a class="back" href="{돌아갈곳}">← 돌아가기</a>'
           f'<h1>{_esc(제목)}</h1></header>')
-    return 머리, 속, f"<script src=\"/assets/js/s1-select.js\"></script><script>{JS}</script>"
+    return 머리, 속, s1_tokens.동작() + f"<script>{JS}</script>"
 
 
 # ────────────────────────────────────────────────────── 저장

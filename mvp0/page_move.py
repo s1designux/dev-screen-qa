@@ -9,6 +9,8 @@
 그대로 따라온다. 사람키는 라벨일 뿐이라 코드가 강제로 다시 붙이지 않는다(7번).
 """
 import json
+
+import s1
 import re
 import uuid as uuidmod
 from datetime import datetime
@@ -179,22 +181,19 @@ def 옮기기(conn, page_uuids, *, to_screen=None, new_key=None, new_name=None,
 
 
 # ── 화면(포털) ──────────────────────────────────────────────────────
+# 생김새는 정본 부품이 정한다(가이드 §9-7) — 여기서는 자리만 잡는다.
 CSS = """
-  #page-move-dlg { width:min(560px, 92vw); }
-  #page-move-dlg h2 { font-size:var(--font-size-16); margin:0 0 var(--spacing-8); }
+  #page-move-dlg [data-s1-part="panel"] { width:min(560px, 92vw); }
   #page-move-dlg .picked { font-size:var(--font-size-12); color:var(--color-text-caption);
     background:var(--color-bg-subtle); border-radius:var(--radius-8);
     padding:var(--spacing-10) var(--spacing-12); margin-bottom:var(--spacing-14);
     max-height:120px; overflow:auto; }
-  #page-move-dlg label.opt { display:flex; align-items:center; gap:var(--spacing-8);
-    margin:var(--spacing-8) 0; font-size:var(--font-size-14); }
+  #page-move-dlg [data-s1-component="radio"] { margin:var(--spacing-8) 0; }
   #page-move-dlg fieldset { border:0; padding:0 0 0 var(--spacing-24); margin:0 0 var(--spacing-8); }
   #page-move-dlg .fld { display:block; margin:var(--spacing-8) 0 var(--spacing-4);
     font-size:var(--font-size-12); color:var(--color-text-caption); }
-  #page-move-dlg input:not([type=radio]):not([type=checkbox]),
-  #page-move-dlg select { width:100%; }
-  #page-move-dlg .foot { display:flex; justify-content:flex-end; gap:var(--spacing-8);
-    margin-top:var(--spacing-16); }
+  #page-move-dlg [data-s1-component="input"],
+  #page-move-dlg [data-s1-component="select"] { width:100%; }
   #page-move-dlg .why { font-size:var(--font-size-12); color:var(--color-text-helper);
     margin-top:var(--spacing-12); }
 """
@@ -202,44 +201,43 @@ CSS = """
 
 def 막대():
     """'삭제' 와 한 줄에 나란히 서는 '옮기기' 단추. 고른 것은 '삭제'와 같은 체크박스를 읽는다(JS)."""
-    return '<button type="button" id="page-move-open">페이지 옮기기</button>'
+    return s1.단추('페이지 옮기기', id='page-move-open')
 
 
 
 def 창(human_key_esc, 키제안값, 다른화면들, 담당자들, esc):
     """옮길 곳을 고르는 창. 페이지 목록과 **화면 이름 제안(공통 뿌리)** 은 고른 것에 맞춰 열 때 JS 가 채운다."""
-    옵션 = "".join(f'<option value="{esc(s["uuid"])}">{esc(s["human_key"] or "ID 없음")} · {esc(s["name"] or "")}</option>'
-                  for s in 다른화면들)
-    사람 = "".join(f'<option value="{esc(p["name"])}">{esc(p["name"])}</option>' for p in 담당자들)
-    합치기막음 = "" if 다른화면들 else " disabled"
-    return f"""
-<dialog id="page-move-dlg"><div class="s1-modal-inset">
-  <h2>고른 검수 페이지 옮기기</h2>
-  <div class="picked" id="page-move-picked"></div>
-  <form method="post" action="/screen/{human_key_esc}/pages/move" id="page-move-form">
-    <div id="page-move-ids"></div>
-    <label class="opt"><input type="radio" name="dest" value="new" checked> 새 화면으로 옮기기</label>
-    <fieldset id="page-move-new">
-      <label class="fld" for="pm-key">새 화면 ID (스토리보드 ID)</label>
-      <input id="pm-key" name="new_key" value="{esc(키제안값)}" autocomplete="off">
-      <label class="fld" for="pm-name">새 화면 이름</label>
-      <input id="pm-name" name="new_name" autocomplete="off">
-    </fieldset>
-    <label class="opt"><input type="radio" name="dest" value="exist"{합치기막음}> 이미 있는 화면에 합치기</label>
-    <fieldset id="page-move-exist">
-      <select name="to_screen">{옵션}</select>
-    </fieldset>
-    <label class="fld" for="pm-actor">누가</label>
-    <select id="pm-actor" name="actor"><option value="">(고르지 않음)</option>{사람}</select>
-    <label class="fld" for="pm-note">왜 (선택)</label>
-    <input id="pm-note" name="note" autocomplete="off" placeholder="예: 홈 화면은 로그인과 다른 스토리보드">
-    <p class="why">수정필요·후보·차수 기록은 그대로 따라갑니다.</p>
-    <div class="foot">
-      <button type="button" id="page-move-cancel">취소</button>
-      <button type="submit" class="primary">옮기기</button>
-    </div>
-  </form>
-</div></dialog>"""
+    화면보기 = [(x["uuid"], "%s · %s" % (x["human_key"] or "ID 없음", x["name"] or ""))
+              for x in 다른화면들]
+    사람보기 = [("", "(고르지 않음)")] + [(x["name"], x["name"]) for x in 담당자들]
+    합치기막음 = not 다른화면들
+    속 = (
+        '<div class="picked" id="page-move-picked"></div>'
+        f'<form method="post" action="/screen/{human_key_esc}/pages/move" id="page-move-form">'
+        '<div id="page-move-ids"></div>'
+        + s1.라디오('dest', 'pm-new', '새 화면으로 옮기기', 켬=True, 값='new')
+        + '<fieldset id="page-move-new">'
+          '<label class="fld" for="pm-key">새 화면 ID (스토리보드 ID)</label>'
+        + s1.입력('new_key', 키제안값, 칸id='pm-key', autocomplete='off')
+        + '<label class="fld" for="pm-name">새 화면 이름</label>'
+        + s1.입력('new_name', '', 칸id='pm-name', autocomplete='off')
+        + '</fieldset>'
+        + s1.라디오('dest', 'pm-exist', '이미 있는 화면에 합치기', 값='exist',
+                  disabled=합치기막음 or None)
+        + '<fieldset id="page-move-exist">'
+        + s1.고르개('to_screen', 화면보기, 화면보기[0][0] if 화면보기 else '',
+                  칸id='pm-to-screen', 자리글='고르세요')
+        + '</fieldset>'
+          '<label class="fld">누가</label>'
+        + s1.고르개('actor', 사람보기, '', 칸id='pm-actor')
+        + '<label class="fld" for="pm-note">왜 (선택)</label>'
+        + s1.입력('note', '', 칸id='pm-note', autocomplete='off',
+                자리글='예: 홈 화면은 로그인과 다른 스토리보드')
+        + '<p class="why">수정필요·후보·차수 기록은 그대로 따라갑니다.</p>'
+          '</form>')
+    단추줄 = (s1.닫기단추('취소')
+            + s1.단추('옮기기', 'primary', 종류='submit', form='page-move-form'))
+    return s1.대화창('page-move-dlg', '고른 검수 페이지 옮기기', 속, 단추줄)
 
 
 JS = """
@@ -270,6 +268,7 @@ JS = """
     창.querySelector('#page-move-exist').hidden = 새로;
     창.querySelector('#pm-key').required = 새로;
     창.querySelector('#pm-name').required = 새로;
+    창.querySelector('#pm-to-screen-trigger').disabled = 새로;
   }
   열기.addEventListener('click', function () {
     var 고름 = 고른것();
@@ -285,12 +284,11 @@ JS = """
     var 이름칸 = 창.querySelector('#pm-name');
     if (!이름칸.value || 이름칸.dataset.auto === '1') { 이름칸.value = 이름제안(이름들); 이름칸.dataset.auto = '1'; }
     갈래맞추기();
-    창.showModal();
+    window.s1Modal('page-move-dlg').open();
   });
   창.querySelector('#pm-name').addEventListener('input', function () { this.dataset.auto = '0'; });
   Array.prototype.forEach.call(창.querySelectorAll('input[name=dest]'), function (r) {
     r.addEventListener('change', 갈래맞추기);
   });
-  창.querySelector('#page-move-cancel').addEventListener('click', function () { 창.close(); });
 })();
 """

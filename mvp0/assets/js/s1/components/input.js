@@ -1,9 +1,3 @@
-/* S-1 Input 동작 — 정본 배포본(ui-library/dist/components/input.js)을 그대로 옮긴 것이다.
- * 손으로 고치지 않는다. 가이드가 바뀌면 다시 받아 덮는다:
- *   cp ~/.claude/s1-design-guide/ui-library/dist/components/input.js mvp0/assets/js/s1-input.js
- *   (그 뒤 이 머리글과 맨 아래 '자동 붙이기' 한 줄을 다시 붙인다)
- * 생김새는 assets/css/s1-ui.css 가 맡는다 — 여기서는 지우기 단추와 비밀번호 보기만 한다.
- */
 export const componentId = "input";
 export const jsRequired = true;
 
@@ -126,6 +120,3 @@ export function destroy(root) {
 }
 
 export const runtime = Object.freeze({ init, destroy });
-
-/* ── 자동 붙이기 — 화면에 있는 Input 을 전부 켠다(정본에는 없는 우리 쪽 한 줄). */
-document.querySelectorAll('[data-s1-component="input"]').forEach(init);

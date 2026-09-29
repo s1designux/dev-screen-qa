@@ -48,6 +48,20 @@ pathlib.Path(sys.argv[2]).write_text(
     + "/* s1-제외 끝 */\n", encoding="utf-8")
 PYEOF
 
+# 동작(JS)도 함께 받는다 — 정본은 생김새뿐 아니라 여닫고 지우는 동작도 준다.
+# ES 모듈이라 `components/` 폴더째 와야 한다. 포털은 /assets/js/s1/ 로 내보낸다.
+js_src="$guide/ui-library/dist"
+js_dest="$(cd "$(dirname "$0")/.." && pwd)/mvp0/assets/js/s1"
+if [ -f "$js_src/s1-ui.auto.js" ]; then
+  rm -rf "$js_dest"
+  mkdir -p "$js_dest/components"
+  cp "$js_src/s1-ui.js" "$js_src/s1-ui.auto.js" "$js_dest/"
+  cp "$js_src"/components/*.js "$js_dest/components/"
+  echo "받아 둠: 동작 $(ls "$js_dest/components"/*.js | wc -l | tr -d ' ')장 (mvp0/assets/js/s1/)"
+else
+  echo "동작(JS)을 찾지 못했습니다 — $js_src"
+fi
+
 # 아이콘도 함께 받는다 — 부품 CSS 가 mask:url("./assets/icons/…") 로 아이콘을 부른다.
 # CSS 만 받아 두면 셀렉트 화살표·눈 아이콘이 빈 칸으로 뜬다.
 icons_src="$guide/ui-library/dist/assets/icons"

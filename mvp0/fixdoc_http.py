@@ -14,6 +14,8 @@
 이 문서에서도 빠진다 — 문서는 데이터를 읽어 만드는 출력물이다(CLAUDE.md 2번-1).
 """
 import json
+
+import s1
 import time
 
 import value_candidates
@@ -98,31 +100,21 @@ def 문서만들기(uploads, pages, human_key, 화면이름, 주소, store=None)
     return 지시서묶음(화면별, 제목="개발화면 수정 요청 — %s" % 화면이름, 차수=1)
 
 
-def 카드(human_key, 셈, 부품=False):
+def 카드(human_key, 셈, 부품=True):
     """검수 페이지 목록 맨 위에 붙는 주의 칸.
 
     모양은 촬영 준비 사이트 ①의 '디자인 수정 필요' 칸과 같다(사람이 보는 말·모양이 두 곳에서 같아야 한다).
     """
     몇 = ("<b>%d곳</b>입니다." % 셈) if 셈 else "모아 두었습니다."
     센 = ("· %d건" % 셈) if 셈 else ""
-    주의아이콘 = ('<svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">'
-              '<path fill="var(--color-icon-red)" d="M12 3.2 1.6 20.8h20.8L12 3.2Zm0 4.4 6.9 11.6H5.1L12 7.6Z"/>'
-              '<path fill="var(--color-icon-red)" d="M11.1 10.6h1.8v4.9h-1.8zM11.1 16.7h1.8v1.8h-1.8z"/></svg>')
-    화살표 = ('<svg class="arw" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">'
-            '<path fill="none" stroke="var(--color-icon-red)" stroke-width="2" stroke-linecap="round"'
-            ' stroke-linejoin="round" d="m7 10 5 5 5-5"/></svg>')
-    # 새 화면(과제 안)은 정본 부품 CSS 를 쓰므로 단추도 정본 마크업으로 낸다.
-    # 옛 화면은 손으로 옮겨 적은 s1_components 를 쓰므로 그대로 둔다 — 한 번에 갈아끼우지 않는다.
-    if 부품:
-        단추 = "".join(
-            f'<button type="button" data-s1-component="button" data-variant="primary" data-size="xsm"'
-            f' onclick="{동작}"><span data-s1-part="label">{이름}</span></button>'
-            for 이름, 동작 in (
-                ("수정요청서 MD 다운로드", f"location.href='/screen/{human_key}/수정요청.md'"),
-                ("수정요청서 PDF 보기", f"window.open('/screen/{human_key}/수정요청.html','_blank')")))
-    else:
-        단추 = (f'<a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.md" download>수정요청서 MD 다운로드</a>'
-              f'<a class="s1-btn s1-btn-primary" href="/screen/{human_key}/수정요청.html" target="_blank">수정요청서 PDF 보기</a>')
+    # DESIGN_SYSTEM_GAP: 정본 아이콘 스물다섯에 '주의(세모)'가 없다. 접고 펴는 화살표는
+    # 정본 chevron 을 그대로 쓰고, 세모만 같은 규격(24 틀)으로 그려 CSS 가 가면으로 깐다.
+    주의아이콘 = '<span class="ico" aria-hidden="true"></span>'
+    화살표 = '<span class="arw" aria-hidden="true"></span>'
+    단추 = (s1.단추링크("수정요청서 MD 다운로드", "/screen/%s/수정요청.md" % human_key,
+                    "primary", download=True)
+          + s1.단추링크("수정요청서 PDF 보기", "/screen/%s/수정요청.html" % human_key,
+                    "primary", target="_blank", rel="noopener"))
     return f"""
     <details class="warn-card" open>
       <summary>{주의아이콘}<span class="ttl">개발화면 검수 전 적용해주세요</span>
@@ -150,27 +142,25 @@ CSS = """
 .warn-card[open]>summary{border-radius:var(--radius-card-md) var(--radius-card-md) 0 0}
 .warn-card>summary .ttl{font-weight:var(--font-weight-bold)}
 .warn-card>summary .muted{font-weight:var(--font-weight-medium)}
-.warn-card>summary .ico{flex:0 0 auto}
-.warn-card>summary .arw{margin-left:auto;flex:0 0 auto;transition:transform .15s}
-.warn-card[open]>summary .arw{transform:rotate(180deg)}
+/* 아이콘은 글자색을 따라가게 가면으로 깐다(정본 부품이 아이콘을 다루는 방식과 같다).
+   DESIGN_SYSTEM_GAP: '주의(세모)'가 정본 스물다섯에 없어 같은 규격으로 그려 /assets/img/ 에 두었다.
+   화살표는 정본 chevron 을 그대로 쓴다. */
+.warn-card>summary .ico,.warn-card>summary .arw{flex:0 0 auto;background:currentColor;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-size:contain;mask-size:contain}
+.warn-card>summary .ico{width:var(--sizing-16);height:var(--sizing-16);
+  -webkit-mask-image:url('/assets/img/icon-caution.svg');
+  mask-image:url('/assets/img/icon-caution.svg')}
+.warn-card>summary .arw{margin-left:auto;width:var(--sizing-20);height:var(--sizing-20);
+  transform:rotate(90deg);transition:transform .15s;
+  -webkit-mask-image:url('/assets/icons/chevron.svg');
+  mask-image:url('/assets/icons/chevron.svg')}
+.warn-card[open]>summary .arw{transform:rotate(-90deg)}
 .warn-card>.body{padding:0 var(--spacing-20) var(--spacing-16)}
 /* 단추 둘 사이 — 정본 부품(data-s1-component)으로 낼 때도 간격은 여기서 준다 */
 .warn-card>.body [data-s1-component="button"]+[data-s1-component="button"]{margin-left:var(--spacing-8)}
 .warn-card>.body p{margin:0 0 var(--spacing-10);font-size:var(--font-size-14);
   line-height:var(--line-height-140);color:var(--color-text-body-tertiary)}
 
-/* S-1 Button · Size XSM(PC) — h34 / 좌우 spacing-8 / radius-4 / body 14M.
-   두 단추는 같은 무게다(둘 다 이 카드의 할 일이다 — river 2026-09-14). */
-.s1-btn{display:inline-flex;align-items:center;justify-content:center;
-  height:var(--sizing-34);min-width:var(--sizing-64);padding:0 var(--spacing-8);
-  border-radius:var(--radius-button-md);border:var(--border-width-1) solid transparent;
-  font-size:var(--font-size-14);font-weight:var(--font-weight-medium);
-  text-decoration:none;cursor:pointer}
-.s1-btn+.s1-btn{margin-left:var(--spacing-8)}
-.s1-btn-primary{background:var(--color-button-bg-primary--default);
-  border-color:var(--color-button-border-primary--default);
-  color:var(--color-button-label-primary--default)}
-.s1-btn-primary:hover{background:var(--color-button-bg-primary--hover);
-  border-color:var(--color-button-border-primary--hover);
-  color:var(--color-button-label-primary--hover)}
 """

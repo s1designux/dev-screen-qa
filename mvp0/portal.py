@@ -45,10 +45,11 @@ from itertools import groupby
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
+import s1
 import s1_tokens
 # S-1 디자인가이드 토큰 네 장 — 포털 화면이 var(--…) 로 쓸 수 있게 머리에 잇는다.
-_토큰CSS = s1_tokens.링크()
-_부품CSS = s1_tokens.부품()   # 새 화면(과제 카드·과제 안)은 정본 부품 CSS 를 그대로 쓴다
+_부품CSS = s1_tokens.부품()      # 모든 화면이 정본 부품 CSS 를 그대로 입는다
+_부품JS = s1_tokens.동작()       # 여닫기·지우개 같은 동작도 정본이 한다
 
 import db as dbmod
 import queries
@@ -129,7 +130,7 @@ def _esc(v):
 
 def _pf_badge(v):
     v = (v or "")
-    return f'<span class="pf {v.lower()}">{_esc(v.upper() if v else "미검수")}</span>'
+    return s1.이름표(v.upper() if v else "미검수", **{"class": "pf " + v.lower()})
 
 
 def _upl(human_key, page_uuid, side, rnd=None):
@@ -137,15 +138,17 @@ def _upl(human_key, page_uuid, side, rnd=None):
     linked = intake().page_link(page_uuid)
     if linked:
         if side == 'design':
-            return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">다른 시안으로 변경</button>'
+            return s1.단추('다른 시안으로 변경', 크기='xxsm',
+                          onclick='window.s1Modal("design-picker").open()')
         return '<span class="upl">촬영 원본 보관됨</span>'
     q = f"?side={side}" + (f"&round={rnd}" if rnd is not None else "")
     action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
     label = '디자인' if side == 'design' else '개발화면'
+    # DESIGN_SYSTEM_GAP: 정본에 '파일 고르기' 부품이 없다 — 브라우저 기본 칸에 자리만 준다.
     return (
         f'<span class="upl-group">'
         f'<form class="upl" method="post" enctype="multipart/form-data" action="{action}">'
-        f'<label>PNG 업로드<input type="file" name="file" accept="image/png" '
+        f'<label>PNG 업로드<input class="filepick" type="file" name="file" accept="image/png" '
         f'onchange="this.form.submit()"></label></form></span>'
     )
 
@@ -361,9 +364,7 @@ def render_list(unresolved_only: bool, round_filter):
     def qs(un):
         return "/?unresolved=1" if un else "/"
 
-    chip = lambda label, href, active: (
-        f'<a class="chip{" on" if active else ""}" href="{href}">{label}</a>'
-    )
+    chip = lambda label, href, active: s1.칩(label, 고름=active, 주소=href)
     un_filters = (
         chip("전체", qs(False), not unresolved_only)
         + chip("미해결만", qs(True), unresolved_only)
@@ -383,34 +384,33 @@ def render_list(unresolved_only: bool, round_filter):
             unres = r["unresolved"]
             unres_cls = "num zero" if unres == 0 else "num"
             href = r.get('route_href') or f"/screen/{r['route_key']}"
-            trs += f"""<tr data-href="{_esc(href)}" onclick="location.href=this.dataset.href">
-              <td class="name"><a style="color:inherit;text-decoration:none" href="{_esc(href)}">{_esc(r['name'])}</a></td>
-              <td>{_esc(r['platform'])}</td>
-              <td class="ctr">{r['page_count']}개</td>
-              <td class="ctr">{_esc(r.get('preparation') or '준비됨')}</td>
-              <td class="ctr">{_pf_badge(r['pass_fail'])}</td>
-              <td class="ctr"><span class="{unres_cls}">{unres}</span> / {r['total']}</td>
-            </tr>"""
+            trs += s1.줄([
+                (f'<a style="color:inherit;text-decoration:none" href="{_esc(href)}">'
+                 f'{_esc(r["name"])}</a>', {"class": "name"}),
+                _esc(r['platform']),
+                (f"{r['page_count']}개", {"class": "ctr"}),
+                (_esc(r.get('preparation') or '준비됨'), {"class": "ctr"}),
+                (_pf_badge(r['pass_fail']), {"class": "ctr"}),
+                (f'<span class="{unres_cls}">{unres}</span> / {r["total"]}', {"class": "ctr"}),
+            ], **{"data-href": _esc(href), "onclick": "location.href=this.dataset.href"})
         키 = 프로젝트키.get(project)
-        결과서 = (f'<span class="docs">'
-                f'<a class="button" href="/result/{_esc(키)}?scope=all" target="_blank">개발화면검수서</a></span>') if 키 else ''
+        결과서 = ('<span class="docs">'
+                + s1.단추링크('개발화면검수서', f'/result/{_esc(키)}?scope=all',
+                           target='_blank', rel='noopener') + '</span>') if 키 else ''
         groups_html += f"""
         <section class="group">
           <h2>{_esc(project)} <span class="muted">· 화면 {len(items)}</span>{결과서}</h2>
-          <table>
-            <thead><tr>
-              <th>화면명</th><th>플랫폼</th>
-              <th class="ctr">검수 페이지</th><th class="ctr">촬영·짝 확인</th><th class="ctr">Pass/Fail(종합)</th><th class="ctr">미해결 / 전체</th>
-            </tr></thead>
-            <tbody>{trs}</tbody>
-          </table>
+          {s1.표머리(['화면명', '플랫폼',
+                     ('검수 페이지', {'class': 'ctr'}), ('촬영·짝 확인', {'class': 'ctr'}),
+                     ('Pass/Fail(종합)', {'class': 'ctr'}), ('미해결 / 전체', {'class': 'ctr'})])}
+          {trs}{s1.표꼬리()}
         </section>"""
 
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>검수 포털 — 화면 목록</title>
-{_토큰CSS}<style>{_LIST_CSS}</style></head>
+{_부품CSS}<style>{_LIST_CSS}</style>{_부품JS}</head>
 <body>
   {gnb_bar.바("project")}
   <header>
@@ -468,13 +468,15 @@ def render_screen(human_key: str, notice=""):
         n = 0
         for gi, (뭉치id, 뭉치이름, 뭉치장들) in enumerate(page_group.묶기(pages)):
             없음 = not 뭉치id
-            rows += (f'<tr class="grp{" none" if 없음 else ""}">'
-                     f'<td class="ctr pick"><label class="pickbox"><input type="checkbox"'
-                     f' class="pick-grp" data-grp="{gi}"'
-                     f' aria-label="{_esc(뭉치id or "아직 ID 없음")} 뭉치 전체 선택"></label></td>'
-                     f'<td colspan="7"><span class="gid">{_esc(뭉치id or "아직 ID 없음")}</span>'
-                     f'<span class="gname">{_esc("" if 없음 else 뭉치이름)}</span>'
-                     f'<span class="gcnt">· {len(뭉치장들)}장</span></td></tr>')
+            rows += s1.줄([
+                (s1.체크(칸id=f'pick-grp-{gi}',
+                        **{"class": "pick-grp", "data-grp": str(gi),
+                           "aria-label": f'{_esc(뭉치id or "아직 ID 없음")} 뭉치 전체 선택'}),
+                 {"class": "ctr pick"}),
+                (f'<span class="gid">{_esc(뭉치id or "아직 ID 없음")}</span>'
+                 f'<span class="gname">{_esc("" if 없음 else 뭉치이름)}</span>'
+                 f'<span class="gcnt">· {len(뭉치장들)}장</span>', {"colspan": "7"}),
+            ], **{"class": "grp none" if 없음 else "grp"})
             for p in 뭉치장들:
                 n += 1
                 dummy = ('<span class="dummy">더미</span>'
@@ -483,27 +485,29 @@ def render_screen(human_key: str, notice=""):
                 uncls = "num zero" if un == 0 else "num"
                 href = f"/screen/{_esc(human_key)}/page/{p['uuid']}"
                 up = _esc(p["uploaded_at"] or "—")
-                rows += f"""<tr onclick="location.href='{href}'">
-                  <td class="ctr pick" onclick="event.stopPropagation()"><label class="pickbox"><input
-                       type="checkbox" name="page" form="page-remove" value="{p['uuid']}"
-                       data-grp="{gi}" aria-label="{_esc(p['name'])} 선택"></label></td>
-                  <td class="ctr">{n}</td>
-                  <td class="ctr skey" onclick="event.stopPropagation()"><input class="skey-in"
-                       name="key_{p['uuid']}" form="page-keys" value="{_esc(p['human_key'] or '')}"
-                       placeholder="—" aria-label="{_esc(p['name'])} 스토리보드 ID"></td>
-                  <td class="name">{_esc(p['name'])} {dummy}</td>
-                  <td class="ctr">{up}</td>
-                  <td class="ctr dates">{dates_cell(p)}</td>
-                  <td class="ctr">{_pf_badge(p['pass_fail'])}</td>
-                  <td class="ctr"><span class="{uncls}">{un}</span> / {p['total']}</td>
-                </tr>"""
+                rows += s1.줄([
+                    (s1.체크('page', 칸id=f'pick-{p["uuid"]}', 값=p['uuid'], form='page-remove',
+                            **{"data-grp": str(gi), "aria-label": f'{_esc(p["name"])} 선택'}),
+                     {"class": "ctr pick", "onclick": "event.stopPropagation()"}),
+                    (str(n), {"class": "ctr"}),
+                    (s1.입력(f'key_{p["uuid"]}', p['human_key'] or '', 크기='xxsm',
+                            form='page-keys', 자리글='—', 지우기=False,
+                            겉속성={"class": "skey-in"},
+                            **{"aria-label": f'{_esc(p["name"])} 스토리보드 ID'}),
+                     {"class": "ctr skey", "onclick": "event.stopPropagation()"}),
+                    (f'{_esc(p["name"])} {dummy}', {"class": "name"}),
+                    (up, {"class": "ctr"}),
+                    (dates_cell(p), {"class": "ctr dates"}),
+                    (_pf_badge(p['pass_fail']), {"class": "ctr"}),
+                    (f'<span class="{uncls}">{un}</span> / {p["total"]}', {"class": "ctr"}),
+                ], onclick=f"location.href='{href}'")
     else:
-        rows = '<tr><td colspan="8" class="ctr">검수 페이지 없음</td></tr>'
+        rows = s1.줄([('검수 페이지 없음', {"colspan": "8", "class": "ctr"})])
 
     # 표 머리의 전체 고르기 — 낱개를 다 켜면 함께 켜지고, 하나라도 끄면 함께 꺼진다.
     # (S-1 Checkbox 에는 '일부만 골랐다' 상태가 없어 만들어 쓰지 않는다.)
-    pick_all_th = ('<th class="ctr pick"><label class="pickbox"><input type="checkbox" id="pick-all"'
-                   ' aria-label="검수 페이지 전체 선택"></label></th>') if pages else '<th class="ctr pick"></th>'
+    pick_all_th = ((s1.체크(칸id='pick-all', **{"aria-label": "검수 페이지 전체 선택"}),
+                    {"class": "ctr pick"}) if pages else ('', {"class": "ctr pick"}))
     pick_all_js = """<script>
       (function () {
         var 전체 = document.getElementById('pick-all');
@@ -523,9 +527,10 @@ def render_screen(human_key: str, notice=""):
     # 고른 것은 '삭제'와 같은 체크박스를 쓴다.
     move_bar = page_move.막대() if pages else ""
     # 개발화면검수서 — 전체목록의 것과 같은 문서를 이 화면만 담아 새 창으로 띄운다 (result_doc).
-    # 모양은 옆의 단추와 같다 — 코어 Button(s1_components) 의 `.button` 을 그대로 받는다.
-    doc_bar = (f'<a class="button" href="/screen/{quote(human_key)}/{quote("검수서.html")}"'
-               f' target="_blank">개발화면검수서</a>') if pages else ""
+    # 모양은 옆의 단추와 같다 — 정본 Button 을 그대로 입는다.
+    doc_bar = s1.단추링크('개발화면검수서',
+                       f'/screen/{quote(human_key)}/{quote("검수서.html")}',
+                       target='_blank', rel='noopener') if pages else ""
     move_dlg = page_move.창(_esc(human_key), 키제안값, 다른화면, persons, _esc) if pages else ""
 
     remove_bar = f"""
@@ -533,7 +538,7 @@ def render_screen(human_key: str, notice=""):
             onsubmit="return document.querySelector('input[name=page]:checked') ?
                       confirm('고른 검수 페이지와 수정필요·차수 기록을 지웁니다. 지울까요?') :
                       (alert('지울 검수 페이지를 먼저 고르세요.'), false)">
-        <button type="submit">삭제</button>
+        {s1.단추('삭제', 종류='submit')}
         {move_bar}
         {doc_bar}
       </form>""" if pages else ""
@@ -542,7 +547,7 @@ def render_screen(human_key: str, notice=""):
     keys_bar = f"""
       <form id="page-keys" class="bulk keys" method="post" action="/screen/{_esc(human_key)}/pages/keys">
         <span class="lbl">스토리보드 ID는 화면 한 장마다 적습니다. 비워 두면 '—' 로 남습니다.</span>
-        <button type="submit">ID 저장</button>
+        {s1.단추('ID 저장', 종류='submit')}
       </form>""" if pages else ""
 
     removed_html = ""
@@ -553,7 +558,7 @@ def render_screen(human_key: str, notice=""):
       <form class="bulk" method="post" action="/screen/{_esc(human_key)}/pages/purge"
             onsubmit="return confirm('예전에 목록에서 빼둔 검수 페이지 {len(removed)}개를 완전히 지웁니다. 되돌릴 수 없습니다. 지울까요?')">
         <span class="lbl">예전에 목록에서 빼둔 검수 페이지 {len(removed)}개</span>
-        <button type="submit">완전히 지우기</button>
+        {s1.단추('완전히 지우기', 종류='submit')}
       </form>
     </section>"""
 
@@ -572,21 +577,21 @@ def render_screen(human_key: str, notice=""):
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(s['name'])} — 검수 페이지 목록</title>
-{_토큰CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}{page_group.CSS}</style></head>
+{_부품CSS}<style>{_LIST_CSS}{fixdoc_http.CSS}{page_move.CSS}{page_group.CSS}</style>{_부품JS}</head>
 <body>
   {gnb_bar.바("project")}
   <header class="row">
-    <a class="s1-btn back" href="/">전체목록 보기</a>
+    {s1.단추링크('전체목록 보기', '/', **{"class": "back"})}
     <h1>{_esc(s['name'])}</h1>
     <details class="rename">
       <summary>화면명 고치기</summary>
       <form method="post" action="/screen/{_esc(human_key)}/rename">
-        <input name="name" value="{_esc(s['name'])}" size="24" required>
-        <button type="submit">저장</button>
+        {s1.입력('name', s['name'], required=True)}
+        {s1.단추('저장', 종류='submit')}
       </form>
     </details>
     <span class="sub2">{_esc(s['platform'])} · 종합 {_pf_badge(agg)}</span>
-    <a class="btn" href="/report/{_esc(human_key)}" target="_blank">화면 전체 A4</a>
+    {s1.단추링크('화면 전체 A4', f'/report/{_esc(human_key)}', target='_blank', rel='noopener')}
   </header>
   <div class="wrap">
     {notice_html}
@@ -597,14 +602,11 @@ def render_screen(human_key: str, notice=""):
         <span class="muted" id="prewarm-note"></span>
         {remove_bar}
       </div>
-      <table>
-        <thead><tr>
-          {pick_all_th}<th class="ctr">순번</th><th class="ctr">스토리보드 ID</th><th>검수 페이지</th>
-          <th class="ctr">업로드일</th><th class="ctr">검수일 (차수)</th>
-          <th class="ctr">Pass/Fail</th><th class="ctr">미해결 / 전체</th>
-        </tr></thead>
-        <tbody>{rows}</tbody>
-      </table>
+      {s1.표머리([pick_all_th,
+                 ('순번', {'class': 'ctr'}), ('스토리보드 ID', {'class': 'ctr'}), '검수 페이지',
+                 ('업로드일', {'class': 'ctr'}), ('검수일 (차수)', {'class': 'ctr'}),
+                 ('Pass/Fail', {'class': 'ctr'}), ('미해결 / 전체', {'class': 'ctr'})])}
+      {rows}{s1.표꼬리()}
       {keys_bar}
       {pick_all_js}
     </section>
@@ -645,22 +647,29 @@ def _capture_picker(store, linked, page, sel_run, human_key=''):
     caps = rows
     options = ''
     for seq, value, filename, name, old_shot in sorted(rows, key=lambda x: (x[2] != current, x[4], x[0])):
-        options += (f'<label class="cap-option{" cap-old" if old_shot else ""}"><input type="radio" name="capture" value="{_esc(value)}" data-src="/uploads/{_esc(filename)}" '
-                    f'data-name="{_esc(name)}" {"checked" if filename == current else ""}><span class="rank">{"예전에 찍은 사진" if old_shot else "비교 중"}</span><span>{_esc(name)}</span></label>')
+        options += ('<div class="cap-option%s"><span class="rank">%s</span>%s</div>' % (
+            " cap-old" if old_shot else "",
+            "예전에 찍은 사진" if old_shot else "비교 중",
+            s1.라디오('capture', 'cap-%d' % seq, name, 켬=(filename == current), 값=value,
+                    **{"data-src": "/uploads/" + filename, "data-name": name})))
     옛것 = sum(1 for r in rows if r[4])
     접기 = ' hide-old' if 옛것 else ''
     if 옛것:
-        options += (f'<label class="cap-more"><input type="checkbox" onchange="this.closest(\'.capture-list\').querySelector(\'.capture-options\').classList.toggle(\'hide-old\', !this.checked)">'
-                    f'<span>예전에 찍은 사진도 보기 ({옛것}장)</span></label>')
+        options += ('<div class="cap-more">' + s1.체크(
+            칸id='cap-show-old', 글='예전에 찍은 사진도 보기 (%d장)' % 옛것,
+            onchange="this.closest('.capture-list').querySelector('.capture-options')"
+                     ".classList.toggle('hide-old', !this.checked)") + '</div>')
     pic = f'<img id="plan-capture-preview" src="/uploads/{_esc(current)}" alt="선택한 개발 캡처">' if current else '<img id="plan-capture-preview" alt="아래에서 개발 캡처를 선택하세요.">'
     design = f'<img class="design-original" src="/uploads/{_esc(page["design_img"])}" alt="디자인 원본">' if page.get('design_img') else '<span class="ph">디자인 없음</span>'
     comparison = (f'<div class="capture-layout"><div class="capture-pair"><section><h3>디자인 원본</h3><div class="capture-image">{design}</div></section>'
                   f'<section><h3>개발 화면</h3><div class="capture-image">{pic}</div></section></div>'
                   f'<aside class="capture-list"><b>{"같은 접수함에서 찍은 사진" if linked else "같은 화면에서 찍은 사진"}</b><div class="capture-options{접기}">{options}</div></aside></div>')
-    return (f'<dialog id="capture-picker"><div class="s1-modal-inset"><div class="dialog-head"><h2>개발 화면 바꾸기</h2><button type="button" onclick="document.getElementById(\'capture-picker\').close()">닫기</button></div>'
-            f'<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
-            + ui.form(action, controls + comparison + f'<div class="capture-footer"><button {"disabled" if not caps else ""}>이 개발 화면으로 변경</button></div>')
-            + f'</div></dialog><script>{(BASE / "capture_recommendation.js").read_text()}</script>')
+    속 = ('<p class="recommendation-status" role="status">유사한 개발 캡처를 찾고 있습니다…</p>'
+         + ui.form(action, controls + comparison + '<div class="capture-footer">'
+                   + s1.단추('이 개발 화면으로 변경', 'primary', 종류='submit',
+                            disabled=(not caps) or None) + '</div>'))
+    return (s1.대화창('capture-picker', '개발 화면 바꾸기', 속)
+            + f'<script>{(BASE / "capture_recommendation.js").read_text()}</script>')
 
 
 def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *, draft=None, store=None, workflow=None):
@@ -703,16 +712,20 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     def upload_control(side):
         if workflow:
             if side=='design':return '<span class="upl">디자인 원본 기준</span>'
-            return '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button>'
+            return s1.단추('개발 화면 변경', 크기='xxsm',
+                          onclick='window.s1Modal("capture-picker").open()')
         if linked:
             if side == 'design':
-                return '<button type="button" class="upl" onclick="document.getElementById(&quot;design-picker&quot;).showModal()">'+('다른 시안으로 변경' if imported_item['design_id'] else 'Figma 연결')+'</button>'
+                return s1.단추('다른 시안으로 변경' if imported_item['design_id'] else 'Figma 연결',
+                              크기='xxsm', onclick='window.s1Modal("design-picker").open()')
             if linked['page_id'] and not all_issues:
-                return '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button>'
+                return s1.단추('개발 화면 변경', 크기='xxsm',
+                              onclick='window.s1Modal("capture-picker").open()')
             return '<span class="upl">촬영 원본 보관됨' + (' · 바꾸려면 새 차수' if all_issues else '') + '</span>'
         extra = ''
         if side == 'dev' and sel_run and not all_issues and len(sibling_caps) > 1:
-            extra = '<button type="button" class="upl" onclick="document.getElementById(&quot;capture-picker&quot;).showModal()">개발 화면 변경</button> '
+            extra = s1.단추('개발 화면 변경', 크기='xxsm',
+                           onclick='window.s1Modal("capture-picker").open()') + ' '
         return extra + _upl(human_key, page_uuid, side, sel if side == 'dev' else None)
 
     # 차수 선택: ?round=N (없으면 최신). 그 차수 시점의 상태로 화면을 구성한다.
@@ -784,7 +797,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     # 고정 틀(canvas) 안에 이미지도 오버레이도 같은 'meet'로 비율 맞춤 → 틀이 안 흔들리고 핀 정렬 유지.
     # (coord_ref 비율 = 이미지 비율이라, object-fit:contain과 SVG meet가 같은 자리에 레터박스됨.)
     overlay = (
-        f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay">'
+        f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay">'   # s1-제외 아이콘이 아니라 핀을 얹는 그림판이다
         f'<g class="boxes">{boxes}</g>'
         f'<g class="leaders">{leaders}</g>'
         f'<g class="pins">{dots}</g>'
@@ -796,7 +809,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         left_body = f'<img class="capimg" src="/uploads/{_esc(design_img)}" alt="디자인">'
     else:
         left_body = '<span class="ph">Figma 디자인을 연결해 주세요.</span>'
-    auto_overlay = (f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay auto-overlay"></svg>'
+    auto_overlay = (f'<svg viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet" class="overlay auto-overlay"></svg>'   # s1-제외: 그림판
                     if auto_view and auto_view['candidates'] else '')
     if dev_img:
         right_body = f'<img class="capimg" src="/uploads/{_esc(dev_img)}" alt="개발화면">{overlay}{auto_overlay}'  # 후보 층은 핀 층 위(번호를 누를 수 있게)
@@ -804,7 +817,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         right_body = f'<span class="ph">{"디자인 시안과 같은 상태의 개발 화면을 등록해 주세요." if workflow else "개발 이미지 자리표시"}</span>{overlay}'
 
     # 이력에 남는 '누가'는 로그인한 사람이다 — 고르게 하지 않는다(auth.py).
-    person_options = auth.나의옵션()
+    person_options = auth.나의숨김칸()
 
     def issue_card(i):
         n = number[i["rid"]]
@@ -812,7 +825,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         cls = _status_class(s_eff)
         unres = s_eff in UNRESOLVED_STATUSES
         props = json.loads(i["properties"]) if i["properties"] else []
-        props_html = "".join(f'<span class="tag">{_esc(p)}</span>' for p in props)
+        props_html = "".join(s1.이름표(p) for p in props)
         loc = f'({i["box_x"]},{i["box_y"]}) {i["box_w"]}×{i["box_h"]}'
         sev_html = f'<span class="sev">{_esc(i["severity"])}</span>' if i["severity"] else ""
         type_color = _type_color(i["category"])
@@ -837,10 +850,10 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
                 f'onsubmit="return _confirmPass(this)" onclick="event.stopPropagation()">'
                 f'<input type="hidden" name="issue" value="{i["uuid"]}">'
                 f'<input type="hidden" name="round" value="{sel}">'
-                f'<select name="actor" required>{person_options}</select>'
-                f'<input name="reason" maxlength="200" required placeholder="통과 사유 (필수)">'
-                f'<button type="submit">통과 처리</button>'
-                f"</form>"
+                f'{person_options}'
+                + s1.입력('reason', '', maxlength='200', required=True, 자리글='통과 사유 (필수)')
+                + s1.단추('통과 처리', 'primary', 종류='submit')
+                + "</form>"
             )
         else:
             foot = '<div class="passed">✓ 처리됨 (이력·사유는 위 참조)</div>' if s_eff in CLOSED_STATUSES else '<div class="loc">확인·판단 대기 중 · 이력 유지</div>'
@@ -882,7 +895,9 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     tabbar = panels = ""
     for gi, (lbl, count, body) in enumerate(tab_defs):
         tabbar += (
-            f'<button class="tab{" on" if gi == 0 else ""}" data-idx="{gi}" onclick="showTab(\'{gi}\')">'
+            f'<button type="button" data-s1-part="tab" role="tab"'
+            f' aria-selected="{"true" if gi == 0 else "false"}" data-value="{gi}"'
+            f' class="tab{" on" if gi == 0 else ""}" data-idx="{gi}" onclick="showTab(\'{gi}\')">'
             f'{_esc(lbl)} <span class="cnt">{count}</span></button>'
         )
         panels += (
@@ -902,10 +917,11 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             성질.append(lb)
     filterbar = ''
     if len(성질) > 1:
-        칩 = ''.join(f'<button type="button" class="fchip" data-type="{_esc(x)}" onclick="filterType(this)">{_esc(x)}</button>'
-                    for x in 성질)
+        칩 = ''.join(s1.칩(x, onclick='filterType(this)',
+                          **{"class": "fchip", "data-type": _esc(x)}) for x in 성질)
         filterbar = ('<span class="fbar">'
-                     '<button type="button" class="fchip on" data-type="" onclick="filterType(this)">전체</button>'
+                     + s1.칩('전체', 고름=True, onclick='filterType(this)',
+                            **{"class": "fchip on", "data-type": ""})
                      + 칩 + '</span>')
 
     미리 = ('<script>' + auto_inspect.PREWARM_JS + '</script>'
@@ -928,10 +944,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     base = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}"
     round_sel = ""
     if rounds:
-        chips = "".join(
-            f'<a class="chip{" on" if r == sel else ""}" href="{base}?round={r}">{r}차</a>'
-            for r in rounds
-        )
+        chips = "".join(s1.칩(f'{r}차', 고름=(r == sel), 주소=f'{base}?round={r}')
+                        for r in rounds)
         pf_r = _pf_badge(sel_run["pass_fail"]) if sel_run else ""
         round_sel = f'<span class="rounds"><span class="rlbl">차수</span>{chips} {pf_r}</span>'
 
@@ -942,22 +956,26 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
         design_dialog = ui.design_dialog(store,linked['batch_id'],imported_item)
         recommendation = store.recommendation(linked['id']) if linked['status']=='pending' else ''
         label = '추천 연결 · 확인 대기' if recommendation else ui.STATUS[linked['status']]
-        connection_controls = '<div class="connection-controls"><span class="chip">'+_esc(label)+'</span>'
+        connection_controls = '<div class="connection-controls">' + s1.이름표(label)
         controls = ui.hidden('item',linked['id']) + ui.hidden('revision',linked['revision'])
         if linked['status'] == 'pending':
-            connection_controls += ui.form('/intake/'+linked['batch_id']+'/confirm', controls+'<button>이 짝으로 확인</button>')
+            connection_controls += ui.form('/intake/'+linked['batch_id']+'/confirm',
+                                           controls + s1.단추('이 짝으로 확인', 종류='submit'))
             connection_controls += '<span>두 그림이 같은 상태인지 확인하세요.</span>'
         elif linked['status'] == 'unlinked':
             connection_controls += '<span>왼쪽에서 Figma 시안을 연결해 주세요.</span>'
         elif linked['status'] == 'confirmed' and not linked['page_id']:
-            connection_controls += ui.form('/intake/'+linked['batch_id']+'/start', controls+'<button>확인한 페이지 검수 열기</button>')
+            connection_controls += ui.form('/intake/'+linked['batch_id']+'/start',
+                                           controls + s1.단추('확인한 페이지 검수 열기', 종류='submit'))
         if linked['status'] in ('unlinked','pending','held','excluded'):
             connection_controls += '<a href="/intake/'+linked['batch_id']+'">촬영본 관리·보류</a>'
         if recommendation:
             connection_controls += '<span class="recommendation-note">'+_esc(recommendation)+'</span>'
         connection_controls += '</div>'
         if open_design:
-            design_dialog += '<script>document.getElementById("design-picker").showModal()</script>'
+            # 정본 동작은 모듈이라 늦게 붙는다 — 다 실린 뒤에 연다.
+            design_dialog += ('<script>window.addEventListener("load",function(){'
+                              'window.s1Modal && window.s1Modal("design-picker").open()})</script>')
     if linked and not workflow and linked['page_id'] and not all_issues:
         design_dialog += _capture_picker(store, linked, page, sel_run)
     elif not linked and not workflow and not draft and sel_run and not all_issues and len(sibling_caps) > 1:
@@ -984,10 +1002,13 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
             def _step(offset, label):
                 t = idx + offset
                 if not 0 <= t < len(siblings):
-                    return f'<span class="page-step disabled" aria-disabled="true">{label}</span>'
+                    return s1.단추(label, 크기='xxsm', disabled=True,
+                                  **{"class": "page-step"})
                 nxt = siblings[t]
-                return (f'<a class="page-step" href="/screen/{_esc(human_key)}/page/{_esc(nxt["uuid"])}"'
-                        f' title="{_esc(nxt["name"])}">{label}</a>')
+                return s1.단추링크(label,
+                                f'/screen/{_esc(human_key)}/page/{_esc(nxt["uuid"])}',
+                                크기='xxsm', title=_esc(nxt["name"]),
+                                **{"class": "page-step"})
             navigation = ('<nav class="page-navigation" aria-label="검수 페이지 이동">'
                           + _step(-1, "← 이전")
                           + f'<span>{idx + 1} / {len(siblings)}</span>'
@@ -996,12 +1017,12 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(page['name'])} — 페이지 상세</title>
-{_토큰CSS}<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{card_view.CSS}{app_layout.CSS if native_app else ""}</style></head>
+{_부품CSS}<style>{_PAGE_CSS}{_DIALOG_CSS}{comparison_view.CSS}{auto_inspect.CSS}{card_view.CSS}{app_layout.CSS if native_app else ""}</style>{_부품JS}</head>
 <body class="{'app-view' if native_app else 'web-view'}">
   {gnb_bar.바("project")}
   <header>
     <div class="head-left">
-      <a class="s1-btn back" href="{_esc(parent_href)}">그룹목록 보기</a>
+      {s1.단추링크('그룹목록 보기', _esc(parent_href), **{"class": "back"})}
       <h1>{_esc(page['name'])}</h1>
       <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(page.get("human_key") or "ID 미정")}</span></span>
     </div>
@@ -1026,7 +1047,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
     </div>
 
     {'<aside class="app-sidebar">' if native_app else ''}
-    <div class="tabbar">{tabbar}{filterbar}</div>
+    <div class="tabbar" data-s1-component="tab" data-size="md" data-break="pc"
+         role="tablist" aria-label="수정필요 보기 고르기">{tabbar}{filterbar}</div>
     <div class="cards" id="cards">{issues_html}</div>
     {'</aside></div>' if native_app else ''}
   </div>
@@ -1061,7 +1083,7 @@ class Handler(BaseHTTPRequestHandler):
         if rule_board.get(self, unquote(path)):
             return
         if path == '/policy' or path.startswith('/policy/'):
-            policy_ui.get(self, intake(), path, auth.나의옵션())
+            policy_ui.get(self, intake(), path, auth.나의숨김칸())
             return
         if path.startswith('/design'):
             design_plan_http.get(self, intake(), path)
@@ -1136,10 +1158,18 @@ class Handler(BaseHTTPRequestHandler):
             # 실제로 오는 주소는 /assets/css/assets/icons/… 다. `부품받기.sh` 가 받아 둔 것.
             fp = BASE / "assets" / "css" / "assets" / "icons" / Path(path).name
             self._정적(fp, "image/svg+xml")
-        elif path.startswith("/assets/img/") and path.endswith(".svg"):
+        elif path.startswith("/assets/img/") and path.endswith((".svg", ".png")):
             # 시안에서 내려받아 둔 그림(로고 등). 파일 이름만 받아 경로 탈출을 막는다.
             fp = BASE / "assets" / "img" / Path(path[len("/assets/img/"):]).name
-            self._정적(fp, "image/svg+xml")
+            self._정적(fp, "image/svg+xml" if fp.suffix == ".svg" else "image/png")
+        elif path.startswith("/assets/js/s1/") and path.endswith(".js"):
+            # 정본 부품 동작(ES 모듈). `components/` 를 서로 부르므로 폴더째 내보낸다.
+            # `부품받기.sh` 가 받아 둔 것 — 손으로 고치지 않는다.
+            뒤 = path[len("/assets/js/s1/"):]
+            fp = (BASE / "assets" / "js" / "s1" / 뒤).resolve()
+            뿌리 = (BASE / "assets" / "js" / "s1").resolve()
+            self._정적(fp if str(fp).startswith(str(뿌리) + "/") else 뿌리,
+                       "application/javascript; charset=utf-8")
         elif path.startswith("/assets/js/") and path.endswith(".js"):
             fp = BASE / "assets" / "js" / Path(path).name
             self._정적(fp, "application/javascript; charset=utf-8")
@@ -1481,7 +1511,7 @@ _LIST_CSS = """
   h1 { font-size:var(--font-size-18); margin:0; }
   .sub { font-size:var(--font-size-12); color:var(--color-text-caption); margin-top:var(--spacing-4); }
   .sub2 { font-size:var(--font-size-12); color:var(--color-text-caption); }
-  .btn { margin-left:auto; }   /* 모양은 코어 Button(s1_components) */
+  .btn { margin-left:auto; }   /* 모양은 정본 Button */
   .wrap { max-width:1040px; margin:0 auto; padding:var(--spacing-20) var(--spacing-28) var(--spacing-64); }
   .filters { display:flex; gap:var(--spacing-10); align-items:center; margin:var(--spacing-6) 0 var(--spacing-20); flex-wrap:wrap; }
   .filters .lbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
@@ -1492,7 +1522,7 @@ _LIST_CSS = """
   .docs { float:right; font-size:var(--font-size-12); color:var(--color-text-caption); font-weight:var(--font-weight-regular); }
   /* 검수 페이지 목록의 단추와 같은 모양으로 둔다 (river 2026-09-17). */
   .docs .button { margin-left:var(--spacing-6); }
-  tbody tr { cursor:pointer; }   /* 표 모양은 코어 Table(s1_components) */
+  tbody tr { cursor:pointer; }   /* 표 모양은 정본 Table */
   .name { font-weight:var(--font-weight-bold); }
   .key { font-family:ui-monospace,monospace; color:var(--color-text-tertiary); }
   .ctr { text-align:center; white-space:nowrap; }
@@ -1515,15 +1545,13 @@ _LIST_CSS = """
   #page-remove { justify-content:flex-end; flex:0 0 auto; margin:var(--spacing-8) var(--spacing-4); }
   .bulk .lbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .bulk .hint { font-size:var(--font-size-12); color:var(--color-text-helper); }
-  td.pick, th.pick { width:32px; padding:0; }
-  td.pick .pickbox, th.pick .pickbox { display:flex; align-items:center; justify-content:center;
-    min-height:var(--sizing-34); padding:0 var(--spacing-6); cursor:default; }
+  td.pick, th.pick { width:32px; }
+  td.pick [data-s1-component="checkbox"], th.pick [data-s1-component="checkbox"] {
+    display:flex; align-items:center; justify-content:center; }
   /* 스토리보드 ID — 화면 한 장마다. 표 안에서 바로 고쳐 쓴다. */
   td.skey, th.skey { width:172px; }
-  .skey-in { width:164px; font-family:ui-monospace,monospace; font-size:var(--font-size-12);
-    text-align:left; padding:var(--spacing-4) var(--spacing-6); border:1px solid var(--color-border-subtle);
-    border-radius:var(--radius-4); background:var(--color-surface-default); color:var(--color-text-primary); }
-  .skey-in:focus { outline:2px solid var(--color-border-focus); outline-offset:-1px; }
+  /* 생김새는 정본 Input 이 정한다 — 여기서는 폭만 좁힌다. */
+  .skey-in { width:150px; }
   #page-keys { justify-content:flex-end; }
   .dates { line-height:1.7; }
   .rdate { display:inline-block; font-size:var(--font-size-12); color:var(--color-text-tertiary); background:var(--color-bg-subtle); border-radius:var(--radius-4); padding:var(--spacing-2) var(--spacing-6); margin:0 var(--spacing-2); }
@@ -1540,7 +1568,7 @@ _DIALOG_CSS = """
   dialog input:not([type=hidden]):not([type=checkbox]):not([type=radio]){width:100%}
   dialog small,dialog .muted{color:var(--color-text-caption)}dialog details{margin:var(--spacing-12) 0}dialog h2{font-size:var(--font-size-16)}dialog button:disabled{opacity:.45}
 .fresh{display:inline-block;margin-right:var(--spacing-8);padding:var(--spacing-2) var(--spacing-8);border-radius:var(--radius-full);background:var(--color-action-primary-subtle);border:1px solid var(--color-border-focus);color:var(--color-action-primary-default);font-size:var(--font-size-12);font-weight:var(--font-weight-bold)}
-button.upl.armed{border-color:var(--color-action-primary-default);color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
+
 """
 
 _PAGE_CSS = """
@@ -1555,7 +1583,7 @@ _PAGE_CSS = """
   .head-left h1 { flex-shrink:0; }
   .head-left h1, .head-left .meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .page-navigation {justify-self:center;display:flex;align-items:center;gap:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap;}
-  /* 쪽 이동 모양은 코어 Pagination(s1_components) */
+  /* 쪽 이동 모양은 정본 Button(앞·뒤 두 자리뿐이라 Pagination 이 아니다) */
   header h1 { font-size:var(--font-size-16); margin:0; }
   header .meta { font-size:var(--font-size-12); color:var(--color-text-caption); }
   .key { font-family:ui-monospace,monospace; }
@@ -1563,13 +1591,13 @@ _PAGE_CSS = """
   .pf.fail { background:var(--color-red-50); color:var(--color-red-500); } .pf.pass { background:var(--color-action-primary-subtle); color:var(--color-action-primary-pressed); }
   .rounds { justify-self:end; display:flex; align-items:center; gap:var(--spacing-6); }
   .rlbl { font-size:var(--font-size-12); color:var(--color-text-caption); }
-  /* 차수 칩 모양은 코어 Chip(s1_components) — 검정 칩은 가이드에 없다 */
+  /* 차수 칩 모양은 정본 Chip — 검정 칩은 가이드에 없다 */
   .rnd { font-size:var(--font-size-10); font-weight:var(--font-weight-bold); color:var(--color-text-tertiary); background:var(--color-bg-subtle); border-radius:var(--radius-4); padding:var(--spacing-2) var(--spacing-4); margin-right:var(--spacing-2); }
-  #capture-picker{box-sizing:border-box;width:calc(100vw - 32px);max-width:1500px;height:92dvh;max-height:92dvh;overflow:hidden}
-  #capture-picker[open]{display:flex;flex-direction:column}
-  #capture-picker .s1-modal-inset{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--spacing-12)}
-  #capture-picker .dialog-head{position:static;flex:none;padding:0;gap:var(--spacing-12)}
-  #capture-picker h2,#capture-picker h3,#capture-picker p{margin:0}
+  /* 창 자체(딤·모서리·머리·닫기)는 정본 Modal 이 정한다 — 여기서는 크기와 속 배치만 잡는다. */
+  #capture-picker [data-s1-part="panel"]{box-sizing:border-box;width:calc(100vw - 32px);max-width:1500px;height:92dvh;max-height:92dvh}
+  #capture-picker [data-s1-part="content"]{flex:1;min-height:0;display:flex;flex-direction:column}
+  #capture-picker [data-s1-part="body"]{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--spacing-12);overflow:auto}
+  #capture-picker h3,#capture-picker p{margin:0}
   #capture-picker form{flex:1;min-height:0;margin:0;display:flex;flex-direction:column;gap:var(--spacing-12)}
   #capture-picker .capture-layout{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:var(--spacing-16);flex:1;min-height:0}
   #capture-picker .capture-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--spacing-12);min-height:0;min-width:0}
@@ -1582,12 +1610,12 @@ _PAGE_CSS = """
   #capture-picker .cap-option{position:relative;display:flex;align-items:center;gap:var(--spacing-6);margin:0;padding:var(--spacing-10);border:1px solid var(--color-border-default);background:var(--color-surface-default);border-radius:var(--radius-8);cursor:pointer;overflow-wrap:anywhere}
   #capture-picker .cap-option:has(input:checked){border-color:var(--color-action-primary-default);background:var(--color-action-primary-subtle)}
   #capture-picker .cap-option:has(input:focus-visible){outline:2px solid var(--color-border-focus);outline-offset:2px}
-  #capture-picker input[type=radio]{position:absolute;width:1px;height:1px;padding:0;border:0;opacity:0;clip-path:inset(50%);overflow:hidden}
+
   #capture-picker .capture-options.hide-old .cap-old{display:none}
   #capture-picker .cap-more{display:flex;align-items:center;gap:var(--spacing-6);padding:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);cursor:pointer}
   #capture-picker .rank{font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap}
   #capture-picker .capture-footer{flex:none;display:flex;justify-content:flex-end}
-  .app-view #capture-picker{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
+  .app-view #capture-picker [data-s1-part="panel"]{width:min(calc(100vw - 32px),calc(72dvh + 330px))}
   @media(max-width:700px){#capture-picker .capture-layout{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 130px}}
   .cards details{margin:var(--spacing-12) 0}.cards label{display:block;margin:var(--spacing-8) 0}
   .capture-suggestion{font-size:var(--font-size-12);color:var(--color-text-caption);margin:var(--spacing-4) var(--spacing-12);}
@@ -1698,13 +1726,14 @@ function qaPasteArm(btn){
   qaPasteCancel();
   _pasteTarget = { btn: btn, action: btn.dataset.action };
   btn.classList.add('armed');
-  btn.textContent = '붙여넣기 기다리는 중 · ⌘V';
+  (btn.querySelector('[data-s1-part="label"]') || btn).textContent = '붙여넣기 기다리는 중 · ⌘V';
   window.focus();
 }
 function qaPasteCancel(){
   if(!_pasteTarget){ return; }
   _pasteTarget.btn.classList.remove('armed');
-  _pasteTarget.btn.textContent = '붙여넣기';
+  (_pasteTarget.btn.querySelector('[data-s1-part="label"]')
+   || _pasteTarget.btn).textContent = '붙여넣기';
   _pasteTarget = null;
 }
 document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape'){ qaPasteCancel(); } });

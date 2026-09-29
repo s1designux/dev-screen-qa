@@ -6,6 +6,7 @@ import secrets
 import re
 import figma_reader
 import intake_ui as ui
+import s1
 
 CSRF = secrets.token_urlsafe(32)
 MAX_BODY = 100 * 1024 * 1024
@@ -78,7 +79,7 @@ def get(handler,store,path,q):
                 body=ui.batch_page(store,batch)
             handler._html(body)
         except ValueError as ex:
-            handler._html(ui.page('접수 확인','<a class="button" href="/intake">접수함으로</a>',str(ex),True),404)
+            handler._html(ui.page('접수 확인', s1.단추링크('접수함으로', '/intake'), str(ex), True),404)
     else:
         handler._html(ui.page('접수함','<a href="/intake">접수함으로</a>','페이지를 찾을 수 없습니다.',True),404)
 

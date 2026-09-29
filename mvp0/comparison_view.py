@@ -2,16 +2,15 @@
 CSS = '''
 .cv-tools{position:relative;display:flex;gap:var(--spacing-8);align-items:center;justify-content:center;flex-wrap:wrap;margin:0 0 var(--spacing-10);font-size:var(--font-size-12);flex-shrink:0}
 
-.cv-tools button[aria-pressed=true]{background:var(--color-button-bg-primary--default);border-color:var(--color-button-border-primary--default);color:var(--color-button-label-primary--default)}.cv-tools label{display:flex;align-items:center;gap:var(--spacing-4);margin:0}.cv-tools input{width:95px!important;padding:0!important}
-.cv-segments button:focus-visible{outline:2px solid var(--color-action-primary-default);outline-offset:1px}
+.cv-tools label{display:flex;align-items:center;gap:var(--spacing-4);margin:0}.cv-tools input.cv-fade{width:95px}
 .cv-tools [hidden]{display:none!important}.cv-help{color:var(--color-text-caption);font-size:var(--font-size-12)}.cv-merged>:first-child{display:none!important}.cv-merged{grid-template-columns:minmax(0,1fr)!important}
 .cv-glass{position:absolute;inset:0;width:100%;height:100%;z-index:2;touch-action:none;outline-offset:-3px}.cv-glass[hidden]{display:none}
-.cv-dialog{width:min(1100px,92vw);max-height:90vh;overflow:auto}
+.cv-dialog [data-s1-part="panel"]{width:min(1100px,92vw);max-height:90vh}.cv-dialog [data-s1-part="body"]{overflow:auto}
 .cv-pop{pointer-events:auto!important;box-shadow:var(--shadow-raised)}
 .cv-pop-head{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-8);margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-secondary)}
 .cv-pop-note{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-state-caution)}
-.cv-pop-x{font:inherit;line-height:1;padding:var(--spacing-2) var(--spacing-8);border:1px solid var(--color-border-default);border-radius:var(--radius-6);background:var(--color-surface-default);color:var(--color-text-secondary);cursor:pointer}
-.cv-hover{position:fixed;z-index:1000;pointer-events:none;width:min(660px,calc(100vw - 24px));padding:var(--spacing-12);border:1px solid var(--color-border-default);border-radius:var(--radius-12);background:var(--color-surface-default);box-shadow:var(--shadow-raised)}.cv-hover[hidden]{display:none}.cv-hover .cv-parts{gap:var(--spacing-10)}.cv-hover p{margin:0 0 var(--spacing-6)}.cv-dialog::backdrop{background:var(--color-overlay)}.cv-dialog header{padding:0 0 var(--spacing-12);display:flex;justify-content:space-between}.cv-parts{display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-16)}.cv-parts canvas{width:100%;height:auto;background:var(--color-bg-default);border:1px solid var(--color-border-subtle)}.cv-parts p{font-size:var(--font-size-12)}
+
+.cv-hover{position:fixed;z-index:1000;pointer-events:none;width:min(660px,calc(100vw - 24px));padding:var(--spacing-12);border:1px solid var(--color-border-default);border-radius:var(--radius-12);background:var(--color-surface-default);box-shadow:var(--shadow-raised)}.cv-hover[hidden]{display:none}.cv-hover .cv-parts{gap:var(--spacing-10)}.cv-hover p{margin:0 0 var(--spacing-6)}.cv-parts{display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-16)}.cv-parts canvas{width:100%;height:auto;background:var(--color-bg-default);border:1px solid var(--color-border-subtle)}.cv-parts p{font-size:var(--font-size-12)}
 '''
 JS = r'''
 (function(){
@@ -20,13 +19,29 @@ JS = r'''
  const panes=pair.querySelectorAll('.pane'),d=panes[0]?.querySelector('.canvas img'),v=panes[1]?.querySelector('.canvas img');
  if(!d||!v)return;
  const host=v.parentElement;host.style.position='relative';const tools=document.createElement('div');tools.className='cv-tools';
- tools.innerHTML='<div class="cv-segments" role="group" aria-label="비교 보기 방식"><button type="button" data-mode="side" aria-pressed="true">나란히</button><button type="button" data-mode="over" aria-pressed="false">겹쳐보기</button></div><button type="button" data-mode="crop" aria-pressed="false">부분 확대</button><label hidden>디자인 농도 <input aria-label="디자인 농도" type="range" min="0" max="100" value="50"></label><button type="button" data-reset hidden>위치 초기화</button>';
+ // DESIGN_SYSTEM_GAP: 정본에 '농도 조절(슬라이더)' 부품이 없다 — 브라우저 기본 칸을 쓴다.
+ tools.innerHTML='<div class="cv-segments" data-s1-component="multi-toggle" data-size="sm" role="radiogroup" aria-label="비교 보기 방식">'
+  +'<button type="button" data-s1-part="cell" role="radio" data-mode="side" aria-checked="true" aria-pressed="true" data-value="side">나란히</button>'
+  +'<button type="button" data-s1-part="cell" role="radio" data-mode="over" aria-checked="false" aria-pressed="false" data-value="over">겹쳐보기</button></div>'
+  +'<button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm" data-break="pc" data-mode="crop" aria-pressed="false"><span data-s1-part="label">부분 확대</span></button>'
+  +'<label hidden>디자인 농도 <input class="cv-fade" aria-label="디자인 농도" type="range" min="0" max="100" value="50"></label>'
+  +'<button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm" data-break="pc" data-reset hidden><span data-s1-part="label">위치 초기화</span></button>';
  const workspace=pair.closest('.app-workspace');(workspace||pair).before(tools);
  const glass=document.createElement('canvas');glass.className='cv-glass';glass.hidden=true;glass.tabIndex=0;glass.setAttribute('aria-label','비교 이미지. 겹쳐보기에서 드래그 또는 방향키로 디자인 이동');host.append(glass);
- const dialog=document.createElement('dialog');dialog.className='cv-dialog';dialog.innerHTML='<div class="s1-modal-inset"><header><b>부분 확대 비교</b><button type="button">닫기</button></header><p class="cv-help">같은 배율로 놓고, 위아래로 밀린 만큼만 맞춘 조각입니다.</p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div></div>';document.body.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();
+ const dialog=document.createElement('div');dialog.className='cv-dialog';dialog.id='cv-crop-dialog';
+ dialog.setAttribute('data-s1-component','modal');dialog.setAttribute('data-break','pc');dialog.hidden=true;
+ dialog.innerHTML='<div data-s1-part="overlay"></div><div data-s1-part="panel" role="dialog" aria-modal="true" aria-labelledby="cv-crop-title" tabindex="-1">'
+  +'<div data-s1-part="content"><div data-s1-part="header"><h2 data-s1-part="title" id="cv-crop-title">부분 확대 비교</h2>'
+  +'<button type="button" data-s1-part="close" aria-label="닫기"></button></div>'
+  +'<div data-s1-part="body"><p class="cv-help">같은 배율로 놓고, 위아래로 밀린 만큼만 맞춘 조각입니다.</p>'
+  +'<div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>'
+  +'</div></div></div>';
+ document.body.append(dialog);
+ const 크게=()=>window.s1Modal&&window.s1Modal(dialog);
  const hover=document.createElement('div');hover.className='cv-hover';hover.hidden=true;hover.innerHTML='<div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(hover);
- const pop=document.createElement('div');pop.className='cv-hover cv-pop';pop.hidden=true;pop.innerHTML='<div class="cv-pop-head"><b class="cv-pop-title">비교</b><button type="button" class="cv-pop-x" aria-label="닫기">닫기</button></div><p class="cv-pop-note" hidden></p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(pop);
+ const pop=document.createElement('div');pop.className='cv-hover cv-pop';pop.hidden=true;pop.innerHTML='<div class="cv-pop-head"><b class="cv-pop-title">비교</b><button type="button" data-s1-component="text-button" data-variant="secondary" class="cv-pop-x" aria-label="닫기"><span data-s1-part="label">닫기</span></button></div><p class="cv-pop-note" hidden></p><div class="cv-parts"><section><p>디자인</p><canvas></canvas></section><section><p>개발</p><canvas></canvas></section></div>';document.body.append(pop);
  pop.querySelector('.cv-pop-x').onclick=()=>{pop.hidden=true;};
+ window.s1AutoInit&&window.s1AutoInit(tools.parentElement||document);
  // 이 화면의 자(尺) — 곱하고 나누는 셈은 자.py 한 곳에만 있다. 그림이 바뀌면 다시 잰다.
  function 자(){const ref=window.qaDesignRef,화면폭=(ref&&ref.w)||v.naturalWidth;
   return window.자({시안폭:화면폭,화면폭:화면폭,개발그림폭:v.naturalWidth,시안그림폭:d.naturalWidth});}
@@ -63,11 +78,11 @@ JS = r'''
  let mode='side',dx=0,dy=0,start=null,autoDy=null,userSet=false;
  const key='qa-view-offset:'+location.pathname+location.search+':'+d.getAttribute('src')+':'+v.getAttribute('src');
  try{const p=JSON.parse(localStorage.getItem(key));if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y)){dx=p.x;dy=p.y;userSet=true;}}catch(e){}   // 사람이 맞춰 둔 자리가 있으면 그것이 이긴다
- const slider=tools.querySelector('input');
+ const slider=tools.querySelector('input.cv-fade');
  function save(){userSet=true;try{localStorage.setItem(key,JSON.stringify({x:dx,y:dy}));}catch(e){}}
  function fit(){const w=host.clientWidth,h=host.clientHeight,s=Math.min(w/v.naturalWidth,h/v.naturalHeight);return {w,h,s,x:(w-v.naturalWidth*s)/2,y:(h-v.naturalHeight*s)/2};}
  function paint(){if(!v.naturalWidth||!d.naturalWidth)return;const f=fit();glass.width=f.w;glass.height=f.h;const c=glass.getContext('2d');if(mode==='over'){c.globalAlpha=Number(slider.value)/100;const scale=v.naturalWidth/d.naturalWidth;c.drawImage(d,f.x+dx*f.s,f.y+dy*f.s,v.naturalWidth*f.s,d.naturalHeight*scale*f.s);}if(mode==='crop'&&start?.end){c.strokeStyle=색('--color-action-primary-default');c.lineWidth=2;c.strokeRect(start.p.x,start.p.y,start.end.x-start.p.x,start.end.y-start.p.y);}}
- function setMode(m){mode=m;hover.hidden=true;start=null;pair.classList.toggle('cv-merged',m==='over');glass.hidden=m==='side';glass.style.cursor=m==='crop'?'crosshair':'move';tools.querySelector('label').hidden=m!=='over';tools.querySelector('[data-reset]').hidden=m!=='over';tools.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m||(b.dataset.mode==='side'&&m==='crop'))));requestAnimationFrame(paint);}
+ function setMode(m){mode=m;hover.hidden=true;start=null;pair.classList.toggle('cv-merged',m==='over');glass.hidden=m==='side';glass.style.cursor=m==='crop'?'crosshair':'move';tools.querySelector('label').hidden=m!=='over';tools.querySelector('[data-reset]').hidden=m!=='over';tools.querySelectorAll('[data-mode]').forEach(b=>{const 켬=String(b.dataset.mode===m||(b.dataset.mode==='side'&&m==='crop'));b.setAttribute('aria-pressed',켬);if(b.dataset.s1Part==='cell')b.setAttribute('aria-checked',켬);});requestAnimationFrame(paint);}
  tools.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode==='crop'&&mode==='crop'?'side':b.dataset.mode));slider.oninput=paint;tools.querySelector('[data-reset]').onclick=()=>{dx=0;dy=autoDy||0;userSet=false;try{localStorage.removeItem(key);}catch(e){}paint();};   // 자동으로 맞춘 자리로 되돌린다
  function point(e){const r=glass.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
  function blankCanvas(c){try{const g=c.getContext('2d'),n=Math.min(48,c.width),m=Math.min(48,c.height);
@@ -200,7 +215,7 @@ JS = r'''
   if(i)ctx.drawImage(v,x,y,w,h,0,0,outW,outH);
   else if(db)ctx.drawImage(d,db.x,db.y,db.w,db.h,0,0,outW,outH);
   else ctx.drawImage(d,(x-dx)*scale,(y-dy)*scale,w*scale,h*scale,0,0,outW,outH);});
- if(target===dialog&&!dialog.open)dialog.showModal();return true;}
+ if(target===dialog&&dialog.hidden){const m=크게();if(m)m.open();}return true;}
  function showHover(e){const f=fit(),p=point(e);if(p.x<f.x||p.y<f.y||p.x>f.x+v.naturalWidth*f.s||p.y>f.y+v.naturalHeight*f.s){hover.hidden=true;return;}const w=Math.min(v.naturalWidth,92/f.s),h=Math.min(v.naturalHeight,63/f.s);const bx=Math.max(0,Math.min(v.naturalWidth-w,(p.x-f.x)/f.s-w/2)),by=Math.max(0,Math.min(v.naturalHeight-h,(p.y-f.y)/f.s-h/2));crop({x:bx,y:by,w,h},hover,designBoxFor(bx,by,w,h));hover.hidden=false;const r=hover.getBoundingClientRect();hover.style.left=Math.max(12,Math.min(innerWidth-r.width-12,e.clientX+20))+'px';hover.style.top=Math.max(12,e.clientY+r.height+24<innerHeight?e.clientY+20:e.clientY-r.height-20)+'px';}
  glass.onpointerleave=()=>{hover.hidden=true;};window.addEventListener('scroll',()=>{hover.hidden=true;},true);window.addEventListener('blur',()=>{hover.hidden=true;});
  glass.onpointerdown=e=>{if(mode!=='over'||e.button!==0)return;glass.focus();glass.setPointerCapture(e.pointerId);start={p:point(e),dx,dy};};

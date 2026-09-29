@@ -86,7 +86,8 @@ def 묶기(pages):
 
 
 CSS = """
-  /* 스토리보드 ID 로 갈라 보이는 뭉치 머리 (page_group) */
+  /* 스토리보드 ID 로 갈라 보이는 뭉치 머리 (page_group)
+     DESIGN_SYSTEM_GAP: 정본 Table 에 '뭉치 머리 줄'이 없다 — 바탕만 한 단계 내려 자리를 가른다. */
   tr.grp td { background:var(--color-bg-subtle); border-top:1px solid var(--color-border-subtle); }
   tr.grp { cursor:default; }
   tr.grp .gid { font-family:ui-monospace,monospace; font-weight:var(--font-weight-bold);

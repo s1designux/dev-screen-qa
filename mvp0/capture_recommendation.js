@@ -1,7 +1,7 @@
 (function(){
  const p=document.getElementById('capture-picker');if(!p)return;
  // 예전 촬영(접어 둔 것)은 순위를 매기지 않는다 — 고르는 것은 마지막 촬영 사진이다.
- const choices=[...p.querySelectorAll('input[name=capture]')].filter(x=>!x.closest('label').classList.contains('cap-old'));
+ const choices=[...p.querySelectorAll('input[name=capture]')].filter(x=>!x.closest('.cap-option').classList.contains('cap-old'));
  const preview=p.querySelector('#plan-capture-preview'), note=p.querySelector('.recommendation-status');
  let chosen=choices.find(x=>x.checked), automatic=null, userSelected=false;
  function show(input){if(input)preview.src=input.dataset.src;}
@@ -41,7 +41,7 @@
    // 지금 비교 중인 사진은 늘 맨 위에 두고 순위를 매기지 않는다.
    let rank=0;
    scores.forEach(x=>{
-    const label=x.input.closest('label'), badge=label.querySelector('.rank');
+    const label=x.input.closest('.cap-option'), badge=label.querySelector('.rank');
     if(x.input===chosen){label.style.order=-1;if(badge)badge.textContent='비교 중';return;}
     label.style.order=++rank;
     if(badge)badge.textContent=Number.isFinite(x.score)?`${rank}순위`:'이미지 확인 필요';

@@ -13,6 +13,7 @@ import html
 import re
 import unicodedata
 
+import s1
 import s1_tokens
 
 _색 = re.compile(r"#[0-9A-Fa-f]{6}\b")
@@ -179,6 +180,8 @@ def 본문(md):
                 # 칸 수가 모자라면 빈 칸으로 채운다(↳ 줄이 줄어 있는 경우가 있다).
                 r = r + [""] * (len(머리) - len(r))
                 trs += "<tr>%s</tr>" % "".join("<td>%s</td>" % _줄안(c) for c in r[:len(머리)])
+            # DESIGN_SYSTEM_GAP: 정본 Table 은 화면용이라 종이(A4 가로) 칸 너비 규격이 없다.
+            # 수정요청서는 인쇄물이라 <colgroup> 으로 칸을 잡는다 — CSS 쪽에 같은 이유를 적어 두었다.
             cols = "".join("<col style='width:%s'>" % w for w in _칸너비(머리, 몸))
             나온것.append("<div class='tw'><table><colgroup>%s</colgroup>"
                         "<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>" % (cols, th, trs))
@@ -193,8 +196,9 @@ def 본문(md):
                 켬 = 속[3].lower() == "x"
                 모음.append((켬, 속[6:].strip()))
                 i += 1
-            lis = "".join("<li><input type=checkbox%s> %s</li>" % (" checked" if 켬 else "", _줄안(t))
-                          for 켬, t in 모음)
+            lis = "".join(
+                "<li>%s</li>" % s1.체크(칸id="fixchk%d" % (j + 1), 글=_줄안(t), 켬=켬)
+                for j, (켬, t) in enumerate(모음))
             나온것.append("<ul class='chk'>%s</ul>" % lis)
             continue
 
@@ -297,7 +301,9 @@ code{background:var(--color-bg-subtle);
   border-radius:var(--radius-2);
   border:var(--border-width-1) solid var(--color-border-strong);
   margin-right:var(--spacing-4);vertical-align:-1px}
-/* 표는 종이 너비를 넘지 않는다. 칸 너비는 글 길이를 보고 파이썬이 <colgroup> 으로 정해 주고(_칸너비),
+/* DESIGN_SYSTEM_GAP: 정본 Table 은 화면에서 보는 자료표라 종이(A4 가로) 규격이 없다.
+   수정요청서는 인쇄물이라 칸 너비를 <colgroup> 으로 잡고 넘치면 잘려야 한다 — 그 한 벌을 여기서 정한다.
+   표는 종이 너비를 넘지 않는다. 칸 너비는 글 길이를 보고 파이썬이 <colgroup> 으로 정해 주고(_칸너비),
    여기서는 그 너비를 그대로 지키게 한다(table-layout:fixed). 한글은 띄어쓰기에서 끊고(keep-all),
    띄어쓰기가 없는 긴 낱말(선택자·토큰 이름)만 어쩔 수 없이 중간에서 끊는다(anywhere). */
 .tw{overflow-x:auto;margin:0 0 var(--spacing-14)}
@@ -335,13 +341,13 @@ ul.chk input{margin-right:var(--spacing-6);vertical-align:-1px}
 
 def 한장(md, 제목, md주소):
     """읽는 화면 한 장. 위 띠에 'PDF 로 저장' 과 '.md 내려받기'."""
-    토큰 = s1_tokens.링크()
     return ("<!doctype html><html lang=ko><head><meta charset=utf-8>"
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
-            "<title>%s</title>%s<style>%s</style></head><body>"
-            "<div class=bar><span class=t>%s</span>"
-            "<button class='s1-btn s1-btn-primary' onclick='window.print()'>PDF로 저장 / 인쇄</button>"
-            "<a class='s1-btn s1-btn-secondary' href='%s' download>.md 내려받기</a>"
+            "<title>%s</title>%s<style>%s</style>%s</head><body>"
+            "<div class=bar><span class=t>%s</span>%s%s"
             "<p class=hint>인쇄창에서 <b>대상 → PDF로 저장</b> 을 고르면 그대로 PDF 파일이 됩니다.</p></div>"
             "<div class=sheet>%s</div></body></html>"
-            % (html.escape(제목), 토큰, CSS, html.escape(제목), html.escape(md주소), 본문(md)))
+            % (html.escape(제목), s1_tokens.부품(), CSS, s1_tokens.동작(), html.escape(제목),
+               s1.단추("PDF로 저장 / 인쇄", "primary", onclick="window.print()"),
+               s1.단추링크(".md 내려받기", md주소, download=True),
+               본문(md)))

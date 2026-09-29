@@ -28,6 +28,8 @@ import gnb as gnb_bar
 import project_form
 import project_history
 import queries
+import s1
+import s1_tokens
 from constants import UNRESOLVED_STATUSES
 
 
@@ -176,7 +178,7 @@ def 수정요청알림(conn, screen, uploads, store):
     셈 = fixdoc_http.셈하기(uploads, pages, screen["human_key"], 주소, store)
     if 셈 is None:
         return ""
-    return fixdoc_http.카드(_esc(screen["human_key"]), 셈, 부품=True)
+    return fixdoc_http.카드(_esc(screen["human_key"]), 셈)
 
 
 # ────────────────────────────────────────────────────── 겉모습
@@ -267,7 +269,9 @@ CSS = """
   .gname .view { font-size:var(--font-size-16); font-weight:var(--font-weight-bold);
     padding:var(--spacing-2) var(--spacing-6); border-radius:var(--radius-6); cursor:text; }
   .gname .view:hover { background:var(--color-bg-level-2); }
+  /* 정본 Input 은 display:inline-flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다 */
   .gname .edit[hidden] { display:none; }
+  .gname .edit { width:240px; }
   .warn { margin:0 0 var(--spacing-12); padding:var(--spacing-10) var(--spacing-12);
     border:var(--border-width-1) solid var(--color-border-subtle); border-radius:var(--radius-8);
     background:var(--color-surface-raised); font-size:var(--font-size-14);
@@ -318,8 +322,17 @@ CSS = """
     background:none; cursor:pointer; font:inherit; font-size:var(--font-size-12);
     color:var(--color-text-body-tertiary); text-align:left; }
   .lnb .add:hover { color:var(--color-action-primary-default); background:var(--color-bg-level-1); }
+  /* 왼쪽 메뉴 줄은 단추가 아니라 '메뉴'다 — 정본 Button 의 칸 모양만 걷고 줄로 눕힌다.
+     DESIGN_SYSTEM_GAP: 정본에 왼쪽 메뉴(LNB) 부품이 없다(GNB 만 있다). */
+  .lnb [data-s1-component="button"].lnb-i,
+  .lnb [data-s1-component="button"].add { min-width:0; justify-content:flex-start; }
+  .lnb [data-s1-component="button"] > [data-s1-part="label"] { display:flex; align-items:center;
+    gap:var(--spacing-8); width:100%; }
   /* display:flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다(정본 부품과 같은 함정) */
   .lnb .add[hidden] { display:none; }
+  .lnb .addrow { padding:0 var(--spacing-12) var(--spacing-8); }
+  .lnb .addrow [data-s1-component="input"] { width:100%; }
+  .lnb .addrow[hidden] { display:none; }
   .lnb .ic-plus { position:relative; width:var(--sizing-16); height:var(--sizing-16);
     -webkit-mask-image:none; mask-image:none; background:none; }
   .lnb .ic-plus::before, .lnb .ic-plus::after { content:""; position:absolute;
@@ -396,7 +409,7 @@ def _문서(제목, 머리, 속, 토큰CSS, 꼬리=""):
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_esc(제목)}</title>
-{토큰CSS}<style>{CSS}{project_history.CSS}{fixdoc_http.CSS}{project_form.CSS}</style></head>
+{토큰CSS}<style>{CSS}{project_history.CSS}{fixdoc_http.CSS}{project_form.CSS}</style>{s1_tokens.동작()}</head>
 <body data-s1-break="pc">{gnb_bar.바("project")}{머리}{속}{꼬리}</body></html>"""
 
 
@@ -555,10 +568,11 @@ def _묶음이름(project_uuid, 고른):
             f'<input type="hidden" name="next" value="{_esc(되돌아올곳)}">'
             f'<span class="view" id="gname-view" tabindex="0" role="button"'
             f' title="두 번 누르면 이름을 고칩니다">{_esc(고른["name"])}</span>'
-            f'<span class="edit" id="gname-edit" hidden'
-            f' data-s1-component="input" data-size="xsm" data-break="pc">'
-            f'<input data-s1-part="field" type="text" name="name" maxlength="40" required'
-            f' value="{_esc(고른["name"])}" aria-label="묶음 이름"></span></form>'
+            + s1.입력('name', 고른["name"], 칸id='gname-input', maxlength='40',
+                      required=True, 겉속성={"class": "edit", "id": "gname-edit",
+                                          "hidden": True},
+                      **{"aria-label": "묶음 이름"})
+            + '</form>'
             f'<span class="gcount">· {고른["count"]}장</span>')
 
 
@@ -574,9 +588,11 @@ def _검수묶음들(conn, project_uuid, 목록, 고른, 폄, 자료있나):
     if not 자료있나:
         return f'<span class="lnb-i off" aria-disabled="true">{표}검수</span>'
 
-    머리 = (f'<button type="button" class="lnb-i head{" on" if 폄 else ""}" id="lnb-inspect"'
-          f' aria-expanded="{"true" if 폄 else "false"}" aria-controls="lnb-groups">'
-          f'{표}검수{화살}</button>')
+    머리 = (f'<button type="button" data-s1-component="button" data-variant="secondary"'
+          f' data-size="xsm" data-break="pc" class="lnb-i head{" on" if 폄 else ""}"'
+          f' id="lnb-inspect" aria-expanded="{"true" if 폄 else "false"}"'
+          f' aria-controls="lnb-groups">'
+          f'<span data-s1-part="label">{표}검수{화살}</span></button>')
 
     칸 = ""
     for x in 목록:
@@ -585,13 +601,15 @@ def _검수묶음들(conn, project_uuid, 목록, 고른, 폄, 자료있나):
         on = " on" if 폄 and 고른 and x["uuid"] == 고른["uuid"] and x["kind"] == "screen" else ""
         칸 += (f'<a class="lnb-i sub{on}" href="{_esc(href)}">{_esc(x["name"])}'
                f'<span class="n">{x["count"]}</span></a>')
+    더하기 = ('<span class="ic ic-plus" aria-hidden="true"></span>검수 묶음 추가')
     칸 += (f'<form class="addg" method="post" action="/project/{_esc(project_uuid)}/screen/new">'
-           f'<button type="button" class="add" id="lnb-add-group">'
-           f'<span class="ic ic-plus" aria-hidden="true"></span>검수 묶음 추가</button>'
+           f'<button type="button" data-s1-component="button" data-variant="secondary"'
+           f' data-size="xsm" data-break="pc" class="add" id="lnb-add-group">'
+           f'<span data-s1-part="label">{더하기}</span></button>'
            f'<div class="addrow" id="lnb-add-row" hidden>'
-           f'<span data-s1-component="input" data-size="sm" data-break="pc">'
-           f'<input data-s1-part="field" type="text" name="이름" maxlength="40" required'
-           f' placeholder="묶음 이름" aria-label="새 검수 묶음 이름"></span></div></form>')
+           + s1.입력('이름', '', 칸id='lnb-add-input', maxlength='40', required=True,
+                    자리글='묶음 이름', **{"aria-label": "새 검수 묶음 이름"})
+           + '</div></form>')
 
     접 = "" if 폄 else " hidden"
     return f'{머리}<div class="grp" id="lnb-groups"{접}>{칸}</div>'
@@ -606,7 +624,7 @@ def _프로젝트셀렉터(conn, project_uuid, 이름):
 
     정본 Select 는 값을 고르는 부품이고 여기 옵션은 **가는 길**이라, 안쪽은 링크에
     role="menu" 를 준다(생김새는 정본 그대로, 뜻만 길로 읽힌다). 여닫기는
-    `assets/js/lnb-project.js` 가 한다 — 정본 select.js 는 이 화면에 싣지 않는다.
+    `assets/js/lnb-project.js` 가 한다 — 정본 select.js 도 함께 돌지만 값 배선이 없어 서로 다투지 않는다.
     """
     줄 = ""
     for r in conn.execute("SELECT uuid, name FROM project ORDER BY name"):

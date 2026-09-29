@@ -47,6 +47,7 @@ def build(db_path=dbmod.DB_PATH, out_path: Path = OUT, show_resolved: bool = Fal
     dev_keys = ", ".join(json.loads(screen["dev_keys"] or "[]"))
     variants = ", ".join(json.loads(screen["variants"] or "[]"))
 
+    # DESIGN_SYSTEM_GAP: 정본 Table 은 화면용이라 A4 가로 인쇄 규격이 없다 — 이 문서는 인쇄물이다.
     unresolved_rows = "\n".join(row(i) for i in unresolved) or \
         '<tr><td colspan="8" class="ctr">미해결 오류 없음</td></tr>'
     resolved_block = ""
@@ -74,10 +75,11 @@ def build(db_path=dbmod.DB_PATH, out_path: Path = OUT, show_resolved: bool = Fal
   h1 {{ font-size:var(--font-size-20); margin:0; }}
   .meta {{ font-size:var(--font-size-12); color:var(--color-text-tertiary); text-align:right; }}
   .summary {{ display:flex; gap:var(--spacing-10); margin:var(--spacing-12) 0; }}
-  .chip {{ border:1px solid var(--color-border-default); border-radius:var(--radius-8); padding:var(--spacing-8) var(--spacing-14); font-size:var(--font-size-14); }}
-  .chip b {{ font-size:var(--font-size-20); display:block; }}
-  .chip.open b {{ color:var(--color-text-danger); }}
-  .chip.done b {{ color:var(--color-status-success); }}
+  /* DESIGN_SYSTEM_GAP: 정본에 '숫자 요약 칸'(stat tile) 부품이 없다 — 인쇄물용으로 여기서 정한다. */
+  .stat {{ border:1px solid var(--color-border-default); border-radius:var(--radius-8); padding:var(--spacing-8) var(--spacing-14); font-size:var(--font-size-14); }}
+  .stat b {{ font-size:var(--font-size-20); display:block; }}
+  .stat.open b {{ color:var(--color-text-danger); }}
+  .stat.done b {{ color:var(--color-status-success); }}
   h2 {{ font-size:var(--font-size-14); margin:var(--spacing-16) 0 var(--spacing-6); }}
   table {{ width:100%; border-collapse:collapse; font-size:var(--font-size-12); }}
   th, td {{ border:1px solid var(--color-border-default); padding:var(--spacing-4) var(--spacing-8); vertical-align:top; text-align:left; }}
@@ -103,12 +105,13 @@ def build(db_path=dbmod.DB_PATH, out_path: Path = OUT, show_resolved: bool = Fal
   </header>
 
   <div class="summary">
-    <div class="chip"><b>{len(issues)}</b>전체 오류</div>
-    <div class="chip open"><b>{len(unresolved)}</b>미해결</div>
-    <div class="chip done"><b>{len(resolved)}</b>해결·종결</div>
+    <div class="stat"><b>{len(issues)}</b>전체 오류</div>
+    <div class="stat open"><b>{len(unresolved)}</b>미해결</div>
+    <div class="stat done"><b>{len(resolved)}</b>해결·종결</div>
   </div>
 
   <h2>미해결 오류 <span class="muted">({len(unresolved)}건 — 조치 필요)</span></h2>
+  <!-- DESIGN_SYSTEM_GAP: 인쇄물(A4 가로) 표라 정본 Table 규격이 없다 -->
   <table><thead>{_thead()}</thead><tbody>
     {unresolved_rows}
   </tbody></table>

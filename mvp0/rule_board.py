@@ -20,6 +20,7 @@ from html import escape as _e
 from pathlib import Path
 
 import policy_ui
+import s1
 import s1_tokens
 
 뿌리 = Path(__file__).resolve().parents[1]
@@ -202,12 +203,14 @@ def page() -> str:
               else '<span style="color:var(--color-text-state-caution)">쉬운 말 설명 없음</span>')
         칠 = ('color:var(--color-action-primary-default)' if r["짚나"] == "짚음"
              else 'color:var(--color-text-caption)')
-        return (f'<tr><td>{이름}<div class="help">{_e(r["한줄"])}</div></td>'
-                f'<td style="{칠};white-space:nowrap">{"더 짚음" if r["짚나"] == "짚음" else "넘김"}</td>'
-                f'<td style="{_칠[빛]};white-space:nowrap">{_표시[빛]} {_e(말)}</td>'
-                f'<td class="help" style="white-space:nowrap">{_e(r["정한날"])}</td></tr>')
+        return s1.줄([
+            f'{이름}<div class="help">{_e(r["한줄"])}</div>',
+            (f'{"더 짚음" if r["짚나"] == "짚음" else "넘김"}', {"style": f"{칠};white-space:nowrap"}),
+            (f'{_표시[빛]} {_e(말)}', {"style": f"{_칠[빛]};white-space:nowrap"}),
+            (_e(r["정한날"]), {"class": "help", "style": "white-space:nowrap"}),
+        ])
 
-    머리줄 = '<tr><th>규칙</th><th>하는 일</th><th>채점</th><th>정한 날</th></tr>'
+    머리줄 = ["규칙", "하는 일", "채점", "정한 날"]
     짚는것 = [r for r in 규칙 if r["짚나"] == "짚음"]
     넘기는것 = [r for r in 규칙 if r["짚나"] == "넘김"]
     지킴수 = sum(1 for r in 규칙 if r["지킴"][0] == "좋음")
@@ -217,7 +220,7 @@ def page() -> str:
             f'<b>채점</b> — <span style="{_칠["좋음"]}">○ 지켜짐 {지킴수}개</span>'
             f'(규칙이 망가지면 채점에서 걸립니다) · '
             f'<span style="{_칠["없음"]}">— 채점표 없음 {없음수}개</span>(망가져도 조용히 넘어갑니다)</p>'
-            f'<table>{머리줄}' + "".join(칸(r) for r in 짚는것 + 넘기는것) + '</table>'
+            + s1.표머리(머리줄) + "".join(칸(r) for r in 짚는것 + 넘기는것) + s1.표꼬리()
             if 규칙 else '<h2>지금 쓰는 규칙</h2><p class="sub">장부에서 찾지 못했습니다.</p>')
 
     속 = ""
@@ -225,12 +228,13 @@ def page() -> str:
         if t["줄"] is None:
             속 += f'<p class="note">{_e(t["설명"])} — 검수기에서 그 표를 찾지 못했습니다.</p>'
             continue
-        칸 = "".join('<tr><td>'
-                    + (_e(x["제목"]) if x["제목"] else '<span style="color:var(--color-text-helper)">제목이 적혀 있지 않습니다</span>')
-                    + '</td></tr>' for x in t["줄"])
+        칸 = "".join(s1.줄([
+            _e(x["제목"]) if x["제목"]
+            else '<span style="color:var(--color-text-helper)">제목이 적혀 있지 않습니다</span>'])
+            for x in t["줄"])
         속 += (f'<h3 style="font-size:var(--font-size-14);margin:var(--spacing-20) 0 var(--spacing-6)">'
              f'{_e(t["설명"])} <span style="color:var(--color-text-helper);font-weight:normal">({len(t["줄"])}개)</span></h3>'
-             f'<table>{칸 or "<tr><td>없습니다.</td></tr>"}</table>')
+             + s1.표머리(["항목"]) + (칸 or s1.줄(["없습니다."])) + s1.표꼬리())
     표칸 = ('<h2>검수기가 화면마다 읽는 규칙표</h2>'
           '<p class="sub">화면을 볼 때마다 검수기가 읽는 표입니다. 켜고 끄는 값은 '
           '<a href="/policy">검수 규칙</a> 화면에서 정합니다.</p>'
@@ -241,8 +245,8 @@ def page() -> str:
     몸 = (f'<h1>지금 쓰는 검수 규칙</h1>{머리}{규칙칸}{표칸}{꼬리}')
     return (f'<!doctype html><html lang="ko"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>지금 쓰는 검수 규칙</title>{s1_tokens.링크()}'
-            f'<style>{policy_ui.CSS}</style></head><body>{gnb_bar.바("policy")}<div class="wrap">'
+            f'<title>지금 쓰는 검수 규칙</title>{s1_tokens.부품()}'
+            f'<style>{policy_ui.CSS}</style>{s1_tokens.동작()}</head><body>{gnb_bar.바("policy")}<div class="wrap">'
             f'<a class="back" href="/policy">← 검수 규칙</a>{몸}</div></body></html>')
 
 

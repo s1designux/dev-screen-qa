@@ -30,6 +30,7 @@ import card_view
 import db as dbmod
 import issue_categories
 import queries
+import s1
 import s1_tokens
 from constants import UNRESOLVED_STATUSES
 import 설정
@@ -110,7 +111,7 @@ def 덧그림(항목들, vb_w, vb_h):
             선 += f'<line x1="{px}" y1="{py + 핀반지름}" x2="{tx}" y2="{y}" stroke="{c}" stroke-width="2"/>'
         핀 += (f'<g transform="translate({px},{py})"><circle r="{핀반지름}" fill="{c}"/>'
               f'<text y="9" text-anchor="middle" font-size="30" font-weight="700" fill="var(--color-text-inverse)">{i["번호"]}</text></g>')
-    return (f'<svg class="ov" viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMin meet">'
+    return (f'<svg class="ov" viewBox="0 0 {vb_w} {vb_h}" preserveAspectRatio="xMidYMin meet">'   # s1-제외 아이콘이 아니라 핀을 얹는 그림판이다
             f'{상자}{선}{핀}</svg>')
 
 
@@ -312,7 +313,7 @@ def build(project_uuid, scope='open', db_path=None, screen_uuid=None, page_ids=N
             f'<meta name=viewport content="width=device-width,initial-scale=1">'
             f'<title>{_e(제목)}</title>{s1_tokens.품기()}<style>{CSS}</style></head><body>'
             f'<div class="bar"><span class="t">{_e(제목)}</span>'
-            f'<button class="s1-btn s1-btn-primary" onclick="window.print()">PDF로 저장 / 인쇄</button>'
+            + s1.단추('PDF로 저장 / 인쇄', 'primary', onclick='window.print()') +
             f'<p class="hint">인쇄창에서 <b>대상 → PDF로 저장</b> 을 고르면 그대로 PDF 파일이 됩니다.</p></div>'
             f'{본문}</body></html>')
 

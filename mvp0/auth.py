@@ -308,6 +308,14 @@ def 나의옵션():
     return f'<option value="{_esc(이름)}" selected>{_esc(이름)}</option>' if 이름 else ""
 
 
+def 나의숨김칸(이름칸="actor"):
+    """이력에 남길 담당자 — 고르는 것이 아니라 **로그인한 사람**이다(CLAUDE.md 포털 로그인).
+
+    고를 것이 하나뿐이라 고르개를 두지 않고 숨은 칸 하나로 보낸다.
+    """
+    return f'<input type="hidden" name="{_esc(이름칸)}" value="{_esc(지금이름())}">'
+
+
 def 관리자인가():
     사람 = 지금사람()
     return bool(사람) and 사람["role"] == 관리자
@@ -492,12 +500,11 @@ def _단추(글, variant="primary", size="md", 종류="submit", 꺼둠=False):
             f' data-size="{size}"{끔}><span data-s1-part="label">{_esc(글)}</span></button>')
 
 
-_입력JS = ('<script type="module" src="/assets/js/s1-input.js"></script>'
-         '<script src="/assets/js/s1-select.js"></script>')
+_입력JS = s1_tokens.동작()   # 입력칸 지우기·고르개 여닫기는 정본 동작이 한다
 
 
 def _권한고르기(고른=그룹원, 앞머리="role"):
-    """권한 Select Box 한 개. 고른 값은 같은 상자 안 hidden 에 담긴다(s1-select.js)."""
+    """권한 Select Box 한 개. 고른 값은 같은 상자 안 hidden 에 담긴다(assets/js/s1-form.js)."""
     줄 = ""
     for 값 in (그룹원, 관리자):
         고름 = "true" if 값 == 고른 else "false"

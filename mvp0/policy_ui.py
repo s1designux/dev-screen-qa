@@ -13,6 +13,7 @@ from urllib.parse import parse_qs
 import policy as policymod
 import rule_log
 
+import s1
 import s1_tokens
 
 CSS = '''
@@ -21,17 +22,13 @@ body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Ne
 h1{font-size:var(--font-size-20);margin:0 0 var(--spacing-4)}h2{font-size:var(--font-size-16);margin:var(--spacing-28) 0 var(--spacing-8)}
 .sub{color:var(--color-text-caption);margin:0 0 var(--spacing-20);font-size:var(--font-size-14)}
 a.back{color:var(--color-action-primary-default);text-decoration:none;font-size:var(--font-size-14)}
-table{width:100%;border-collapse:collapse;background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-radius:var(--radius-8);overflow:hidden;font-size:var(--font-size-14)}
-th,td{padding:var(--spacing-8) var(--spacing-12);border-bottom:1px solid var(--color-border-subtle);text-align:left;vertical-align:middle}
-th{background:var(--color-bg-subtle);font-weight:var(--font-weight-bold);white-space:nowrap}
-tr:last-child td{border-bottom:0}
-td.k{font-weight:var(--font-weight-bold);white-space:nowrap}td.help{color:var(--color-text-caption);font-size:var(--font-size-14)}
+/* 표 생김새는 정본 Table 이 정한다(가이드 §9-7) — 화면은 자리만 잡는다. */
+[data-s1-component="table"]{margin:0 0 var(--spacing-12)}
+td.k{white-space:nowrap}td.help{color:var(--color-text-caption)}
 .src{display:inline-block;font-size:var(--font-size-12);padding:var(--spacing-2) var(--spacing-8);border-radius:var(--radius-full);border:1px solid var(--color-border-default);color:var(--color-text-caption);background:var(--color-surface-default);white-space:nowrap}
 .src.here{border-color:var(--color-action-primary-default);color:var(--color-action-primary-default)}.src.default{border-style:dashed}
 form.inline{display:inline-flex;gap:var(--spacing-6);align-items:center;flex-wrap:wrap}
-input[type=number],select{max-width:120px}
-
-button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
+form.inline [data-s1-component="input"],form.inline [data-s1-component="select"]{max-width:120px}
 ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:var(--spacing-6) 0;border-bottom:1px solid var(--color-border-subtle)}ul.list a{color:var(--color-action-primary-default);text-decoration:none}
 .note{background:var(--color-surface-default);border:1px solid var(--color-border-subtle);border-left:4px solid var(--color-text-state-caution);border-radius:var(--radius-6);padding:var(--spacing-10) var(--spacing-14);font-size:var(--font-size-14);margin:0 0 var(--spacing-16)}
 .hist{font-size:var(--font-size-14);color:var(--color-text-caption)}
@@ -42,7 +39,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 def _shell(title, body, back=('/', '← 목록')):
     return (f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{_e(title)}</title>{s1_tokens.링크()}<style>{CSS}</style></head><body>{gnb_bar.바("policy")}<div class="wrap">'
+            f'<title>{_e(title)}</title>{s1_tokens.부품()}<style>{CSS}</style>{s1_tokens.동작()}</head><body>{gnb_bar.바("policy")}<div class="wrap">'
             f'<a class="back" href="{_e(back[0])}">{_e(back[1])}</a>{body}</div></body></html>')
 
 
@@ -66,12 +63,12 @@ def _value_text(rule, v):
 def _field(rule, v):
     spec = policymod.CATALOG[rule]
     if spec['type'] == 'choice':
-        opts = ''.join(f'<option value="{_e(k)}"{" selected" if k == v else ""}>{_e(t)}</option>' for k, t in spec['choices'].items())
-        return f'<select name="value">{opts}</select>'
+        return s1.고르개('value', list(spec['choices'].items()), v if v is not None else '')
     if spec['type'] == 'bool':
-        return (f'<select name="value"><option value="">비움</option><option value="true"{" selected" if v is True else ""}>예</option>'
-                f'<option value="false"{" selected" if v is False else ""}>아니오</option></select>')
-    return f'<input type="number" name="value" min="0" step="1" value="{"" if v is None else _e(str(v))}" placeholder="비움">'
+        지금 = '' if v is None else ('true' if v else 'false')
+        return s1.고르개('value', [('', '비움'), ('true', '예'), ('false', '아니오')], 지금)
+    return s1.입력('value', '' if v is None else str(v), 종류='number',
+                 자리글='비움', min='0', step='1')
 
 
 def _rules_table(pol, c, scope, target, resolved, back_url, person_options=''):
@@ -87,11 +84,13 @@ def _rules_table(pol, c, scope, target, resolved, back_url, person_options=''):
         form = (f'<form class="inline" method="post" action="/policy/set">'
                 f'<input type="hidden" name="scope" value="{scope}"><input type="hidden" name="target" value="{_e(target)}">'
                 f'<input type="hidden" name="rule" value="{_e(rule)}"><input type="hidden" name="back" value="{_e(back_url)}">'
-                f'{_field(rule, mine_v)}<select name="actor"><option value="">담당자</option>{person_options}</select>'
-                f'<button type="submit" class="primary">이 층에 정하기</button></form>')
-        rows.append(f'<tr><td class="k">{_e(spec["title"])}<br><span class="help">{_e(spec["help"])}</span></td>'
-                    f'<td>{_value_text(rule, v)}</td><td>{_src_tag(src, scope)}</td><td>{form}</td></tr>')
-    return ('<table><tr><th>규칙</th><th>지금 값</th><th>정한 층</th><th>이 층에서 바꾸기</th></tr>' + ''.join(rows) + '</table>')
+                f'{_field(rule, mine_v)}{person_options}'
+                + s1.단추('이 층에 정하기', 'primary', 종류='submit') + '</form>')
+        rows.append(s1.줄([
+            (f'{_e(spec["title"])}<br><span class="help">{_e(spec["help"])}</span>', {"class": "k"}),
+            _value_text(rule, v), _src_tag(src, scope), form]))
+    return (s1.표머리(['규칙', '지금 값', '정한 층', '이 층에서 바꾸기'])
+            + ''.join(rows) + s1.표꼬리())
 
 
 def _history(pol, c, scope, target):
@@ -121,12 +120,14 @@ def _rule_score(c, screen_id=None):
         judged = r['agree'] + r['overturn']
         rate = '—' if r['rate'] is None else f'{r["rate"]}%'
         cls = ' class="bad"' if (r['rate'] is not None and r['rate'] < 60 and judged >= 3) else (' class="good"' if (r['rate'] is not None and r['rate'] >= 90 and judged >= 3) else '')
-        body.append(f'<tr><td class="k">{_e(r["title"])}</td><td class="help">{_e(r["rule"])}</td>'
-                    f'<td class="n">{r["fired"]}</td><td class="n">{r["agree"]}</td><td class="n">{r["overturn"]}</td>'
-                    f'<td class="n"{cls}>{rate}</td></tr>')
+        body.append(s1.줄([
+            (_e(r["title"]), {"class": "k"}), (_e(r["rule"]), {"class": "help"}),
+            (str(r["fired"]), {"class": "n"}), (str(r["agree"]), {"class": "n"}),
+            (str(r["overturn"]), {"class": "n"}),
+            (rate, {"class": ("n" + cls.replace(' class="', ' ').replace('"', '')).strip()})]))
     return ('<h2>규칙 성적</h2><p class="sub">뒤집힘이 많은 규칙이 다음에 고칠 규칙입니다. 여기서 자동으로 바꾸지 않습니다.</p>'
-            '<table><tr><th>규칙</th><th>이름</th><th>나온 후보</th><th>그대로 둠</th><th>뒤집음</th><th>맞은 비율</th></tr>'
-            + ''.join(body) + '</table>')
+            + s1.표머리(['규칙', '이름', '나온 후보', '그대로 둠', '뒤집음', '맞은 비율'])
+            + ''.join(body) + s1.표꼬리())
 
 
 def page_root(store, person_options=''):
@@ -183,12 +184,16 @@ def page_screen(store, screen_id, person_options=''):
                 undo = (f'<form class="inline" method="post" action="/policy/set"><input type="hidden" name="scope" value="element">'
                         f'<input type="hidden" name="target" value="{_e(screen_id)}"><input type="hidden" name="rule" value="{_e(rule)}">'
                         f'<input type="hidden" name="key" value="{_e(key)}"><input type="hidden" name="value" value="">'
-                        f'<input type="hidden" name="back" value="{_e(url)}"><button type="submit">거두기</button></form>')
-                el_rows.append(f'<tr><td class="k">{_e(spec["title"])}</td><td>{_e(key)}</td><td>{_value_text(rule, v)}</td>'
-                               f'<td class="help">{_e(cur.get("note") or "")}{(" · " + _e(cur["actor"])) if cur.get("actor") else ""}</td><td>{undo}</td></tr>')
+                        f'<input type="hidden" name="back" value="{_e(url)}">'
+                        + s1.단추('거두기', 종류='submit') + '</form>')
+                el_rows.append(s1.줄([
+                    (_e(spec["title"]), {"class": "k"}), _e(key), _value_text(rule, v),
+                    (_e(cur.get("note") or "") + ((" · " + _e(cur["actor"])) if cur.get("actor") else ""),
+                     {"class": "help"}), undo]))
         hist = _history(pol, c, 'screen', screen_id) + _history(pol, c, 'element', screen_id).replace('이 층의 변경 이력', '요소 층의 변경 이력')
         score = _rule_score(c, screen_id)
-    el_table = ('<table><tr><th>규칙</th><th>요소</th><th>값</th><th>어떻게 정해졌나</th><th></th></tr>' + ''.join(el_rows) + '</table>') if el_rows else \
+    el_table = (s1.표머리(['규칙', '요소', '값', '어떻게 정해졌나', '']) + ''.join(el_rows)
+                + s1.표꼬리()) if el_rows else \
         '<p class="sub">아직 없습니다. 페이지 상세에서 후보를 <b>가변</b>·<b>제외</b>로 내리면 여기에 쌓입니다.</p>'
     body = (f'<h1>화면 규칙 — {_e(s["human_key"] or "")} {_e(s["name"] or "")}</h1>'
             f'<p class="sub">서비스 <a href="/policy/service/{_e(s["project_id"])}">{_e(s["pname"])}</a> 의 값을 이 화면에서만 덮습니다. '

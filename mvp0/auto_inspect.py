@@ -17,6 +17,7 @@ from pathlib import Path
 
 import 자 as 자모듈                                   # 좌표를 바꾸는 셈은 자.py 한 곳에만 둔다
 import card_view
+import s1
 import figma_elements
 import figma_reader
 import issue_categories
@@ -621,7 +622,9 @@ def panel_html(view, page_id, person_options='', which='open'):
                        '<span id="auto-msg">검수중입니다.</span></p>') + grid(값것)
     if r['status'] == 'failed':
         return head + (f'<p class="empty auto-msg">자동 검수를 못 했어요 — {_e(r["error"])}</p>'
-                       f'<form method="post" action="/auto/{_e(page_id)}/retry"><input type="hidden" name="run" value="{_e(r["run_id"])}"><button type="submit">다시 시도</button></form>'
+                       f'<form method="post" action="/auto/{_e(page_id)}/retry">'
+                       f'<input type="hidden" name="run" value="{_e(r["run_id"])}">'
+                       + s1.단추('다시 시도', 종류='submit') + '</form>'
                        + range_html(view, person_options)) + grid(값것)
     return head + range_html(view, person_options) + grid(열린것)
 
@@ -657,27 +660,34 @@ def range_html(view, person_options=''):
         summary = '직접 정한 범위로 검수함' if (mt is not None or mb is not None) else '자동'
     # 요약 줄은 보이지 않는다 — 범위 값은 '검수범위 설정' 창에서 본다(river 2026-09-16).
     # 이 칸은 그림·범위 값을 담아 두는 자리로만 남긴다.
-    정책단추 = (f'<button type="button" class="auto-range-btn" '
-              f'onclick="location.href=\'/policy/screen/{_e(view["screen_id"])}\'">화면규칙</button>'
+    정책단추 = (s1.단추('화면규칙', 크기='xxsm', **{"class": "auto-range-btn"},
+                     onclick="location.href='/policy/screen/%s'" % _e(view["screen_id"]))
               if view.get('screen_id') else '')
+    창속 = (f'<p class="auto-hint">지금 범위는 {_e(summary)} 입니다.</p>'
+          '<p class="auto-hint">상태바·주소창·키보드가 끝나는 곳으로 붉은 선을 끌어 주세요.'
+          ' 선 바깥은 비교하지 않습니다.</p>'
+          '<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면">'
+          '<div class="auto-range-line" id="auto-range-top"></div>'
+          '<div class="auto-range-line" id="auto-range-bottom"></div>'
+          '<div class="auto-range-shade" id="auto-range-shade-top"></div>'
+          '<div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
+          '<form class="auto-range-form" onsubmit="return autoRangeSave(this,false)">'
+          '<label for="auto-range-top-px">위쪽 제외</label>'
+          + s1.입력('top', '', 종류='number', 칸id='auto-range-top-px', min='0', step='1')
+          + '<label for="auto-range-bottom-px">아래쪽 제외</label>'
+          + s1.입력('bottom', '', 종류='number', 칸id='auto-range-bottom-px', min='0', step='1')
+          + person_options
+          + s1.단추('이 범위로 다시 검수', 'primary', 종류='submit')
+          + s1.단추('자동으로 되돌리기', onclick='autoRangeSave(this.form,true)')
+          + s1.닫기단추('닫기') + '</form>')
     return (f'<div class="auto-range" id="auto-range" hidden data-img="/uploads/{_e(rv["dev_img"])}" data-w="{rv.get("w") or 0}" data-h="{rv.get("h") or 0}" '
             f'data-top="{top}" data-bottom="{bottom}" data-mtop="{"" if mt is None else mt}" data-mbottom="{"" if mb is None else mb}" '
             f'data-sum="{_e(summary)}"></div>'
-            f'<span class="auto-range-tools" id="auto-range-tools">{정책단추}'
-            f'<button type="button" id="auto-range-btn" class="auto-range-btn" onclick="autoRangeOpen()">검수범위 설정</button></span>'
-            f'<dialog class="auto-range-editor" id="auto-range-editor"><div class="s1-modal-inset">'
-            f'<b class="auto-range-title">검수범위 설정</b>'
-            f'<p class="auto-hint">지금 범위는 {_e(summary)} 입니다.</p>'
-            f'<p class="auto-hint">상태바·주소창·키보드가 끝나는 곳으로 붉은 선을 끌어 주세요. 선 바깥은 비교하지 않습니다.</p>'
-            f'<div class="auto-range-stage"><img id="auto-range-img" alt="개발 화면"><div class="auto-range-line" id="auto-range-top"></div><div class="auto-range-line" id="auto-range-bottom"></div>'
-            f'<div class="auto-range-shade" id="auto-range-shade-top"></div><div class="auto-range-shade" id="auto-range-shade-bottom"></div></div>'
-            f'<form class="auto-range-form" onsubmit="return autoRangeSave(this,false)">'
-            f'<label>위쪽 제외 <input type="number" name="top" min="0" step="1"> px</label>'
-            f'<label>아래쪽 제외 <input type="number" name="bottom" min="0" step="1"> px</label>'
-            f'<select name="actor"><option value="">담당자</option>{person_options}</select>'
-            f'<button type="submit" class="primary">이 범위로 다시 검수</button>'
-            f'<button type="button" onclick="autoRangeSave(this.form,true)">자동으로 되돌리기</button>'
-            f'<button type="button" onclick="autoRangeClose()">닫기</button></form></div></dialog>')
+            + '<span class="auto-range-tools" id="auto-range-tools">' + 정책단추
+            + s1.단추('검수범위 설정', 크기='xxsm', id='auto-range-btn',
+                     onclick='autoRangeOpen()', **{"class": "auto-range-btn"}) + '</span>'
+            + s1.대화창('auto-range-editor', '검수범위 설정', 창속,
+                      겉속성={"class": "auto-range-editor"}))
 
 
 def _cards(items, view, page_id):
@@ -701,9 +711,10 @@ def card_html(k, numbers, page_id, rnd):
         foot = ''
         # 오른쪽 위 '제외' 단추 — 누르면 '제외' 칸으로, 다시 누르면 '수정필요'로 돌아온다
         off = k['status'] != 'open'
-        ex = (f'<button type="button" class="auto-ex{" on" if off else ""}" '
-              f'onclick="event.stopPropagation();autoStatus(\'{k["id"]}\', '
-              f'\'{"open" if off else "excluded"}\')">{"제외됨" if off else "제외"}</button>')
+        ex = s1.칩('제외됨' if off else '제외', 크기='sm', 고름=off,
+                  onclick="event.stopPropagation();autoStatus('%s','%s')"
+                          % (k["id"], "open" if off else "excluded"),
+                  **{"class": "auto-ex"})
     from_value = value_candidates.값후보인가(k)
     # 성질·출처는 줄을 따로 두지 않고 **제목 옆 작은 글씨**로 붙인다 — 칩 한 줄이 카드만 키웠다(river 2026-09-14).
     # 낱개 카드는 제목이 곧 성질이라(예: '색상이 다르게 적용됨') 출처만 적는다.
@@ -752,20 +763,14 @@ CSS = '''
 .auto-sum{font-weight:var(--font-weight-bold)}.auto-hint{color:var(--color-text-caption)}
 .auto-group{margin-bottom:var(--spacing-10)}.auto-group summary{cursor:pointer;font-weight:var(--font-weight-bold);margin-bottom:var(--spacing-6)}
 .auto-card{position:relative}.auto-card .auto-no{border-radius:var(--radius-4)}
-.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--sizing-34);padding:0 var(--spacing-16);font-family:inherit;font-size:var(--font-size-12);font-weight:var(--font-weight-medium);line-height:1;color:var(--color-chip-line-label-default);background:var(--color-chip-line-bg-default);border:var(--border-width-1) solid var(--color-chip-line-border-default);border-radius:var(--radius-full);cursor:pointer;user-select:none}
-.auto-card .auto-ex:hover{background:var(--color-chip-line-bg-hover)}
-.auto-card .auto-ex.on{background:var(--color-chip-line-bg-selected);border-color:var(--color-chip-line-border-selected);color:var(--color-chip-line-label-selected)}
-.auto-card .auto-ex.on:hover{background:var(--color-chip-line-bg-hover)}
+.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
 .auto-actions{display:flex;gap:var(--spacing-6);margin-top:var(--spacing-6);flex-wrap:wrap}
 
 
-.auto-actions button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
 .auto-msg{color:var(--color-text-tertiary)}
-
-.auto-range-form button.primary{background:var(--color-action-primary-default);border-color:var(--color-action-primary-default);color:var(--color-surface-default)}
-.auto-range-editor{width:min(900px,92vw);max-height:90vh;overflow:auto;margin:auto}
-.auto-range-editor::backdrop{background:var(--color-overlay)}
+.auto-range-editor [data-s1-part="panel"]{width:min(900px,92vw);max-height:90vh}
+.auto-range-editor [data-s1-part="body"]{overflow:auto}
 .auto-range-title{display:block;margin:0 0 var(--spacing-8);font-size:var(--font-size-14)}
 .cv-tools .auto-range-tools{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--spacing-8)}   /* 가운데 단추들이 한가운데 오도록 오른쪽 단추는 따로 붙인다 */
 @media (max-width:760px){.cv-tools .auto-range-tools{position:static;transform:none;margin-left:auto}}
@@ -776,7 +781,7 @@ CSS = '''
 .auto-range-line::after{content:"";position:absolute;left:0;right:0;top:-8px;height:18px}
 .auto-range-shade{position:absolute;left:0;right:0;background:var(--color-status-error);opacity:.18;pointer-events:none;z-index:1}
 .auto-range-form{display:flex;flex-wrap:wrap;gap:var(--spacing-8);align-items:center;margin-top:var(--spacing-8);font-size:var(--font-size-12)}
-.auto-range-form input{width:70px}
+.auto-range-form [data-s1-component="input"]{width:90px}
 .auto-wait.inline{position:static;flex-direction:row;justify-content:flex-start;gap:var(--spacing-8);margin:0 0 var(--spacing-10);font-size:var(--font-size-14)}
 .auto-wait.inline .auto-spin{width:18px;height:18px;border-width:var(--border-width-2)}
 
