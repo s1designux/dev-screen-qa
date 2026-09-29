@@ -74,6 +74,17 @@ _자리CSS = """<style>
 _동작 = "<script src='/assets/js/gnb-account.js' defer></script>"
 
 
+def 로고(주소="/"):
+    """서비스 이름 글줄 — `에스원 | 개발화면 검수`.
+
+    여기가 **한 곳**이다. 포털 안(바)과 로그인 화면(auth._로그인줄)이 같은 것을 가져다 쓴다 —
+    한쪽만 고쳐 두 이름으로 보이던 것을 막는다(river 2026-09-29).
+    """
+    return (f'<a data-s1-part="logo" href="{_e(주소)}">'
+            f'<b>에스원</b><i data-s1-part="sep" aria-hidden="true"></i>'
+            f'<span>개발화면 검수</span></a>')
+
+
 def 바(지금="", size="sm"):
     """맨 위 줄 한 개 — 서비스 이름과 유틸 아이콘뿐이다.
 
@@ -89,9 +100,7 @@ def 바(지금="", size="sm"):
     return (_CSS링크 + 바CSS + _자리CSS
             + f'<nav data-s1-component="gnb" data-size="{_e(size)}"'
             f' aria-label="주 메뉴">'
-            f'<a data-s1-part="logo" href="/">'
-            f'<b>에스원</b><i data-s1-part="sep" aria-hidden="true"></i>'
-            f'<span>개발화면 검수</span></a>'
+            + 로고("/") +
             f'<ul data-s1-part="menus"></ul>'
             f'<span data-s1-part="util">{유틸}{쪽지}</span></nav>'
             + (_동작 if 쪽지 else ""))

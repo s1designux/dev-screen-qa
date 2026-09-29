@@ -430,11 +430,12 @@ def _머리(제목, 몸클래스="", 덧CSS=""):
 
 def _로그인줄():
     """시안의 login_GNB — 왼쪽에 서비스 이름, 오른쪽에 쓰는 말.
-    정본에 LoginGNB 부품 CSS 가 아직 없어 같은 치수(h56)인 GNB 부품을 쓴다."""
+    정본에 LoginGNB 부품 CSS 가 아직 없어 같은 치수(h56)인 GNB 부품을 쓴다.
+    서비스 이름 글줄은 `gnb.로고()` 한 곳에서 온다 — 두 벌로 적지 않는다."""
     import gnb as gnb_bar
     return ('<link rel=stylesheet href=\'/assets/css/s1-gnb.css\'>' + gnb_bar.바CSS
             + '<nav data-s1-component="gnb" data-size="md" aria-label="서비스">'
-            '<a data-s1-part="logo" href="/login">에스원 개발화면 검수 포털</a>'
+            + gnb_bar.로고("/login") +
             '<ul data-s1-part="menus"></ul>'
             '<span data-s1-part="util">'
             '<span data-s1-part="lang">'
