@@ -60,35 +60,30 @@ _자리CSS = """<style>
 # 시안이 양 끝 320 안쪽인 것은 그 화면의 자리 잡기이지 부품 규정이 아니다.
 # 로그인 화면은 바를 스스로 짜므로(auth._로그인줄) 이 한 장을 그쪽도 가져다 쓴다 — 값을 두 벌로 두지 않는다.
 바CSS = ('<style>[data-s1-component="gnb"] [data-s1-part="logo"]'
-       '{font-size:var(--font-size-16);display:inline-flex;align-items:center;'
-       'gap:var(--spacing-8)}'
-       '[data-s1-component="gnb"] [data-s1-part="logo"] b'
-       '{font-weight:var(--font-weight-bold)}'
-       '[data-s1-component="gnb"] [data-s1-part="logo"] span'
-       '{font-weight:var(--font-weight-regular);color:var(--color-text-body-secondary)}'
-       # 가르는 세로선 — 글자 '|' 를 쓰면 글꼴마다 굵기가 달라 선으로 둔다
-       '[data-s1-component="gnb"] [data-s1-part="logo"] [data-s1-part="sep"]'
-       '{width:var(--border-width-1);height:var(--sizing-16);'
-       'background:var(--color-border-subtle)}</style>')
+       '{display:inline-flex;align-items:center}'
+       # 이름표 그림 — 세로 16 에 맞추고 가로는 비율대로 따라간다(늘이지 않는다)
+       '[data-s1-component="gnb"] [data-s1-part="logo"] img'
+       '{height:16px;width:auto;display:block}</style>')
 
 _동작 = "<script src='/assets/js/gnb-account.js' defer></script>"
 
 
 def 로고(주소="/"):
-    """서비스 이름 글줄 — `에스원 | 개발화면 검수`.
+    """서비스 이름표 — 시안에서 받은 그림 한 장(`에스원 개발화면검수포털`).
 
     여기가 **한 곳**이다. 포털 안(바)과 로그인 화면(auth._로그인줄)이 같은 것을 가져다 쓴다 —
     한쪽만 고쳐 두 이름으로 보이던 것을 막는다(river 2026-09-29).
+    **새로 그리지 않는다** — 받은 그림을 그대로 쓴다(river 지시 2026-09-29).
     """
     return (f'<a data-s1-part="logo" href="{_e(주소)}">'
-            f'<b>에스원</b><i data-s1-part="sep" aria-hidden="true"></i>'
-            f'<span>개발화면 검수</span></a>')
+            f'<img src="/assets/img/logo-portal-wordmark.svg"'
+            f' alt="에스원 개발화면검수포털" width="183" height="16"></a>')
 
 
 def 바(지금="", size="sm"):
     """맨 위 줄 한 개 — 서비스 이름과 유틸 아이콘뿐이다.
 
-    글줄은 `에스원 | 개발화면 검수` 다 — 여기는 **서비스 자리**라서 프로젝트 이름은 넣지 않는다
+    이름표는 `에스원 개발화면검수포털` 그림 한 장이다 — 여기는 **서비스 자리**라서 프로젝트 이름은 넣지 않는다
     (프로젝트 이름은 왼쪽 메뉴 맨 위 프로젝트 셀렉터가 들고 있다, river 확정 2026-09-29).
 
     메뉴(과제 · 가져온 기록 · 검수 규칙 · 촬영 준비)는 두지 않는다(river 지시 2026-09-28).
