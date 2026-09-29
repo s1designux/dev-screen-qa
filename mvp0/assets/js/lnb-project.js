@@ -63,7 +63,9 @@
   var 머리 = document.getElementById('lnb-inspect');
   var 목록 = document.getElementById('lnb-groups');
   if (!머리 || !목록) return;
-  머리.addEventListener('click', function () {
+  머리.addEventListener('click', function (e) {
+    e.preventDefault();          // 옆의 '검수' 링크로 새어 나가지 않게
+    e.stopPropagation();
     var 편다 = 목록.hidden;
     목록.hidden = !편다;
     머리.setAttribute('aria-expanded', 편다 ? 'true' : 'false');

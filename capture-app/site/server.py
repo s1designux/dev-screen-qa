@@ -154,6 +154,19 @@ body { font-family:Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;
   font-size:var(--font-size-14); }
 header { background:var(--color-surface-default); border-bottom:1px solid var(--color-border-subtle);
   padding:var(--spacing-16) var(--spacing-28); }
+/* 포털 '개발화면 촬영' 안에 끼워 열릴 때 — 포털이 이미 제목을 적었으므로 제 머리·꼬리는 내려놓고,
+   걸음 칩이 그 제목 바로 아래에 온다. 그 아래 내용은 가운데로 모은다(river 지시 2026-09-29). */
+body.끼움 > header, body.끼움 > footer { display:none; }
+body.끼움 { background:transparent; }
+/* 걸음 칩은 포털 제목과 같은 줄머리(왼쪽 위)에 선다 — 그래서 옆 여백을 두지 않는다. */
+body.끼움 > .wrap { max-width:none; padding:0 0 var(--spacing-24); }
+body.끼움 > .wrap > .steps { margin-top:0; }
+/* 내용도 제목·칩과 같은 줄머리에서 시작한다(river 지시 2026-09-29). */
+body.끼움 > .wrap > :not(.steps) { max-width:1040px; margin-left:0; margin-right:auto; }
+body.끼움 > .wrap.w2 > :not(.steps) { max-width:1320px; }   /* 칸이 많은 '찍을 목록'은 넓게 */
+/* 내용을 감싸던 테두리는 두르지 않는다 — 통은 포털의 흰 통 하나뿐이다. */
+body.끼움 .card { background:none; border:0; border-radius:0; padding:0;
+  margin-bottom:var(--spacing-24); }
 h1 { font-size:var(--font-size-18); margin:0; }
 .sub { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); margin-top:var(--spacing-4); }
 .wrap { max-width:1040px; margin:0 auto; padding:var(--spacing-20) var(--spacing-28) var(--spacing-64); }
@@ -623,12 +636,21 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
                else f'<span class="{cls}">{이름}</span>')
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head><body>
+<title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head>
+<body>{_끼움표시()}
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span>{과제띠}</h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
 <div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
 </body></html>"""
+
+
+def _끼움표시():
+    """포털 안에 창으로 끼워 열렸는지 스스로 알아본다 — 혼자 열 때는 그대로 둔다."""
+    return ('<script>if(window.self!==window.top)'
+            'document.documentElement.classList.add("끼움-준비");</script>'
+            '<script>document.addEventListener("DOMContentLoaded",function(){'
+            'if(window.self!==window.top)document.body.classList.add("끼움");});</script>')
 
 
 # ────────────────────────────────────────────────── ① 디자인 고르기

@@ -175,9 +175,13 @@ CSS = """
 
 
 def 그리기(conn, store, project_uuid):
+    """이력 목록과 **제목 옆에 붙일 꼬리말** 두 벌을 돌려준다.
+
+    제목('이력관리')은 화면 맨 위 단추 줄이 한 번만 적는다(docs/화면글쓰기규칙.md).
+    """
     줄 = 모으기(conn, store, project_uuid)
     if not 줄:
-        return '<h2>이력관리</h2><p class="empty">아직 쌓인 기록이 없습니다.</p>'
+        return '<p class="empty">아직 쌓인 기록이 없습니다.</p>', ""
     칸 = ""
     for x in 줄:
         때 = (x["at"] or "").replace("T", " ")[:16]
@@ -190,5 +194,5 @@ def 그리기(conn, store, project_uuid):
         칸 += (f'<div class="l"><span class="when">{_esc(때)}</span>'
                f'<span class="kind">{_esc(_갈래이름.get(x["갈래"], x["갈래"]))}</span>'
                f'<span class="what">{_esc(x["무엇"])}{누가}{어디}</span></div>')
-    return (f'<h2>이력관리 <span class="muted">· 최근 {len(줄)}줄</span></h2>'
-            f'<div class="log">{칸}</div>')
+    return (f'<div class="log">{칸}</div>',
+            f' <span class="muted">· 최근 {len(줄)}줄</span>')

@@ -137,6 +137,45 @@ def 화면들(conn, store, project_uuid):
     return 쓴것
 
 
+def 묶음카드들(conn, project_uuid, 목록):
+    """검수 메뉴를 눌렀을 때 오른쪽에 깔리는 **묶음 카드**(로그인 · 회원가입 · 대시보드 …).
+
+    과제 목록 화면의 과제 카드와 같은 그릇을 쓴다(river 지시 2026-09-29) —
+    묶음 하나를 누르면 그 안의 검수 페이지 카드가 깔린다.
+    """
+    if not 목록:
+        return '<p class="empty">아직 검수 묶음이 없습니다. 왼쪽 아래에서 만들 수 있습니다.</p>'
+    칸 = ""
+    for x in 목록:
+        화면 = x["kind"] == "screen"
+        말, 갈래 = 상태(conn, [x["uuid"]]) if 화면 else ("촬영본", "wait")
+        주소 = (f'/project/{_esc(project_uuid)}?메뉴=inspect&screen={_esc(x["uuid"])}'
+              if 화면 else _esc(x["href"]))
+        줄 = f'<div class="row"><dt>화면 ID</dt><dd>{_esc(x["human_key"]) or "—"}</dd></div>'
+        줄 += f'<div class="row"><dt>검수 페이지</dt><dd>{x["count"]}장</dd></div>'
+        if 화면:
+            줄 += (f'<div class="row"><dt>최근 작성</dt>'
+                   f'<dd>{_esc(최근작성(conn, [x["uuid"]])) or "—"}</dd></div>')
+            for 차, 값 in 차수이력(conn, [x["uuid"]]):
+                줄 += f'<div class="row"><dt>{_esc(차)}</dt><dd>{_esc(값)}</dd></div>'
+        발 = ""
+        if 화면 and x["human_key"]:
+            발 = ('<span class="foot">'
+                  + s1.단추('표로 보기',
+                          onclick="location.href='/screen/%s'" % _esc(x["human_key"]))
+                  + '</span>')
+        칸 += f"""
+        <div class="pj">
+          <div class="head">
+            <a class="go" href="{주소}"><span class="nm">{_esc(x['name'])}</span></a>
+            <span class="st {갈래}">{_esc(말)}</span>
+          </div>
+          <dl class="hist">{줄}</dl>
+          {발}
+        </div>"""
+    return f'<div class="cards">{칸}</div>'
+
+
 def 페이지카드들(conn, screen):
     """검수 페이지 카드 — 디자인 원본·이름·Pass/Fail 표시(오른쪽 위).
 
@@ -266,7 +305,12 @@ CSS = """
   .gname { display:flex; align-items:center; }
   .gcount { margin-right:auto; padding-left:var(--spacing-4); font-size:var(--font-size-12);
     color:var(--color-text-body-tertiary); }
-  .gname .view { font-size:var(--font-size-16); font-weight:var(--font-weight-bold);
+  /* 메뉴 제목 — 어느 메뉴에서나 단추 줄 맨 왼쪽 같은 자리에 선다 */
+  .acts .mtitle { margin:0 auto 0 0; font-size:var(--font-size-18);
+    font-weight:var(--font-weight-bold); color:var(--color-text-title-primary); }
+  .acts .mtitle .muted { font-size:var(--font-size-12); font-weight:var(--font-weight-regular);
+    color:var(--color-text-body-tertiary); }
+  .gname .view { font-size:var(--font-size-18); font-weight:var(--font-weight-bold);
     padding:var(--spacing-2) var(--spacing-6); border-radius:var(--radius-6); cursor:text; }
   .gname .view:hover { background:var(--color-bg-level-2); }
   /* 정본 Input 은 display:inline-flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다 */
@@ -301,8 +345,10 @@ CSS = """
     height:var(--sizing-34); padding:0 var(--spacing-10); border-radius:var(--radius-8);
     text-decoration:none; color:var(--color-navigation-label-default);
     font-size:var(--font-size-14); }
-  .lnb.flush > .lnb-i { height:var(--sizing-44); padding:0 var(--spacing-16); border-radius:0; }
-  .lnb.flush > .head { height:var(--sizing-44); padding:0 var(--spacing-16); border-radius:0; }
+  /* 메뉴 줄은 모두 같은 높이·같은 앞 간격이다 — 검수 줄은 화살표와 한 줄에 들어 한 겹 더 싸여 있다 */
+  .lnb.flush > .lnb-i, .lnb.flush > .lnb-row > .lnb-i,
+  .lnb.flush > .head, .lnb.flush > .lnb-row > .head {
+    height:var(--sizing-44); padding:0 var(--spacing-16); border-radius:0; }
   .lnb.flush a.sub { padding-left:var(--spacing-48); }
   /* 검수 줄 — 누르면 접히고 펴진다. 생김새는 다른 메뉴 줄과 같다. */
   .lnb .head { width:100%; border:0; background:none; cursor:pointer; font:inherit;
@@ -330,6 +376,16 @@ CSS = """
     gap:var(--spacing-8); width:100%; }
   /* display:flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다(정본 부품과 같은 함정) */
   .lnb .add[hidden] { display:none; }
+  /* 검수 줄 — 누르는 자리(메뉴)와 접는 자리(화살표)를 한 줄에 나란히 둔다 */
+  .lnb .lnb-row { display:flex; align-items:center; }
+  .lnb .lnb-row .lnb-i { flex:1; min-width:0; }
+  .lnb .lnb-row .foldbtn { flex:none; justify-content:center;
+    width:var(--sizing-34); height:var(--sizing-44); margin-left:calc(-1 * var(--sizing-34)); }
+  .lnb .lnb-row .foldbtn:hover { color:var(--color-action-primary-default); }
+  /* 화살표는 이름표 칸 안에 든다 — 칸이 늘어지지 않게 크기를 여기서 준다 */
+  .lnb .lnb-row .foldbtn [data-s1-part="label"] { display:flex; }
+  .lnb .lnb-row .foldbtn .fold { display:block; margin:0; }
+  .lnb .lnb-row .foldbtn[aria-expanded="true"] .fold { transform:rotate(-90deg); }
   .lnb .addrow { padding:0 var(--spacing-12) var(--spacing-8); }
   .lnb .addrow [data-s1-component="input"] { width:100%; }
   .lnb .addrow[hidden] { display:none; }
@@ -395,12 +451,11 @@ CSS = """
   .empty { color:var(--color-text-body-tertiary); padding:var(--spacing-32); text-align:center; }
   .guide { margin:0 0 var(--spacing-16); font-size:var(--font-size-14);
     color:var(--color-text-body-secondary); }
-  .framebar { display:flex; justify-content:flex-end; margin:0 0 var(--spacing-8); }
   /* 촬영 준비는 다른 포트에서 도는 사이트라 창으로 끼운다.
      DESIGN_SYSTEM_GAP: 가이드에 '끼운 창' 부품이 없다. 값은 전부 토큰이다. */
+  /* 끼운 창은 제 테두리를 두르지 않는다 — 두르는 통은 바깥 흰 통 하나뿐이다(river 지시 2026-09-29). */
   .capframe { width:100%; height:calc(100vh - 218px); min-height:480px;
-    border:var(--border-width-1) solid var(--color-border-subtle); border-radius:var(--radius-8);
-    background:var(--color-surface-raised); display:block; }
+    border:0; border-radius:0; background:none; display:block; }
 """
 
 
@@ -502,10 +557,9 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
     if not 자료있나:
         메뉴 = "capture"      # 볼 것이 없으면 캡쳐 말고는 열지 않는다
 
+    # 묶음을 고르지 않고 '검수'만 누르면 **묶음 목록**을 편다(river 지시 2026-09-29).
+    # 그래서 여기서 첫 화면을 대신 고르지 않는다.
     고른 = next((s for s in 목록 if s["uuid"] == screen_uuid), None)
-    if 고른 is None:   # 처음 열 때는 시안이 들어 있는 첫 화면을 편다(빈 화면이 먼저 잡히지 않게)
-        고른 = (next((s for s in 목록 if s["kind"] == "screen" and s["count"]), None)
-              or next((s for s in 목록 if s["kind"] == "screen"), None))
 
     # ── 왼쪽 메뉴 셋 (아이콘 + 메뉴 이름)
     def 칸(이름, 값, 아이콘, 속=""):
@@ -522,17 +576,18 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
     lnb += 칸("이력관리", "history", "history")
 
     # ── 오른쪽 본문
+    이력꼬리 = ""
     if 메뉴 == "capture":
         본문 = _캡쳐(project_uuid, p, 자료있나)
     elif 메뉴 == "history":
-        본문 = project_history.그리기(conn, store, project_uuid)
+        본문, 이력꼬리 = project_history.그리기(conn, store, project_uuid)
     elif 고른 and 고른["kind"] == "screen":
         판 = 페이지카드들(conn, 고른)
         본문 = (수정요청알림(conn, 고른, uploads, store)
               + (f'<div class="shelf">{판}</div>' if 판
                  else '<p class="empty">검수 페이지가 없습니다.</p>'))
     else:
-        본문 = '<p class="empty">왼쪽에서 검수 화면을 고르세요.</p>'
+        본문 = 묶음카드들(conn, project_uuid, 목록)
 
     표로 = (f'<button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"'
           f' onclick="location.href=\'/screen/{_esc(고른["human_key"])}\'">'
@@ -542,8 +597,21 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
            f' onclick="window.open(\'/result/{_esc(project_uuid)}?scope=all\',\'_blank\')">'
            f'<span data-s1-part="label">검수결과서</span></button>' if 자료있나 else "")
     # 헤더를 없앴으니 과제 단추는 본문 오른쪽 위로 온다. 돌아가는 길과 과제 이름은 왼쪽 메뉴 맨 위에 있다.
-    묶음이름 = _묶음이름(project_uuid, 고른) if 메뉴 == "inspect" else ""
-    단추줄 = f"""<div class="acts">{묶음이름}{표로}
+    # 메뉴마다 **같은 자리**에 제목을 둔다 — 단추 줄 맨 왼쪽(18 Bold, river 지시 2026-09-29).
+    # 본문에서 같은 말을 또 적지 않는다(docs/화면글쓰기규칙.md 한 가지는 한 번만).
+    if 메뉴 == "capture":
+        제목칸 = '<h1 class="mtitle">개발화면 촬영</h1>'
+    elif 메뉴 == "history":
+        제목칸 = f'<h1 class="mtitle">이력관리{이력꼬리}</h1>'
+    elif 고른 and 고른["kind"] == "screen":
+        제목칸 = _묶음이름(project_uuid, 고른)      # 두 번 누르면 고치는 칸이 된다
+    else:
+        제목칸 = '<h1 class="mtitle">검수</h1>'
+    if 메뉴 == "capture":
+        # 촬영 화면은 찍는 일만 한다 — 과제 단추는 두지 않는다(river 지시 2026-09-29).
+        단추줄 = f'<div class="acts">{제목칸}</div>'
+    else:
+        단추줄 = f"""<div class="acts">{제목칸}{표로}
         <button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"
           onclick="location.href='/project/{_esc(project_uuid)}/edit'">
           <span data-s1-part="label">과제 고치기</span></button>
@@ -581,18 +649,23 @@ def _검수묶음들(conn, project_uuid, 목록, 고른, 폄, 자료있나):
 
     층은 셋이다 — 검수(메뉴) → 묶음(사람이 나눈 큰 갈래) → 그 안의 화면들.
     맨 아래 층은 왼쪽 메뉴에 늘어놓지 않고 **오른쪽에 카드로** 편다(river 확정 2026-09-29).
-    검수 줄을 누르면 접히고 펴진다. 묶음을 누르면 그 묶음의 카드가 오른쪽에 깔린다.
+    **검수 줄을 누르면 묶음 카드 목록**이 오른쪽에 깔리고(river 지시 2026-09-29),
+    묶음을 누르면 그 묶음의 검수 페이지 카드가 깔린다. 접고 펴는 것은 옆 화살표가 맡는다.
     """
     표 = '<span class="ic ic-search" aria-hidden="true"></span>'
     화살 = '<span class="ic ic-down fold" aria-hidden="true"></span>'
     if not 자료있나:
         return f'<span class="lnb-i off" aria-disabled="true">{표}검수</span>'
 
-    머리 = (f'<button type="button" data-s1-component="button" data-variant="secondary"'
-          f' data-size="xsm" data-break="pc" class="lnb-i head{" on" if 폄 else ""}"'
-          f' id="lnb-inspect" aria-expanded="{"true" if 폄 else "false"}"'
-          f' aria-controls="lnb-groups">'
-          f'<span data-s1-part="label">{표}검수{화살}</span></button>')
+    # 검수 줄을 누르면 **묶음 목록**으로 간다. 접고 펴는 것은 옆 화살표가 따로 맡는다.
+    머리 = (f'<span class="lnb-row">'
+          f'<a class="lnb-i head{" on" if 폄 and not 고른 else ""}"'
+          f' href="/project/{_esc(project_uuid)}?메뉴=inspect">{표}검수</a>'
+          f'<button type="button" data-s1-component="text-button" data-variant="secondary"'
+          f' class="foldbtn" id="lnb-inspect"'
+          f' aria-expanded="{"true" if 폄 else "false"}" aria-controls="lnb-groups"'
+          f' aria-label="검수 묶음 접고 펴기">'
+          f'<span data-s1-part="label">{화살}</span></button></span>')
 
     칸 = ""
     for x in 목록:
@@ -660,11 +733,7 @@ def _캡쳐(project_uuid, p, 자료있나):
     주소 = gnb_bar.촬영시작주소(project_uuid, p["name"], p["service_code"])
     안내 = ('<p class="guide">먼저 개발화면을 찍어 주세요. 찍은 것이 들어오면 검수와 이력관리가 열립니다.</p>'
           if not 자료있나 else "")
-    return (f'<h2>개발화면 촬영</h2>{안내}'
-            f'<div class="framebar">'
-            f'<button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"'
-            f' onclick="window.open(\'{주소}\',\'_blank\')">'
-            f'<span data-s1-part="label">새 창으로 열기</span></button></div>'
+    return (f'{안내}'
             f'<iframe class="capframe" src="{_esc(주소)}" title="촬영 준비"></iframe>')
 
 
