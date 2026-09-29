@@ -296,7 +296,9 @@ CSS = """
   .pshell { display:flex; align-items:stretch; min-height:calc(100vh - var(--sizing-56)); }
   /* 오른쪽은 회색 바탕이고, 볼 것은 흰 통 안에 든다 — 통은 바탕에서 일정 간격 떨어져 선다.
      (river 지시 2026-09-29 · UVIS 정산 운임표 '최고유류단가 리스트' 통과 같은 모양) */
-  .pmain { flex:1; min-width:0; background:var(--color-bg-level-2);
+  /* 오른쪽 칸은 위아래로 끝까지 찬다 — 흰 통이 남은 자리를 다 쓴다(river 지시 2026-09-29). */
+  .pmain { flex:1; min-width:0; display:flex; flex-direction:column;
+    background:var(--color-bg-level-2);
     padding:var(--spacing-12) var(--spacing-12) var(--spacing-24); }
   .acts { display:flex; align-items:center; justify-content:flex-end; gap:var(--spacing-8);
     margin:0 0 var(--spacing-16); }
@@ -423,9 +425,10 @@ CSS = """
   .lnb a.sub { padding-left:var(--spacing-24); font-size:var(--font-size-14); }
   .lnb a.sub .n { font-size:var(--font-size-12); }
 
-  .body { background:var(--color-surface-raised);
+  .body { flex:1; display:flex; flex-direction:column; min-height:var(--sizing-128);
+    background:var(--color-surface-raised);
     border:var(--border-width-1) solid var(--color-border-subtle);
-    border-radius:var(--radius-12); padding:var(--spacing-20); min-height:var(--sizing-128); }
+    border-radius:var(--radius-12); padding:var(--spacing-20); }
   .body h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-16); }
   .body h2 .muted { color:var(--color-text-body-tertiary); font-weight:var(--font-weight-regular); }
   .shelf { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
@@ -454,7 +457,7 @@ CSS = """
   /* 촬영 준비는 다른 포트에서 도는 사이트라 창으로 끼운다.
      DESIGN_SYSTEM_GAP: 가이드에 '끼운 창' 부품이 없다. 값은 전부 토큰이다. */
   /* 끼운 창은 제 테두리를 두르지 않는다 — 두르는 통은 바깥 흰 통 하나뿐이다(river 지시 2026-09-29). */
-  .capframe { width:100%; height:calc(100vh - 218px); min-height:480px;
+  .capframe { width:100%; flex:1; min-height:480px;
     border:0; border-radius:0; background:none; display:block; }
 """
 

@@ -9,6 +9,7 @@ QA_CAPTURE_BIND=0.0.0.0 이면 같은 사무실 네트워크의 동료도 들어
 실행: ./site.sh   →  http://127.0.0.1:8767
 """
 import html
+import io
 import json
 import os
 import re
@@ -17,6 +18,7 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlencode
@@ -158,11 +160,19 @@ header { background:var(--color-surface-default); border-bottom:1px solid var(--
    걸음 칩이 그 제목 바로 아래에 온다. 그 아래 내용은 가운데로 모은다(river 지시 2026-09-29). */
 body.끼움 > header, body.끼움 > footer { display:none; }
 body.끼움 { background:transparent; }
+/* 끼운 창은 포털이 준 높이를 다 쓴다 — 그래야 안내가 위아래 가운데에 설 수 있다. */
+html.끼움-준비, body.끼움 { height:100%; }
+body.끼움 > .wrap { display:flex; flex-direction:column; min-height:100%; }
 /* 걸음 칩은 포털 제목과 같은 줄머리(왼쪽 위)에 선다 — 그래서 옆 여백을 두지 않는다. */
 body.끼움 > .wrap { max-width:none; padding:0 0 var(--spacing-24); }
-body.끼움 > .wrap > .steps { margin-top:0; }
-/* 내용도 제목·칩과 같은 줄머리에서 시작한다(river 지시 2026-09-29). */
-body.끼움 > .wrap > :not(.steps) { max-width:1040px; margin-left:0; margin-right:auto; }
+/* 걸음표는 네 걸음 모두 가운데에 선다(river 지시 2026-09-29) — 한 줄기 과정이라 자리가 걸음마다
+   달라지지 않는다. 그 아래 내용은 걸음마다 다르다(촬영만 가운데, 나머지는 왼쪽). */
+/* `safe` 를 붙이면 좁아서 넘칠 때 가운데가 아니라 앞에서부터 보인다 —
+   가운데 정렬만 두면 앞쪽이 잘려 나가 못 본다. */
+body.끼움 > .wrap > .steps { margin-top:0; justify-content:safe center; }
+/* 걸음표도 내용도 **네 걸음 모두 가운데**에 선다(river 지시 2026-09-29).
+   글줄 자체는 왼쪽에서 읽는다 — 가운데로 모으는 것은 덩어리이지 글이 아니다. */
+body.끼움 > .wrap > :not(.steps) { max-width:840px; margin-left:auto; margin-right:auto; }
 body.끼움 > .wrap.w2 > :not(.steps) { max-width:1320px; }   /* 칸이 많은 '찍을 목록'은 넓게 */
 /* 내용을 감싸던 테두리는 두르지 않는다 — 통은 포털의 흰 통 하나뿐이다. */
 body.끼움 .card { background:none; border:0; border-radius:0; padding:0;
@@ -171,18 +181,105 @@ h1 { font-size:var(--font-size-18); margin:0; }
 .sub { font-size:var(--font-size-12); color:var(--color-text-body-tertiary); margin-top:var(--spacing-4); }
 .wrap { max-width:1040px; margin:0 auto; padding:var(--spacing-20) var(--spacing-28) var(--spacing-64); }
 .wrap.w2 { max-width:1320px; }   /* 칸이 많은 '찍을 목록' 쪽만 넓게 */
-/* 걸음 표시 — S-1 Chip(Solid). 지금 걸음만 고른 것(selected), 나머지는 고르지 않은 것(default).
-   지나온 걸음도 '다 됨'으로 따로 칠하지 않는다 — 칩에 그런 상태가 없다. */
-.steps { display:flex; gap:var(--spacing-8); margin:var(--spacing-16) 0 var(--spacing-20); flex-wrap:wrap; }
-.steps a, .steps span { display:inline-flex; align-items:center; gap:var(--spacing-4);
-  height:var(--sizing-34); padding:0 var(--spacing-16); border-radius:var(--radius-full);
-  border:var(--border-width-default) solid var(--chip-line-default-border);
-  background:var(--chip-line-default-bg); color:var(--chip-line-default-text);
+/* DESIGN_SYSTEM_GAP: 가이드에 '걸음표(스텝)' 부품이 없다 — Chip 은 고르는 것이고 이것은 밟아 가는
+   과정이라 맞지 않는다(river 2026-09-29). 그래서 여기서 한 벌 정한다. 값은 전부 토큰이다.
+   지나온 걸음 done(✓·파랑 글자) · 지금 걸음 now(파랑 동그라미·굵은 글자) · 아직 todo(회색).
+   걸음 사이는 줄로 잇는다 — 나란히 놓인 단추가 아니라 한 줄기 과정임을 보이려는 것이다. */
+/* 한 줄기 과정이라 줄을 바꾸지 않는다 — 좁으면 옆으로 민다(줄을 바꾸면 잇는 줄이 끊겨 보인다). */
+.steps { display:flex; align-items:center; gap:0; flex-wrap:nowrap; overflow-x:auto;
+  margin:var(--spacing-16) 0 var(--spacing-24); }
+.steps .st { display:inline-flex; align-items:center; gap:var(--spacing-8);
+  padding:0 var(--spacing-12) 0 0; font-size:var(--font-size-14); line-height:1;
+  text-decoration:none; white-space:nowrap; color:var(--color-text-body-tertiary); }
+.steps .st + .st { padding-left:var(--spacing-12); }
+/* 걸음 사이를 잇는 줄 */
+.steps .st + .st::before { content:""; width:var(--sizing-24);
+  height:var(--border-width-default); margin-right:var(--spacing-12);
+  background:var(--color-border-subtle); }
+.steps .st.done + .st::before, .steps .st.now + .st::before {
+  background:var(--color-action-primary-default); }
+.steps .no { display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:var(--sizing-24); height:var(--sizing-24); border-radius:var(--radius-full);
+  border:var(--border-width-default) solid var(--color-border-default);
+  font-size:var(--font-size-12); font-weight:var(--font-weight-medium); }
+.steps .st.done { color:var(--color-action-primary-default); }
+.steps .st.done .no { border-color:var(--color-action-primary-default);
+  color:var(--color-action-primary-default); }
+.steps .st.now { color:var(--color-text-title-primary); font-weight:var(--font-weight-bold); }
+.steps .st.now .no { border-color:var(--color-action-primary-default);
+  background:var(--color-action-primary-default); color:var(--color-text-inverse); }
+.steps a.st:hover .nm { text-decoration:underline; }
+/* 창이 좁으면 잇는 줄과 사이를 줄여 네 걸음이 한 줄에 다 선다 */
+@media (max-width:820px) {
+  .steps .st { padding-right:var(--spacing-6); }
+  .steps .st + .st { padding-left:var(--spacing-6); }
+  .steps .st + .st::before { width:var(--sizing-10); margin-right:var(--spacing-6); }
+  .steps .nm { font-size:var(--font-size-12); }
+}
+/* 빈 화면 안내 — 가져온 시안이 없을 때 화면 가운데에 선다.
+   DESIGN_SYSTEM_GAP: 가이드에 '빈 화면 안내'·'그림 설명'·'툴팁' 부품이 없다. 값은 전부 토큰이다. */
+/* 안내는 남은 자리의 **가로·세로 한가운데**에 선다(river 지시 2026-09-29). */
+.empty-guide { max-width:900px; margin:auto; padding:var(--spacing-32) 0; text-align:center; }
+/* 제목과 세 걸음은 **한 통** 안에 든다(river 지시 2026-09-29). */
+.gbox { background:var(--color-bg-level-1); border-radius:var(--radius-12);
+  padding:var(--spacing-32) var(--spacing-24);
+  margin:0 0 var(--spacing-64); }   /* 아래 '플러그인 없을 때' 칸과 뚜렷이 떨어뜨린다 */
+.gbox h2 { font-size:var(--font-size-18); margin:0 0 var(--spacing-32);
+  color:var(--color-text-title-primary); }
+/* 걸음 사이는 낱개 상자가 아니라 **줄**로 가른다 */
+.gsteps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; }
+.gs { padding:0 var(--spacing-20); }
+.gs + .gs { border-left:var(--border-width-1) solid var(--color-border-subtle); }
+/* 순번 — 그림 바로 위 가운데. 상자 바탕보다 한 단계 어두운 동그라미에 모노톤 숫자
+   (river 지시 2026-09-29 — 걸음표의 파란 동그라미와 섞이지 않게 여기서는 회색이다). */
+.gs .gno { display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:var(--sizing-24); height:var(--sizing-24); border-radius:var(--radius-full);
+  background:var(--color-bg-level-3); color:var(--color-text-body-secondary);
+  font-size:var(--font-size-12); font-weight:var(--font-weight-bold); line-height:1; }
+.gs .pic { display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:var(--spacing-12); margin:0 0 var(--spacing-16);
+  color:var(--color-action-primary-default); }
+.gs .pic svg { width:100%; max-width:200px; height:auto; }
+.gs .tt { font-size:var(--font-size-14); font-weight:var(--font-weight-bold);
+  margin:0 0 var(--spacing-6); }
+.gs .dd { font-size:var(--font-size-12); line-height:var(--line-height-140);
+  color:var(--color-text-body-tertiary); word-break:keep-all; }
+.gfoot { display:flex; flex-direction:column; align-items:center; gap:var(--spacing-10); }
+/* 내려받기 단추 — 정본 Button Secondary 규격(XSM · h34 · radius 4).
+   안내 글 아래에 둔다(river 지시 2026-09-29) — 먼저 읽고 그다음에 누른다. */
+.s1-secondary { display:inline-flex; align-items:center; justify-content:center;
+  height:var(--sizing-34); min-width:var(--sizing-64); padding:0 var(--spacing-16);
+  border:var(--border-width-1) solid var(--color-button-border-secondary--default);
+  border-radius:var(--radius-4); background:var(--color-button-bg-secondary--default);
+  color:var(--color-button-label-secondary--default);
   font-size:var(--font-size-14); font-weight:var(--font-weight-medium); line-height:1;
-  text-decoration:none; white-space:nowrap; }
-.steps a:hover { background:var(--chip-line-hover-bg); border-color:var(--chip-line-hover-border); }
-.steps .on { background:var(--chip-line-selected-bg); border-color:var(--chip-line-selected-border);
-  color:var(--chip-line-selected-text); }
+  text-decoration:none; }
+.s1-secondary:hover { background:var(--color-button-bg-secondary--hover);
+  border-color:var(--color-button-border-secondary--hover);
+  color:var(--color-button-label-secondary--hover); }
+.gnote { margin:0; font-size:var(--font-size-12); color:var(--color-text-body-tertiary); }
+/* 툴팁 — 누르지 않아도 마우스를 올리거나 탭으로 짚으면 열린다 */
+.tip { position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:var(--sizing-16); height:var(--sizing-16); margin-left:var(--spacing-4);
+  border-radius:var(--radius-full); border:var(--border-width-1) solid var(--color-border-default);
+  color:var(--color-text-body-tertiary); font-size:var(--font-size-10);
+  line-height:1; cursor:help; vertical-align:middle; }
+/* 가이드에 어두운 바탕 토큰이 없다 — 흰 쪽지에 테두리·그림자로 띄운다(정본 Dropdown 과 같은 결). */
+.tipbox { position:absolute; left:50%; bottom:calc(100% + var(--spacing-8));
+  transform:translateX(-50%); width:320px; max-width:70vw; padding:var(--spacing-12);
+  border-radius:var(--radius-8); background:var(--color-surface-raised);
+  border:var(--border-width-1) solid var(--color-border-default);
+  color:var(--color-text-body-primary); font-size:var(--font-size-12);
+  line-height:var(--line-height-140); text-align:left; word-break:keep-all;
+  box-shadow:var(--shadow-dropdown); opacity:0; visibility:hidden; z-index:5; }
+.tip:hover .tipbox, .tip:focus .tipbox, .tip:focus-within .tipbox { opacity:1; visibility:visible; }
+/* 좁으면 세로로 쌓인다 — 가르는 줄도 옆이 아니라 위로 간다 */
+@media (max-width:760px) {
+  .gsteps { grid-template-columns:1fr; }
+  .gs { padding:var(--spacing-20) 0; }
+  .gs + .gs { border-left:0;
+    border-top:var(--border-width-1) solid var(--color-border-subtle); }
+}
 .card { background:var(--color-surface-default); border:1px solid var(--color-border-subtle);
   border-radius:var(--radius-12); padding:var(--spacing-20); margin-bottom:var(--spacing-16); }
 .card h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-12); }
@@ -589,8 +686,13 @@ def _그림(번호, 기본):
          '<path d="M10.375 7.75L14.625 12L10.375 16.25" stroke="currentColor" '
          'stroke-linecap="square"/></svg>')
 
-걸음 = [("/", "① 디자인 업로드"), ("/초안", "② 찍을 목록"),
-      ("/조건", "③ 조건 확인"), ("/촬영", "④ 전체 촬영")]
+# 디자인 파일 주소로 직접 읽어 오는 길 — river 지시 2026-09-29 로 **일단 숨긴다**.
+# 지우지 않는다(만든 것은 그대로 있다). 되살리려면 이 값을 True 로 바꾸면 된다.
+# 지금 시안은 촬영 준비 플러그인이 보내 주는 길 하나로만 들어온다.
+파일주소로받기 = False
+
+걸음 = [("/", "디자인 업로드"), ("/초안", "찍을 목록"),
+      ("/조건", "조건 확인"), ("/촬영", "전체 촬영")]
 
 
 def _무리(이름):
@@ -623,24 +725,35 @@ def _알림띠(알림):
               ' onclick="document.getElementById(\'alertbar\').remove()">&#10005;</button></div>')
 
 
+def _넓이칸(지금):
+    """걸음마다 다른 본문 너비 — 칸이 많은 '찍을 목록'만 넓게 쓴다."""
+    return " w2" if 지금 == "/초안" else ""
+
+
 def 껍데기(지금, 본문, 부제="", 알림=""):
     작업 = 작업읽기()
     # 포털에서 과제를 달고 들어왔으면 어느 과제를 찍는 중인지 늘 보인다.
     과제띠 = (f'<span class="과제띠">{_e(작업.get("앱이름"))}</span>'
            if 작업.get("과제uuid") else "")
+    # 걸음표 — 고르는 칩이 아니라 **밟아 가는 과정**이다(river 지시 2026-09-29).
+    # 지나온 걸음 · 지금 걸음 · 아직 안 온 걸음 셋을 갈라 보인다. 누르는 자리는 예전과 같다.
+    지금자리 = next((i for i, (길, _) in enumerate(걸음) if 길 == 지금), 0)
     칩 = ""
-    for 길, 이름 in 걸음:
-        # 지금 걸음만 고른 것으로 보인다. 지나온 걸음도 '고르지 않은 것'이다(S-1 Chip 상태: default/selected).
-        cls = "on" if 길 == 지금 else ""
-        칩 += (f'<a class="{cls}" href="{길}">{이름}</a>' if cls != "on"
-               else f'<span class="{cls}">{이름}</span>')
+    for i, (길, 이름) in enumerate(걸음):
+        단계 = "done" if i < 지금자리 else ("now" if i == 지금자리 else "todo")
+        표 = "✓" if 단계 == "done" else str(i + 1)
+        속 = (f'<span class="no" aria-hidden="true">{표}</span>'
+              f'<span class="nm">{_e(이름)}</span>')
+        지금표시 = ' aria-current="step"' if 단계 == "now" else ""
+        칩 += (f'<span class="st {단계}"{지금표시}>{속}</span>' if 단계 == "now"
+               else f'<a class="st {단계}" href="{길}">{속}</a>')
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>촬영 준비 — {_e(dict(걸음)[지금])}</title><style>{토큰}{CSS}</style></head>
 <body>{_끼움표시()}
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span>{과제띠}</h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
-<div class="wrap{' w2' if 지금 == '/초안' else ''}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
+<div class="wrap{_넓이칸(지금)}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
 </body></html>"""
 
@@ -736,6 +849,144 @@ def 화면_과제받기(과제, 이름, 코드):
     return 껍데기("/", 본문, 부제=f"{이름} 를 찍으러 왔습니다")
 
 
+# ── Figma에서 화면 가져오기 안내 (① 디자인 업로드의 빈 화면) ────────────────────
+# DESIGN_SYSTEM_GAP: 가이드에 '빈 화면 안내(empty state)'·'그림 설명'·'툴팁' 부품이 없다.
+# 값은 전부 토큰이고, 그림은 아이콘이 아니라 **설명 그림**이라 여기서 선 몇 개로 그린다.
+
+def _그림_설치():
+    """① 플러그인 설치 — Figma 메뉴에서 플러그인 창이 열린 모습."""
+    return ('<svg viewBox="0 0 200 128" fill="none" aria-hidden="true">'   # s1-제외 설명 그림
+            # Figma 창
+            '<rect x="8" y="10" width="184" height="108" rx="8" fill="var(--color-surface-default)"'
+            ' stroke="var(--color-border-default)"/>'
+            '<path d="M8 28h184" stroke="var(--color-border-subtle)"/>'
+            '<circle cx="20" cy="19" r="3" fill="var(--color-border-strong)" opacity=".5"/>'
+            '<circle cx="30" cy="19" r="3" fill="var(--color-border-strong)" opacity=".5"/>'
+            # 왼쪽 메뉴에 열린 Plugins 목록
+            '<rect x="16" y="36" width="52" height="8" rx="2" fill="var(--color-border-subtle)"/>'
+            '<rect x="16" y="50" width="52" height="8" rx="2" fill="var(--color-border-subtle)"/>'
+            '<rect x="16" y="64" width="52" height="8" rx="2"'
+            ' fill="var(--color-action-primary-default)" opacity=".25"/>'
+            # 플러그인 창
+            '<rect x="82" y="40" width="98" height="64" rx="6"'
+            ' fill="var(--color-surface-default)" stroke="var(--color-action-primary-default)"/>'
+            '<rect x="92" y="50" width="46" height="7" rx="2"'
+            ' fill="var(--color-action-primary-default)" opacity=".5"/>'
+            '<rect x="92" y="63" width="78" height="6" rx="2" fill="var(--color-border-subtle)"/>'
+            '<rect x="92" y="74" width="60" height="6" rx="2" fill="var(--color-border-subtle)"/>'
+            '<rect x="118" y="86" width="52" height="12" rx="4"'
+            ' fill="var(--color-action-primary-default)"/>'
+            '</svg>')
+
+
+def _그림_고르기():
+    """② 캔버스에서 드래그로 감싸 고르고 보내기 — 화면 넉 장과 고르는 네모."""
+    return ('<svg viewBox="0 0 200 128" fill="none" aria-hidden="true">'   # s1-제외 설명 그림
+            '<rect x="8" y="10" width="184" height="108" rx="8" fill="var(--color-surface-default)"'
+            ' stroke="var(--color-border-default)"/>'
+            # 캔버스 위 화면 넉 장(머리줄 있는 프레임)
+            '<g stroke="var(--color-border-default)">'
+            '<rect x="22" y="30" width="44" height="38" rx="3"/>'
+            '<rect x="76" y="30" width="44" height="38" rx="3"/>'
+            '<rect x="22" y="78" width="44" height="30" rx="3"/>'
+            '<rect x="76" y="78" width="44" height="30" rx="3"/>'
+            '</g>'
+            '<g fill="var(--color-border-subtle)">'
+            '<rect x="28" y="38" width="24" height="4" rx="2"/>'
+            '<rect x="28" y="48" width="32" height="4" rx="2"/>'
+            '<rect x="82" y="38" width="24" height="4" rx="2"/>'
+            '<rect x="82" y="48" width="32" height="4" rx="2"/>'
+            '</g>'
+            # 드래그로 감싼 자리
+            '<rect x="16" y="24" width="110" height="50" rx="3"'
+            ' fill="var(--color-action-primary-default)" fill-opacity=".08"'
+            ' stroke="var(--color-action-primary-default)" stroke-dasharray="4 3"/>'
+            # 커서
+            '<path d="M120 66 L134 74 L127 76 L124 83 Z" fill="var(--color-text-title-primary)"/>'
+            # 보내기 단추가 달린 작은 플러그인 창
+            '<rect x="134" y="30" width="48" height="60" rx="5"'
+            ' fill="var(--color-surface-default)" stroke="var(--color-action-primary-default)"/>'
+            '<g fill="var(--color-border-subtle)">'
+            '<rect x="141" y="38" width="34" height="5" rx="2"/>'
+            '<rect x="141" y="48" width="34" height="5" rx="2"/>'
+            '<rect x="141" y="58" width="24" height="5" rx="2"/>'
+            '</g>'
+            '<rect x="141" y="70" width="34" height="12" rx="4"'
+            ' fill="var(--color-action-primary-default)"/>'
+            '</svg>')
+
+
+def _그림_들어옴():
+    """③ 이 화면으로 그대로 들어온다 — 받은 화면이 카드로 깔린 모습."""
+    return ('<svg viewBox="0 0 200 128" fill="none" aria-hidden="true">'   # s1-제외 설명 그림
+            '<rect x="8" y="10" width="184" height="108" rx="8" fill="var(--color-surface-default)"'
+            ' stroke="var(--color-border-default)"/>'
+            # 걸음표 흉내
+            '<g fill="var(--color-action-primary-default)">'
+            '<circle cx="28" cy="26" r="5"/></g>'
+            '<g fill="var(--color-border-subtle)">'
+            '<rect x="38" y="23" width="26" height="6" rx="3"/>'
+            '<circle cx="80" cy="26" r="5"/>'
+            '<rect x="90" y="23" width="26" height="6" rx="3"/>'
+            '</g>'
+            '<path d="M8 40h184" stroke="var(--color-border-subtle)"/>'
+            # 들어온 화면 석 장
+            '<g stroke="var(--color-border-default)" fill="var(--color-bg-level-1)">'
+            '<rect x="22" y="54" width="46" height="50" rx="4"/>'
+            '<rect x="77" y="54" width="46" height="50" rx="4"/>'
+            '<rect x="132" y="54" width="46" height="50" rx="4"/>'
+            '</g>'
+            '<g fill="var(--color-border-subtle)">'
+            '<rect x="29" y="62" width="26" height="4" rx="2"/>'
+            '<rect x="29" y="70" width="32" height="4" rx="2"/>'
+            '<rect x="84" y="62" width="26" height="4" rx="2"/>'
+            '<rect x="84" y="70" width="32" height="4" rx="2"/>'
+            '<rect x="139" y="62" width="26" height="4" rx="2"/>'
+            '<rect x="139" y="70" width="32" height="4" rx="2"/>'
+            '</g>'
+            # 들어옴을 알리는 화살표
+            '<path d="M100 36v-14m0 0-5 5m5-5 5 5" stroke="var(--color-action-primary-default)"'
+            ' stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 100 29)"/>'
+            '</svg>')
+
+
+def _다시보내기줄():
+    """이미 받은 시안이 있을 때 — 큰 안내를 또 펴지 않고 다시 보내는 길만 한 줄로 둔다."""
+    return ('<p class="gnote" style="text-align:center">'
+            'Figma에서 다시 고르고 <b>보내기</b> 를 누르면 그대로 바뀝니다.</p>')
+
+
+def _가져오기안내():
+    """플러그인으로 시안을 가져오는 세 걸음 — 화면 가운데에 그림과 함께 보인다."""
+    걸음들 = ((_그림_설치(), "플러그인 설치",
+             "Figma에 검수 화면 보내기 플러그인을 한 번만 깝니다."),
+           (_그림_고르기(), "캔버스에서 고르고 보내기",
+            "플러그인을 켠 뒤 검수할 디자인 원본을 드래그로 감싸 고르고 <b>보내기</b> 를 누릅니다."),
+           (_그림_들어옴(), "여기로 들어옵니다",
+            "고른 그대로 이 화면에 올라옵니다. 따로 올릴 것이 없습니다."))
+    칸 = ""
+    for i, (그림, 이름, 말) in enumerate(걸음들, 1):
+        # 나열이 아니라 **차례**다 — 카드마다 순번을 적는다(river 지시 2026-09-29).
+        칸 += (f'<div class="gs">'
+               f'<div class="pic"><span class="gno" aria-hidden="true">{i}</span>{그림}</div>'
+               f'<div class="tt">{이름}</div><div class="dd">{말}</div></div>')
+    도움 = ("Figma 메뉴 <b>Plugins → Development → Import plugin from manifest…</b> 를 열고, "
+          "내려받아 푼 폴더의 <code>manifest.json</code> 을 고르면 깔립니다.")
+    return f"""
+    <div class="empty-guide">
+      <div class="gbox">
+        <h2>Figma에서 화면 가져오기</h2>
+        <div class="gsteps">{칸}</div>
+      </div>
+      <div class="gfoot">
+        <p class="gnote">플러그인이 없는 경우 먼저 피그마 플러그인을 설치해 주세요.
+          <span class="tip" tabindex="0" role="button" aria-label="설치 방법 보기">?<span
+            class="tipbox" role="tooltip">{도움}</span></span></p>
+        <a class="s1-secondary" href="/플러그인.zip" download>플러그인 내려받기</a>
+      </div>
+    </div>"""
+
+
 def 화면_디자인(오류=""):
     작업 = 작업읽기()
     알림 = f'<div class="err">{_e(오류)}</div>' if 오류 else ""
@@ -786,17 +1037,7 @@ def 화면_디자인(오류=""):
     작업 = 작업읽기()
     플러그인 = 작업.get("온곳") == "figma-플러그인"
 
-    안내 = """
-    <div class="card"><h2>Figma에서 골라 보내기</h2>
-      <div class="hint" style="margin-top:0">
-        <b>1</b> Figma 캔버스에서 찍을 화면들을 <b>드래그로 감싸 고릅니다</b>.<br>
-        <b>2</b> Plugins → Development → <b>검수 화면 보내기</b> 를 실행합니다.<br>
-        <b>3</b> 목록을 눈으로 확인하고 <b>보내기</b> 를 누르면 아래에 그대로 들어옵니다.
-      </div>
-      <div class="hint">플러그인을 아직 안 깔았다면 Figma 메뉴
-        <b>Plugins → Development → Import plugin from manifest…</b> 에서
-        <code>capture-app/plugin-pick/manifest.json</code> 을 고르면 됩니다.</div>
-    </div>"""
+    안내 = _가져오기안내()
 
     if 플러그인:
         고른것 = 작업.get("고른화면", [])
@@ -819,10 +1060,12 @@ def 화면_디자인(오류=""):
           <div class="bar"><a class="btn" href="/비우기">비우고 다시 받기</a>
             <span class="right"></span>
             <a class="btn go" href="/초안">다음 — 찍을 목록 만들기 →</a></div>
-        </div>""" + 안내
+        </div>""" + _다시보내기줄()
         return 껍데기("/", 본문, "Figma에서 고른 화면만 가져온다", 알림)
 
-    본문 = 안내 + 열쇠칸 + f"""
+    본문 = 안내
+    if 파일주소로받기:
+        본문 += 열쇠칸 + f"""
     <div class="card"><h2>디자인 파일 주소 <span class="muted">· 플러그인 없이 목록으로 고르기</span></h2>
       <form method="post" action="/디자인">
         <input type="text" name="주소" class="w-lg" placeholder="https://www.figma.com/design/..."
@@ -833,7 +1076,7 @@ def 화면_디자인(오류=""):
       <div class="hint">Figma에서 파일을 열고 주소창을 그대로 붙여넣으세요.</div>
     </div>"""
 
-    파일 = 작업.get("파일")
+    파일 = 작업.get("파일") if 파일주소로받기 else None
     if 파일:
         페이지들 = 파일.get("페이지", [])
         고른페이지 = 작업.get("고른페이지") or (페이지들[0]["id"] if 페이지들 else "")
@@ -978,7 +1221,7 @@ def _메뉴띠말(것):
 def 화면_초안(알림=""):
     작업 = 작업읽기()
     if not 작업.get("초안"):
-        return 껍데기("/초안", '<div class="card"><p class="muted">먼저 ① 에서 디자인 화면을 고르세요.</p></div>',
+        return 껍데기("/초안", '<div class="card"><p class="muted">먼저 디자인 업로드에서 디자인 화면을 고르세요.</p></div>',
                    "찍을 목록")
     웹 = 웹인가(작업)
 
@@ -1682,7 +1925,7 @@ def _계정카드(작업):
 def 화면_조건(알림=""):
     작업 = 작업읽기()
     if not 작업.get("이름표경로"):
-        return 껍데기("/조건", '<div class="card"><p class="muted">먼저 ② 에서 찍을 목록을 저장하세요.</p></div>',
+        return 껍데기("/조건", '<div class="card"><p class="muted">먼저 찍을 목록에서 목록을 저장하세요.</p></div>',
                    "조건 확인")
     if 웹인가(작업):
         return 화면_조건_웹(작업, 알림)
@@ -1702,7 +1945,7 @@ def 화면_조건(알림=""):
           + 줄("폰 잠금이 풀려 있다", bool(폰) and not 잠김,
                "잠긴 채로는 앱 화면이 찍히지 않습니다. 잠금은 사람이 풀어야 합니다.")
           + 줄("앱이 폰에 깔려 있다", 깔림,
-               _e(앱주소) if 앱주소 else "② 에서 앱 주소를 적어 주세요."))
+               _e(앱주소) if 앱주소 else "찍을 목록에서 앱 주소를 적어 주세요."))
 
     계정말 = (f"{_e(작업.get('시험아이디'))} · 비밀번호 "
            + ("•" * len(작업.get("시험비밀번호") or "") or '<span class="muted">비어 있음</span>')
@@ -1895,7 +2138,7 @@ def 화면_촬영():
     작업 = 작업읽기()
     폴더 = 작업.get("결과폴더")
     if not 폴더:
-        return 껍데기("/촬영", '<div class="card"><p class="muted">먼저 ③ 에서 촬영을 시작하세요.</p></div>',
+        return 껍데기("/촬영", '<div class="card"><p class="muted">먼저 조건 확인에서 촬영을 시작하세요.</p></div>',
                    "전체 촬영")
     폴더 = Path(폴더)
     로그 = 폴더 / "촬영기록.txt"
@@ -2089,6 +2332,28 @@ class 손님(BaseHTTPRequestHandler):
                 작업.pop(k, None)
             작업쓰기(작업)
             return self._이동("/")
+        if 길 == "/플러그인.zip":
+            # Figma 플러그인 한 벌(plugin-pick)을 그 자리에서 묶어 내려보낸다 — 미리 만들어 두지 않는다.
+            뿌리 = 여기.parent / "plugin-pick"
+            if not 뿌리.is_dir():
+                self.send_response(404)
+                self.end_headers()
+                return
+            통 = io.BytesIO()
+            with zipfile.ZipFile(통, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in sorted(뿌리.rglob("*")):
+                    if f.is_file():
+                        # 폴더 이름은 ASCII 로 둔다 — 윈도우에서 푸는 도구가 한글 이름을 깨뜨린다.
+                        z.write(f, Path("figma-plugin") / f.relative_to(뿌리))
+            자료 = 통.getvalue()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition",
+                             'attachment; filename="figma-plugin.zip"')
+            self.send_header("Content-Length", str(len(자료)))
+            self.end_headers()
+            self.wfile.write(자료)
+            return
         if 길.startswith("/받은그림/"):
             fp = 여기 / "디자인" / Path(길[len("/받은그림/"):]).name
             if fp.exists() and fp.suffix == ".png":
