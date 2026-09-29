@@ -59,7 +59,7 @@
 <div class="말" id="말"></div>
 <div class="아래">
   <button id="보내기" disabled>보내기</button>
-  <button id="사이트" class="line">자동캡쳐 사이트 열기 ↗</button>
+  <button id="사이트" class="line">포털에서 이어 하기 ↗</button>
 </div>
 
 <script>
@@ -67,6 +67,13 @@
   var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
   var 짝 = {};                                   // 프레임 id → 검수 화면 uuid (사람이 고른 값)
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
+  // 지금 어느 과제를 찍는 중인지 — 촬영 준비 사이트가 알려준다. 이름이 같은 화면이 여러 과제에
+  // 있어도 시안이 옛 과제로 새지 않게, 포털에는 이 과제만 뒤지라고 함께 보낸다(river 2026-09-29).
+  var 과제 = '';
+  var 과제약속 = fetch('http://localhost:8767/지금과제')
+      .then(function (r) { return r.json(); })
+      .then(function (j) { 과제 = j['과제uuid'] || ''; })
+      .catch(function () { 과제 = ''; });
   var 말 = document.getElementById('말');
   var 단추 = document.getElementById('보내기');
   var 갈래칸 = document.getElementById('갈래');
@@ -145,15 +152,17 @@
     // 고른 프레임마다 검수 화면이 있는지. 포털이 꺼져 있으면 조용히 넘어간다.
     var 차례 = ++물어본차례;
     if (!화면들.length) { 선택지 = []; 짝 = {}; 그리기(); return; }
+    과제약속.then(function () {
     fetch(포털 + '/api/frames', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, frames: 화면들.map(function (f) { return { id: f.id, name: f.이름 }; }) })
+      body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, project: 과제, frames: 화면들.map(function (f) { return { id: f.id, name: f.이름 }; }) })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (차례 !== 물어본차례) return;
       선택지 = j.options || []; 짝 = {};
       (j.frames || []).forEach(function (f) { if (f.match) 짝[f.id] = f.match.page; });
       그리기();
     }).catch(function () { if (차례 !== 물어본차례) return; 선택지 = []; 짝 = {}; 그리기(); });
+    });
   }
 
   function base64(bytes) {
@@ -185,7 +194,7 @@
       var 프레임 = m.프레임; 프레임.png = base64(프레임.png);
       fetch(포털 + '/api/design', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, page: m.page, frame: 프레임 })
+        body: JSON.stringify({ fileKey: 파일열쇠, fileName: 파일이름, project: 과제, page: m.page, frame: 프레임 })
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (j.error) 바꾸기실패.push(j.error); else 바꾼것.push({ name: 프레임.name });
         if (m.마지막) 바꾸기끝();
@@ -199,7 +208,7 @@
         body: JSON.stringify(m.꾸러미)
       }).then(function (r) {
         if (!r.ok) throw new Error(r.status);
-        마무리(m.꾸러미.화면들.length + '개 보냈습니다. 촬영 준비 사이트에서 이어 하세요.', true);
+        마무리(m.꾸러미.화면들.length + '개 보냈습니다. 포털에서 이어 하세요.', true);
       }).catch(function () {
         마무리('촬영 준비 사이트가 꺼져 있습니다. 사이트를 켜고 다시 눌러 주세요.', false);
       });
@@ -236,8 +245,14 @@
     } }, '*');
   }
 
+  // 포털의 '개발화면 촬영' 자리로 연다 — 촬영 준비 사이트는 거기 창으로 끼워 돈다.
+  // 과제를 모르면(촬영 준비 사이트가 꺼져 있으면) 예전처럼 그 사이트를 혼자 연다.
+  function 이어갈주소() {
+    return 과제 ? 포털 + '/project/' + 과제 + '?' + encodeURIComponent('메뉴') + '=capture' : '';
+  }
+
   document.getElementById('사이트').onclick = function () {
-    parent.postMessage({ pluginMessage: { 갈래: '사이트열기' } }, '*');
+    parent.postMessage({ pluginMessage: { 갈래: '사이트열기', 주소: 이어갈주소() } }, '*');
   };
 
   // 단추는 하나다. 검수 화면이 있는 것은 그 시안을 먼저 덮어쓰고,

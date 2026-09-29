@@ -2293,6 +2293,17 @@ class 손님(BaseHTTPRequestHandler):
                 작업쓰기(작업)
                 return self._이동("/")
             return self._html(화면_디자인(q.get("오류", [""])[0]))
+        if 길 == "/지금과제":
+            # 플러그인이 "지금 어느 과제를 찍는 중인지" 물어보는 문 — 시안이 옛 과제로 새지 않게 한다.
+            작업 = 작업읽기()
+            자료 = json.dumps({"과제uuid": 작업.get("과제uuid") or "",
+                            "과제이름": 작업.get("앱이름") or ""}, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self._곁들이기()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(자료)))
+            self.end_headers()
+            return self.wfile.write(자료)
         if 길 == "/과제시작":
             # 포털 '촬영하기'에서 과제를 달고 들어오는 문. 이 과제 아래로 접수된다.
             과제 = q.get("과제", [""])[0]
@@ -2379,7 +2390,7 @@ class 손님(BaseHTTPRequestHandler):
     def _곁들이기(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
     def _받기(self, 자료):
         """Figma에서 드래그로 고른 화면 꾸러미를 받아 ②로 넘긴다."""

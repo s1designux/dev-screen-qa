@@ -324,7 +324,9 @@ figma.on('selectionchange', 알리기);
 
 figma.ui.onmessage = async function (msg) {
   if (msg.갈래 === '사이트열기') {
-    figma.openExternal('http://localhost:8767');
+    // 포털 '개발화면 촬영'으로 연다(창에 끼워 도는 그 화면). 과제를 모르거나 포털이 꺼져 있으면
+    // 예전처럼 촬영 준비 사이트를 혼자 연다.
+    figma.openExternal(msg.주소 || 'http://localhost:8767');
     return;
   }
   if (msg.갈래 === '검수열기') {

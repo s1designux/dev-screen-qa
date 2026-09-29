@@ -71,9 +71,21 @@ class Receiver:
             c.executescript(SCHEMA)
 
     # ── 페이지 목록·짝 찾기 ─────────────────────────────────────────
-    def pages(self, c):
-        return c.execute('''SELECT p.uuid page, p.name page_name, s.uuid screen, s.human_key, s.name screen_name, s.platform
-                            FROM inspection_page p JOIN screen s ON s.uuid=p.screen_id ORDER BY s.human_key, s.name, p.seq, p.rowid''').fetchall()
+    def pages(self, c, project=''):
+        """검수 페이지 목록. 과제(project)를 주면 **그 과제 안에서만** 찾는다.
+
+        이름이 같은 화면이 다른 과제에도 있으면 옛 과제로 시안이 새어 들어갔다(river 2026-09-29).
+        플러그인이 촬영 준비 사이트에서 '지금 찍는 과제'를 받아 함께 보낸다.
+        """
+        sql = ('''SELECT p.uuid page, p.name page_name, s.uuid screen, s.human_key, s.name screen_name,
+                         s.platform, s.project_id
+                  FROM inspection_page p JOIN screen s ON s.uuid=p.screen_id''')
+        args = ()
+        if project:
+            sql += ' WHERE s.project_id=?'
+            args = (project,)
+        sql += ' ORDER BY s.human_key, s.name, p.seq, p.rowid'
+        return c.execute(sql, args).fetchall()
 
     @staticmethod
     def url_of(row):
@@ -93,12 +105,12 @@ class Receiver:
                 pass
         return id_map
 
-    def screen_for_frame(self, c, payload):
+    def screen_for_frame(self, c, payload, project=''):
         """검수기 플러그인이 보낸 (파일 열쇠, 프레임 id)로 포털의 화면을 찾는다. 없으면 None.
         프레임 id로 못 찾으면 프레임 이름이 꼭 하나만 맞을 때에 한해 그것으로 본다."""
         key = file_key_of(payload)
         node = str(payload.get('nodeId') or payload.get('frameId') or '')
-        rows = [dict(r) for r in self.pages(c)]
+        rows = [dict(r) for r in self.pages(c, project or str(payload.get('project') or ''))]
         page = self.frame_map(c).get((key, node))
         row = next((r for r in rows if r['page'] == page), None) if page else None
         if not row:
@@ -114,8 +126,9 @@ class Receiver:
     def frames_status(self, payload):
         """플러그인이 고른 프레임마다 '검수 화면이 있는지'. id로 정확히 맞으면 how='id', 이름만 같으면 how='name'."""
         key = file_key_of(payload)
+        project = str(payload.get('project') or '')
         with self.store.connect() as c:
-            rows = [dict(r) for r in self.pages(c)]
+            rows = [dict(r) for r in self.pages(c, project)]
             by_page = {r['page']: r for r in rows}
             id_map = self.frame_map(c)  # 프레임 id → 페이지 (가장 최근에 붙인 것부터)
         out = []
@@ -151,9 +164,13 @@ class Receiver:
             raise ValueError('PNG 그림이 아닙니다.')
         settings = {'policy': frame['policy']} if isinstance(frame.get('policy'), dict) else None
         with self.store.connect() as c:
-            page = c.execute('SELECT p.*, s.human_key FROM inspection_page p JOIN screen s ON s.uuid=p.screen_id WHERE p.uuid=?', (page_id,)).fetchone()
+            page = c.execute('SELECT p.*, s.human_key, s.project_id FROM inspection_page p JOIN screen s ON s.uuid=p.screen_id WHERE p.uuid=?', (page_id,)).fetchone()
             if not page:
                 raise ValueError('검수 화면을 찾지 못했습니다.')
+            project = str(payload.get('project') or '')
+            if project and page['project_id'] != project:
+                # 다른 과제의 화면에는 붙이지 않는다 — 이름이 같아 옛 과제로 새는 것을 막는다.
+                raise ValueError('다른 과제의 검수 화면입니다.')
         source_url = figma_reader.link_for(key, node) if not key.startswith('name:') and key != 'plugin' else ''
         design = self.store.add_design(key, node, str(frame.get('name') or page['name']), source_url, node, data, None, provider=PROVIDER, qa_settings=settings)
         with self.store.connect() as c:
