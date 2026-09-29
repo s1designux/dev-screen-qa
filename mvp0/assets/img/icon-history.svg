@@ -1,0 +1,9 @@
+<!-- DESIGN_SYSTEM_GAP: 문서 아이콘이 정본 24개에 없어 여기서 그렸다.
+     정본 clock.svg 와 같은 규격이다 — 24 프레임 · 선 두께 1 · 끝과 모서리는 둥글게. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <svg data-s1-part="glyph" x="0" y="0" width="24" height="24" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+    <path d="M5.5 4.5C5.5 3.94772 5.94772 3.5 6.5 3.5H13.5L18.5 8.5V19.5C18.5 20.0523 18.0523 20.5 17.5 20.5H6.5C5.94772 20.5 5.5 20.0523 5.5 19.5V4.5Z" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M13.5 3.5V8.5H18.5" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M8.5 12.5H15.5M8.5 15.5H15.5M8.5 9.5H11" stroke="black" stroke-width="1" stroke-linecap="round"/>
+  </svg>
+</svg>

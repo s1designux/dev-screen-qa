@@ -1090,7 +1090,8 @@ class Handler(BaseHTTPRequestHandler):
             conn = dbmod.connect(REAL_DB)
             try:
                 쪽 = project_view.render_project(conn, intake(), path[len("/project/"):],
-                                                q.get("screen", [""])[0], _부품CSS, UPLOADS)
+                                                q.get("screen", [""])[0], _부품CSS, UPLOADS,
+                                                q.get("메뉴", [""])[0], q.get("알림", [""])[0])
             finally:
                 conn.close()
             self._html(쪽 if 쪽 else self._nf("과제 없음"), 200 if 쪽 else 404)
@@ -1222,6 +1223,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", f"/project/{pid}")
             self.end_headers()
             return
+        if path.startswith("/project/") and path.endswith("/screen/new"):
+            # 왼쪽 메뉴의 '검수 묶음 추가' — 빈 묶음 한 줄을 세우고 그 자리로 보낸다.
+            import screen_add
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            pid = path[len("/project/"):-len("/screen/new")]
+            conn = dbmod.connect(REAL_DB)
+            try:
+                sid = screen_add.만들기(conn, pid, (form.get("이름") or [""])[0])
+                간곳 = f"/project/{pid}?메뉴=inspect&screen={sid}"
+            except ValueError as e:
+                간곳 = f"/project/{pid}?메뉴=inspect&알림={quote(str(e))}"
+            finally:
+                conn.close()
+            self.send_response(303)
+            self.send_header("Location", 간곳)
+            self.end_headers()
+            return
         if path.startswith("/screen/") and path.endswith("/pages/move"):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             key = unquote(path[len("/screen/"):-len("/pages/move")])
@@ -1260,8 +1278,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             n, 탈 = _set_page_keys(scr["row"]["uuid"], form)
             notice = 탈 or f"스토리보드 ID {n}장을 저장했습니다."
+            # 과제 안에서 이름을 고쳤으면 그 자리로 돌려보낸다(왼쪽 메뉴의 묶음 이름).
+            간곳 = (form.get("next") or [""])[0]
+            if not (간곳.startswith("/project/") and "//" not in 간곳[1:]):
+                간곳 = f"/screen/{key}?notice={quote(notice)}"
             self.send_response(303)
-            self.send_header("Location", f"/screen/{key}?notice={quote(notice)}")
+            self.send_header("Location", 간곳)
             self.end_headers()
             return
         if path.startswith("/screen/") and path.endswith(("/pages/remove", "/pages/purge", "/rename")):

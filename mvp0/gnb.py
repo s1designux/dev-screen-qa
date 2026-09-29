@@ -60,13 +60,25 @@ _자리CSS = """<style>
 # 시안이 양 끝 320 안쪽인 것은 그 화면의 자리 잡기이지 부품 규정이 아니다.
 # 로그인 화면은 바를 스스로 짜므로(auth._로그인줄) 이 한 장을 그쪽도 가져다 쓴다 — 값을 두 벌로 두지 않는다.
 바CSS = ('<style>[data-s1-component="gnb"] [data-s1-part="logo"]'
-       '{font-size:var(--font-size-16)}</style>')
+       '{font-size:var(--font-size-16);display:inline-flex;align-items:center;'
+       'gap:var(--spacing-8)}'
+       '[data-s1-component="gnb"] [data-s1-part="logo"] b'
+       '{font-weight:var(--font-weight-bold)}'
+       '[data-s1-component="gnb"] [data-s1-part="logo"] span'
+       '{font-weight:var(--font-weight-regular);color:var(--color-text-body-secondary)}'
+       # 가르는 세로선 — 글자 '|' 를 쓰면 글꼴마다 굵기가 달라 선으로 둔다
+       '[data-s1-component="gnb"] [data-s1-part="logo"] [data-s1-part="sep"]'
+       '{width:var(--border-width-1);height:var(--sizing-16);'
+       'background:var(--color-border-subtle)}</style>')
 
 _동작 = "<script src='/assets/js/gnb-account.js' defer></script>"
 
 
 def 바(지금="", size="sm"):
-    """맨 위 줄 한 개 — 로고와 유틸 아이콘뿐이다.
+    """맨 위 줄 한 개 — 서비스 이름과 유틸 아이콘뿐이다.
+
+    글줄은 `에스원 | 개발화면 검수` 다 — 여기는 **서비스 자리**라서 프로젝트 이름은 넣지 않는다
+    (프로젝트 이름은 왼쪽 메뉴 맨 위 프로젝트 셀렉터가 들고 있다, river 확정 2026-09-29).
 
     메뉴(과제 · 가져온 기록 · 검수 규칙 · 촬영 준비)는 두지 않는다(river 지시 2026-09-28).
     `지금` 은 어느 자리인지 부르는 쪽이 알려 주던 값인데, 표시할 메뉴가 없어 지금은 쓰지 않는다 —
@@ -77,7 +89,9 @@ def 바(지금="", size="sm"):
     return (_CSS링크 + 바CSS + _자리CSS
             + f'<nav data-s1-component="gnb" data-size="{_e(size)}"'
             f' aria-label="주 메뉴">'
-            f'<a data-s1-part="logo" href="/">에스원 개발화면 검수 포털</a>'
+            f'<a data-s1-part="logo" href="/">'
+            f'<b>에스원</b><i data-s1-part="sep" aria-hidden="true"></i>'
+            f'<span>개발화면 검수</span></a>'
             f'<ul data-s1-part="menus"></ul>'
             f'<span data-s1-part="util">{유틸}{쪽지}</span></nav>'
             + (_동작 if 쪽지 else ""))

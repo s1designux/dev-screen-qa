@@ -1,0 +1,8 @@
+<!-- DESIGN_SYSTEM_GAP: 사진기 아이콘이 정본 24개에 없어 여기서 그렸다.
+     정본 clock.svg 와 같은 규격이다 — 24 프레임 · 선 두께 1 · 끝과 모서리는 둥글게. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <svg data-s1-part="glyph" x="0" y="0" width="24" height="24" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+    <path d="M3.5 8.5C3.5 7.67157 4.17157 7 5 7H7.5L8.9 4.9C9.08 4.65 9.37 4.5 9.68 4.5H14.32C14.63 4.5 14.92 4.65 15.1 4.9L16.5 7H19C19.8284 7 20.5 7.67157 20.5 8.5V18C20.5 18.8284 19.8284 19.5 19 19.5H5C4.17157 19.5 3.5 18.8284 3.5 18V8.5Z" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+    <circle cx="12" cy="12.75" r="3.75" stroke="black" stroke-width="1"/>
+  </svg>
+</svg>
