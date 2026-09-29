@@ -53,6 +53,7 @@ PORT = 설정.값("촬영준비.포트")
 BIND = 설정.값("촬영준비.받는자리")
 공유중 = BIND in ("0.0.0.0", "")
 ADB = str(설정.자리("촬영준비.adb") or "")
+포털포트 = 설정.값("포털.포트")
 
 _촬영 = {"진행중": False, "폴더": None, "로그": None}
 
@@ -159,6 +160,16 @@ header { background:var(--color-surface-default); border-bottom:1px solid var(--
 /* 포털 '개발화면 촬영' 안에 끼워 열릴 때 — 포털이 이미 제목을 적었으므로 제 머리·꼬리는 내려놓고,
    걸음 칩이 그 제목 바로 아래에 온다. 그 아래 내용은 가운데로 모은다(river 지시 2026-09-29). */
 body.끼움 > header, body.끼움 > footer { display:none; }
+/* 혼자 열렸을 때 — 옛 단독 화면은 내리고 포털로 가는 안내만 보인다
+   (river 확정 2026-09-29). 서버는 그대로 돌아 포털 안 창에 그림을 댄다. */
+.혼자안내 { display:none; }
+body.혼자 > header, body.혼자 > .wrap, body.혼자 > footer { display:none; }
+body.혼자 > .혼자안내 { display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:var(--spacing-24); }
+.혼자속 { text-align:center; }
+.혼자속 h2 { font-size:var(--font-size-18); margin:0 0 var(--spacing-8);
+  color:var(--color-text-title-primary); }
+.혼자속 p { margin:0 0 var(--spacing-24); color:var(--color-text-body-secondary); }
 body.끼움 { background:transparent; }
 /* 끼운 창은 포털이 준 높이를 다 쓴다 — 그래야 안내가 위아래 가운데에 설 수 있다. */
 html.끼움-준비, body.끼움 { height:100%; }
@@ -172,8 +183,11 @@ body.끼움 > .wrap { max-width:none; padding:0 0 var(--spacing-24); }
 body.끼움 > .wrap > .steps { margin-top:0; justify-content:safe center; }
 /* 걸음표도 내용도 **네 걸음 모두 가운데**에 선다(river 지시 2026-09-29).
    글줄 자체는 왼쪽에서 읽는다 — 가운데로 모으는 것은 덩어리이지 글이 아니다. */
-body.끼움 > .wrap > :not(.steps) { max-width:840px; margin-left:auto; margin-right:auto; }
-body.끼움 > .wrap.w2 > :not(.steps) { max-width:1320px; }   /* 칸이 많은 '찍을 목록'은 넓게 */
+/* 세로 묶음(flex column) 안에서는 양옆 auto 여백만으로는 칸이 제 글 너비로 쪼그라든다 —
+   너비를 100%로 펴 두어야 max-width 까지 자리를 다 쓴다. */
+body.끼움 > .wrap > :not(.steps) { width:100%; box-sizing:border-box;
+  max-width:840px; margin-left:auto; margin-right:auto; }
+body.끼움 > .wrap.w2 > :not(.steps) { max-width:1320px; }   /* 칸이 많은 걸음은 넓게 */
 /* 내용을 감싸던 테두리는 두르지 않는다 — 통은 포털의 흰 통 하나뿐이다. */
 body.끼움 .card { background:none; border:0; border-radius:0; padding:0;
   margin-bottom:var(--spacing-24); }
@@ -452,8 +466,11 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
 .valrow span { min-width:160px; color:var(--color-text-body-secondary);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .valrow input { flex:0 0 200px; font-size:var(--font-size-12); padding:var(--spacing-2) var(--spacing-6); }
-.picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-  gap:var(--spacing-12); margin-top:var(--spacing-12); }
+/* 시안 카드는 넓은 자리를 채워 여러 장이 나란히 선다. 장수가 많아도 아래 단추가
+   한 화면에 남도록 칸 안에서만 굴린다(river 2026-09-29). */
+.picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:var(--spacing-12); margin-top:var(--spacing-12);
+  max-height:56vh; overflow-y:auto; }
 .picks figure { margin:0; background:var(--color-surface-default); border:1px solid var(--color-border-default);
   border-radius:var(--radius-8); padding:var(--spacing-8); }
 .picks img { width:100%; display:block; border-radius:var(--radius-4); background:var(--color-bg-level-2);
@@ -725,9 +742,19 @@ def _알림띠(알림):
               ' onclick="document.getElementById(\'alertbar\').remove()">&#10005;</button></div>')
 
 
-def _넓이칸(지금):
-    """걸음마다 다른 본문 너비 — 칸이 많은 '찍을 목록'만 넓게 쓴다."""
-    return " w2" if 지금 == "/초안" else ""
+def _넓이칸(지금, 작업=None):
+    """걸음마다 다른 본문 너비 — 칸이 많은 걸음만 넓게 쓴다.
+
+    '찍을 목록'과, 받은 시안이 카드로 깔리는 '디자인 업로드'가 그렇다.
+    시안 카드는 옆으로 여러 장이 서야 아래 단추까지 한 화면에 든다(river 2026-09-29).
+    아직 받은 시안이 없을 때의 안내는 좁은 그대로 가운데에 둔다.
+    """
+    if 지금 == "/초안":
+        return " w2"
+    if 지금 == "/" and (작업 or {}).get("온곳") == "figma-플러그인" \
+            and (작업 or {}).get("고른화면"):
+        return " w2"
+    return ""
 
 
 def 껍데기(지금, 본문, 부제="", 알림=""):
@@ -753,17 +780,36 @@ def 껍데기(지금, 본문, 부제="", 알림=""):
 <body>{_끼움표시()}
 <header><h1>자동 캡쳐 <span class="muted" style="font-weight:400;font-size:var(--font-size-14)">· {_e(유형이름.get(유형(작업), '앱'))} 개발화면</span>{과제띠}</h1>
 <div class="sub">{_e(부제) or "디자인에서 찍을 화면을 고르고, 목록을 확인한 뒤, 한 번에 찍는다"}</div></header>
-<div class="wrap{_넓이칸(지금)}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
+<div class="wrap{_넓이칸(지금, 작업)}"><div class="steps">{칩}</div>{_알림띠(알림)}{본문}</div>
 <footer>{_어디서열리나()} · 찍힌 사진은 capture-app/shots/ 에 쌓인다</footer>
+{_포털로()}
 </body></html>"""
 
 
 def _끼움표시():
-    """포털 안에 창으로 끼워 열렸는지 스스로 알아본다 — 혼자 열 때는 그대로 둔다."""
+    """포털 안에 창으로 끼워 열렸는지 스스로 알아본다.
+
+    혼자 열렸으면 옛 단독 화면 대신 포털로 가는 안내만 보인다
+    (river 확정 2026-09-29 — 촬영은 포털 '개발화면 촬영'에서만 한다).
+    """
     return ('<script>if(window.self!==window.top)'
             'document.documentElement.classList.add("끼움-준비");</script>'
             '<script>document.addEventListener("DOMContentLoaded",function(){'
-            'if(window.self!==window.top)document.body.classList.add("끼움");});</script>')
+            'document.body.classList.add(window.self!==window.top?"끼움":"혼자");});'
+            '</script>')
+
+
+def _포털로():
+    """혼자 열렸을 때 보이는 안내 한 통 — 포털의 그 자리로 곧장 보낸다."""
+    작업 = 작업읽기()
+    우 = 작업.get("과제uuid")
+    주소 = (f"http://127.0.0.1:{포털포트}/project/{_e(우)}?메뉴=capture" if 우
+          else f"http://127.0.0.1:{포털포트}/")
+    return f'''<div class="혼자안내"><div class="혼자속">
+      <h2>포털에서 엽니다</h2>
+      <p>개발화면 촬영은 검수 포털 안으로 들어왔습니다.</p>
+      <a class="btn go" href="{주소}">포털에서 열기</a>
+    </div></div>'''
 
 
 # ────────────────────────────────────────────────── ① 디자인 고르기
