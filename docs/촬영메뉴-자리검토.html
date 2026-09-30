@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>촬영 메뉴 자리 검토</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6eb; --text:#1b1f24; --sub:#5b6370; --mute:#8a93a0;
+    --a:#2f6fed; --a-bg:#eaf1ff; --b:#8a4fd8; --b-bg:#f3ecff; --c:#128a5a; --c-bg:#e6f6ee;
+    --good:#128a5a; --bad:#c83a3a; --mid:#b07a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#14161a; --card:#1d2026; --line:#2e333b; --text:#e9ecf0; --sub:#a9b1bc; --mute:#7c8591;
+      --a:#7aa5ff; --a-bg:#1e2a44; --b:#c29bff; --b-bg:#2c2240; --c:#4fd19b; --c-bg:#173328;
+      --good:#4fd19b; --bad:#ff7b7b; --mid:#f0c050;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.6 -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif; }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  .lead { color:var(--sub); margin:0 0 28px; }
+  h2 { font-size:18px; margin:36px 0 12px; }
+  .verdict { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--c);
+    border-radius:10px; padding:16px 18px; }
+  .verdict b { font-size:16px; }
+  .verdict p { margin:6px 0 0; color:var(--sub); }
+
+  .opts { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .opt { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .opt .tag { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:99px; }
+  .A .tag { color:var(--a); background:var(--a-bg); }
+  .B .tag { color:var(--b); background:var(--b-bg); }
+  .C .tag { color:var(--c); background:var(--c-bg); }
+  .opt h3 { margin:8px 0 6px; font-size:16px; }
+  .opt p { margin:0; color:var(--sub); font-size:14px; }
+  /* 작은 메뉴 그림 */
+  .mini { margin:12px 0 0; border:1px solid var(--line); border-radius:8px; overflow:hidden;
+    display:grid; grid-template-columns:92px 1fr; font-size:12px; min-height:112px; }
+  .mini .nav { border-right:1px solid var(--line); padding:8px 0; }
+  .mini .nav div { padding:4px 10px; color:var(--sub); }
+  .mini .nav .on { color:var(--text); font-weight:700; }
+  .mini .main { padding:8px; display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; }
+  .mini .card { border:1px solid var(--line); border-radius:6px; padding:4px 6px; color:var(--sub); }
+  .mini .card.new { border-style:dashed; }
+  .mini .btn { border-radius:6px; padding:4px 6px; font-weight:700; }
+  .A .mini .btn { color:var(--a); background:var(--a-bg); }
+  .B .mini .btn { color:var(--b); background:var(--b-bg); }
+  .C .mini .btn { color:var(--c); background:var(--c-bg); }
+
+  table { width:100%; border-collapse:collapse; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:14px; }
+  th, td { text-align:left; vertical-align:top; padding:12px; border-top:1px solid var(--line); }
+  thead th { border-top:0; background:var(--bg); font-size:13px; color:var(--sub); }
+  th.s { width:22%; }
+  td .flow { display:block; }
+  td .n { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; }
+  .good { color:var(--good); } .bad { color:var(--bad); } .mid { color:var(--mid); }
+  .best { background:color-mix(in srgb, var(--c-bg) 60%, transparent); }
+  .tw { overflow-x:auto; }
+  .tw table { min-width:760px; }
+
+  ul.facts { margin:0; padding-left:18px; color:var(--sub); }
+  ul.facts li { margin:4px 0; }
+  ol.ask { background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:14px 14px 14px 34px; margin:0; }
+  ol.ask li { margin:6px 0; }
+  .note { font-size:13px; color:var(--mute); margin-top:8px; }
+  @media (max-width:760px) { .opts { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>촬영 메뉴 자리 검토</h1>
+  <p class="lead">'개발화면 촬영'을 따로 둘까, 검수 안에 넣을까 — 실제로 자주 생길 여섯 가지 상황에서 몇 번 움직여야 하는지로 견줬습니다.</p>
+
+  <div class="verdict">
+    <b>추천: C — 촬영 메뉴는 남기고, 묶음 안에 '이 묶음 다시 찍기' 단추를 더한다</b>
+    <p>처음 한꺼번에 찍을 때는 따로 있는 촬영 메뉴가 빠르고, 고쳐서 다시 찍을 때는 묶음 안에서 바로 찍는 게 빠릅니다. 둘 중 하나만 고르면 한쪽 상황이 꼭 불편해집니다.</p>
+  </div>
+
+  <h2>세 가지 안</h2>
+  <div class="opts">
+    <div class="opt A">
+      <span class="tag">A · 지금</span>
+      <h3>촬영은 따로 있는 메뉴</h3>
+      <p>과제 전체를 한 번에 찍고, 찍은 이름의 앞부분이 같은 것끼리 묶음이 저절로 생깁니다.</p>
+      <div class="mini">
+        <div class="nav"><div class="on">촬영</div><div>검수</div><div>이력관리</div></div>
+        <div class="main"><span class="btn">① 시안 받기 → ④ 촬영</span></div>
+      </div>
+    </div>
+    <div class="opt B">
+      <span class="tag">B · 검수 안으로</span>
+      <h3>묶음마다 그 안에서 찍기</h3>
+      <p>촬영 메뉴가 없어집니다. 묶음을 먼저 만들고, 묶음 안에서 시안을 받고 찍습니다.</p>
+      <div class="mini">
+        <div class="nav"><div class="on">검수</div><div>이력관리</div></div>
+        <div class="main"><span class="card new">+ 묶음</span><span class="card">로그인 <span class="btn">촬영</span></span><span class="card">홈 <span class="btn">촬영</span></span></div>
+      </div>
+    </div>
+    <div class="opt C">
+      <span class="tag">C · 섞기 (추천)</span>
+      <h3>한꺼번에는 촬영 메뉴, 다시 찍기는 묶음 안</h3>
+      <p>처음 등록은 지금처럼. 묶음 안에는 그 묶음 사진만 새로 찍는 단추 하나를 더합니다.</p>
+      <div class="mini">
+        <div class="nav"><div class="on">촬영</div><div>검수</div><div>이력관리</div></div>
+        <div class="main"><span class="card">로그인 <span class="btn">다시 찍기</span></span><span class="card">홈 <span class="btn">다시 찍기</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>상황별로 견주기</h2>
+  <div class="tw">
+  <table>
+    <thead>
+      <tr><th class="s">상황</th><th>A · 따로 있는 메뉴</th><th>B · 검수 안으로</th><th>C · 섞기</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th class="s">① 새 과제 첫 등록<br><span class="note">시안 40장 · 묶음 8개</span></th>
+        <td class="best"><span class="flow">촬영 → 시안 한 번에 보내기 → 한 번에 찍기 → 묶음 8개 저절로</span><span class="n good">보내기 1번 · 촬영 1번</span></td>
+        <td><span class="flow">묶음 8개 손으로 만들기 → 묶음마다 시안 보내기 → 묶음마다 찍기</span><span class="n bad">보내기 8번 · 촬영 8번 · 앱 8번 새로 켬</span></td>
+        <td class="best"><span class="flow">A 와 같음</span><span class="n good">보내기 1번 · 촬영 1번</span></td>
+      </tr>
+      <tr>
+        <th class="s">② 중간 등록<br><span class="note">검수 중에 새 화면 5장 추가</span></th>
+        <td><span class="flow">촬영 → 5장만 보내기 → 찍기 → 새 묶음 생기거나 기존 묶음에 붙음</span><span class="n mid">어디로 들어갔는지 검수에서 다시 찾아야 함</span></td>
+        <td><span class="flow">검수 → 넣을 묶음 열기 → 5장 보내기 → 찍기</span><span class="n good">들어갈 자리를 처음부터 알고 찍음</span></td>
+        <td><span class="flow">A 와 같음 · 들어간 뒤 '고른 페이지 옮기기'로 자리 조정</span><span class="n mid">A 와 같음</span></td>
+      </tr>
+      <tr>
+        <th class="s">③ 검수 묶음 추가<br><span class="note">빈 묶음을 먼저 세움</span></th>
+        <td><span class="flow">묶음 추가 → 촬영 메뉴로 가서 찍기 → 찍은 페이지를 그 묶음으로 옮기기</span><span class="n bad">세 곳을 오감</span></td>
+        <td class="best"><span class="flow">묶음 추가 → 그 안에서 바로 시안 받기·찍기</span><span class="n good">한 자리에서 끝</span></td>
+        <td><span class="flow">묶음 추가 → '이 묶음 찍기' → 촬영 창이 그 묶음 이름을 달고 열림</span><span class="n good">한 자리에서 끝</span></td>
+      </tr>
+      <tr>
+        <th class="s">④ 고친 뒤 다시 찍기<br><span class="note">2차 검수 · 한 묶음만</span></th>
+        <td><span class="flow">촬영 → 목록에서 그 묶음 장면만 골라 찍기 → 검수로 돌아와 확인</span><span class="n mid">고르는 수고 · 메뉴 오감</span></td>
+        <td class="best"><span class="flow">묶음 안 '다시 찍기' → 끝</span><span class="n good">누름 1번</span></td>
+        <td class="best"><span class="flow">묶음 안 '다시 찍기' → 끝</span><span class="n good">누름 1번</span></td>
+      </tr>
+      <tr>
+        <th class="s">⑤ 시안만 바뀜<br><span class="note">개발은 그대로</span></th>
+        <td><span class="flow">피그마에서 '검수 시안 바꾸기' — 촬영을 안 거침</span><span class="n good">셋 다 같음</span></td>
+        <td><span class="flow">같음</span><span class="n good">같음</span></td>
+        <td><span class="flow">같음</span><span class="n good">같음</span></td>
+      </tr>
+      <tr>
+        <th class="s">⑥ 전체 다시 찍기<br><span class="note">개발 새 판 · 모든 묶음</span></th>
+        <td class="best"><span class="flow">촬영 → 전체 찍기 1번</span><span class="n good">앱 한 번 켜고 이어 찍음</span></td>
+        <td><span class="flow">묶음마다 '다시 찍기' 8번</span><span class="n bad">8번 · 기다림도 8번</span></td>
+        <td class="best"><span class="flow">촬영 → 전체 찍기 1번</span><span class="n good">앱 한 번 켜고 이어 찍음</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">초록 칸이 그 상황에서 가장 편한 쪽입니다. 묶음 수·장 수는 삼성통근버스 규모를 어림한 예입니다.</p>
+
+  <h2>B 를 고르면 따라오는 것</h2>
+  <ul class="facts">
+    <li>지금은 찍은 사진 이름으로 묶음이 저절로 생깁니다. B 는 이것을 없애고 사람이 묶음을 먼저 다 만들어야 합니다.</li>
+    <li>촬영기는 같은 화면의 상태들을 앱을 끄지 않고 이어 찍어 빠릅니다. 묶음마다 따로 찍으면 그만큼 느려집니다.</li>
+    <li>피그마 플러그인이 지금은 과제로 보냅니다. B 는 '어느 묶음으로 보낼지'까지 골라야 해서 플러그인도 고쳐야 합니다.</li>
+  </ul>
+
+  <h2>정할 것</h2>
+  <ol class="ask">
+    <li>C(촬영 메뉴 유지 + 묶음 안 다시 찍기)로 갈지, B(촬영 메뉴 없애기)로 갈지</li>
+    <li>C 라면 묶음 안 단추를 '다시 찍기'만 둘지, 빈 묶음일 때 '처음 찍기'도 열어 둘지</li>
+  </ol>
+</div>
+</body>
+</html>

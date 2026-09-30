@@ -9,9 +9,12 @@ import json
 import shutil
 import sqlite3
 import time
+import unicodedata
 import uuid as uuidmod
 from datetime import datetime
 from pathlib import Path
+
+import 묶음
 
 여기 = Path(__file__).resolve().parent
 뿌리 = 여기.parent
@@ -77,6 +80,19 @@ def _페이지이름(s):
     return (s.get("화면이름") or "").strip() or s.get("상태", "default")
 
 
+def _빈사람키(conn, 앞):
+    """같은 앞머리(`UV-WEB-`)에서 비어 있는 다음 번호. 사진 번호를 쓰면 다른 묶음과 부딪친다."""
+    쓴것 = set()
+    for (k,) in conn.execute("SELECT human_key FROM screen WHERE human_key LIKE ?", (앞 + "%",)):
+        뒤 = (k or "")[len(앞):]
+        if 뒤.isdigit():
+            쓴것.add(int(뒤))
+    n = 1
+    while n in 쓴것:
+        n += 1
+    return f"{앞}{n:03d}"
+
+
 def _덮어쓸페이지(conn, sid, 이름):
     """같은 화면에서 같은 상태로 이미 만들어 둔 검수 페이지. 지적이 하나도 없을 때만 덮어쓴다.
     (지적이 붙은 페이지는 차수 이력이 걸려 있으므로 건드리지 않고 새 페이지로 넣는다.)"""
@@ -133,7 +149,7 @@ def _시안판등록(conn, page, 노드, 작업, 초안줄, 시안이름, 시안
 
 
 def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
-    """찍은 사진 묶음을 포털에 화면 1개 + 상태별 검수 페이지로 넣는다."""
+    """찍은 사진을 포털에 넣는다 — 피그마 페이지마다 검수 묶음 하나, 상태마다 검수 페이지 한 장."""
     결과폴더 = Path(결과폴더)
     목록파일 = 결과폴더 / "찍은목록.json"
     if not 목록파일.exists():
@@ -189,20 +205,52 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
         pid = uuidmod.uuid4().hex
         conn.execute("INSERT INTO project (uuid, name) VALUES (?,?)", (pid, 프로젝트))
 
-    sid = _하나(conn, "SELECT uuid FROM screen WHERE human_key=?", (사람키,))
-    if not sid:
-        sid = uuidmod.uuid4().hex
-        conn.execute(
-            "INSERT INTO screen (uuid, project_id, human_key, name, platform, dev_keys, states, variants)"
-            " VALUES (?,?,?,?,?,?,?,?)",
-            (sid, pid, 사람키, 화면이름, 플랫폼,
-             # 개발 실행 키 — 앱은 앱 속이름, 웹은 사이트 주소(CLAUDE.md 7번)
-             json.dumps([작업.get("기본주소" if 플랫폼 == "web" else "앱주소", "")], ensure_ascii=False),
-             json.dumps([s.get("상태", "default") for s in 찍힌것], ensure_ascii=False),
-             json.dumps([목록.get("화면크기", "")], ensure_ascii=False)))
+    # 피그마 페이지 = 검수 묶음(river 확정 2026-09-30). 초안 줄에 페이지가 없으면(옛 작업) 예전처럼 한 묶음.
+    페이지별 = any(초안.get(x["화면번호"], {}).get("페이지") for x in 찍힌것)
+    묶음표 = {}                     # 페이지 → (sid, 사람키, 묶음이름)
+    다음순서표 = {}
 
-    다음순서 = (_하나(conn, "SELECT MAX(seq) FROM inspection_page WHERE screen_id=?", (sid,)) or 0)
+    def 화면자리(s):
+        if not 페이지별:
+            페이지 = None
+            키 = 사람키
+            이름 = 화면이름
+        else:
+            페이지 = 초안.get(s["화면번호"], {}).get("페이지", "")
+            if 페이지 in 묶음표:
+                return 묶음표[페이지]
+            이름 = 묶음.묶음이름(페이지, 작업.get("묶음이름"))
+            키 = None
+        if 페이지 in 묶음표:
+            return 묶음표[페이지]
+        sid = None
+        if 키:
+            sid = _하나(conn, "SELECT uuid FROM screen WHERE human_key=?", (키,))
+        else:
+            # 같은 과제에 같은 이름의 묶음이 있으면 거기에 붙인다 — 중간 등록도 손댈 것이 없게.
+            for r in conn.execute("SELECT uuid, human_key, name FROM screen WHERE project_id=?", (pid,)):
+                if unicodedata.normalize("NFC", (r["name"] or "").strip()) == 이름:
+                    sid, 키 = r["uuid"], r["human_key"]
+                    break
+            if not sid:
+                키 = _빈사람키(conn, f"{작업.get('서비스코드') or 'APP'}-{자리표}-")
+        if not sid:
+            sid = uuidmod.uuid4().hex
+            이것들 = [x for x in 찍힌것 if not 페이지별 or 초안.get(x["화면번호"], {}).get("페이지", "") == 페이지]
+            conn.execute(
+                "INSERT INTO screen (uuid, project_id, human_key, name, platform, dev_keys, states, variants)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (sid, pid, 키, 이름, 플랫폼,
+                 # 개발 실행 키 — 앱은 앱 속이름, 웹은 사이트 주소(CLAUDE.md 7번)
+                 json.dumps([작업.get("기본주소" if 플랫폼 == "web" else "앱주소", "")], ensure_ascii=False),
+                 json.dumps([x.get("상태", "default") for x in 이것들], ensure_ascii=False),
+                 json.dumps([목록.get("화면크기", "")], ensure_ascii=False)))
+        묶음표[페이지] = (sid, 키, 이름)
+        다음순서표[sid] = _하나(conn, "SELECT MAX(seq) FROM inspection_page WHERE screen_id=?", (sid,)) or 0
+        return 묶음표[페이지]
+
     넣은것 = []
+    묶음별 = {}
     for i, s in enumerate(찍힌것, 1):
         사진 = 결과폴더 / s["파일"]
         if not 사진.exists():
@@ -213,6 +261,7 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
             continue
         w, h = 크기
 
+        sid, _키, _이름 = 화면자리(s)
         메모 = f"{목록.get('찍은때','')} 촬영 · {목록.get('기기','')}"
         기존 = _덮어쓸페이지(conn, sid, _페이지이름(s))
         if 기존:                                   # 같은 상태를 다시 찍어 보낸 것 — 새로 쌓지 않고 그 자리를 갈아 끼운다
@@ -221,7 +270,8 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
                          (메모, w, h, page))
         else:
             page = uuidmod.uuid4().hex
-            다음순서 += 1
+            다음순서표[sid] += 1
+            다음순서 = 다음순서표[sid]
             conn.execute(
                 "INSERT INTO inspection_page (uuid, screen_id, seq, name, note, coord_ref_w, coord_ref_h)"
                 " VALUES (?,?,?,?,?,?,?)",
@@ -271,9 +321,17 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
                 " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (run, sid, page, 1, 검수자, 지금, None, 이름, w, h, w, h))
         넣은것.append(_페이지이름(s))
+        묶음별.setdefault(sid, []).append(_페이지이름(s))
 
     conn.commit()
     conn.close()
-    return {"화면": 사람키, "화면이름": 화면이름, "페이지": 넣은것,
-            "포털주소": f"http://127.0.0.1:8765/project/{pid}?screen={sid}",
-            "옛목록주소": f"http://127.0.0.1:8765/screen/{사람키}", "데이터파일": str(db)}
+    묶음들 = [{"화면": 키, "화면이름": 이름, "페이지": 묶음별.get(sid, [])}
+            for sid, 키, 이름 in 묶음표.values() if 묶음별.get(sid)]
+    첫 = 묶음들[0] if 묶음들 else {"화면": 사람키, "화면이름": 화면이름}
+    # 묶음이 하나면 그 묶음을, 여럿이면 과제의 검수 묶음 목록을 연다.
+    여럿 = len(묶음들) > 1
+    첫sid = next((sid for sid, 키, _ in 묶음표.values() if 키 == 첫["화면"]), "")
+    return {"화면": 첫["화면"], "화면이름": 첫["화면이름"], "페이지": 넣은것, "묶음들": 묶음들,
+            "포털주소": (f"http://127.0.0.1:8765/project/{pid}?메뉴=inspect" if 여럿
+                      else f"http://127.0.0.1:8765/project/{pid}?메뉴=inspect&screen={첫sid}"),
+            "옛목록주소": f"http://127.0.0.1:8765/screen/{첫['화면']}", "데이터파일": str(db)}

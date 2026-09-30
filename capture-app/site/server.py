@@ -10,6 +10,7 @@ QA_CAPTURE_BIND=0.0.0.0 이면 같은 사무실 네트워크의 동료도 들어
 """
 import html
 import io
+import hashlib
 import json
 import os
 import re
@@ -38,6 +39,7 @@ import draft as 초안만들기
 import 주소기억
 import 메뉴훑기
 import intake as 접수하기
+import 묶음
 import nametag
 import 창높이
 import 계정확인
@@ -477,6 +479,18 @@ tr.pickrow td { background:var(--color-bg-level-1); padding:var(--spacing-12); }
   max-height:220px; object-fit:contain; object-position:top; }
 .picks figcaption { font-size:var(--font-size-12); color:var(--color-text-body-secondary);
   margin-top:var(--spacing-6); word-break:break-all; }
+tr.grow td { background:var(--color-bg-level-1); font-size:var(--font-size-12); }
+/* 검수 묶음 = 피그마 페이지 한 덩어리 */
+.grps { display:flex; flex-direction:column; gap:var(--spacing-16); margin-top:var(--spacing-12);
+  max-height:60vh; overflow-y:auto; }
+.grps .picks { max-height:none; overflow:visible; margin-top:var(--spacing-8); }
+.ghead { display:flex; align-items:baseline; gap:var(--spacing-8); font-size:var(--font-size-14); }
+.ghead .muted { font-size:var(--font-size-12); }
+.grp.chk { border:1px solid var(--color-border-default); border-radius:var(--radius-8);
+  padding:var(--spacing-12); background:var(--color-bg-level-1); }
+.gfix { display:flex; flex-wrap:wrap; align-items:center; gap:var(--spacing-8); margin-top:var(--spacing-8); }
+.gfix .why { flex-basis:100%; font-size:var(--font-size-12); color:var(--color-text-state-error); }
+.gfix input[type=text] { width:240px; }
 .dim2 { display:block; color:var(--color-text-helper); margin-top:var(--spacing-2); }
 .dim2.warn { color:var(--color-text-state-error); }
 .sect { font-size:var(--font-size-12); font-weight:var(--font-weight-bold);
@@ -830,7 +844,8 @@ def _동작사양칸(고른것, 유형=None):
             숨김 = ' class="it hid" style="display:none"' if i >= 첫줄 else ' class="it"'
             그림 = ""
             if it.get("자리"):
-                주소 = f'/받은그림/{it["자리"]:03d}.png'
+                원 = 고른것[it["자리"] - 1].get("디자인그림") if 0 < it["자리"] <= len(고른것) else ""
+                주소 = f'/받은그림/{Path(원).name}' if 원 else f'/받은그림/{it["자리"]:03d}.png'
                 ㅈ = it.get("잘라")
                 if ㅈ and ㅈ["w"] < 99 and ㅈ["h"] < 99:
                     # 칸·버튼 있는 데만 확대해 보여 준다 — 시안 한 장을 통째로 줄이면 단추가 점만 해진다.
@@ -999,7 +1014,7 @@ def _그림_들어옴():
 def _다시보내기줄():
     """이미 받은 시안이 있을 때 — 큰 안내를 또 펴지 않고 다시 보내는 길만 한 줄로 둔다."""
     return ('<p class="gnote" style="text-align:center">'
-            'Figma에서 다시 고르고 <b>보내기</b> 를 누르면 그대로 바뀝니다.</p>')
+            '다른 페이지에서 고르고 <b>보내기</b> 를 누르면 묶음이 더해집니다.</p>')
 
 
 def _가져오기안내():
@@ -1087,22 +1102,37 @@ def 화면_디자인(오류=""):
 
     if 플러그인:
         고른것 = 작업.get("고른화면", [])
-        칸 = ""
-        for i, f in enumerate(고른것, 1):
-            # 폰으로 찍기엔 넓다는 경고 — 웹은 넓은 게 정상이라 붙이지 않는다.
-            넓음 = (f.get("폭") or 0) >= 1400 and not 웹인가(작업)
-            칸 += (f'<figure class="pick"><img src="/받은그림/{i:03d}.png" alt="">'
-                   f'<figcaption>{_e(f.get("이름",""))}'
-                   f'<span class="dim2{" warn" if 넓음 else ""}">{f.get("폭")}×{f.get("높이")}'
-                   f'{" ⚠︎ 폰치고 넓음" if 넓음 else ""}</span></figcaption></figure>')
+        # 피그마 페이지 = 검수 묶음(river 확정 2026-09-30). 묶음마다 한 덩어리로 보이고,
+        # 이상할 때만(메뉴 이름이 아닌 페이지 · 폰과 웹이 섞임) 이름 칸을 열어 둔다.
+        덩이 = ""
+        for gi, g in enumerate(묶음.나누기(작업)):
+            칸 = ""
+            for f in g["화면들"]:
+                # 폰으로 찍기엔 넓다는 경고 — 웹은 넓은 게 정상이라 붙이지 않는다.
+                넓음 = (f.get("폭") or 0) >= 1400 and not 웹인가(작업)
+                그림 = Path(f.get("디자인그림") or "").name
+                칸 += (f'<figure class="pick"><img src="/받은그림/{_e(그림)}" alt="">'
+                       f'<figcaption>{_e(f.get("이름",""))}'
+                       f'<span class="dim2{" warn" if 넓음 else ""}">{f.get("폭")}×{f.get("높이")}'
+                       f'{" ⚠︎ 폰치고 넓음" if 넓음 else ""}</span></figcaption></figure>')
+            고침칸 = ""
+            if g["확인"]:
+                고침칸 = (f'<form class="gfix" method="post" action="/묶음이름">'
+                        f'<span class="why">{_e(g["확인"])}. 묶음 이름을 확인해 주세요.</span>'
+                        f'<input type="hidden" name="페이지" value="{_e(g["페이지"])}">'
+                        f'<input type="text" name="이름" value="{_e(g["이름"])}" required aria-label="묶음 이름">'
+                        f'<button class="go" type="submit">이 이름으로</button></form>')
+            덩이 += (f'<div class="grp{" chk" if g["확인"] else ""}">'
+                    f'<div class="ghead"><b>{_e(g["이름"])}</b>'
+                    f'<span class="muted">피그마 페이지 {_e(g["페이지"])} · {len(g["화면들"])}장</span></div>'
+                    f'{고침칸}<div class="picks">{칸}</div></div>')
         # '디자인 수정 필요'는 걸음 칩 바로 아래 — 받은 화면을 보기 전에 먼저 눈에 띄게 둔다.
         본문 = _동작사양칸(고른것, 작업.get("유형")) + f"""
-        <div class="card"><h2>{_e(작업["파일"].get("파일이름"))} —
-            {_e(고른것[0].get("페이지", "") if 고른것 else "")}
-            <span class="cnt">받은 화면 {len(고른것)}개</span></h2>
-          <div class="hint" style="margin-top:0">Figma에서 고른 그대로입니다. 맞으면 다음으로 넘어가세요.
-            빼거나 더 넣으려면 Figma에서 다시 고르고 보내면 됩니다.</div>
-          <div class="picks">{칸}</div>
+        <div class="card"><h2>{_e(작업["파일"].get("파일이름"))}
+            <span class="cnt">검수 묶음 {len(묶음.나누기(작업))}개 · 받은 화면 {len(고른것)}개</span></h2>
+          <div class="hint" style="margin-top:0">피그마 페이지 하나가 검수 묶음 하나로 들어갑니다.
+            다른 페이지에서 고르고 보내면 묶음이 더해지고, 같은 페이지를 다시 보내면 그 묶음만 바뀝니다.</div>
+          <div class="grps">{덩이}</div>
           <div class="bar"><a class="btn" href="/비우기">비우고 다시 받기</a>
             <span class="right"></span>
             <a class="btn go" href="/초안">다음 — 찍을 목록 만들기 →</a></div>
@@ -1290,6 +1320,8 @@ def 화면_초안(알림=""):
     행 = ""
     그림자료 = []          # 줄마다 시안 그림 주소와 '누를 수 있는 것' — 그림 위에서 고르기용
     바탕i = 0
+    앞페이지 = None
+    여럿묶음 = len({r.get("페이지", "") for r in 작업["초안"]}) > 1
     for i, r in enumerate(작업["초안"]):
         이어서 = r.get("이어서") == "예"
         if not 이어서:
@@ -1317,6 +1349,11 @@ def 화면_초안(알림=""):
             고침칸 = ('<div class="hint" style="margin-top:var(--spacing-2)">이 화면의 적는 칸: '
                    + " · ".join(f"<code>{_e(c)}</code>" for c in 칸이름들[:4]) + '</div>')
         빈동작 = 이어서 and not (r.get("동작", "") or "").strip()
+        # 검수 묶음(피그마 페이지)이 바뀌는 자리에 묶음 이름 한 줄
+        if 여럿묶음 and r.get("페이지", "") != 앞페이지:
+            행 += (f'<tr class="grow"><td colspan="7"><b>{_e(묶음.묶음이름(r.get("페이지", ""), 작업.get("묶음이름")))}</b>'
+                   f' <span class="muted">검수 묶음</span></td></tr>')
+        앞페이지 = r.get("페이지", "")
         행 += f"""<tr id="줄{i+1}" class="{'tie' if 이어서 else ''}">
           <td class="muted">{i+1}</td>
           <td><input class="s" type="text" name="번호_{i}" value="{_e(r['번호'])}"></td>
@@ -1584,7 +1621,7 @@ def 화면_초안(알림=""):
         <th>{'개발 주소 <span class="muted">(기본 주소 뒤에 붙는 부분)</span>'
              if 웹 else '눌러 들어갈 메뉴 <span class="muted">(앱 켜면 바로 나오는 화면은 -)</span>'}</th>
         <th>동작 <span class="muted">— 그 상태를 만드는 법</span></th>
-        <th>화면 묶음</th></tr></thead>
+        <th>이어 찍기</th></tr></thead>
         <tbody>{행}</tbody></table>
       <script>
         /* 사이트 메뉴를 읽는 동안, 읽는 대로 주소 칸을 채운다.
@@ -2258,14 +2295,16 @@ def 화면_촬영():
           }});
           </script></div>"""
     elif 보냄:
-        쪽 = " · ".join(_e(x) for x in 보냄.get("페이지", []))
+        # 묶음마다 한 줄 — 옛 결과(묶음들 없음)는 화면 하나로 보인다.
+        묶음들 = 보냄.get("묶음들") or [{"화면": 보냄.get("화면"), "화면이름": 보냄.get("화면이름"),
+                                    "페이지": 보냄.get("페이지", [])}]
+        줄 = "".join(
+            f'<tr><td style="width:180px"><b>{_e(g.get("화면이름"))}</b>'
+            f'<div class="muted" style="font-size:var(--font-size-12)">{_e(g.get("화면"))}</div></td>'
+            f'<td>{" · ".join(_e(x) for x in g.get("페이지", []))}</td></tr>' for g in 묶음들)
         보내기 = f"""
-        <div class="card"><h2>검수로 보냈습니다</h2>
-          <table><tbody>
-            <tr><td class="muted" style="width:110px">화면</td>
-                <td><b>{_e(보냄.get("화면"))}</b> {_e(보냄.get("화면이름"))}</td></tr>
-            <tr><td class="muted">검수 페이지</td><td>{쪽}</td></tr>
-          </tbody></table>
+        <div class="card"><h2>검수로 보냈습니다 <span class="cnt">검수 묶음 {len(묶음들)}개</span></h2>
+          <table><tbody>{줄}</tbody></table>
           <div class="bar"><a class="btn" href="{_e(보냄.get("포털주소"))}" target="_blank">
             포털 다시 열기 →</a>
             <span class="hint" style="margin:0">보낼 때 포털을 새 창으로 열었습니다.</span></div>
@@ -2443,26 +2482,44 @@ class 손님(BaseHTTPRequestHandler):
         꾸러미 = json.loads(자료.decode("utf-8"))
         그림자리 = 여기 / "디자인"
         그림자리.mkdir(exist_ok=True)
+        작업 = 작업읽기()
+        페이지 = 꾸러미.get("페이지이름", "")
+        # 피그마 페이지 = 검수 묶음(river 확정 2026-09-30). 플러그인은 한 번에 한 페이지만 보내므로
+        # **다른 페이지에서 보내면 더하고, 같은 페이지에서 다시 보내면 그 페이지만 바꾼다** —
+        # 메뉴 여러 개를 차례로 보낸 뒤 한 번에 찍게. 파일·유형이 다르거나 이미 검수로 보냈으면 새로 시작한다.
+        이어받기 = (작업.get("온곳") == "figma-플러그인" and not 작업.get("접수결과")
+                 and (작업.get("파일") or {}).get("파일열쇠", "") == 꾸러미.get("파일열쇠", "")
+                 and (작업.get("유형") or "android") == (꾸러미.get("플랫폼") or "android"))
+        남길것 = [f for f in 작업.get("고른화면", []) if f.get("페이지", "") != 페이지] if 이어받기 else []
+        페이지차례 = (max([f.get("페이지차례", 0) for f in 남길것] or [-1]) + 1) if 남길것 else 0
+        옛차례 = [f.get("페이지차례") for f in 작업.get("고른화면", []) if 이어받기 and f.get("페이지", "") == 페이지]
+        if 옛차례:                                  # 같은 페이지를 다시 보냈으면 그 자리 그대로
+            페이지차례 = 옛차례[0]
+        # 그림 파일 이름에 페이지 표를 붙인다 — 번호만 쓰면 다른 페이지를 보낼 때 앞 그림을 덮는다.
+        표 = hashlib.sha1(페이지.encode("utf-8")).hexdigest()[:6]
         고른화면 = []
         for i, f in enumerate(꾸러미.get("화면들", []), 1):
             줄 = {k: f.get(k) for k in ("id", "이름", "폭", "높이", "x", "y")}
             줄["속"] = f.get("속") or []
-            줄["페이지"] = 꾸러미.get("페이지이름", "")
-            줄["페이지차례"] = 0
+            줄["페이지"] = 페이지
+            줄["페이지차례"] = 페이지차례
             줄["묶음"] = ""
             if f.get("그림"):
-                이름 = f"{i:03d}.png"
+                이름 = f"{표}_{i:03d}.png"
                 (그림자리 / 이름).write_bytes(bytes(f["그림"]))
                 줄["디자인그림"] = str(그림자리 / 이름)
             if isinstance(f.get("검수요소"), list):
                 # 검수 포털의 자동 검수용 요소 목록 — 크므로 파일로 두고 자리만 적는다.
-                요소파일 = 그림자리 / f"{i:03d}_elements.json"
+                요소파일 = 그림자리 / f"{표}_{i:03d}_elements.json"
                 요소파일.write_text(json.dumps({"틀": f.get("틀") or {}, "설정": f.get("검수설정"), "요소": f["검수요소"]},
                                             ensure_ascii=False), encoding="utf-8")
                 줄["검수요소파일"] = str(요소파일)
             고른화면.append(줄)
 
-        작업 = 작업읽기()
+        옛초안 = {r.get("노드"): r for r in 작업.get("초안", []) if r.get("노드")} if 이어받기 else {}
+        if not 이어받기:
+            작업.pop("묶음이름", None)
+        고른화면 = 남길것 + 고른화면
         작업["파일"] = {"파일이름": 꾸러미.get("파일이름", ""),
                      "파일열쇠": 꾸러미.get("파일열쇠", ""),
                      "페이지": []}
@@ -2480,6 +2537,15 @@ class 손님(BaseHTTPRequestHandler):
         작업["찍을폭"] = int(꾸러미.get("찍을폭") or 0)
         작업["고른화면"] = 고른화면
         작업["초안"] = 초안만들기.만들기(고른화면, 작업.get("유형"))
+        # 앞서 받은 시안에서 사람이 적어 둔 것(동작·주소·누를 것)은 잃지 않는다 — 같은 프레임이면 이어 쓴다.
+        # 차례·이어 찍기는 새로 짠 대로 둔다(같은 페이지를 다시 보내면 차례가 바뀌었을 수 있다).
+        for r in 작업["초안"]:
+            옛 = 옛초안.get(r.get("노드"))
+            if not 옛:
+                continue
+            for k in ("동작", "근거", "주소", "누를것"):
+                if (옛.get(k) or "").strip() and 옛.get(k) != "-":
+                    r[k] = 옛[k]
         # 전에 한 번 적어 둔 개발 주소는 다시 적지 않는다 — 빈 칸만 기억으로 채운다.
         주소기억.채우기(작업.get("앱이름", ""), 작업["초안"])
         작업.pop("접수결과", None)
@@ -2647,6 +2713,15 @@ class 손님(BaseHTTPRequestHandler):
             작업["이름표경로"] = 이름표쓰기(작업)
             작업쓰기(작업)
             return self._이동("/조건")
+
+        if 길 == "/묶음이름":
+            # 이상하다고 짚은 페이지만 사람이 묶음 이름을 고친다. 고친 것은 이 작업 안에서만 산다.
+            작업 = 작업읽기()
+            페이지, 이름 = 한개("페이지"), " ".join(한개("이름").split())
+            if 이름:
+                작업.setdefault("묶음이름", {})[페이지] = 이름
+                작업쓰기(작업)
+            return self._이동("/")
 
         if 길 == "/접수":
             물음 = parse_qs(urlparse(self.path).query)
