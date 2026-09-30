@@ -380,7 +380,9 @@ body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:
 /* 시안: CI 아래 50 띄우고 칸이 온다(spacing-48 이 가장 가깝다). */
 .login .씨아이{display:flex;justify-content:center;margin:0 0 var(--spacing-48)}
 .login .씨아이 img{display:block}
-.login .칸{display:flex;flex-direction:column;gap:var(--spacing-8)}
+/* 정본 Input 은 제 너비 200 을 스스로 갖는다("더 넓게 쓰려면 쓰는 쪽에서 width 를 준다") —
+   여기서는 상자(300)를 꽉 채워야 단추·아이디 저장과 같은 선에 선다. */
+.login .칸{display:flex;flex-direction:column;gap:var(--spacing-8);width:100%}
 .login .칸 + .칸{margin-top:var(--spacing-8)}
 .login .기억{display:flex;margin:var(--spacing-8) 0 var(--spacing-24)}
 /* 시안의 로그인 단추는 칸과 같은 너비로 눕는다 — 자리만 정하고 생김새는 부품이 맡는다. */
