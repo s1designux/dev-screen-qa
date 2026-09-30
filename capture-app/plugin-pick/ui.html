@@ -5,7 +5,8 @@
   body { font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; margin:0; padding:14px;
          color:var(--gray-800); font-size:12px;
          min-height:100vh; display:flex; flex-direction:column; }
-  .아래 { margin-top:auto; }        /* 단추 묶음은 언제나 맨 아래 */
+  .아래 { margin-top:auto; display:flex; gap:8px; }   /* 단추 둘은 맨 아래에 나란히 */
+  .아래 button { flex:1; }
   h1 { font-size:13px; margin:0 0 4px; display:flex; justify-content:space-between;
        align-items:baseline; gap:8px; }
   h1 .셈 { font-size:12px; font-weight:400; color:var(--gray-500); }
@@ -27,6 +28,9 @@
   button.line { background:#fff; color:var(--gray-800); border:1px solid var(--gray-200);
                 font-weight:500; margin-top:8px; }
   button.line:hover { background:var(--gray-50); }
+  /* 테두리 단추도 잠기면 잠긴 모양으로 — 흰 바탕이 남아 눌리는 것처럼 보이던 것 */
+  button.line:disabled, button.line:disabled:hover { background:var(--gray-100); color:#C4C4C4;
+                border-color:var(--gray-100); }
   button.swap { background:var(--orange-500); }
   button.swap:disabled { background:var(--gray-100); color:#C4C4C4; }
   .말 { margin-top:10px; text-align:center; color:var(--gray-500); min-height:16px; line-height:1.6; }
@@ -59,7 +63,7 @@
 <div class="말" id="말"></div>
 <div class="아래">
   <button id="보내기" disabled>보내기</button>
-  <button id="사이트" class="line" disabled>포털에서 이어 하기 ↗</button>
+  <button id="사이트" class="line" disabled>검수 포털로 이동 ↗</button>
 </div>
 
 <script>
@@ -114,7 +118,7 @@
   }
 
   // 보내는 동안(그림을 읽고 부치는 동안)에는 두 단추 모두 잠근다 — 중간에 목록을 다시 맞추느라
-  // 단추를 다시 그려도 풀리지 않게. '포털에서 이어 하기'는 다 보낸 뒤에야 열린다.
+  // 단추를 다시 그려도 풀리지 않게. '검수 포털로 이동'는 다 보낸 뒤에야 열린다.
   var 보내는중 = false, 보냈음 = false;
   var 이어단추 = document.getElementById('사이트');
   function 단추그리기(){
@@ -213,7 +217,7 @@
         body: JSON.stringify(m.꾸러미)
       }).then(function (r) {
         if (!r.ok) throw new Error(r.status);
-        마무리(m.꾸러미.화면들.length + '개 보냈습니다. 포털에서 이어 하세요.', true);
+        마무리(m.꾸러미.화면들.length + '개 보냈습니다. 검수 포털로 이동해 이어 하세요.', true);
       }).catch(function () {
         마무리('촬영 준비 사이트가 꺼져 있습니다. 사이트를 켜고 다시 눌러 주세요.', false);
       });
