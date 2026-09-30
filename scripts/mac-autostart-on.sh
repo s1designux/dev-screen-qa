@@ -90,7 +90,7 @@ wait_port() {
   return 1
 }
 
-write_plist com.s1.qa-portal    "$ROOT/mvp0"        "portal.py"      "$ROOT/mvp0/자동실행기록.txt"
+write_plist com.s1.qa-portal    "$ROOT/mvp0"        "run_portal.py"  "$ROOT/mvp0/자동실행기록.txt"
 write_plist com.s1.capture-site "$ROOT/capture-app" "site/server.py" "$ROOT/capture-app/site/자동실행기록.txt"
 
 free_port 8765

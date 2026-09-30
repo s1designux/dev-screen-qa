@@ -1143,16 +1143,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path.startswith("/assets/css/") and path.endswith(".css"):
             # S-1 디자인가이드 토큰 네 장. `가이드받기.sh --내려두기` 로 받아 둔 것을 그대로 내보낸다.
             fp = BASE / "assets" / "css" / Path(path[len("/assets/css/"):]).name
-            if fp.exists():
-                data = fp.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/css; charset=utf-8")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self.send_response(404)
-                self.end_headers()
+            self._정적(fp, "text/css; charset=utf-8")
         elif path.endswith(".svg") and "/assets/icons/" in path:
             # 부품 CSS 가 mask:url("./assets/icons/…") 로 부르는 아이콘 — CSS 자리 기준이라
             # 실제로 오는 주소는 /assets/css/assets/icons/… 다. `부품받기.sh` 가 받아 둔 것.
@@ -1483,6 +1474,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", 종류)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")   # 부품 CSS·JS 도 늘 새 판을 확인한다
         self.end_headers()
         self.wfile.write(data)
 
@@ -1857,6 +1849,15 @@ def main():
         )
     intake().init()
     srv = HTTPServer((HOST, PORT), Handler)
+    if AUTORELOAD:
+        # run_portal.py 가 사라지면 따라 꺼진다 — 홀로 남아 옛 코드를 계속 내보이지 않게.
+        import threading
+        부모 = os.getppid()
+        def 부모지킴():
+            while os.getppid() == 부모:
+                time.sleep(2)
+            os._exit(0)
+        threading.Thread(target=부모지킴, daemon=True).start()
     if HOST == "127.0.0.1":
         print(f"포털 실행 → http://127.0.0.1:{PORT}  (이 컴퓨터에서만, Ctrl+C 종료)")
     else:
