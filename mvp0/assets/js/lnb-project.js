@@ -31,47 +31,6 @@
   });
 })();
 
-/* 왼쪽 메뉴 아래 '검수 묶음 추가' — 누르면 이름 적는 칸이 열린다.
- * 칸이 비면 보내지 않는다(required). Esc 로 접는다.
- */
-(function () {
-  var 단추 = document.getElementById('lnb-add-group');
-  var 칸 = document.getElementById('lnb-add-row');
-  if (!단추 || !칸) return;
-  var 입력 = 칸.querySelector('input');
-
-  단추.addEventListener('click', function () {
-    칸.hidden = false;
-    단추.hidden = true;
-    if (입력) 입력.focus();
-  });
-
-  if (입력) {
-    입력.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') {
-        칸.hidden = true;
-        단추.hidden = false;
-        입력.value = '';
-        단추.focus();
-      }
-    });
-  }
-})();
-
-/* 검수 줄 — 누르면 아래 묶음 목록이 접히고 펴진다. */
-(function () {
-  var 머리 = document.getElementById('lnb-inspect');
-  var 목록 = document.getElementById('lnb-groups');
-  if (!머리 || !목록) return;
-  머리.addEventListener('click', function (e) {
-    e.preventDefault();          // 옆의 '검수' 링크로 새어 나가지 않게
-    e.stopPropagation();
-    var 편다 = 목록.hidden;
-    목록.hidden = !편다;
-    머리.setAttribute('aria-expanded', 편다 ? 'true' : 'false');
-  });
-})();
-
 /* 묶음 이름 — 두 번 누르면 고치는 칸이 열린다. Enter 로 보내고 Esc 로 접는다. */
 (function () {
   var 글 = document.getElementById('gname-view');

@@ -3,7 +3,8 @@
 river 확정 2026-09-21:
 - 첫 화면은 **과제 카드**만 놓는다. 무엇을 검수했는지·몇 건인지는 올리지 않는다.
   카드 한 장 = 과제 이름 · 지금 상태 · 최근 작성(마지막 검수기록 날짜) · [검수결과서].
-- 카드를 누르면 **왼쪽에 검수 화면 목록, 오른쪽에 검수 페이지 카드**가 깔린다.
+- 카드를 누르면 **왼쪽에 메뉴 셋(1단), 오른쪽에 묶음·검수 페이지 카드**가 깔린다.
+  왼쪽 메뉴는 층이 하나다 — 묶음은 왼쪽에 늘어놓지 않고 오른쪽 카드로만 본다(river 지시 2026-09-30).
   카드에는 **디자인 원본만** 보인다 — 디자인과 개발을 나란히 두면 너무 작아 안 보인다.
 
 값은 전부 DB 에서 그때그때 센다(2번-1 데이터가 원본). 여기서 새로 저장하는 것은 없다.
@@ -16,7 +17,7 @@ river 확정 2026-09-21:
 
     DESIGN_SYSTEM_GAP:
     Card (과제 카드·검수 페이지 카드를 담는 그릇)
-    Navigation (왼쪽 검수 화면 목록) — 가이드 §4 Navigation 은 codeStatus: not-started 라 구현 금지
+    Navigation (왼쪽 메뉴 셋) — 가이드 §4 Navigation 은 codeStatus: not-started 라 구현 금지
     Badge (카드 위 Pass/Fail 표시) — 칩은 누르는 것이라 가만히 있는 표시에 쓰지 않는다
 """
 import html
@@ -143,9 +144,15 @@ def 묶음카드들(conn, project_uuid, 목록):
     과제 목록 화면의 과제 카드와 같은 그릇을 쓴다(river 지시 2026-09-29) —
     묶음 하나를 누르면 그 안의 검수 페이지 카드가 깔린다.
     """
-    if not 목록:
-        return '<p class="empty">아직 검수 묶음이 없습니다. 왼쪽 아래에서 만들 수 있습니다.</p>'
-    칸 = ""
+    # 맨 앞은 '검수 묶음 추가' 카드 — 과제 목록의 '과제 만들기' 카드와 같은 모양·같은 방식(모달)이다
+    # (river 지시 2026-09-30).
+    칸 = """
+        <div class="pj new">
+          <a class="go" href="#" data-s1-modal-open="묶음추가">
+            <span class="plus" aria-hidden="true"></span>
+            <span class="nm">검수 묶음 추가</span>
+          </a>
+        </div>"""
     for x in 목록:
         화면 = x["kind"] == "screen"
         말, 갈래 = 상태(conn, [x["uuid"]]) if 화면 else ("촬영본", "wait")
@@ -305,6 +312,11 @@ CSS = """
   .acts:empty { display:none; }
   /* 묶음 이름 — 단추 줄 맨 왼쪽. 두 번 누르면 고치는 칸으로 바뀐다. */
   .gname { display:flex; align-items:center; }
+  /* 제목 왼쪽 ← — 정본 아이콘(mobile-header-back)을 쓴다. 누르는 자리는 34 로 넉넉히. */
+  .gback { flex:none; display:inline-flex; align-items:center; justify-content:center;
+    width:var(--sizing-34); height:var(--sizing-34); margin-left:calc(-1 * var(--spacing-8));
+    border-radius:var(--radius-6); color:var(--color-text-title-primary); }
+  .gback:hover { background:var(--color-bg-level-2); }
   .gcount { margin-right:auto; padding-left:var(--spacing-4); font-size:var(--font-size-12);
     color:var(--color-text-body-tertiary); }
   /* 메뉴 제목 — 어느 메뉴에서나 단추 줄 맨 왼쪽 같은 자리에 선다 */
@@ -343,62 +355,16 @@ CSS = """
     border-radius:var(--radius-12); padding:var(--spacing-8); position:sticky; top:var(--spacing-20); }
   .lnb .t { font-size:var(--font-size-12); color:var(--color-text-body-tertiary);
     padding:var(--spacing-8) var(--spacing-10) var(--spacing-4); }
-  .lnb a, .lnb .head { display:flex; align-items:center; gap:var(--spacing-8);
+  .lnb.flush > .lnb-i { height:var(--sizing-44); padding:0 var(--spacing-16); border-radius:0; }
+  .lnb a { display:flex; align-items:center; gap:var(--spacing-8);
     height:var(--sizing-34); padding:0 var(--spacing-10); border-radius:var(--radius-8);
     text-decoration:none; color:var(--color-navigation-label-default);
     font-size:var(--font-size-14); }
-  /* 메뉴 줄은 모두 같은 높이·같은 앞 간격이다 — 검수 줄은 화살표와 한 줄에 들어 한 겹 더 싸여 있다 */
-  .lnb.flush > .lnb-i, .lnb.flush > .lnb-row > .lnb-i,
-  .lnb.flush > .head, .lnb.flush > .lnb-row > .head {
-    height:var(--sizing-44); padding:0 var(--spacing-16); border-radius:0; }
-  .lnb.flush a.sub { padding-left:var(--spacing-48); }
-  /* 검수 줄 — 누르면 접히고 펴진다. 생김새는 다른 메뉴 줄과 같다. */
-  .lnb .head { width:100%; border:0; background:none; cursor:pointer; font:inherit;
-    text-align:left; color:var(--color-navigation-label-default); }
-  .lnb .head:hover { background:var(--color-bg-level-2); color:var(--color-navigation-label-hover); }
-  /* 접었다고 고른 표시까지 지우지 않는다 — 접힘은 보이기일 뿐이고 지금 자리는 그대로다 */
-  .lnb .head.on { color:var(--color-action-primary-default); font-weight:var(--font-weight-bold); }
-  .lnb .fold { margin-left:auto; width:var(--sizing-16); height:var(--sizing-16);
-    color:var(--color-text-body-tertiary); transform:rotate(90deg); }
-  .lnb .head[aria-expanded="true"] .fold { transform:rotate(-90deg); }
-  .lnb .grp[hidden] { display:none; }
-  /* 묶음 추가 — 메뉴 줄과 같은 자리에 글자만 흐리게 */
-  .lnb .addg { margin:0; }
-  .lnb .addrow { padding:var(--spacing-4) var(--spacing-16) var(--spacing-8) var(--spacing-48); }
-  .lnb .add { display:flex; align-items:center; gap:var(--spacing-4); width:100%;
-    height:var(--sizing-34); padding:0 var(--spacing-16) 0 var(--spacing-48); border:0;
-    background:none; cursor:pointer; font:inherit; font-size:var(--font-size-12);
-    color:var(--color-text-body-tertiary); text-align:left; }
-  .lnb .add:hover { color:var(--color-action-primary-default); background:var(--color-bg-level-1); }
   /* 왼쪽 메뉴 줄은 단추가 아니라 '메뉴'다 — 정본 Button 의 칸 모양만 걷고 줄로 눕힌다.
      DESIGN_SYSTEM_GAP: 정본에 왼쪽 메뉴(LNB) 부품이 없다(GNB 만 있다). */
-  .lnb [data-s1-component="button"].lnb-i,
-  .lnb [data-s1-component="button"].add { min-width:0; justify-content:flex-start; }
+  .lnb [data-s1-component="button"].lnb-i { min-width:0; justify-content:flex-start; }
   .lnb [data-s1-component="button"] > [data-s1-part="label"] { display:flex; align-items:center;
     gap:var(--spacing-8); width:100%; }
-  /* display:flex 를 스스로 달고 있어 hidden 만으로는 안 사라진다(정본 부품과 같은 함정) */
-  .lnb .add[hidden] { display:none; }
-  /* 검수 줄 — 누르는 자리(메뉴)와 접는 자리(화살표)를 한 줄에 나란히 둔다 */
-  .lnb .lnb-row { display:flex; align-items:center; }
-  .lnb .lnb-row .lnb-i { flex:1; min-width:0; }
-  .lnb .lnb-row .foldbtn { flex:none; justify-content:center;
-    width:var(--sizing-34); height:var(--sizing-44); margin-left:calc(-1 * var(--sizing-34)); }
-  .lnb .lnb-row .foldbtn:hover { color:var(--color-action-primary-default); }
-  /* 화살표는 이름표 칸 안에 든다 — 칸이 늘어지지 않게 크기를 여기서 준다 */
-  .lnb .lnb-row .foldbtn [data-s1-part="label"] { display:flex; }
-  .lnb .lnb-row .foldbtn .fold { display:block; margin:0; }
-  .lnb .lnb-row .foldbtn[aria-expanded="true"] .fold { transform:rotate(-90deg); }
-  .lnb .addrow { padding:0 var(--spacing-12) var(--spacing-8); }
-  .lnb .addrow [data-s1-component="input"] { width:100%; }
-  .lnb .addrow[hidden] { display:none; }
-  .lnb .ic-plus { position:relative; width:var(--sizing-16); height:var(--sizing-16);
-    -webkit-mask-image:none; mask-image:none; background:none; }
-  .lnb .ic-plus::before, .lnb .ic-plus::after { content:""; position:absolute;
-    background:currentColor; border-radius:var(--radius-full); }
-  .lnb .ic-plus::before { left:var(--spacing-4); right:var(--spacing-4); top:50%;
-    height:var(--border-width-1); transform:translateY(-50%); }
-  .lnb .ic-plus::after { top:var(--spacing-4); bottom:var(--spacing-4); left:50%;
-    width:var(--border-width-1); transform:translateX(-50%); }
   /* 아이콘 — 정본 아이콘은 /assets/icons/, 가이드에 없어 그린 둘은 /assets/img/ 에 있다.
      mask 로 깔아 글자색을 그대로 따라가게 한다(정본 부품이 아이콘을 다루는 방식과 같다). */
   .ic { flex:none; width:var(--sizing-20); height:var(--sizing-20); background:currentColor;
@@ -406,9 +372,7 @@ CSS = """
     -webkit-mask-position:center; mask-position:center;
     -webkit-mask-size:contain; mask-size:contain; }
   .ic-search { -webkit-mask-image:url('/assets/icons/search.svg'); mask-image:url('/assets/icons/search.svg'); }
-  .ic-down { width:var(--sizing-16); height:var(--sizing-16);
-    -webkit-mask-image:url('/assets/icons/chevron.svg'); mask-image:url('/assets/icons/chevron.svg');
-    transform:rotate(90deg); }
+  .ic-back { -webkit-mask-image:url('/assets/icons/mobile-header-back.svg'); mask-image:url('/assets/icons/mobile-header-back.svg'); }
   /* DESIGN_SYSTEM_GAP: 사진기·문서 아이콘이 정본 24개에 없어 같은 규격으로 그렸다. */
   .ic-capture { -webkit-mask-image:url('/assets/img/icon-capture.svg'); mask-image:url('/assets/img/icon-capture.svg'); }
   .ic-history { -webkit-mask-image:url('/assets/img/icon-history.svg'); mask-image:url('/assets/img/icon-history.svg'); }
@@ -421,9 +385,6 @@ CSS = """
   .lnb .off { display:flex; align-items:center; gap:var(--spacing-8); height:var(--sizing-44);
     padding:0 var(--spacing-16); font-size:var(--font-size-14);
     color:var(--color-text-state-disabled); cursor:default; }
-  /* 검수 아래 화면 목록 — 한 칸 들여 쓴다 */
-  .lnb a.sub { padding-left:var(--spacing-24); font-size:var(--font-size-14); }
-  .lnb a.sub .n { font-size:var(--font-size-12); }
 
   .body { flex:1; display:flex; flex-direction:column; min-height:var(--sizing-128);
     background:var(--color-surface-raised);
@@ -540,6 +501,8 @@ def render_home(conn, 고른묶음, 토큰CSS):
 def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=None, 메뉴="", 알림=""):
     """과제 안 — 왼쪽 메뉴 셋(개발화면 촬영 · 검수 · 이력관리) + 오른쪽 본문.
 
+    메뉴는 **1단**이다 — 검수 아래에 묶음 목록을 펼치지 않는다(river 지시 2026-09-30).
+
     아직 찍은 것이 없는 과제는 **촬영만 열린다**(river 지시 2026-09-28).
     검수·이력관리는 볼 것이 없으므로 눌리지 않고, 본문이 캡쳐부터 하라고 안내한다.
     자료가 있으면 처음 여는 자리는 **검수**다.
@@ -575,11 +538,12 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
 
     lnb = _프로젝트셀렉터(conn, project_uuid, p["name"])
     lnb += 칸("개발화면 촬영", "capture", "capture")
-    lnb += _검수묶음들(conn, project_uuid, 목록, 고른, 메뉴 == "inspect", 자료있나)
+    lnb += 칸("검수", "inspect", "search")
     lnb += 칸("이력관리", "history", "history")
 
     # ── 오른쪽 본문
     이력꼬리 = ""
+    꼬리 = ""
     if 메뉴 == "capture":
         본문 = _캡쳐(project_uuid, p, 자료있나)
     elif 메뉴 == "history":
@@ -591,6 +555,7 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
                  else '<p class="empty">검수 페이지가 없습니다.</p>'))
     else:
         본문 = 묶음카드들(conn, project_uuid, 목록)
+        꼬리 = _묶음추가(project_uuid)
 
     표로 = (f'<button type="button" data-s1-component="button" data-variant="secondary" data-size="xsm"'
           f' onclick="location.href=\'/screen/{_esc(고른["human_key"])}\'">'
@@ -607,7 +572,11 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
     elif 메뉴 == "history":
         제목칸 = f'<h1 class="mtitle">이력관리{이력꼬리}</h1>'
     elif 고른 and 고른["kind"] == "screen":
-        제목칸 = _묶음이름(project_uuid, 고른)      # 두 번 누르면 고치는 칸이 된다
+        # 제목 왼쪽 ← 는 묶음 카드 목록으로 돌아가는 길이다(river 지시 2026-09-30).
+        돌아감 = (f'<a class="gback" href="/project/{_esc(project_uuid)}?메뉴=inspect"'
+               f' aria-label="검수 목록으로" title="검수 목록으로">'
+               f'<span class="ic ic-back" aria-hidden="true"></span></a>')
+        제목칸 = 돌아감 + _묶음이름(project_uuid, 고른)      # 이름은 두 번 누르면 고치는 칸이 된다
     else:
         제목칸 = '<h1 class="mtitle">검수</h1>'
     if 메뉴 == "capture":
@@ -622,7 +591,7 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
     쪽지 = f'<p class="warn">{_esc(알림)}</p>' if 알림 else ""
     속 = (f'<div class="pshell"><nav class="lnb flush">{lnb}</nav>'
          f'<div class="pmain">{쪽지}<div class="body">{단추줄}{본문}</div></div></div>')
-    return _문서(f"{p['name']} — 검수 화면", "", 속, 토큰CSS)
+    return _문서(f"{p['name']} — 검수 화면", "", 속, 토큰CSS, 꼬리)
 
 
 def _묶음이름(project_uuid, 고른):
@@ -647,48 +616,32 @@ def _묶음이름(project_uuid, 고른):
             f'<span class="gcount">· {고른["count"]}장</span>')
 
 
-def _검수묶음들(conn, project_uuid, 목록, 고른, 폄, 자료있나):
-    """검수 줄과 그 안에 드는 **묶음 이름들**(로그인 · 공통 · 대시보드 …).
+def _묶음추가(project_uuid, 모달id="묶음추가"):
+    """'검수 묶음 추가' 카드를 누르면 뜨는 모달 — 과제 목록의 '과제 만들기'와 같은 그릇이다
+    (정본 Modal Content · 크기 MD · 푸터 둘, river 지시 2026-09-30).
 
-    층은 셋이다 — 검수(메뉴) → 묶음(사람이 나눈 큰 갈래) → 그 안의 화면들.
-    맨 아래 층은 왼쪽 메뉴에 늘어놓지 않고 **오른쪽에 카드로** 편다(river 확정 2026-09-29).
-    **검수 줄을 누르면 묶음 카드 목록**이 오른쪽에 깔리고(river 지시 2026-09-29),
-    묶음을 누르면 그 묶음의 검수 페이지 카드가 깔린다. 접고 펴는 것은 옆 화살표가 맡는다.
+    적는 것은 묶음 이름 하나. 빈 칸은 보내지 않는다(required).
     """
-    표 = '<span class="ic ic-search" aria-hidden="true"></span>'
-    화살 = '<span class="ic ic-down fold" aria-hidden="true"></span>'
-    if not 자료있나:
-        return f'<span class="lnb-i off" aria-disabled="true">{표}검수</span>'
-
-    # 검수 줄을 누르면 **묶음 목록**으로 간다. 접고 펴는 것은 옆 화살표가 따로 맡는다.
-    머리 = (f'<span class="lnb-row">'
-          f'<a class="lnb-i head{" on" if 폄 and not 고른 else ""}"'
-          f' href="/project/{_esc(project_uuid)}?메뉴=inspect">{표}검수</a>'
-          f'<button type="button" data-s1-component="text-button" data-variant="secondary"'
-          f' class="foldbtn" id="lnb-inspect"'
-          f' aria-expanded="{"true" if 폄 else "false"}" aria-controls="lnb-groups"'
-          f' aria-label="검수 묶음 접고 펴기">'
-          f'<span data-s1-part="label">{화살}</span></button></span>')
-
-    칸 = ""
-    for x in 목록:
-        href = (f"/project/{project_uuid}?메뉴=inspect&screen={x['uuid']}"
-                if x["kind"] == "screen" else x["href"])
-        on = " on" if 폄 and 고른 and x["uuid"] == 고른["uuid"] and x["kind"] == "screen" else ""
-        칸 += (f'<a class="lnb-i sub{on}" href="{_esc(href)}">{_esc(x["name"])}'
-               f'<span class="n">{x["count"]}</span></a>')
-    더하기 = ('<span class="ic ic-plus" aria-hidden="true"></span>검수 묶음 추가')
-    칸 += (f'<form class="addg" method="post" action="/project/{_esc(project_uuid)}/screen/new">'
-           f'<button type="button" data-s1-component="button" data-variant="secondary"'
-           f' data-size="xsm" data-break="pc" class="add" id="lnb-add-group">'
-           f'<span data-s1-part="label">{더하기}</span></button>'
-           f'<div class="addrow" id="lnb-add-row" hidden>'
-           + s1.입력('이름', '', 칸id='lnb-add-input', maxlength='40', required=True,
-                    자리글='묶음 이름', **{"aria-label": "새 검수 묶음 이름"})
-           + '</div></form>')
-
-    접 = "" if 폄 else " hidden"
-    return f'{머리}<div class="grp" id="lnb-groups"{접}>{칸}</div>'
+    제목id = f"{모달id}-제목"
+    return f'''
+    <div id="{모달id}" data-s1-component="modal-content" data-size="md" hidden>
+      <div data-s1-part="overlay"></div>
+      <div data-s1-part="panel" role="dialog" aria-modal="true" aria-labelledby="{제목id}">
+        <form method="post" action="/project/{_esc(project_uuid)}/screen/new" class="modal-form">
+          <div data-s1-part="header">
+            <h2 data-s1-part="title" id="{제목id}">검수 묶음 추가</h2>
+            <button type="button" data-s1-part="close" aria-label="닫기"></button>
+          </div>
+          <div data-s1-part="content-area">
+            <div class="modal-fields">{project_form._입력("이름", "묶음 이름", 자리글="예) 로그인", 필수=True, 칸id="g-name")}</div>
+          </div>
+          <div data-s1-part="footer">
+            {project_form._단추("취소", "secondary", "button", f"document.getElementById('{모달id}').s1Modal.close()")}
+            {project_form._단추("만들기")}
+          </div>
+        </form>
+      </div>
+    </div>'''
 
 
 def _프로젝트셀렉터(conn, project_uuid, 이름):
