@@ -59,7 +59,7 @@
 <div class="말" id="말"></div>
 <div class="아래">
   <button id="보내기" disabled>보내기</button>
-  <button id="사이트" class="line">포털에서 이어 하기 ↗</button>
+  <button id="사이트" class="line" disabled>포털에서 이어 하기 ↗</button>
 </div>
 
 <script>
@@ -113,8 +113,13 @@
     단추그리기();
   }
 
+  // 보내는 동안(그림을 읽고 부치는 동안)에는 두 단추 모두 잠근다 — 중간에 목록을 다시 맞추느라
+  // 단추를 다시 그려도 풀리지 않게. '포털에서 이어 하기'는 다 보낸 뒤에야 열린다.
+  var 보내는중 = false, 보냈음 = false;
+  var 이어단추 = document.getElementById('사이트');
   function 단추그리기(){
-    단추.disabled = !화면들.length || !갈래;   // 화면과 유형이 둘 다 있어야 보낸다
+    단추.disabled = 보내는중 || !화면들.length || !갈래;   // 화면과 유형이 둘 다 있어야 보낸다
+    이어단추.disabled = 보내는중 || !보냈음;
   }
 
   function 대표폭(){
@@ -187,7 +192,7 @@
       말.textContent = '그림 뜨는 중… ' + m.지금 + '/' + m.전부;
     }
 
-    if (m.갈래 === '알림') { 말.className = '말 bad'; 말.textContent = m.글; }
+    if (m.갈래 === '알림') { 보내는중 = false; 단추그리기(); 말.className = '말 bad'; 말.textContent = m.글; }
 
     if (m.갈래 === '검수부치기') {
       if (m.실패) { 바꾸기실패.push(m.실패); if (m.마지막) 바꾸기끝(); return; }
@@ -216,6 +221,8 @@
   };
 
   function 마무리(글, 좋음) {
+    보내는중 = false;
+    if (좋음) 보냈음 = true;
     단추그리기();
     if (바꾼것.length) { 바꾼말(글); return; }      // 시안도 바꿨으면 그것까지 함께 알린다
     말.className = 좋음 ? '말 ok' : '말 bad';
@@ -258,7 +265,8 @@
   // 단추는 하나다. 검수 화면이 있는 것은 그 시안을 먼저 덮어쓰고,
   // 그다음 고른 것 **전부**(바꾼 것 포함)를 촬영 준비로 보낸다.
   단추.onclick = function () {
-    단추.disabled = true;
+    보내는중 = true; 보냈음 = false;
+    단추그리기();
     바꾼것 = []; 바꾸기실패 = [];
     var 바꿀것 = 화면들.filter(function (f) { return 짝[f.id]; })
                     .map(function (f) { return { id: f.id, page: 짝[f.id] }; });

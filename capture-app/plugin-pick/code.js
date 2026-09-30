@@ -322,7 +322,13 @@ function 알리기() {
 figma.on('selectionchange', 알리기);
 알리기();
 
+// 그림을 뜨다가 막히면 UI 가 '보내는 중'에 멈춰 있지 않게 알린다 — 알림을 받으면 단추가 다시 풀린다.
 figma.ui.onmessage = async function (msg) {
+  try { await 받은말(msg); }
+  catch (e) { figma.ui.postMessage({ 갈래: '알림', 글: '그림을 읽다가 멈췄어요. 다시 눌러 주세요.' }); }
+};
+
+async function 받은말(msg) {
   if (msg.갈래 === '사이트열기') {
     // 포털 '개발화면 촬영'으로 연다(창에 끼워 도는 그 화면). 과제를 모르거나 포털이 꺼져 있으면
     // 예전처럼 촬영 준비 사이트를 혼자 연다.
@@ -338,7 +344,7 @@ figma.ui.onmessage = async function (msg) {
     var 대상 = msg.대상 || [];
     for (var k = 0; k < 대상.length; k++) {
       var node = await figma.getNodeByIdAsync(대상[k].id);
-      if (!node || !node.absoluteBoundingBox) { figma.ui.postMessage({ 갈래: '검수부치기', 실패: '프레임을 찾지 못했어요.', page: 대상[k].page }); continue; }
+      if (!node || !node.absoluteBoundingBox) { figma.ui.postMessage({ 갈래: '검수부치기', 실패: '프레임을 찾지 못했어요.', page: 대상[k].page, 마지막: k === 대상.length - 1 }); continue; }
       var bb = node.absoluteBoundingBox;
       figma.ui.postMessage({ 갈래: '진행', 지금: k + 1, 전부: 대상.length });
       var 배율 = Math.min(1, 4096 / Math.max(1, Math.max(bb.width, bb.height)));   // 검수기와 같은 배율(원본 해상도)
@@ -384,4 +390,4 @@ figma.ui.onmessage = async function (msg) {
       화면들: 보낼것
     }
   });
-};
+}
