@@ -4,7 +4,7 @@
 // 2026-09-10 덧붙임: 고른 프레임에 이미 검수 화면이 있으면 단추가 '검수 시안 바꾸기'가 된다.
 // 그때는 촬영 준비를 거치지 않고 검수 포털(내 PC, 8765)로 그림·요소·설정을 바로 보낸다. Figma 토큰이 필요 없다.
 
-figma.showUI(__html__, { width: 340, height: 520 });
+figma.showUI(__html__, { width: 360, height: 600 });
 
 function 펼치기(노드들) {
   // 섹션을 골랐으면 그 안의 화면까지 펼친다.
@@ -360,6 +360,8 @@ async function 받은말(msg) {
   if (msg.갈래 !== '보내기') return;
   // 시안을 갈아끼운 화면도 빼지 않는다 — 시안이 바뀌었으면 개발 화면도 다시 찍어야 한다.
   var 고른것 = 줄세우기(펼치기(figma.currentPage.selection.slice()));
+  // 창에서 체크를 푼 것(쪽지·표시용 묶음)은 뺀다. 창이 목록을 안 주면 예전처럼 전부.
+  if (msg.보낼id) 고른것 = 고른것.filter(function (n) { return msg.보낼id.indexOf(n.id) >= 0; });
   if (!고른것.length) {
     figma.ui.postMessage({ 갈래: '알림', 글: '먼저 캔버스에서 화면을 골라 주세요.' });
     return;
@@ -387,6 +389,7 @@ async function 받은말(msg) {
       페이지이름: figma.currentPage.name,
       플랫폼: msg.플랫폼 || 'android',        // 앱이면 android, PC 웹이면 web
       찍을폭: msg.찍을폭 || 0,                // 웹은 시안 폭 그대로 찍는다
+      과제: msg.과제 || null,                 // 창에서 고른 프로젝트 — 촬영기가 이 프로젝트로 넘어간다
       화면들: 보낼것
     }
   });

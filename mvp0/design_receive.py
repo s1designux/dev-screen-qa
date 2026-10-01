@@ -234,6 +234,18 @@ def _json(handler, obj, code=200):
     handler.wfile.write(data)
 
 
+def projects(handler, db_path):
+    """GET /api/projects — 플러그인 창의 프로젝트 고르개. 읽기만 한다."""
+    import db as dbmod
+    conn = dbmod.connect(db_path)
+    try:
+        줄 = [{'uuid': r['uuid'], 'name': r['name'], 'code': r['service_code'] or ''}
+             for r in conn.execute('SELECT uuid, name, service_code FROM project ORDER BY name')]
+    finally:
+        conn.close()
+    _json(handler, {'projects': 줄})
+
+
 def options(handler, path):
     if not path.startswith('/api/'):
         return False

@@ -1069,6 +1069,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if auth.문(self, "GET"):      # 로그인 문지기 — 로그인·계정 화면은 여기서 끝난다
             return
+        if path == "/api/projects":
+            design_receive.projects(self, REAL_DB)
+            return
         if path == "/__rev":
             data = BOOT_ID.encode()
             self.send_response(200)
@@ -1475,6 +1478,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 종류)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache")   # 부품 CSS·JS 도 늘 새 판을 확인한다
+        # 플러그인 창(origin null)이 부품 JS 를 모듈로 받아 가려면 허락이 있어야 한다. 받아 둔 정본 파일뿐이다.
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
 
