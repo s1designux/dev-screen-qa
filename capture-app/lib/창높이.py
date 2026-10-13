@@ -131,6 +131,11 @@ def 초안높이(줄):
 
 def 고르기(줄, tag=None):
     """실제로 창을 열 때 쓸 높이 — 이름표에 적힌 값 → 이름표 위쪽 값 → 기본 900."""
+    return 시안높이(줄, tag) or 기본높이
+
+
+def 시안높이(줄, tag=None):
+    """이름표에 시안에서 정한 창 높이가 있으면 그 값, 없으면 None."""
     for 곳 in (줄 or {}, tag or {}):
         값 = str(곳.get("창높이") or "").strip()
         if 값:
@@ -140,4 +145,4 @@ def 고르기(줄, tag=None):
                 continue
             if 가장낮은 <= 수 <= 가장높은:
                 return 수
-    return 기본높이
+    return None

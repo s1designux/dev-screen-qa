@@ -709,12 +709,12 @@ def card_html(k, numbers, page_id, rnd):
         ex = ''
     else:
         foot = ''
-        # 오른쪽 위 '제외' 단추 — 누르면 '제외' 칸으로, 다시 누르면 '수정필요'로 돌아온다
-        off = k['status'] != 'open'
-        ex = s1.칩('제외됨' if off else '제외', 크기='sm', 고름=off,
-                  onclick="event.stopPropagation();autoStatus('%s','%s')"
-                          % (k["id"], "open" if off else "excluded"),
-                  **{"class": "auto-ex"})
+        # 카드 머리 오른쪽에 '제외' · '가변' 두 단추 — 누르면 그 칸으로, 다시 누르면 '수정필요'로 돌아온다(river 2026-10-13).
+        고른것 = {'excluded': '제외', 'variable': '가변'}.get(k['status'])
+        def 고르기(글, 값):
+            js = "event.stopPropagation();autoStatus('%s','%s')" % (k["id"], 'open' if 고른것 == 글 else 값)
+            return s1.칩(글, 크기='sm', 고름=(고른것 == 글), onclick=js)
+        ex = '<span class="auto-ex">' + 고르기('제외', 'excluded') + 고르기('가변', 'variable') + '</span>'
     from_value = value_candidates.값후보인가(k)
     # 성질·출처는 줄을 따로 두지 않고 **제목 옆 작은 글씨**로 붙인다 — 칩 한 줄이 카드만 키웠다(river 2026-09-14).
     # 낱개 카드는 제목이 곧 성질이라(예: '색상이 다르게 적용됨') 출처만 적는다.
@@ -723,7 +723,7 @@ def card_html(k, numbers, page_id, rnd):
     meta = f'<span class="meta">· {_e(" · ".join(곁))}</span>' if 곁 else ''
     # 본문(무엇이 기준인지 · 지금 개발은 어떤지 · 개발이 볼 자리)은 card_view가 줄을 갈라 그린다.
     return (f'<div class="issue auto-card st-{k["status"]}{" registered" if k["issue_id"] else ""}" id="cand-{k["id"]}" data-cand="{k["id"]}" data-types="{_e(kind_lbl)}" onclick="autoFocus(\'{k["id"]}\')">'
-            f'{ex}<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}<b>{_e(card_view.제목(k))}</b>{meta}</div>'
+            f'<div class="ihead"><span class="pinno auto-no" style="background:{color}">{k["no"]}</span>{conf}{ex}<b>{_e(card_view.제목(k))}</b>{meta}</div>'
             f'{card_view.body_html(k, page_id, 이름빼기=True)}{foot}</div>')
 
 
@@ -763,7 +763,7 @@ CSS = '''
 .auto-sum{font-weight:var(--font-weight-bold)}.auto-hint{color:var(--color-text-caption)}
 .auto-group{margin-bottom:var(--spacing-10)}.auto-group summary{cursor:pointer;font-weight:var(--font-weight-bold);margin-bottom:var(--spacing-6)}
 .auto-card{position:relative}.auto-card .auto-no{border-radius:var(--radius-4)}
-.auto-card .auto-ex{position:absolute;top:10px;right:10px;margin:0}
+.auto-card .auto-ex{display:flex;gap:var(--spacing-6);margin-left:auto;flex-shrink:0}
 .auto-card.st-excluded,.auto-card.st-variable{opacity:.7}
 .auto-actions{display:flex;gap:var(--spacing-6);margin-top:var(--spacing-6);flex-wrap:wrap}
 

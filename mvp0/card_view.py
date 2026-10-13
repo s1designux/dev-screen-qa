@@ -352,7 +352,8 @@ def body_html(k, page_id=None, database=None, uploads=None, 이름빼기=False):
 
 CSS = '''
 /* 제목이 오른쪽 위 '제외' 단추 밑으로 숨지 않게 자리를 비워 둔다 */
-.auto-card .ihead{padding-right:var(--spacing-56)}
+.auto-card .ihead{row-gap:var(--spacing-6)}
+.auto-card .ihead .auto-ex+b{flex-basis:100%}
 .auto-card .ihead b{line-height:1.45;word-break:keep-all}
 .c-body{margin-top:var(--spacing-2);font-size:var(--font-size-12);color:var(--color-text-secondary)}
 .c-sub{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);font-weight:var(--font-weight-bold);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

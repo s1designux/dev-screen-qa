@@ -557,7 +557,10 @@ def 찍기(tag, 결과폴더, 이름짓기=None):
                     커서.치우기(쪽)      # 화살표는 사람 눈에만 — 값·사진에는 들어가지 않는다
                     값 = webvalue.긁기(쪽, 화면.get("이름", ""))
                     webvalue.쓰기(os.path.join(결과폴더, 값이름(이름)), 값)
-                    쪽.screenshot(path=os.path.join(결과폴더, 이름), full_page=True)
+                    # 시안에서 창 높이를 정했으면 **그 창만큼만** 찍는다 — 시안이 그리지 않은 아래쪽까지 찍으면
+                    # 검수할 것 없는 자리에서 후보가 줄줄이 올라온다(river 2026-10-13). 못 정했으면 예전처럼 끝까지.
+                    쪽.screenshot(path=os.path.join(결과폴더, 이름),
+                                 full_page=창높이.시안높이(화면, tag) is None)
                 except Exception as e:
                     까닭 = str(e).strip().splitlines()[0]
                     print(f"    ✗ 못 찍음: {까닭}", flush=True)

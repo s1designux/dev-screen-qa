@@ -198,6 +198,15 @@ def 짝맞추기(시안, 개발, 문턱=0.5):
         쓴개발[di] = 1
         짝.append({"fi": fi, "di": di, "s": round(s, 4)})
 
+    # 시안 판이 화면 첫머리만 그렸으면(판 높이 < 개발 길이) 판 바닥 아래의 개발 요소는 '디자인에 없는 요소'로 올리지 않는다.
+    # 시안이 보여 주지 않는 곳이라 헛되이 줄줄이 올라온다(우비스 홈 팝업 — 판 1080 · 개발 1730, river 2026-10-13).
+    # 짝을 다 지은 뒤 **못 이은 것만** 뺀다 — 미리 자르면 판 바닥에 붙여 그린 바닥글처럼 맞던 짝이 '빠짐'으로 깨진다.
+    # 개발 자리가 판 높이를 넘는 것만 뺀다. 웹 시안은 위에 가짜 브라우저 틀이 얹혀 개발이 판에서 더 아래에 앉으므로
+    # 밀림 없이 재도 판 밖은 확실히 판 밖이다. 판 바닥에 걸쳐 잘린 요소는 남긴다.
+    못이은개발 = [i for i in range(len(devEls)) if i not in 쓴개발]
+    if DH > FH + 1:
+        못이은개발 = [i for i in 못이은개발 if 화면상자[i]["y"] < FH]
+
     return {
         "fig": fig,
         "devEls": devEls,
@@ -205,5 +214,5 @@ def 짝맞추기(시안, 개발, 문턱=0.5):
         "자": ㅈ,
         "pairs": 짝,
         "unmatchedF": [i for i in range(len(fig)) if i not in 쓴시안],
-        "unmatchedD": [i for i in range(len(devEls)) if i not in 쓴개발],
+        "unmatchedD": 못이은개발,
     }
