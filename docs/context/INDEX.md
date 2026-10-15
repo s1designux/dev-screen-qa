@@ -1,0 +1,57 @@
+# 작업 맥락 목록
+
+이 프로젝트의 작업 맥락(결정·진행·주의점). 새 결정·진행은 여기에 파일로 추가하고 이 목록에 한 줄 추가한다.
+
+- [(지난 기록) dev-screen-qa 검증 결과](dev-screen-qa-validation.md) — 새 검수 방식(피그마 라이브 읽기) 증명 완료, 피그마 정답 파일 위치, 세로위치 밀림=원인 밑으로 묶기
+- [보고용 데모 포털](demo-report-portal.md) — 실제본과 분리된 데모 서버(MVP0_DB/8766·DEMO배너)·퍼블리싱 크롬캡처·피그마 프레임 다운로드 파이프라인
+- [이미지 검수 오탐 재현 세트](image-qa-repro-findid.md) — 아이디찾기 화면 Figma 프레임 id·개발 캡처 위치·헤드리스 재현법·확인된 원인 5가지(해상도만 올리면 악화)
+- [(지난 기록) 이미지 검수 검수 범위(크롬 틀) 조각](image-qa-range-chrome.md) — 크롬 탭 캡처 오탐 원인·합성 재현 세트·자동 자르기 규칙·남은 헤더 3건은 별건
+- [이미지 검수 가변 글자 판별 조각](image-qa-variable-text.md) — 4층 규칙·공통화면 목록·표 재현 세트·같은 글꼴 작은 글자 바꿔치기 못 잡는 엔진 한계
+- [로컬 AI 걸러내기 실험](local-vlm-triage.md) — Qwen2.5-VL 7B triage. v2.1(AI는 읽기만·색은 코드·가변태그 반영)로 25/25. 재현성 100%(2회 동일), 룰 엔진은 체류시간 화면에서 정렬 실패
+- [로컬 AI 위치 확정](local-ai-decision.md) — 사용자 기능 아님·규칙 발굴 도구, 역할 분담 4주체, 21/25→25/25·93→12
+- [다음 조각: 검수 정책 규칙화](image-qa-policy-rules.md) — 정렬 다음 병목, 기본 규칙 4줄, 93건이 몇 건으로 주는지로 검증
+- [Maestro 앱 캡처 세팅 플랜](maestro-capture-plan.md) — 캡처 전용 5단계, 설치 묶음 배포 결정, 서버값 예외, AI 탐색 미사용, 플랜 URL · 조각A 완료(촬영기 실기기 6장)·인수인계 HANDOFF.md
+- [촬영 준비 사이트 규칙](capture-site-rules.md) — 네 걸음 흐름·Figma 플러그인으로 드래그 선택·동작 자동 초안·검수 접수, 규칙.md 한 장
+- [로그인·스플래시 촬영 기준](capture-login-splash-rules.md) — 모든 서비스 공통 7줄, 규칙.md 7-1장, 스플래시는 0.5초 연사 후 자동 고르기
+- [포털 자동 검수 1차](portal-auto-inspect.md) — 페이지 열면 후보 표출·엔진 한 벌 공유·후보≠지적·parity 도구·실제 Figma REST 미확인
+- [앱이 작업을 stash로 치운 일](worktree-stash-incident.md) — epitaxy pre-switch·다른 세션이 같은 폴더 편집·pop 말고 show/apply로 복구
+- [앱 촬영본 기본 규칙 + 검수 범위 조정](app-capture-rules.md) — 상태바·키보드·하단바 이미지로 먼저 제외, 정렬 윤곽 점수 검증, auto_range·repair(), 다른 세션이 안내 목록 뺌
+- [포털은 한 곳만](portal-single-instance.md) — 실제본은 ~/dev-screen-qa 8765, 빈 사본 클론(8799)은 2026-09-10 폐기·폴더명에 -사용안함
+- [검수 규칙 4계층](policy-layers.md) — 알고리즘은 검수기·값은 포털 DB, 사람 판정이 곧 요소 층 규칙, 다음은 규칙 발굴 엔진+검증 숫자 제안
+- [판정↔규칙 잇기](rule-verdict-log.md) — 후보 규칙 이름표·agree/overturn 기록·규칙 성적표, 회귀는 HEAD 엔진으로 다시 재기
+- [검수는 포털에서만](portal-only-inspection.md) — 피그마 검수기 폐기·엔진은 engine/ui.html·시안 통로 플러그인은 유지
+- [PC 웹은 값 대조](pcweb-value-track.md) — 웹=값·앱/PC S/W=그림, 유형은 사람이 고름, feat/windows-capture 워크트리, 망 분리·USB 차단 사실
+- [값 대조의 1순위는 토큰·컴포넌트 규정](value-qa-token-compliance.md) — 시안 1:1 대조 위에 규정 준수·패턴 일관성 두 층을 더 본다
+- [조각 ② 토큰·컴포넌트 규정 대조](value-qa-token-rules.md) — 2026-09-14 완료·main 커밋됨(a40a77e)·정본 그때그때 받기·컴포넌트는 시안 인스턴스 정체로·허용차 없음·첫 실전은 실제 개발 웹 화면(주소 미정)
+- [규정 대조는 정확히 같아야](feedback-rules-exact.md) — 1~2 차이도 위반, 허용차 옵션 없음 (river 확정 2026-09-14)
+- [작업 폴더는 한 곳](worktrees-unified.md) — 2026-09-14 통합. 예외: -디자인가이드, -일꾼체계(river 지시). 본 폴더는 항상 main
+- [촬영기 매체 유형표](capture-medium-table.md) — 유형별 차이를 값으로 모으고 겪은일을 쌓는다(단발 수정 금지), 웹은 탭칸끝·빗금 유지·한 글자씩
+- [촬영 앞 시안 점검](design-precheck-before-capture.md) — 디자인 오류는 페이지 상세가 아니라 촬영 접수 직전에 잡는다, 시안만으로 보는 셋
+- [동료 배포 방식](colleague-rollout.md) — 촬영기+깃허브 링크+사내 클로드 설치, pip 막힘 대비 두 갈래, 값 대조 끝낸 뒤 착수
+- [촬영 전 시험 계정 확인](capture-account-check.md) — 찍기 전에 한 번 로그인해 보고 틀리면 안 찍고 멈춤, 창 보이게 촬영
+- [수정요청서 규칙](fixdoc-rules.md) — 고치는 문서, 공통 먼저·낱개 나중, 같은 것 두 번 말하지 않기, CSS 덩어리 없음, 종이는 가로 A4·표 안 잘리게
+- [포털에서 수정요청서 받기](portal-fixdoc-download.md) — 보내기+포털 열기 한 단추, 접수 때 개발 값도 함께, 카드 숫자=문서 숫자
+- [포털에 값 대조 후보](portal-value-candidates.md) — 값 대조가 페이지 상세 후보로, source로 그림 검수와 분리, 제외하면 문서에서도 빠짐
+- [후보 카드 본문 규칙](card-body-rules.md) — 무엇이·지금 개발·디자인 기준 세 칸, 개발이 볼 자리, 토큰/컴포넌트 이름 우선
+- [로고는 그림 한 덩어리](logo-as-one-picture.md) — 로고 안 글자는 글자로 안 봄, 크기는 로고에서만 재기(아이콘까지 재면 +35건)
+- [디자인가이드로 화면 만들기(s1-design)](s1-design-skill.md) — 모든 폴더 공용 한 벌, 값은 안 베끼고 쓸 때마다 받아 읽기, 토큰점검으로 0 만들기
+- [시안 작성 가이드](design-authoring-guide.md) — 사례를 쌓는 문서·로그인/체류시간관리 둘로 시작, 새 시안마다 갱신
+- [찍을 목록 동작 자동 채움](capture-action-autofill.md) — 이름 맞추기·시안 두 장 견주기·그림 위에서 고르기·자료 조건 표시, 전체 요소 목록 재사용(느려지지 않음), 브랜치 feat/capture-action-picker
+- [세로로 긴 화면은 덩어리마다 맞추기](band-alignment.md) — 시안 길이 통일은 답 아님, 흔들지 않는 세 조건, 볼 것 461→457
+- [검수기 회귀 재는 법](qa-regression-harness.md) — 잰다.sh 화면 15개, 실패한 화면은 그때마다 더한다, 포털 자료는 native 배열로
+- [정렬이 통째로 밀리는 자리](align-vertical-rescue.md) — 기준이 같은 줄에만 있으면 함께 틀린다, 마지막에 세로만 다시 찾기, 자신감 점수는 못 잡음(0.78)·알림은 다시잡음+얇음×겹침으로
+- [규칙 문서 맞추기 도구](rule-doc-sync-tool.md) — 코드가 원본·문서는 사본, 규칙뽑기.py로 어긋난 곳만 짚고 문서는 사람이 확정
+- [간격용 껍데기 프레임 걸러내기](invisible-spacer-frames.md) — 값이 아니라 시안 그림의 네 변으로 판정, 목록에서 빼지 말고 이름표만
+- [화면 글쓰기 규칙](ui-writing-rules.md) — 한 가지는 한 번만·두 줄까지·문서체 금지·'지적'→'수정필요', 점검은 글점검.py
+- [동작 적기 돕기](action-writing-help.md) — 적는 칸은 값만 묻고, 틀리면 고친 문장을 내민다(자동 아님)
+- [검수 일꾼 체계](worker-structure-plan.md) — 2026-09-16 구축 완료(세 자리·시험지/·규칙장부/·문지기), 출발점 볼 것 414, 규칙한바퀴 스킬, 가지 feat/worker-structure
+- [포털 기다림과 검수기 속도](portal-prewarm-and-engine-speed.md) — 느린 건 접수가 아니라 페이지 열 때 도는 검수기, 속도 조각 3곳·미리 검수, 엔진이 바뀌면 전부 다시 돈다
+- [검수기는 합쳐야 포털에 닿는다](engine-branch-must-merge.md) — 가지에서 규칙 넣고 main 에 안 합치면 실제 검수엔 반영 0, 합친 판은 새 조합이라 다시 잰다
+- [촬영 높이를 시안에 맞춘다](capture-height-mismatch.md) — 창높이.py 로 구현 완료, 위·아래가 한 번에 맞음, 남은 40px 은 시안·개발의 진짜 차이
+- [버전 3 — 과제를 먼저 만든다](portal-v3-project-first.md) — 포털에서 과제 만들고 그 안에서 촬영·검수, 차수는 새로 돌되 1차와 견주기, 옛 판은 legacy/v2 에 살아 있음
+- [포털 메뉴 줄과 S-1 부품](portal-gnb-and-s1-parts.md) — GNB 가운데 정렬·첫 화면 헤더 없음, 아이콘·GNB 낱장 CSS·Select JS 세 함정, 고친 뒤 포털 다시 켜기
+- [지적이 비워졌다 — 새로 시작](issues-wiped-fresh-start.md) — 2026-09-22 과제 정리로 지적 18·이력 22 사라짐, river 확정으로 복구 안 함, 옛 자료는 백업과 옛 판 사본에
+- [깃허브에 올리는 계정](github-push-account.md) — s1designux 라야 올라감, 내장 터미널은 타이핑 막힘, gh auth login 은 </dev/null 로 되묻기 건너뛰고 코드만 건네기
+- [포털 로그인·계정 관리](portal-login-accounts.md) — 관리자가 계정 발급·가입 신청 없음, 담당자 칸 대신 로그인한 사람이 이력에 남는다, /api는 문 밖
+- [포털 정보 위계와 과제 안 메뉴](portal-project-workspace.md) — 서비스→프로젝트→기능→묶음, 뒤로가기 안 둠, 정본 부품 함정 셋(hidden·쪽지 자리·sm 없음)
+- [모든 화면을 정본 부품으로](canon-parts-everywhere.md) — 뼈대는 mvp0/s1.py 한 곳·동작도 정본 JS·점검은 부품점검.py, 정본 밖 160→0

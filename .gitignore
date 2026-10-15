@@ -115,3 +115,4 @@ validation-image-qa/repro/dev_home*.png
 
 # 옛 판(V2) 돌아가는 사본 — 코드는 깃 이력에 이미 있고, 여기는 자료까지 통째로 복사한 실물이다
 legacy/v2/
+docs/context/private.local.md
