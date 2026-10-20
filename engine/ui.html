@@ -1814,13 +1814,41 @@ function addTopGapCandidate(cands,pairId,anchored,trim,minPx){
   return numberCandidates(cands,pairId);
 }
 function shiftCandidatesDown(cands,dy){if(!dy)return cands;cands.forEach(function(c){c.rawBox.y+=dy;(c.rawAnchorBoxes||[]).forEach(function(b){b.y+=dy;});});return cands;}
+function patchBackground(data,W,H,x0,y0,x1,y1){
+  // 패치 가장자리 한 바퀴에서 가장 흔한 색(8단계로 묶어 센 뒤 그 무리의 평균) = 바탕색.
+  // 패치 평균은 글자가 많을수록 어두워져 잉크를 고르는 잣대가 시안·개발에서 따로 움직인다(P29) — 바탕은 글자 양과 무관하다.
+  var bins={},best=null;
+  function add(x,y){var i=(y*W+x)*4,r=data[i],g=data[i+1],b=data[i+2],k=(r>>3)+","+(g>>3)+","+(b>>3),e=bins[k];
+    if(!e)e=bins[k]={n:0,r:0,g:0,b:0};e.n++;e.r+=r;e.g+=g;e.b+=b;if(!best||e.n>best.n)best=e;}
+  for(var x=x0;x<x1;x++){add(x,y0);if(y1-1>y0)add(x,y1-1);}
+  for(var y=y0+1;y<y1-1;y++){add(x0,y);if(x1-1>x0)add(x1-1,y);}
+  return best?[best.r/best.n,best.g/best.n,best.b/best.n]:averageCell(data,W,H,x0,y0,x1,y1);
+}
 function inkAverage(data,W,H,box,dx,dy){
-  // 패치 평균색과 60 이상 다른 픽셀(잉크)의 평균색. 굵기·안티앨리어싱이 달라도 색만 비교하려는 용도.
+  // 바탕색과 60 이상 다른 픽셀(잉크)을 진한 차례로 모은다. 굵기·안티앨리어싱이 달라도 색만 비교하려는 용도.
+  // 잣대는 시안·개발 모두 '그 패치의 바탕색'이다(P29 · river 2026-10-20 '같은 방법으로 재기').
+  // 예전엔 패치 평균에서 60을 쟀다 — 평균이 220 언저리면 흰 바탕이 한쪽에서만 잉크로 세어져 서로 다른 무리를 견줬다.
   var x0=Math.max(0,Math.floor(box.x+dx)),y0=Math.max(0,Math.floor(box.y+dy)),x1=Math.min(W,Math.ceil(box.x+box.w+dx)),y1=Math.min(H,Math.ceil(box.y+box.h+dy));
-  if(x1<=x0||y1<=y0)return null;var avg=averageCell(data,W,H,x0,y0,x1,y1),ink=[];
-  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var i=(y*W+x)*4,c=[data[i],data[i+1],data[i+2]],d=colorDistance(c,avg);if(d>60)ink.push({c:c,d:d});}
-  if(ink.length<30)return null;ink.sort(function(a,b){return b.d-a.d;});var core=ink.slice(0,Math.max(8,Math.round(ink.length*.15))),r=0,g=0,b=0;
-  core.forEach(function(k){r+=k.c[0];g+=k.c[1];b+=k.c[2];});return{color:[r/core.length,g/core.length,b/core.length],n:ink.length};
+  if(x1<=x0||y1<=y0)return null;var bg=patchBackground(data,W,H,x0,y0,x1,y1),ink=[];
+  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var i=(y*W+x)*4,c=[data[i],data[i+1],data[i+2]],d=colorDistance(c,bg);if(d>60)ink.push({c:c,d:d});}
+  if(ink.length<30)return null;ink.sort(function(a,b){return b.d-a.d;});
+  return{ink:ink,n:ink.length,bg:bg};                                  // 잉크색은 inkPair 가 시안·개발 같은 몫으로 정한다
+}
+function inkCore(k,m){
+  // 잉크색 = 가장 진한 m개를 고른 뒤, 채널(빨·초·파)마다 바탕에서 그 쪽으로 가장 멀리 간 m개의 평균.
+  // 화면 글꼴 다듬기(서브픽셀)는 채널마다 따로 번져 한 화소 단위로 고르면 색 띠가 섞인다 — 채널마다 끝값을 보면 글자 본래 색에 닿는다(P29).
+  m=Math.max(1,Math.min(m,k.ink.length));var core=k.ink.slice(0,m),mean=[0,0,0],out=[0,0,0];
+  core.forEach(function(q){mean[0]+=q.c[0];mean[1]+=q.c[1];mean[2]+=q.c[2];});
+  for(var ch=0;ch<3;ch++){
+    var sg=mean[ch]/m>=k.bg[ch]?1:-1,vals=k.ink.map(function(q){return q.c[ch];});
+    vals.sort(function(x,y){return (y-x)*sg;});var sum=0;for(var i=0;i<m;i++)sum+=vals[i];out[ch]=sum/m;
+  }
+  k.color=out;k.core=m;return k;
+}
+function inkPair(dInk,cInk){
+  // 시안·개발의 잉크색을 같은 몫으로 잰다 — 양쪽 모두 '적은 쪽 잉크 수의 15%'만큼만 본다(P29).
+  // 한쪽만 번짐이 넓어 잉크 수가 많으면 그쪽 15%에 흐린 가장자리가 섞여, 같은 색인데도 다르게 재지던 것을 막는다.
+  if(!dInk||!cInk)return;var m=Math.max(8,Math.round(Math.min(dInk.n,cInk.n)*.15));inkCore(dInk,m);inkCore(cInk,m);
 }
 function interiorAverage(data,W,H,box,dx,dy,inset){var x0=Math.max(0,Math.floor(box.x+dx+inset)),y0=Math.max(0,Math.floor(box.y+dy+inset)),x1=Math.min(W,Math.ceil(box.x+box.w+dx-inset)),y1=Math.min(H,Math.ceil(box.y+box.h+dy-inset));return x1-x0>=4&&y1-y0>=4?averageCell(data,W,H,x0,y0,x1,y1):null;}
 function blurLum(data,W,H,x,y){var r=0,n=0;for(var yy=-1;yy<=1;yy++)for(var xx=-1;xx<=1;xx++){var px=x+xx,py=y+yy;if(px<0||py<0||px>=W||py>=H)continue;var i=(py*W+px)*4;r+=data[i]*.299+data[i+1]*.587+data[i+2]*.114;n++;}return r/n;}
@@ -2091,7 +2119,7 @@ function inkWidthCheck(res,ctx){
 }
 function textCandidateFor(res,ctx){
   var u=res.u,pb=res.pb,r=res.best,W=ctx.W,H=ctx.H,menuName=!!(ctx.menuLabel&&ctx.menuLabel[u.el.id]);
-  var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";
+  var dInk=inkAverage(ctx.dd.data,W,H,pb,0,0),cInk=inkAverage(ctx.cd.data,W,H,pb,r.dx,r.dy),designText=u.el.text||(u.el.values&&u.el.values.text)||"";inkPair(dInk,cInk);
   res.inkColorDiff=dInk&&cInk?colorDistance(dInk.color,cInk.color):0;res.heightRatio=null; // 가변 글자 판정 때 내용과 무관하게 남길 색·높이 차이
   var small=u.el.box.h<12,seg=textSegmentCheck(ctx,pb,r.dx,r.dy),same;res.segInfo=seg;
   if(seg){
