@@ -55,3 +55,4 @@
 - [포털 로그인·계정 관리](portal-login-accounts.md) — 관리자가 계정 발급·가입 신청 없음, 담당자 칸 대신 로그인한 사람이 이력에 남는다, /api는 문 밖
 - [포털 정보 위계와 과제 안 메뉴](portal-project-workspace.md) — 서비스→프로젝트→기능→묶음, 뒤로가기 안 둠, 정본 부품 함정 셋(hidden·쪽지 자리·sm 없음)
 - [모든 화면을 정본 부품으로](canon-parts-everywhere.md) — 뼈대는 mvp0/s1.py 한 곳·동작도 정본 JS·점검은 부품점검.py, 정본 밖 160→0
+- [깃허브 페이지 끔](github-pages-off.md) — 저장소는 공개, 옛 포털 미리보기 페이지는 레거시라 2026-10-30 끔
