@@ -1034,7 +1034,7 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
   {gnb_bar.바("project")}
   <header>
     <div class="head-left">
-      {s1.단추링크('그룹목록 보기', _esc(parent_href), **{"class": "back"})}
+      <a class="gback" href="{_esc(parent_href)}" aria-label="그룹 목록으로" title="그룹 목록으로"><span class="ic-back" aria-hidden="true"></span></a>
       <h1>{_esc(page['name'])}</h1>
       <span class="meta">{_esc(s['name'])} · <span class="key">{_esc(page.get("human_key") or "ID 미정")}</span></span>
     </div>
@@ -1606,7 +1606,14 @@ _PAGE_CSS = """
   /* 헤더 세 칸: 왼쪽 제목 · 가운데 이전·다음 · 오른쪽 차수 */
   header { background:var(--color-surface-default); border-bottom:1px solid var(--color-border-subtle); padding:var(--spacing-12) var(--spacing-24); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:var(--spacing-14); flex-shrink:0; }
   .head-left { display:flex; align-items:center; gap:var(--spacing-14); min-width:0; }
-  .head-left .back { white-space:nowrap; flex-shrink:0; }
+  /* 제목 왼쪽 ← — 정본 아이콘(mobile-header-back). 묶음 화면 제목 왼쪽 ← 와 같은 모양이다(project_view .gback) */
+  .gback { flex:none; display:inline-flex; align-items:center; justify-content:center;
+    width:var(--sizing-34); height:var(--sizing-34); margin-left:calc(-1 * var(--spacing-8));
+    border-radius:var(--radius-6); color:var(--color-text-title-primary); }
+  .gback:hover { background:var(--color-bg-level-2); }
+  .gback .ic-back { width:var(--sizing-20); height:var(--sizing-20); background:currentColor;
+    -webkit-mask:url('/assets/icons/mobile-header-back.svg') center / contain no-repeat;
+    mask:url('/assets/icons/mobile-header-back.svg') center / contain no-repeat; }
   .head-left h1 { flex-shrink:0; }
   .head-left h1, .head-left .meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .page-navigation {justify-self:center;display:flex;align-items:center;gap:var(--spacing-10);font-size:var(--font-size-12);color:var(--color-text-caption);white-space:nowrap;}
