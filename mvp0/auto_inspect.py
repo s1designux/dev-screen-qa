@@ -213,10 +213,15 @@ def engine_html():
 
 
 _ENGINE_REV = {}
+_PICTURE_REV = ''     # PICTURE_JS 가 정해진 뒤 채운다
 
 
-def engine_rev():
-    """지금 검수 규칙(엔진 파일)의 지문. 파일이 바뀌면 값이 달라진다."""
+def engine_rev(design=None):
+    """지금 검수 규칙(엔진 파일)의 지문. 파일이 바뀌면 값이 달라진다.
+    그림으로 넣은 시안(design_receive.PASTED)은 그림끼리 견주기 규칙의 지문을 덧붙인다 —
+    그 규칙을 고치면 그 페이지들만 다시 돈다(부품 검수 페이지는 그대로)."""
+    if design is not None and design['provider'] == design_receive.PASTED:
+        return engine_rev() + ':p' + _PICTURE_REV
     try:
         stamp = PLUGIN_UI.stat().st_mtime_ns
     except OSError:
@@ -236,6 +241,131 @@ def engine_rev():
 # 검수 규칙(엔진 파일)은 건드리지 않는다. 포털 손잡이에만 둔다.
 PICTURE_NOTE = '시안을 그림으로 넣어 그림끼리 견줬습니다. 피그마 플러그인으로 보내면 글자·색·크기를 나눠 봅니다.'
 PICTURE_JS = r"""
+
+// 글자 줄을 원래 크기로 한 줄씩 견준다. 돌려주는 것: [{seg:{x0,x1,y0,y1}(시안 px, 본 자리), cand:{...}|null}]
+function __portalTextLines(D,C,W,H,Ch,cell,gw,gh,dg,best,cTop,cBot){
+  function gray(img,w,h){var c=canvasFor(w,h),g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(img,0,0,w,h);
+    var d=g.getImageData(0,0,w,h).data,o=new Uint8Array(w*h);for(var i=0;i<w*h;i++)o[i]=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000;return o;}
+  var dG=gray(D,W,H),cG=gray(C,W,Ch),out=[];
+  // 줄 찾기: 칸 줄마다 그 줄에서 가장 흔한 색과 크게 다른 칸이 있으면 글자가 있는 줄
+  var rowInk=new Uint8Array(gh);
+  for(var r=0;r<gh;r++){var cnt={},m=-1,mn=0;for(var x=0;x<gw;x++){var i=(r*gw+x)*4,key=(dg[i]>>4)+","+(dg[i+1]>>4)+","+(dg[i+2]>>4);cnt[key]=(cnt[key]||0)+1;if(cnt[key]>mn){mn=cnt[key];m=i;}}
+    for(var x=0;x<gw;x++){var i=(r*gw+x)*4;if(Math.max(Math.abs(dg[i]-dg[m]),Math.abs(dg[i+1]-dg[m+1]),Math.abs(dg[i+2]-dg[m+2]))>40){rowInk[r]=1;break;}}}
+  var bands=[];for(var r=0;r<gh;r++){if(!rowInk[r])continue;var r0=r;while(r+1<gh&&rowInk[r+1])r++;if(r-r0+1>=2&&r-r0+1<=10)bands.push([r0,r]);}
+  function at(G,w,h,x,y){return(x<0||y<0||x>=w||y>=h)?-1:G[y*w+x];}
+  bands.forEach(function(bd){
+    var Y0=Math.max(0,bd[0]*cell-2),Y1=Math.min(H-1,(bd[1]+1)*cell+1),lh=Y1-Y0+1;
+    // 줄 안의 덩어리: 바탕과 다른 세로줄이 이어진 곳(줄 높이만큼 비면 끊는다)
+    var bgc={},bg=0,bn=0;for(var x=0;x<W;x++){var v=dG[Y0*W+x]>>3;bgc[v]=(bgc[v]||0)+1;if(bgc[v]>bn){bn=bgc[v];bg=dG[Y0*W+x];}}
+    var ink=new Uint8Array(W);for(var x=0;x<W;x++)for(var y=Y0;y<=Y1;y++)if(Math.abs(dG[y*W+x]-bg)>60){ink[x]=1;break;}
+    var runs=[],a=-1,gap=0;for(var x=0;x<=W;x++){if(x<W&&ink[x]){if(a<0)a=x;gap=0;b=x;}else if(a>=0&&(++gap>lh||x===W)){runs.push([a,b]);a=-1;gap=0;}}
+    runs.forEach(function(rn){var da=rn[0],db=rn[1];if(db-da<lh)return;
+      // 덩어리 둘레가 한 색이어야 글자 줄로 본다(그림·표 칸 안은 칸 비교에 맡긴다)
+      var same=0,all=0;for(var x=Math.max(0,da-4);x<=Math.min(W-1,db+4);x++){[Y0,Y1].forEach(function(y){all++;if(Math.abs(dG[y*W+x]-bg)<=12)same++;});}
+      if(same<all*0.9)return;
+      // 개발 쪽 같은 줄: 세로는 전체 자리(best) 언저리 ±칸 안에서 가장 닮은 곳
+      // 줄 높이 두 배까지 위아래로 찾는다 — 화면 전체 자리와 따로 놀며 옮겨진 글자를 '빠짐'으로 잘못 읽지 않게(검증 2026-10-30)
+      //    가로로 밀려도(가운데 맞춤) 흔들리지 않게 줄마다 잉크 양(가로 넓게)으로 견준다.
+      var oy0=-best*cell,bestDy=oy0,bsc=1e18,reach=Math.max(cell,lh*2);
+      var wl=Math.max(0,da-Math.round((db-da)*0.6)),wh=Math.min(W-1,db+Math.round((db-da)*0.6));
+      var pd=[];for(var y=Y0;y<=Y1;y++){var n=0;for(var x=wl;x<=wh;x++)if(Math.abs(dG[y*W+x]-bg)>60)n++;pd.push(n);}
+      var tot=pd.reduce(function(a,b){return a+b;},0)||1;
+      for(var dy=oy0-reach;dy<=oy0+reach;dy++){var sc=0;
+        for(var y=Y0;y<=Y1;y++){var yy=y+dy,n=0;if(yy<0||yy>=Ch){sc+=pd[y-Y0];continue;}var cb0=cG[yy*W+Math.max(0,wl-4)];
+          for(var x=wl;x<=wh;x++)if(Math.abs(cG[yy*W+x]-bg)>60)n++;sc+=Math.abs(n-pd[y-Y0]);}
+        sc=sc/tot+Math.abs(dy-oy0)*0.01;if(sc<bsc){bsc=sc;bestDy=dy;}}
+      var moved=Math.abs(bestDy-oy0)>cell+1;
+      if(Y0+bestDy<cTop||Y1+bestDy>=cBot)return;
+      var cbg=at(cG,W,Ch,Math.max(0,da-4),Y0+bestDy);if(cbg<0)return;
+      var lo=Math.max(0,da-Math.round((db-da)*0.6)),hi=Math.min(W-1,db+Math.round((db-da)*0.6));
+      var cink=new Uint8Array(W);for(var x=lo;x<=hi;x++)for(var y=Y0;y<=Y1;y++){var c=at(cG,W,Ch,x,y+bestDy);if(c>=0&&Math.abs(c-cbg)>60){cink[x]=1;break;}}
+      // 개발 덩어리: 시안 덩어리와 겹치는 잉크에서 시작해 줄 높이만큼 비기 전까지 넓힌다
+      var ca=-1,cb=-1;for(var x=da;x<=db;x++)if(cink[x]){if(ca<0)ca=x;cb=x;}
+      if(ca<0){out.push({seg:{x0:da,x1:db+1,y0:Y0,y1:Y1+1},cand:mk(da,db,Y0,Y1,null,null,"gone")});return;}
+      var g2=0;for(var x=cb+1;x<=hi;x++){if(cink[x]){cb=x;g2=0;}else if(++g2>lh)break;}
+      g2=0;for(var x=ca-1;x>=lo;x--){if(cink[x]){ca=x;g2=0;}else if(++g2>lh)break;}
+      // 한 세로줄이 다른가: 둘레 1px 안에서 가장 닮은 값과도 크게 다른 점이 둘 이상(양쪽으로 본다)
+      function colBad(xd,sx){var n=0;for(var y=Y0;y<=Y1;y++){var dv=dG[y*W+xd],m1=255,m2=255;
+          for(var oy=-1;oy<=1;oy++)for(var ox=-1;ox<=1;ox++){var c=at(cG,W,Ch,xd+sx+ox,y+bestDy+oy);if(c>=0)m1=Math.min(m1,Math.abs(dv-c));
+            var e=at(dG,W,H,xd+ox,y+oy);var cv=at(cG,W,Ch,xd+sx,y+bestDy);if(e>=0&&cv>=0)m2=Math.min(m2,Math.abs(e-cv));}
+          if(Math.max(m1,m2)>90&&++n>=2)return true;}return false;}
+      // 그리는 프로그램이 달라 글자 사이가 조금씩 벌어지면(한 줄에 몇 px) 그만큼은 따라간다 — 줄 높이만큼 지나야 1px 더 옮길 수 있다
+      function scan(from,to,step,s0){var s=s0,last=from;for(var x=from;step>0?x<=to:x>=to;x+=step){
+        if(!colBad(x,s))continue;
+        if(Math.abs(x-last)>=lh){var fix=null;[1,-1,2,-2].some(function(o){if(!colBad(x,s+o)&&!colBad(x+step,s+o)){fix=o;return true;}return false;});
+          if(fix!==null){s+=fix;last=x;continue;}}
+        var nx=x+step;if((step>0?nx<=to:nx>=to)&&colBad(nx,s))return x;}
+        return null;}
+      var sL=ca-da,sR=cb-db,p=scan(da,db,1,sL),q=scan(db,da,-1,sR);
+      var dlen=(cb-ca)-(db-da),dl0=db-da+1;
+      // 글자 높이(잉크가 있는 줄 수) — 높이가 다르면 빠짐·더해짐이 아니라 크기·굵기가 다른 것이다(검증 2026-10-30)
+      function inkH(G,w,h,x0,x1,oy,b0){var top=-1,bot=-1;for(var y=Y0-2;y<=Y1+2;y++){var yy=y+oy;if(yy<0||yy>=h)continue;
+        for(var x=x0;x<=x1;x+=1)if(Math.abs(G[yy*w+x]-b0)>60){if(top<0)top=y;bot=y;break;}}return top<0?0:bot-top+1;}
+      var hd=inkH(dG,W,H,da,db,0,bg),hc=inkH(cG,W,Ch,ca,cb,bestDy,cbg);
+      var small=Math.max(4,Math.round(dl0*0.03));
+      if(p==null&&q==null&&Math.abs(dlen)<small){out.push({seg:{x0:da,x1:db+1,y0:Y0,y1:Y1+1},cand:(moved||(Math.abs(sL)>2&&Math.abs(sR)>2&&sL*sR>0))?mk(da,db,Y0,Y1,{ca:ca,cb:cb,dy:bestDy,sL:sL,sR:sR,x0:da,x1:db,shiftY:moved?bestDy-oy0:0,shiftX:Math.round((sL+sR)/2)},dlen,"moved"):null});return;}
+      if(p==null)p=q;if(q==null)q=p;
+      // 길이가 같고 앞뒤가 같은 만큼 옮겨졌으면 낱말이 바뀐 것이 아니라 자리가 옮겨진 것이다(그리는 방식 차이로 조금 어긋날 뿐)
+      if(Math.abs(dlen)<small&&Math.abs(sL)>2&&Math.abs(sR)>2&&sL*sR>0){out.push({seg:{x0:Math.min(da,ca),x1:Math.max(db,cb)+1,y0:Y0,y1:Y1+1},
+        cand:mk(da,db,Y0,Y1,{ca:ca,cb:cb,dy:bestDy,sL:sL,sR:sR,x0:da,x1:db,shiftY:moved?bestDy-oy0:0,shiftX:Math.round((sL+sR)/2)},dlen,"moved")});return;}
+      var x0=Math.min(p,q),x1=Math.max(p,q);
+      out.push({seg:{x0:Math.min(da,ca),x1:Math.max(db,cb)+1,y0:Y0,y1:Y1+1},cand:mk(da,db,Y0,Y1,{ca:ca,cb:cb,dy:bestDy,sL:sL,sR:sR,x0:x0,x1:x1,hd:hd,hc:hc},dlen,"diff")});
+    });
+  });
+  function mk(da,db,Y0,Y1,m,dlen,how){
+    var dl=db-da+1,label,detail,vals,bx0,bx1,rx0,rx1,dy=m?m.dy:-best*cell;
+    var type="other";
+    if(how==="moved"){var dir=[];if(m.shiftY)dir.push(Math.abs(m.shiftY)+"px "+(m.shiftY>0?"아래":"위"));if(Math.abs(m.shiftX)>2)dir.push(Math.abs(m.shiftX)+"px "+(m.shiftX>0?"오른쪽":"왼쪽"));
+      label="글자 자리가 다른 곳";detail="글자는 같은데 시안보다 "+dir.join(" · ")+"에 있습니다.";vals=(m.shiftY?"세로 "+(m.shiftY>0?"+":"")+m.shiftY+"px ":"")+(Math.abs(m.shiftX)>2?"가로 "+(m.shiftX>0?"+":"")+m.shiftX+"px":"");bx0=da;bx1=db;rx0=m.ca;rx1=m.cb;}
+    else if(how==="gone"){label="글자가 보이지 않는 곳";detail="시안의 이 줄이 개발 화면의 같은 자리에서 보이지 않습니다. 빠졌거나, 가려졌거나, 다른 자리로 옮겨졌을 수 있습니다.";vals="줄 길이 "+dl+"px → 0px";bx0=da;bx1=db;rx0=da;rx1=db;}
+    else{var cl=m.cb-m.ca+1,whole=(m.x1-m.x0)>=dl*0.8;bx0=m.x0;bx1=m.x1;
+      rx0=Math.min(m.x0+m.sL,m.x1+m.sR);rx1=Math.max(m.x0+m.sL,m.x1+m.sR);
+      vals="줄 길이 "+dl+"px → "+cl+"px";
+      var sm=3;   // 어긋난 자리를 찾은 줄이라 3px 만 짧아도(마침표 하나) 빠짐으로 본다
+      var span=m.x1-m.x0+1,lhh=Y1-Y0+1;
+      if(m.hd&&m.hc&&Math.abs(m.hc-m.hd)>=Math.max(2,m.hd*0.08)){label="글자 크기가 다른 곳";detail="글자 높이가 시안 "+m.hd+"px → 개발 "+m.hc+"px 로 다릅니다. 글꼴 크기나 굵기가 다를 수 있습니다.";
+        vals="글자 높이 "+m.hd+"px → "+m.hc+"px · 줄 길이 "+dl+"px → "+cl+"px";bx0=da;bx1=db;rx0=m.ca;rx1=m.cb;}
+      else if(span>Math.abs(dlen)+lhh*3&&Math.abs(dlen)<Math.max(4,dl*0.015)){label="글자가 다른 곳";type="soft";
+        detail="줄 길이는 거의 같고 넓은 구간이 조금씩 다릅니다. 글자가 바뀌었거나, 같은 글자를 그리는 방식만 다를 수 있습니다.";}
+      // 빠짐·더해짐이라 말하려면 그 자리 말고는 앞뒤가 맞아야 한다(맞은 부분이 짧은 쪽 줄의 6할 이상) —
+      // 문장이 통째로 바뀌어 길이도 달라진 줄을 '빠짐'으로 말하지 않게(검증 2026-10-30)
+      else if(Math.abs(dlen)>=sm&&(m.x0-da)+(db-m.x1)<Math.min(dl,cl)*0.6){label="글자가 다른 곳";bx0=da;bx1=db;rx0=m.ca;rx1=m.cb;
+        detail="줄 길이도 다르고 글자도 대부분 다릅니다. 다른 문장으로 바뀌었을 수 있습니다.";}
+      else if(whole&&Math.abs(dlen)<dl*0.3){label="글자가 다른 곳";detail="줄 전체가 시안과 다릅니다. 다른 글자이거나 글꼴·굵기·크기가 다를 수 있습니다.";bx0=da;bx1=db;rx0=m.ca;rx1=m.cb;}
+      else if(dlen<=-sm){bx1=Math.max(bx1,bx0-dlen-1);  /* 빠진 자리는 적어도 줄어든 길이만큼 짚는다 */ label="글자가 빠진 곳";type="del";detail="시안의 짚은 글자(약 "+(bx1-bx0+1)+"px)가 개발 화면에 없어 줄이 "+(-dlen)+"px 짧습니다. 개발 화면에서는 그 자리가 당겨져 붙었습니다.";}
+      else if(dlen>=sm){label="글자가 더해진 곳";type="add";detail="개발 화면의 짚은 자리에 시안에 없는 글자가 있어 줄이 "+dlen+"px 깁니다.";}
+      else{label="글자가 다른 곳";detail="줄 길이는 같은데 짚은 자리의 글자가 시안과 다릅니다. 다른 낱말로 바뀌었을 수 있습니다.";}}
+    var bw=Math.max(8,bx1-bx0+1),rw=Math.max(8,rx1-rx0+1);
+    return{x0:Math.floor(bx0/cell),y0:Math.floor(Y0/cell),x1:Math.floor(bx1/cell),y1:Math.floor(Y1/cell),cnt:999,
+      meta:{type:type,hd:m&&m.hd||0,da:da,db:db,Y0:Y0,Y1:Y1,dl:dl,cl:m?m.cb-m.ca+1:0,ca:m?m.ca:da,cb:m?m.cb:db,bx0:m?m.x0:da,rx0:m?m.x0+m.sL:da,dy:dy},
+      ready:{status:"confirmed",kind:"text",label:label,detail:detail,confidence:80,policy:{source:"picture",variable:false,reason:""},
+        rawBox:{x:Math.round(rx0*C.width/W),y:Math.round((Y0+dy)*C.width/W),w:Math.round(rw*C.width/W),h:Math.round(Y1-Y0+1)*C.width/W},
+        designBox:{x:bx0,y:Y0,w:bw,h:Y1-Y0+1},designNodeIds:[],designValues:vals}};}
+  // 한 문단에서 이어진 줄들이 함께 달라졌으면 하나로 — 낱말이 빠지거나 더해지면 줄바꿈이 밀려 아래 줄까지 달라진다.
+  // 이어진 줄(왼쪽 끝이 같고 줄 높이 안으로 붙음) 가운데 **빠짐·더해짐이 하나라도 있을 때만** 묶는다 —
+  // 그리는 방식만 달라 흐릿하게 다른 줄끼리는 문단으로 묶지 않는다(검증 2026-10-30).
+  out.sort(function(a,b){return a.seg.y0-b.seg.y0;});
+  for(var i=0;i<out.length;i++){var A=out[i];if(!A.cand||!A.cand.meta)continue;
+    var grp=[i],last=A,a=A.cand.meta,lh=a.Y1-a.Y0+1;
+    for(var j=i+1;j<out.length;j++){var B=out[j];if(B.seg.y0-last.seg.y1>lh)break;
+      if(!B.cand||!B.cand.meta||Math.abs(B.cand.meta.da-a.da)>4)continue;grp.push(j);last=B;}
+    var lines=grp.map(function(g){return out[g].cand.meta;});
+    if(lines.length<2||!lines.some(function(z){return z.type==="del"||z.type==="add";}))continue;
+    var hs=lines.map(function(z){return z.hd;}).filter(Boolean),wmax=Math.max.apply(null,lines.map(function(z){return z.dl;}));
+    if(hs.length&&Math.max.apply(null,hs)>Math.min.apply(null,hs)*1.15+1)continue;
+    if(lines.slice(0,-1).some(function(z){return z.dl<wmax*0.85;}))continue;
+    var f=lines[0],l=lines[lines.length-1],c=A.cand;
+    var right=Math.max.apply(null,lines.map(function(z){return Math.max(z.db,z.cb);}));
+    c.x1=Math.floor(right/cell);c.y1=Math.floor(l.Y1/cell);
+    c.ready.label="글자 배치가 달라진 문단";
+    c.ready.detail="문단에서 글자가 빠지거나 더해져 줄바꿈이 달라졌습니다. 처음 달라진 자리부터 문단 끝까지 짚었습니다.";
+    c.ready.designValues="줄 길이 시안 "+lines.map(function(z){return z.dl;}).join("·")+" → 개발 "+lines.map(function(z){return z.cl;}).join("·")+" px";
+    c.ready.designBox={x:f.bx0,y:f.Y0,w:Math.max(8,right-f.bx0+1),h:l.Y1-f.Y0+1};
+    var kk=C.width/W;c.ready.rawBox={x:Math.round(Math.min(f.rx0,f.ca)*kk),y:Math.round((f.Y0+f.dy)*kk),w:Math.round((right-Math.min(f.rx0,f.ca)+1)*kk),h:Math.round((l.Y1-f.Y0+1)*kk)};
+    A.seg={x0:Math.min.apply(null,grp.map(function(g){return out[g].seg.x0;})),x1:Math.max.apply(null,grp.map(function(g){return out[g].seg.x1;})),y0:A.seg.y0,y1:out[grp[grp.length-1]].seg.y1};
+    for(var g=grp.length-1;g>0;g--)out.splice(grp[g],1);}
+  return out;
+}
 function __portalPicture(D,C,topTrim,bottomTrim){
   var W=D.width,H=D.height,k=C.width/W,Ch=Math.round(C.height/k);
   var cell=Math.max(4,Math.round(W/240)),gw=Math.ceil(W/cell),gh=Math.ceil(H/cell),gc=Math.max(1,Math.round(Ch/cell));
@@ -253,6 +383,14 @@ function __portalPicture(D,C,topTrim,bottomTrim){
   var lim=Math.round(gh*0.1),best=0,bs=1e9;
   for(var ty=-lim;ty<=lim;ty++){var sc=rowsScore(0,gh,ty,2)+Math.abs(ty)*0.05;if(sc<bs){bs=sc;best=ty;}}
   var shift=new Int32Array(gh).fill(best);
+  // 어느 자리에 얹어도 크게 다르면(어둡게 덮인 창·다른 상태의 화면) 자리를 믿을 수 없다 — 낱낱이 짚으면 틀린 말을 한다.
+  // 화면 전체를 한 곳으로 올리고 사람이 보게 한다. 보통 화면은 15 아래, 덮인 화면은 70 언저리(검증 2026-10-30).
+  if(bs>30){var kk=C.width/W;return{candidates:[{no:1,status:"confirmed",kind:"area",label:"화면 전체가 다른 곳",
+      detail:"시안과 개발 화면이 크게 달라 자리를 맞추지 못했습니다. 어둡게 덮인 창이 떠 있거나 다른 상태의 화면인지 확인합니다.",
+      confidence:90,policy:{source:"picture",variable:false,reason:""},rawBox:{x:0,y:0,w:C.width,h:C.height},
+      designBox:{x:0,y:0,w:W,h:H},designNodeIds:[],designValues:""}],notices:[],
+    alignment:{mode:"picture",s:kk,tx:0,ty:0,score:Math.round(bs*100)/100,fit:null,rescued:false,thin:true},
+    range:{captureTop:0,captureBottom:0,manual:false,manualBottom:false}};}
   // 한두 칸 어긋난 글자 가장자리는 차이로 보지 않는다 — 둘레 한 칸 안에서 가장 닮은 자리와 견준다.
   // 양쪽으로 다 본다: 시안 칸이 개발 둘레에 없거나(빠짐) 개발 칸이 시안 둘레에 없으면(더해짐) 다른 곳이다.
   // 한쪽만 보면 흰 바탕 위의 가는 아이콘이 둘레의 흰 칸과 닮아 묻힌다.
@@ -266,24 +404,87 @@ function __portalPicture(D,C,topTrim,bottomTrim){
   for(var dr=0;dr<gh;dr++){var r=dr-shift[dr];if(r<t0||r>=t1)continue;lo=Math.min(lo,dr);hi=Math.max(hi,dr);
     for(var x=0;x<gw;x++){var v=near(dr,x);if(v>T){mask[dr*gw+x]=1;val[dr*gw+x]=v;}}}
   // 이웃 두 칸 안의 다른 칸은 한 구역으로 묶는다
-  var seen=new Uint8Array(gw*gh),boxes=[],R=2;
-  for(var i=0;i<gw*gh;i++){if(!mask[i]||seen[i])continue;
-    var st=[i],x0=gw,y0=gh,x1=-1,y1=-1,cnt=0,tot=0;seen[i]=1;
-    while(st.length){var q=st.pop(),qx=q%gw,qy=(q-qx)/gw;cnt++;tot+=val[q];
-      if(qx<x0)x0=qx;if(qx>x1)x1=qx;if(qy<y0)y0=qy;if(qy>y1)y1=qy;
-      for(var yy=Math.max(0,qy-R);yy<=Math.min(gh-1,qy+R);yy++)for(var xx=Math.max(0,qx-R);xx<=Math.min(gw-1,qx+R);xx++){
-        var z=yy*gw+xx;if(mask[z]&&!seen[z]){seen[z]=1;st.push(z);}}}
-    if(cnt>=3)boxes.push({x0:x0,y0:y0,x1:x1,y1:y1,cnt:cnt,mean:tot/cnt});}
-  boxes.sort(function(a,b){return b.cnt-a.cnt;});boxes=boxes.slice(0,40);
+  function comps(m,R,minCnt){var seen=new Uint8Array(gw*gh),out=[];
+    for(var i=0;i<gw*gh;i++){if(!m[i]||seen[i])continue;
+      var st=[i],x0=gw,y0=gh,x1=-1,y1=-1,cnt=0,tot=0;seen[i]=1;
+      while(st.length){var q=st.pop(),qx=q%gw,qy=(q-qx)/gw;cnt++;tot+=val[q];
+        if(qx<x0)x0=qx;if(qx>x1)x1=qx;if(qy<y0)y0=qy;if(qy>y1)y1=qy;
+        for(var yy=Math.max(0,qy-R);yy<=Math.min(gh-1,qy+R);yy++)for(var xx=Math.max(0,qx-R);xx<=Math.min(gw-1,qx+R);xx++){
+          var z=yy*gw+xx;if(m[z]&&!seen[z]){seen[z]=1;st.push(z);}}}
+      if(cnt>=minCnt)out.push({x0:x0,y0:y0,x1:x1,y1:y1,cnt:cnt,mean:tot/cnt,parts:1});}
+    return out;}
+  var boxes=comps(mask,2,1);
+  // 줄 띠(rows y0..y1)에서 바탕색과 다른 칸(=글자 잉크)이 있는 세로줄. 바탕은 띠에서 가장 흔한 색이다.
+  function dRow(y){return y;}function cRow(y){var r=y-shift[y];return(r>=t0&&r<t1)?r:-1;}
+  function inkCols(g,rowOf,y0,y1){var cnt={},bg=-1,bn=0,out=new Uint8Array(gw);
+    for(var y=y0;y<=y1;y++){var r=rowOf(y);if(r<0)continue;for(var x=0;x<gw;x++){var i=(r*gw+x)*4,key=(g[i]>>4)+","+(g[i+1]>>4)+","+(g[i+2]>>4);cnt[key]=(cnt[key]||0)+1;if(cnt[key]>bn){bn=cnt[key];bg=i;}}}
+    if(bg<0)return null;
+    for(var x=0;x<gw;x++)for(var y=y0;y<=y1;y++){var r=rowOf(y);if(r<0)continue;var i=(r*gw+x)*4;
+      if(Math.max(Math.abs(g[i]-g[bg]),Math.abs(g[i+1]-g[bg+1]),Math.abs(g[i+2]-g[bg+2]))>40){out[x]=1;break;}}
+    return out;}
+  // ① 한 줄에서 나온 차이는 하나로 묶는다 — 글자 하나가 빠지면 뒤 글자가 당겨져 조각조각 다르게 보인다(river 2026-10-30).
+  //    세로로 반 넘게 겹치고, 둘 사이가 **시안에서 이어진 글자**(줄 높이보다 긴 빈칸이 없음)일 때만 같은 줄로 본다 —
+  //    라벨과 값처럼 떨어져 놓인 둘은 묶지 않는다(검증 2026-10-30).
+  function sameRun(A,B){var y0=Math.min(A.y0,B.y0),y1=Math.max(A.y1,B.y1),lh=y1-y0+1;if(lh>10)return false;
+    var ink=inkCols(dg,dRow,y0,y1);if(!ink)return false;var x0=Math.min(A.x1,B.x1),x1=Math.max(A.x0,B.x0),run=0;
+    for(var x=x0+1;x<x1;x++){if(ink[x])run=0;else if(++run>=Math.max(3,lh))return false;}return true;}
+  var merged=true;
+  while(merged){merged=false;
+    for(var i=0;i<boxes.length&&!merged;i++)for(var j=i+1;j<boxes.length&&!merged;j++){var A=boxes[i],B=boxes[j];
+      var ov=Math.min(A.y1,B.y1)-Math.max(A.y0,B.y0)+1,hh=Math.min(A.y1-A.y0,B.y1-B.y0)+1;
+      if(ov>=hh*0.5&&(Math.max(A.x0,B.x0)<=Math.min(A.x1,B.x1)+1||sameRun(A,B))){
+        boxes[i]={x0:Math.min(A.x0,B.x0),y0:Math.min(A.y0,B.y0),x1:Math.max(A.x1,B.x1),y1:Math.max(A.y1,B.y1),
+          cnt:A.cnt+B.cnt,mean:(A.mean*A.cnt+B.mean*B.cnt)/(A.cnt+B.cnt),parts:A.parts+B.parts};boxes.splice(j,1);merged=true;}}}
+  // 그 줄의 글자 덩어리가 시안과 개발에서 어디서 시작해 어디서 끝나는지(틈 6칸까지는 한 줄)
+  function inkEnd(g,rowOf,y0,y1,xs){var ink=inkCols(g,rowOf,y0,y1);if(!ink)return null;
+    var a=-1,b=-1;for(var x=xs[0];x<=xs[1];x++)if(ink[x]){if(a<0)a=x;b=x;}
+    if(a<0)return null;var gapN=0;for(var x=b+1;x<gw;x++){if(ink[x]){b=x;gapN=0;}else if(++gapN>6)break;}
+    gapN=0;for(var x=a-1;x>=0;x--){if(ink[x]){a=x;gapN=0;}else if(++gapN>6)break;}
+    return{a:a,b:b};}
+  // ② 넓게 한 색으로 칠한 면은 작은 색 차이도 본다 — 글자 테두리 흔들림을 거르는 문턱(28)으로는 버튼 색이 조금 바뀐 것을 놓친다.
+  //    둘레 여덟 칸이 모두 같은 색인 칸(양쪽 다)만 보고, 문턱은 6.
+  function flat(g,r,x,rows){var i=(r*gw+x)*4;for(var o=-1;o<=1;o++)for(var q=-1;q<=1;q++){var yy=r+o,xx=x+q;
+    if(yy<0||yy>=rows||xx<0||xx>=gw)return false;if(px(g,(yy*gw+xx)*4,g,i)>4)return false;}return true;}
+  // 면이 자리를 옮긴 것이면 색이 바뀐 것이 아니다 — 둘레(가로 2칸·세로 8칸) 안에 서로의 색이 있으면 뺀다(검증 2026-10-30)
+  function moved(dr,r,x){var di=(dr*gw+x)*4,ci=(r*gw+x)*4;
+    for(var o=-8;o<=8;o++)for(var q=-2;q<=2;q++){var xx=x+q;if(xx<0||xx>=gw)continue;
+      var yy=r+o;if(yy>=0&&yy<gc&&px(cg,(yy*gw+xx)*4,dg,di)<=4)return true;
+      var zz=dr+o;if(zz>=0&&zz<gh&&px(dg,(zz*gw+xx)*4,cg,ci)<=4)return true;}
+    return false;}
+  var fmask=new Uint8Array(gw*gh);
+  for(var dr=0;dr<gh;dr++){var r=cRow(dr);if(r<0)continue;
+    for(var x=0;x<gw;x++){var di=(dr*gw+x)*4,ci=(r*gw+x)*4;
+      if(mask[dr*gw+x]||!flat(dg,dr,x,gh)||!flat(cg,r,x,gc))continue;var v=px(dg,di,cg,ci);if(v>6&&!moved(dr,r,x)){fmask[dr*gw+x]=1;val[dr*gw+x]=v;}}}
+  function hex(g,i){return"#"+[g[i],g[i+1],g[i+2]].map(function(v){return("0"+v.toString(16)).slice(-2);}).join("").toUpperCase();}
+  var colors=comps(fmask,1,6).map(function(b){var cx=Math.round((b.x0+b.x1)/2),cy=Math.round((b.y0+b.y1)/2);
+    // 가운데 칸이 면 밖이면 면 안의 첫 칸으로
+    if(!fmask[cy*gw+cx]){outer:for(var y=b.y0;y<=b.y1;y++)for(var x=b.x0;x<=b.x1;x++)if(fmask[y*gw+x]){cx=x;cy=y;break outer;}}
+    b.kind="color";b.from=hex(dg,(cy*gw+cx)*4);b.to=hex(cg,(cRow(cy)*gw+cx)*4);
+    b.x0=Math.max(0,b.x0-1);b.y0=Math.max(0,b.y0-1);b.x1=Math.min(gw-1,b.x1+1);b.y1=Math.min(gh-1,b.y1+1);return b;});
+  boxes=boxes.filter(function(b){return b.cnt>=3||b.parts>1;});
+  // ③ 글자 줄은 원래 크기 그대로 한 줄씩 다시 본다(river 2026-10-30) — 칸으로 뭉개 보면 같은 너비로 바뀐 낱말,
+  //    마침표 하나, 줄 끝에서 빠진 낱말을 놓친다. 줄의 앞에서부터, 뒤에서부터 각각 맞춰 보며 처음 어긋나는 자리를 찾는다.
+  //    앞에서 어긋난 곳(p)~뒤에서 어긋난 곳(q)이 바뀐 자리다 — 왼쪽·가운데·오른쪽 맞춤 모두 같은 셈으로 짚힌다.
+  var texts=__portalTextLines(D,C,W,H,Ch,cell,gw,gh,dg,best,t0*cell,t1*cell);
+  if(texts.length){
+    boxes=boxes.filter(function(b){var X0=b.x0*cell,X1=(b.x1+1)*cell,Y0=b.y0*cell,Y1=(b.y1+1)*cell;
+      var area=(X1-X0)*(Y1-Y0),cov=0;
+      texts.forEach(function(t){if(!t.seg)return;var ix=Math.min(X1,t.seg.x1)-Math.max(X0,t.seg.x0),iy=Math.min(Y1,t.seg.y1)-Math.max(Y0,t.seg.y0);if(ix>0&&iy>0)cov+=ix*iy;});
+      return cov<area*0.5;});
+    texts.forEach(function(t){if(t.cand)boxes.push(t.cand);});}
+  boxes=boxes.concat(colors);
+  boxes.sort(function(a,b){return b.cnt-a.cnt;});var capped=boxes.length>40;boxes=boxes.slice(0,40);
   boxes.sort(function(a,b){return a.y0-b.y0||a.x0-b.x0;});
   var cands=boxes.map(function(b,n){
+    if(b.ready){var c=b.ready;c.no=n+1;return c;}
     var dx=b.x0*cell,dy=b.y0*cell,dw=Math.min(W,(b.x1+1)*cell)-dx,dh=Math.min(H,(b.y1+1)*cell)-dy;
-    return{no:n+1,status:"confirmed",kind:"area",label:"그림이 다른 곳",
-      detail:"시안과 개발 화면의 그림이 이 구역에서 다릅니다. 무엇이 다른지는 나란히 보기로 확인합니다.",
-      confidence:Math.min(99,Math.round(b.mean/2.55)),policy:{source:"picture",variable:false,reason:""},
+    var label="그림이 다른 곳",kind="area",detail="시안과 개발 화면의 그림이 이 구역에서 다릅니다. 무엇이 다른지는 나란히 보기로 확인합니다.",vals="";
+    if(b.kind==="color"){kind="shape";label="색상이 다르게 보이는 곳";detail="이 면의 색이 시안과 다릅니다.";vals="시안 "+b.from+" → 개발 "+b.to;}
+    return{no:n+1,status:"confirmed",kind:kind,label:label,detail:detail,
+      confidence:Math.min(99,Math.round(b.kind==="color"?60+b.mean*2:b.mean/2.55)),policy:{source:"picture",variable:false,reason:""},
       rawBox:{x:Math.round(dx*k),y:Math.round((dy-best*cell)*k),w:Math.round(dw*k),h:Math.round(dh*k)},
-      designBox:{x:dx,y:dy,w:dw,h:dh},designNodeIds:[],designValues:""};});
-  var notices=[];
+      designBox:{x:dx,y:dy,w:dw,h:dh},designNodeIds:[],designValues:vals};});
+  var notices=[];if(capped)notices.push("다른 곳이 많아 큰 것부터 40곳만 짚었습니다.");
   var gap=Math.round(((gh-1-hi)*cell));if(hi>=0&&gap>H*0.05)notices.push("개발 화면이 시안보다 짧아 시안 아래쪽 "+gap+"px는 견주지 않았습니다.");
   return{candidates:cands,notices:notices,
     alignment:{mode:"picture",s:k,tx:0,ty:Math.round(-best*cell*k),score:Math.round(bs*100)/100,fit:null,rescued:false,thin:false},
@@ -314,6 +515,7 @@ window.addEventListener("message",async function(e){var m=e.data;if(!m||m.type!=
 parent.postMessage({type:"portal-ready"},"*");
 '''
 HARNESS_JS = PICTURE_JS + HARNESS_JS
+_PICTURE_REV = hashlib.sha1(PICTURE_JS.encode('utf-8')).hexdigest()[:8]
 
 
 class Auto:
@@ -395,7 +597,7 @@ class Auto:
             c.execute('INSERT INTO auto_range VALUES (?,?,?,?,?,?,?)', (uid(), run_id, top, bottom, actor, now(), note))
             new_id = uid()
             c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id,capture_sig) VALUES(?,?,?,?,?,?,?,?)',
-                      (new_id, page_id, run_id, 'pending', engine_rev(), now(), design['id'], capture_sig(run)))
+                      (new_id, page_id, run_id, 'pending', engine_rev(design), now(), design['id'], capture_sig(run)))
             return new_id
 
     def ensure_run(self, page_id, run_id):
@@ -405,14 +607,14 @@ class Auto:
         (검수 범위를 바꿀 때와 같은 방식). 규칙을 고쳐 놓고 옛 결과를 계속 보여 주면
         고친 것이 화면에 반영되지 않는다.
         """
-        rev = engine_rev()
         with self.store.connect() as c:
             run = c.execute('SELECT * FROM inspection_run WHERE uuid=?', (run_id,)).fetchone()
             sig = capture_sig(run)
+            design = self.design_of_page(c, page_id)
+            rev = engine_rev(design)
             r = self.run_for(c, run_id, page_id)
             if r and (r['status'] != 'done' or not _stale(r, rev, sig)):
                 return r
-            design = self.design_of_page(c, page_id)
             if not design:
                 return r
             c.execute('INSERT INTO auto_run(id,page_id,run_id,status,engine,created_at,design_id,capture_sig) VALUES(?,?,?,?,?,?,?,?)',
@@ -423,7 +625,7 @@ class Auto:
         with self.store.connect() as c:
             r = self.run_for(c, run_id, page_id)
             if r and r['status'] == 'failed':
-                c.execute("UPDATE auto_run SET status='pending',error='',engine=? WHERE id=?", (engine_rev(), r['id']))
+                c.execute("UPDATE auto_run SET status='pending',error='',engine=? WHERE id=?", (engine_rev(self.design_of_page(c, page_id)), r['id']))
 
     def materials(self, page_id, run_id):
         """브라우저 엔진에 줄 재료(POST). 회차가 없으면 여기서 만든다. 실패하면 회차를 failed로 남기고 ValueError."""
@@ -506,18 +708,18 @@ class Auto:
         out = []
         try:
             with self.store.connect() as c:
-                rev = engine_rev()
                 pages = c.execute(
                     'SELECT uuid, seq, name FROM inspection_page WHERE screen_id=? AND removed_at IS NULL ORDER BY seq',
                     (screen_id,)).fetchall()
                 for p in pages:
                     run = c.execute('SELECT * FROM inspection_run WHERE page_id=? ORDER BY round DESC LIMIT 1',
                                     (p['uuid'],)).fetchone()
-                    if not run or not run['dev_img'] or not self.design_of_page(c, p['uuid']):
+                    design = self.design_of_page(c, p['uuid']) if run and run['dev_img'] else None
+                    if not design:
                         continue
                     r = self.run_for(c, run['uuid'], p['uuid'])
                     if r and (r['status'] == 'failed'
-                              or (r['status'] == 'done' and not _stale(r, rev, capture_sig(run)))):
+                              or (r['status'] == 'done' and not _stale(r, engine_rev(design), capture_sig(run)))):
                         continue
                     out.append({'page': p['uuid'], 'run': run['uuid'], 'seq': p['seq'], 'name': p['name'] or ''})
         except sqlite3.OperationalError:
@@ -634,7 +836,7 @@ class Auto:
                 rng = self.current_range(c, run['uuid'])
                 range_view = {'manual_top': rng['top'] if rng else None, 'manual_bottom': rng['bottom'] if rng else None,
                               'dev_img': run['dev_img'], 'w': run['dev_img_w'], 'h': run['dev_img_h']}
-                rev = engine_rev()
+                rev = engine_rev(design)
                 stale = bool(r) and r['status'] == 'done' and _stale(r, rev, capture_sig(run))
                 if not r or stale:
                     # 개발 화면을 바꿨거나 검수 규칙을 고쳤으면 옛 결과를 그대로 보여 주지 않는다. 페이지 JS가 새 회차를 돌려 저장한다.
