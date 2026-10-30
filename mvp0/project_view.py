@@ -191,7 +191,12 @@ def 페이지카드들(conn, screen):
     pages = queries.pages_of_screen(conn, screen["uuid"])
     그림 = {r["uuid"]: r["design_img"] for r in conn.execute(
         "SELECT uuid, design_img FROM inspection_page WHERE screen_id=?", (screen["uuid"],))}
-    칸 = ""
+    # 맨 앞은 '페이지 직접 만들기' — 자동 촬영이 안 되는 과제는 시안·개발 그림을 사람이 넣는다
+    # (river 확정 2026-10-30). 묶음 추가 카드와 같은 모양·같은 방식(모달)이다.
+    칸 = ('<a class="pcard new" href="#" data-s1-modal-open="페이지추가">'
+          '<span class="shot"><span class="plus" aria-hidden="true"></span></span>'
+          '<span class="pname">페이지 직접 만들기</span></a>')
+
     for p in pages:
         img = 그림.get(p["uuid"])
         속 = (f'<img src="/uploads/{_esc(img)}" alt="" loading="lazy">' if img
@@ -386,12 +391,13 @@ CSS = """
     padding:0 var(--spacing-16); font-size:var(--font-size-14);
     color:var(--color-text-state-disabled); cursor:default; }
 
-  .body { flex:1; display:flex; flex-direction:column; min-height:var(--sizing-128);
+  /* 과제 안 흰 통. 주의 칸 안쪽(.warn-card>.body)과 이름이 같아 바로 아래 자식으로만 건다 */
+  .pmain>.body { flex:1; display:flex; flex-direction:column; min-height:var(--sizing-128);
     background:var(--color-surface-raised);
     border:var(--border-width-1) solid var(--color-border-subtle);
     border-radius:var(--radius-12); padding:var(--spacing-20); }
-  .body h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-16); }
-  .body h2 .muted { color:var(--color-text-body-tertiary); font-weight:var(--font-weight-regular); }
+  .pmain>.body h2 { font-size:var(--font-size-14); margin:0 0 var(--spacing-16); }
+  .pmain>.body h2 .muted { color:var(--color-text-body-tertiary); font-weight:var(--font-weight-regular); }
   .shelf { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
     gap:var(--spacing-16); grid-auto-rows:1fr; }
   .pcard { height:100%; display:flex; flex-direction:column; gap:var(--spacing-8);
@@ -402,6 +408,12 @@ CSS = """
   .pcard:hover .shot { border-color:var(--color-border-focus); }
   .pcard img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
   .pcard .noimg { font-size:var(--font-size-12); color:var(--color-text-state-helper); }
+  .pcard.new .shot { border-style:dashed; color:var(--color-text-body-secondary); }
+  .pcard.new:hover .shot { color:var(--color-action-primary-default); }
+  .pcard.new .plus { position:relative; width:var(--sizing-24); height:var(--sizing-24); }
+  .pcard.new .plus::before, .pcard.new .plus::after { content:""; position:absolute; background:currentColor; }
+  .pcard.new .plus::before { left:0; right:0; top:50%; height:var(--border-width-2); transform:translateY(-50%); }
+  .pcard.new .plus::after { top:0; bottom:0; left:50%; width:var(--border-width-2); transform:translateX(-50%); }
   /* DESIGN_SYSTEM_GAP: Badge — 가만히 있는 Pass/Fail 표시. 색·크기는 토큰만 쓴다. */
   .pcard .shot { position:relative; }
   .pf { position:absolute; top:var(--spacing-6); right:var(--spacing-6);
@@ -550,9 +562,8 @@ def render_project(conn, store, project_uuid, screen_uuid, 토큰CSS, uploads=No
         본문, 이력꼬리 = project_history.그리기(conn, store, project_uuid)
     elif 고른 and 고른["kind"] == "screen":
         판 = 페이지카드들(conn, 고른)
-        본문 = (수정요청알림(conn, 고른, uploads, store)
-              + (f'<div class="shelf">{판}</div>' if 판
-                 else '<p class="empty">검수 페이지가 없습니다.</p>'))
+        본문 = 수정요청알림(conn, 고른, uploads, store) + f'<div class="shelf">{판}</div>'
+        꼬리 = _페이지추가(project_uuid, 고른["uuid"])
     else:
         본문 = 묶음카드들(conn, project_uuid, 목록)
         꼬리 = _묶음추가(project_uuid)
@@ -634,6 +645,34 @@ def _묶음추가(project_uuid, 모달id="묶음추가"):
           </div>
           <div data-s1-part="content-area">
             <div class="modal-fields">{project_form._입력("이름", "묶음 이름", 자리글="예) 로그인", 필수=True, 칸id="g-name")}</div>
+          </div>
+          <div data-s1-part="footer">
+            {project_form._단추("취소", "secondary", "button", f"document.getElementById('{모달id}').s1Modal.close()")}
+            {project_form._단추("만들기")}
+          </div>
+        </form>
+      </div>
+    </div>'''
+
+
+def _페이지추가(project_uuid, screen_uuid, 모달id="페이지추가"):
+    """'페이지 직접 만들기' 카드를 누르면 뜨는 모달 — 묶음 추가와 같은 그릇이다.
+
+    적는 것은 페이지 이름 하나. 피그마 프레임 이름과 같게 적으면 플러그인이 시안을 보낼 때
+    이 페이지를 알아본다. 만들면 페이지 상세로 가서 시안·개발 그림을 넣는다.
+    """
+    제목id = f"{모달id}-제목"
+    return f'''
+    <div id="{모달id}" data-s1-component="modal-content" data-size="md" hidden>
+      <div data-s1-part="overlay"></div>
+      <div data-s1-part="panel" role="dialog" aria-modal="true" aria-labelledby="{제목id}">
+        <form method="post" action="/project/{_esc(project_uuid)}/screen/{_esc(screen_uuid)}/page/new" class="modal-form">
+          <div data-s1-part="header">
+            <h2 data-s1-part="title" id="{제목id}">페이지 직접 만들기</h2>
+            <button type="button" data-s1-part="close" aria-label="닫기"></button>
+          </div>
+          <div data-s1-part="content-area">
+            <div class="modal-fields">{project_form._입력("이름", "페이지 이름", 자리글="피그마 프레임 이름과 같게 적습니다", 필수=True, 칸id="p-name")}</div>
           </div>
           <div data-s1-part="footer">
             {project_form._단추("취소", "secondary", "button", f"document.getElementById('{모달id}').s1Modal.close()")}

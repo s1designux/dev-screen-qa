@@ -9,6 +9,7 @@
 import json
 import re
 import uuid as uuidmod
+from datetime import datetime
 
 import page_move
 
@@ -66,3 +67,33 @@ def 만들기(conn, project_uuid, 이름):
          (본["variants"] if 본 else None) or "[]"))
     conn.commit()
     return sid
+
+
+def 페이지만들기(conn, screen_uuid, 이름, project_uuid=None):
+    """촬영기를 거치지 않는 검수 페이지 한 장 — 시안·개발 그림은 사람이 직접 붙여 넣는다.
+
+    자동 촬영이 안 되는 과제를 위한 길이다(river 확정 2026-10-30, C안).
+    시안은 피그마 플러그인으로 보내거나(부품 정보까지 와서 지금 검수기 그대로) 그림만 붙여 넣는다
+    (그림끼리 견주는 비교로 돈다). 개발 화면은 캡처를 붙여 넣는다.
+    1차 차수(run)를 빈 채로 함께 세워 둔다 — 개발 그림을 붙일 자리다.
+    돌려주는 값은 (화면 사람키, 새 페이지 uuid).
+    """
+    이름 = (이름 or "").strip()
+    if not 이름:
+        raise ValueError("페이지 이름을 적어 주세요.")
+    s = conn.execute("SELECT uuid, human_key, project_id FROM screen WHERE uuid=?", (screen_uuid,)).fetchone()
+    if not s or (project_uuid and s["project_id"] != project_uuid):
+        raise ValueError("없는 검수 묶음입니다.")
+    if conn.execute("SELECT 1 FROM inspection_page WHERE screen_id=? AND name=?",
+                    (screen_uuid, 이름)).fetchone():
+        raise ValueError(f"이미 있는 페이지 이름입니다: {이름}")
+    seq = conn.execute("SELECT COALESCE(MAX(seq),0)+1 n FROM inspection_page WHERE screen_id=?",
+                       (screen_uuid,)).fetchone()["n"]
+    pid = uuidmod.uuid4().hex
+    conn.execute("INSERT INTO inspection_page(uuid, screen_id, seq, name) VALUES (?,?,?,?)",
+                 (pid, screen_uuid, seq, 이름))
+    # 좌표 기준(coord_ref)은 비워 둔다 — 개발 그림이 붙을 때 그 그림 크기로 채운다(촬영기 접수와 같은 자).
+    conn.execute("INSERT INTO inspection_run(uuid, screen_id, page_id, round, created_at) VALUES (?,?,?,?,?)",
+                 (uuidmod.uuid4().hex, screen_uuid, pid, 1, datetime.now().isoformat(timespec="seconds")))
+    conn.commit()
+    return (s["human_key"] or s["uuid"]), pid

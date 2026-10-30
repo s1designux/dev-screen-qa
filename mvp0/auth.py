@@ -24,7 +24,7 @@ import os
 import threading
 import uuid as uuidmod
 from datetime import datetime, timedelta
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import db as dbmod
 import s1_tokens
@@ -730,7 +730,7 @@ def _로그인길(handler, conn, method, path, 사람):
             _간다(handler, "/")
             return True
         q = parse_qs(urlparse(handler.path).query)
-        _보낸다(handler, 로그인화면(아이디=_쿠키(handler, 아이디쿠키),
+        _보낸다(handler, 로그인화면(아이디=unquote(_쿠키(handler, 아이디쿠키)),  # 저장할 때 %로 싸 두었다(@ → %40)
                               다음=q.get("next", ["/"])[0]))
         return True
 

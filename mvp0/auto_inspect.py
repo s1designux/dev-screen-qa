@@ -24,6 +24,7 @@ import issue_categories
 import policy as policymod
 import rule_log
 import value_candidates
+import design_receive
 import 설정
 
 ENGINE_UI = Path(__file__).resolve().parents[1] / 'engine' / 'ui.html'
@@ -228,6 +229,69 @@ def engine_rev():
     return _ENGINE_REV.get('rev', '')
 
 
+# ── 그림끼리 견주기 (river 확정 2026-10-30, C안) ───────────────────────────
+# 시안을 그림으로만 붙여 넣으면 부품 정보가 없어 검수기(engine/ui.html)가 견줄 것이 없다.
+# 그때는 두 그림을 같은 폭으로 맞춰 세로 자리만 찾고, 색이 눈에 띄게 다른 구역을 **후보**로 짚는다.
+# 무엇이 다른지(글자·색·크기)는 가리지 않는다 — 사람이 보고 정한다(2번-2).
+# 검수 규칙(엔진 파일)은 건드리지 않는다. 포털 손잡이에만 둔다.
+PICTURE_NOTE = '시안을 그림으로 넣어 그림끼리 견줬습니다. 피그마 플러그인으로 보내면 글자·색·크기를 나눠 봅니다.'
+PICTURE_JS = r"""
+function __portalPicture(D,C,topTrim,bottomTrim){
+  var W=D.width,H=D.height,k=C.width/W,Ch=Math.round(C.height/k);
+  var cell=Math.max(4,Math.round(W/240)),gw=Math.ceil(W/cell),gh=Math.ceil(H/cell),gc=Math.max(1,Math.round(Ch/cell));
+  function grid(img,w,h){var c=canvasFor(w,h),g=c.getContext("2d");g.imageSmoothingEnabled=true;g.imageSmoothingQuality="high";
+    g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(img,0,0,w,h);return g.getImageData(0,0,w,h).data;}
+  var dg=grid(D,gw,gh),cg=grid(C,gw,gc);
+  var t0=Math.ceil((topTrim||0)/k/cell),t1=gc-Math.ceil((bottomTrim||0)/k/cell);
+  function diff(cr,dr,x){var i=(cr*gw+x)*4,j=(dr*gw+x)*4;
+    return Math.max(Math.abs(cg[i]-dg[j]),Math.abs(cg[i+1]-dg[j+1]),Math.abs(cg[i+2]-dg[j+2]));}
+  // 세로 자리: 시안 줄 dr 은 개발 줄 dr-ty 에 온다. 화면 전체로 한 번만 찾는다(많이 밀수록 조금씩 깎아 0 근처를 먼저 믿는다).
+  // 띠마다 따로 옮기지 않는다 — 다른 곳을 피해 가는 자리가 점수가 좋아 실제 차이를 감춘다(검증 2026-10-30).
+  function rowsScore(d0,d1,ty,step){var sum=0,n=0;
+    for(var dr=d0;dr<d1;dr+=step){var r=dr-ty;if(r<t0||r>=t1)continue;for(var x=0;x<gw;x+=2){sum+=diff(r,dr,x);n++;}}
+    return n?sum/n:1e9;}
+  var lim=Math.round(gh*0.1),best=0,bs=1e9;
+  for(var ty=-lim;ty<=lim;ty++){var sc=rowsScore(0,gh,ty,2)+Math.abs(ty)*0.05;if(sc<bs){bs=sc;best=ty;}}
+  var shift=new Int32Array(gh).fill(best);
+  // 한두 칸 어긋난 글자 가장자리는 차이로 보지 않는다 — 둘레 한 칸 안에서 가장 닮은 자리와 견준다.
+  // 양쪽으로 다 본다: 시안 칸이 개발 둘레에 없거나(빠짐) 개발 칸이 시안 둘레에 없으면(더해짐) 다른 곳이다.
+  // 한쪽만 보면 흰 바탕 위의 가는 아이콘이 둘레의 흰 칸과 닮아 묻힌다.
+  function px(a,i,b,j){return Math.max(Math.abs(a[i]-b[j]),Math.abs(a[i+1]-b[j+1]),Math.abs(a[i+2]-b[j+2]));}
+  function near(dr,x){var r=dr-shift[dr],m1=1e9,m2=1e9,ci=(r*gw+x)*4,di=(dr*gw+x)*4;
+    for(var o=-1;o<=1;o++)for(var q=-1;q<=1;q++){var xx=x+q;if(xx<0||xx>=gw)continue;
+      var yy=r+o;if(yy>=t0&&yy<t1){var v=px(cg,(yy*gw+xx)*4,dg,di);if(v<m1)m1=v;}
+      var zz=dr+o;if(zz>=0&&zz<gh){var w=px(dg,(zz*gw+xx)*4,cg,ci);if(w<m2)m2=w;}}
+    return Math.max(m1,m2);}
+  var T=28,mask=new Uint8Array(gw*gh),val=new Float32Array(gw*gh),lo=gh,hi=-1;
+  for(var dr=0;dr<gh;dr++){var r=dr-shift[dr];if(r<t0||r>=t1)continue;lo=Math.min(lo,dr);hi=Math.max(hi,dr);
+    for(var x=0;x<gw;x++){var v=near(dr,x);if(v>T){mask[dr*gw+x]=1;val[dr*gw+x]=v;}}}
+  // 이웃 두 칸 안의 다른 칸은 한 구역으로 묶는다
+  var seen=new Uint8Array(gw*gh),boxes=[],R=2;
+  for(var i=0;i<gw*gh;i++){if(!mask[i]||seen[i])continue;
+    var st=[i],x0=gw,y0=gh,x1=-1,y1=-1,cnt=0,tot=0;seen[i]=1;
+    while(st.length){var q=st.pop(),qx=q%gw,qy=(q-qx)/gw;cnt++;tot+=val[q];
+      if(qx<x0)x0=qx;if(qx>x1)x1=qx;if(qy<y0)y0=qy;if(qy>y1)y1=qy;
+      for(var yy=Math.max(0,qy-R);yy<=Math.min(gh-1,qy+R);yy++)for(var xx=Math.max(0,qx-R);xx<=Math.min(gw-1,qx+R);xx++){
+        var z=yy*gw+xx;if(mask[z]&&!seen[z]){seen[z]=1;st.push(z);}}}
+    if(cnt>=3)boxes.push({x0:x0,y0:y0,x1:x1,y1:y1,cnt:cnt,mean:tot/cnt});}
+  boxes.sort(function(a,b){return b.cnt-a.cnt;});boxes=boxes.slice(0,40);
+  boxes.sort(function(a,b){return a.y0-b.y0||a.x0-b.x0;});
+  var cands=boxes.map(function(b,n){
+    var dx=b.x0*cell,dy=b.y0*cell,dw=Math.min(W,(b.x1+1)*cell)-dx,dh=Math.min(H,(b.y1+1)*cell)-dy;
+    return{no:n+1,status:"confirmed",kind:"area",label:"그림이 다른 곳",
+      detail:"시안과 개발 화면의 그림이 이 구역에서 다릅니다. 무엇이 다른지는 나란히 보기로 확인합니다.",
+      confidence:Math.min(99,Math.round(b.mean/2.55)),policy:{source:"picture",variable:false,reason:""},
+      rawBox:{x:Math.round(dx*k),y:Math.round((dy-best*cell)*k),w:Math.round(dw*k),h:Math.round(dh*k)},
+      designBox:{x:dx,y:dy,w:dw,h:dh},designNodeIds:[],designValues:""};});
+  var notices=[];
+  var gap=Math.round(((gh-1-hi)*cell));if(hi>=0&&gap>H*0.05)notices.push("개발 화면이 시안보다 짧아 시안 아래쪽 "+gap+"px는 견주지 않았습니다.");
+  return{candidates:cands,notices:notices,
+    alignment:{mode:"picture",s:k,tx:0,ty:Math.round(-best*cell*k),score:Math.round(bs*100)/100,fit:null,rescued:false,thin:false},
+    range:{captureTop:0,captureBottom:0,manual:false,manualBottom:false}};  // 좌표는 자르지 않은 그림 기준이다
+}
+"""
+
+
 HARNESS_JS = r'''
 window.__portal=true;
 function __portalLoad(u){return new Promise(function(res,rej){var im=new Image();im.onload=function(){res(im);};im.onerror=function(){rej(new Error("이미지를 읽지 못했어요: "+u));};im.src=u;});}
@@ -237,6 +301,8 @@ window.addEventListener("message",async function(e){var m=e.data;if(!m||m.type!=
   try{
     var full=await __portalLoad(m.design.pngUrl);var dc=canvasFor(full.width,full.height);dc.getContext("2d").drawImage(full,0,0);
     var cap=await __portalLoad(m.capture.pngUrl);
+    if(m.design.mode==="image"){var g=__portalPicture(full,cap,m.capture.topTrim||0,m.capture.bottomTrim||0);
+      parent.postMessage({type:"portal-result",autoRunId:m.autoRunId,alignment:g.alignment,range:g.range,notices:g.notices,candidates:g.candidates,capture:{w:cap.width,h:cap.height}},"*");return;}
     var design={id:m.design.id,name:m.design.name,width:m.design.width,height:m.design.height,elements:m.design.elements||[],policy:m.design.policy||null};
     var capture={img:cap,width:cap.width,height:cap.height};
     if(m.capture.topTrim!=null)capture.topTrim=m.capture.topTrim;
@@ -247,6 +313,7 @@ window.addEventListener("message",async function(e){var m=e.data;if(!m||m.type!=
 });
 parent.postMessage({type:"portal-ready"},"*");
 '''
+HARNESS_JS = PICTURE_JS + HARNESS_JS
 
 
 class Auto:
@@ -385,7 +452,9 @@ class Auto:
                 'autoRunId': r['id'],
                 'design': {'id': design['node_id'], 'name': design['name'], 'pngUrl': '/uploads/' + design['filename'],
                            'width': frame.get('width') or design['width'], 'height': frame.get('height') or design['height'],
-                           'elements': got['elements'], 'policy': merged or None},
+                           'elements': got['elements'], 'policy': merged or None,
+                           # 그림만 붙여 넣은 시안은 부품이 없어 그림끼리 견준다(design_receive.PASTED)
+                           'mode': 'image' if design['provider'] == design_receive.PASTED else 'parts'},
                 'capture': {'pngUrl': '/uploads/' + run['dev_img'], 'width': run['dev_img_w'], 'height': run['dev_img_h']},
             }
             # 검수 범위: 이 차수에 직접 정한 것 > 화면·서비스 층에 정한 것 > 자동 규칙
@@ -626,7 +695,9 @@ def panel_html(view, page_id, person_options='', which='open'):
                        f'<input type="hidden" name="run" value="{_e(r["run_id"])}">'
                        + s1.단추('다시 시도', 종류='submit') + '</form>'
                        + range_html(view, person_options)) + grid(값것)
-    return head + range_html(view, person_options) + grid(열린것)
+    # 그림으로 넣은 시안이면 어떻게 견줬는지 한 줄 알린다(무엇이 다른지는 사람이 본다)
+    그림만 = (f'<p class="auto-note">{_e(PICTURE_NOTE)}</p>' if al.get('mode') == 'picture' else '')
+    return head + 그림만 + range_html(view, person_options) + grid(열린것)
 
 
 # 시안을 얹은 자리가 미덥지 않을 때 붙이던 빨간 줄은 보이지 않는다(river 2026-09-17).
@@ -769,6 +840,7 @@ CSS = '''
 
 
 .auto-msg{color:var(--color-text-tertiary)}
+.auto-note{margin:0 0 var(--spacing-8);font-size:var(--font-size-12);color:var(--color-text-body-tertiary)}
 .auto-range-editor [data-s1-part="panel"]{width:min(900px,92vw);max-height:90vh}
 .auto-range-editor [data-s1-part="body"]{overflow:auto}
 .auto-range-title{display:block;margin:0 0 var(--spacing-8);font-size:var(--font-size-14)}

@@ -11,6 +11,7 @@
 
 실행: python portal.py  → http://127.0.0.1:8765
 """
+import hashlib
 import html
 import os
 import time
@@ -145,8 +146,10 @@ def _upl(human_key, page_uuid, side, rnd=None):
     action = f"/screen/{_esc(human_key)}/page/{_esc(page_uuid)}/upload{q}"
     label = '디자인' if side == 'design' else '개발화면'
     # DESIGN_SYSTEM_GAP: 정본에 '파일 고르기' 부품이 없다 — 브라우저 기본 칸에 자리만 준다.
+    # 붙여넣기: 단추를 누르고 ⌘V — 피그마 '그림으로 복사'(⇧⌘C)나 화면 캡처를 바로 넣는다(river 2026-10-30)
+    붙이기 = s1.단추('붙여넣기', 크기='xxsm', data__action=action, onclick='qaPasteArm(this)')
     return (
-        f'<span class="upl-group">'
+        f'<span class="upl-group">{붙이기}'
         f'<form class="upl" method="post" enctype="multipart/form-data" action="{action}">'
         f'<label>PNG 업로드<input class="filepick" type="file" name="file" accept="image/png" '
         f'onchange="this.form.submit()"></label></form></span>'
@@ -184,26 +187,33 @@ def _save_upload(page_uuid, side, data, size, rnd=1):
     w, h = size
     if side == "dev":
         run = conn.execute(
-            "SELECT uuid, coord_ref_w FROM inspection_run WHERE page_id=? AND round=?",
+            "SELECT uuid, coord_ref_w, dev_img FROM inspection_run WHERE page_id=? AND round=?",
             (page_uuid, rnd),
         ).fetchone()
         if run is None:
             conn.close()
             return
-        fname = f"{run['uuid']}_dev.png"
+        # 바꿀 때마다 새 이름으로 둔다 — 옛 그림을 덮어쓰면 옛 검수 회차가 가리키던 그림이 사라진다(2번-3)
+        fname = f"{run['uuid']}_dev_{hashlib.sha1(data).hexdigest()[:10]}.png"
         (UPLOADS / fname).write_bytes(data)
-        ref_w = run["coord_ref_w"] or 1920
+        # 좌표 기준이 비어 있으면(직접 만든 페이지) 붙인 그림 크기 그대로 — 촬영기 접수와 같은 자다
+        ref_w = run["coord_ref_w"] or w or 1920
         ref_h = round(h * ref_w / w) if w else 1080     # 업로드 이미지 비율로 기준높이 산출
         conn.execute(
-            "UPDATE inspection_run SET dev_img=?, dev_img_w=?, dev_img_h=?, coord_ref_h=? WHERE uuid=?",
-            (fname, w, h, ref_h, run["uuid"]),
+            "UPDATE inspection_run SET dev_img=?, dev_img_w=?, dev_img_h=?, coord_ref_w=?, coord_ref_h=? WHERE uuid=?",
+            (fname, w, h, ref_w, ref_h, run["uuid"]),
         )
-    else:
-        fname = f"{page_uuid}_design.png"
-        (UPLOADS / fname).write_bytes(data)
-        conn.execute("UPDATE inspection_page SET design_img=? WHERE uuid=?", (fname, page_uuid))
-    conn.commit()
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name='page_capture_event'").fetchone():
+            conn.execute("INSERT INTO page_capture_event VALUES (?,?,?,?,?,?,?)",
+                         (uuidmod.uuid4().hex, page_uuid, run["uuid"], run["dev_img"], fname,
+                          datetime.now().isoformat(timespec="seconds"), "개발 화면 직접 넣음"))
+        conn.commit()
+        conn.close()
+        return
     conn.close()
+    # 시안은 새 판으로 쌓는다(옛 판은 남는다) — 플러그인으로 받은 시안과 같은 자리(page_design_link)에 건다.
+    # 그림만 와서 부품 정보가 없으므로 검수기는 '그림끼리 견주기'로 돈다(auto_inspect.PASTED).
+    design_receive.Receiver(intake()).paste(page_uuid, data, size)
 
 
 def _migrate(conn):
@@ -722,6 +732,8 @@ def render_page(page_uuid: str, sel_round=None, open_design=False, notice="", *,
                 return s1.단추('개발 화면 변경', 크기='xxsm',
                               onclick='window.s1Modal("capture-picker").open()')
             return '<span class="upl">촬영 원본 보관됨' + (' · 바꾸려면 새 차수' if all_issues else '') + '</span>'
+        if side == 'design' and design_receive.Receiver(store).provider_of(page_uuid) not in (None, design_receive.PASTED):
+            return '<span class="upl">플러그인으로 받은 시안</span>'
         extra = ''
         if side == 'dev' and sel_run and not all_issues and len(sibling_caps) > 1:
             extra = s1.단추('개발 화면 변경', 크기='xxsm',
@@ -1247,6 +1259,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", f"/project/{pid}")
             self.end_headers()
             return
+        if path.startswith("/project/") and "/screen/" in path and path.endswith("/page/new"):
+            # 묶음 안의 '페이지 직접 만들기' — 빈 페이지 한 장과 1차를 세우고 그 페이지 상세로 보낸다.
+            import screen_add
+            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            pid, sid = path[len("/project/"):-len("/page/new")].split("/screen/", 1)
+            conn = dbmod.connect(REAL_DB)
+            try:
+                키, page = screen_add.페이지만들기(conn, sid, (form.get("이름") or [""])[0], pid)
+                간곳 = f"/screen/{키}/page/{page}"
+            except ValueError as e:
+                간곳 = f"/project/{pid}?메뉴=inspect&screen={sid}&알림={quote(str(e))}"
+            finally:
+                conn.close()
+            self.send_response(303)
+            self.send_header("Location", quote(간곳, safe="/?=&%"))
+            self.end_headers()
+            return
         if path.startswith("/project/") and path.endswith("/screen/new"):
             # 왼쪽 메뉴의 '검수 묶음 추가' — 빈 묶음 한 줄을 세우고 그 자리로 보낸다.
             import screen_add
@@ -1261,7 +1290,8 @@ class Handler(BaseHTTPRequestHandler):
             finally:
                 conn.close()
             self.send_response(303)
-            self.send_header("Location", 간곳)
+            # 머리줄은 latin-1 만 실린다 — 한글 칸 이름(메뉴·알림)은 %로 싸서 보낸다
+            self.send_header("Location", quote(간곳, safe="/?=&%"))
             self.end_headers()
             return
         if path.startswith("/screen/") and path.endswith("/pages/move"):
@@ -1674,6 +1704,8 @@ _PAGE_CSS = """
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(350px,1fr)); gap:var(--spacing-16); align-items:start; }
   /* 유형 탭 바 (고정 영역) */
   .tabbar { flex-shrink:0; flex-wrap:wrap; margin:var(--spacing-2) 0 var(--spacing-12); }   /* 모양은 코어 Line Tab */
+  /* 정본 Line Tab 은 칸이 줄을 나눠 채운다(flex 1). 여기서는 왼쪽부터 같은 너비로 세운다(river 2026-10-30) — 배치만 바꾼다 */
+  .tabbar [data-s1-part="tab"] { flex:0 0 var(--sizing-128); }
   /* 성질 거르개 — 탭과 같은 줄 오른쪽 끝. 탭은 밑줄, 거르개는 알약이라 섞이지 않는다. */
   /* PC 웹은 한 줄(탭 오른쪽)이다. 자리가 좁은 앱 검수만 아랫줄로 내린다(river 2026-09-17) */
   .fbar { margin-left:auto; display:inline-flex; align-items:center; gap:var(--spacing-6); flex-wrap:wrap; align-self:center; }

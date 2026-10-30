@@ -294,7 +294,8 @@ class Store:
 
     def designs(self, file_key=None, node_id=None):
         with self.connect() as c:
-            rows = c.execute('SELECT d.*,a.filename FROM intake_design d JOIN intake_asset a ON a.id=d.asset_id ORDER BY d.rowid DESC').fetchall()
+            # 직접 넣은 그림(file_key 'pasted')은 그 페이지 것이라 다른 화면의 시안 고르개에 내놓지 않는다
+            rows = c.execute("SELECT d.*,a.filename FROM intake_design d JOIN intake_asset a ON a.id=d.asset_id WHERE d.file_key<>'pasted' ORDER BY d.rowid DESC").fetchall()
             seen, out = set(), []
             for r in rows:
                 if file_key and (r['file_key']!=file_key or node_id not in (r['scope_node'],r['node_id'])):

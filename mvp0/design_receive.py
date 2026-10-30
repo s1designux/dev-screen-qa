@@ -16,6 +16,8 @@ from datetime import datetime
 import figma_reader
 
 PROVIDER = 'Figma 플러그인'
+PASTED = '직접 넣은 그림'      # 부품 정보 없이 그림만 온 시안 — 검수기가 그림끼리 견준다
+PASTED_KEY = 'pasted'
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS page_design_link (
@@ -183,6 +185,40 @@ class Receiver:
             c.execute('INSERT INTO page_design_event VALUES (?,?,?,?,?,?,?,?)', (uid(), page_id, design, page['design_img'], fname, now(), PROVIDER, f"플러그인에서 시안 새 판 받음: {frame.get('name') or ''}"))
             c.execute('UPDATE inspection_page SET design_img=? WHERE uuid=?', (fname, page_id))
         return {'ok': True, 'page': page_id, 'design': design, 'url': f"/screen/{page['human_key'] or page['screen_id']}/page/{page_id}"}
+
+    def provider_of(self, page_id):
+        """페이지에 지금 걸린 시안이 어디서 왔는지(page_design_link 기준). 없으면 None."""
+        with self.store.connect() as c:
+            r = c.execute('SELECT d.provider FROM page_design_link l JOIN intake_design d ON d.id=l.design_id WHERE l.page_id=?', (page_id,)).fetchone()
+        return r['provider'] if r else None
+
+    def paste(self, page_id, data, size):
+        """사람이 직접 붙여 넣은 시안 그림 한 장 → 새 시안 판 + 페이지 연결 (river 확정 2026-10-30, C안).
+
+        피그마 '그림으로 복사'에는 부품 정보가 없다. 그래서 요소 목록을 **빈 채로** 남겨 두고
+        검수기는 그림끼리 견주는 길로 돈다(auto_inspect.PASTED). 나중에 같은 페이지로
+        플러그인 시안이 오면 그 판이 이 연결을 덮고, 부품별 검수로 돌아간다(옛 판은 남는다).
+        """
+        if not data or not data.startswith(b'\x89PNG'):
+            raise ValueError('PNG 그림이 아닙니다.')
+        w, h = size
+        if self.provider_of(page_id) not in (None, PASTED):
+            # 부품 정보까지 받은 시안을 그림으로 덮으면 검수가 거칠어진다 — 바꾸려면 플러그인으로 다시 보낸다
+            raise ValueError('플러그인으로 받은 시안은 플러그인에서 바꿉니다.')
+        with self.store.connect() as c:
+            page = c.execute('SELECT * FROM inspection_page WHERE uuid=?', (page_id,)).fetchone()
+            if not page:
+                raise ValueError('검수 페이지를 찾지 못했습니다.')
+        # 페이지마다 제 '프레임'을 갖게 한다 — 같은 페이지에 다시 붙이면 같은 프레임의 새 판이 된다
+        design = self.store.add_design(PASTED_KEY, page_id, page['name'] or '', '', page_id, data, None, provider=PASTED)
+        with self.store.connect() as c:
+            fname = c.execute('SELECT a.filename FROM intake_design d JOIN intake_asset a ON a.id=d.asset_id WHERE d.id=?', (design,)).fetchone()['filename']
+            fr = {'id': page_id, 'name': page['name'] or '', 'width': w, 'height': h}
+            c.execute('INSERT OR REPLACE INTO design_elements VALUES (?,?,?,?,?)', (design, now(), None, json.dumps(fr, ensure_ascii=False), '[]'))
+            c.execute('INSERT OR REPLACE INTO page_design_link VALUES (?,?,?)', (page_id, design, now()))
+            c.execute('INSERT INTO page_design_event VALUES (?,?,?,?,?,?,?,?)', (uid(), page_id, design, page['design_img'], fname, now(), PASTED, '시안 그림을 직접 넣음'))
+            c.execute('UPDATE inspection_page SET design_img=? WHERE uuid=?', (fname, page_id))
+        return design
 
 
     # ── 촬영기가 바로 넣은 페이지(접수함 연결 없음)의 개발 화면 바꾸기 ─────────
