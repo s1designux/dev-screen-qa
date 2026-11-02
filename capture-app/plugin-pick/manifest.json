@@ -10,9 +10,8 @@
   "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": [
-      "http://localhost:8767",
-      "http://localhost:8765"
+      "*"
     ],
-    "reasoning": "내 PC에서 도는 촬영 준비 사이트(8767)와 검수 포털(8765)로 고른 화면만 보낸다. 바깥으로 나가지 않는다."
+    "reasoning": "검수 포털(8765)과 촬영 준비 사이트(8767)로 고른 화면만 보낸다. 내 PC(localhost)나 사무실 공용 PC 처럼 사람이 '포털 주소' 칸에 적은 곳만 부른다. 그 PC 의 주소는 사무실마다 달라 미리 적어 둘 수 없다."
   }
 }

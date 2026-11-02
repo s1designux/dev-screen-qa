@@ -289,6 +289,8 @@ def options(handler, path):
     handler.send_header('Access-Control-Allow-Origin', '*')
     handler.send_header('Access-Control-Allow-Headers', 'Content-Type')
     handler.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    # 자리 PC 의 Figma 가 공용 PC(사무실 주소)로 보낼 때 브라우저가 따로 묻는 허락
+    handler.send_header('Access-Control-Allow-Private-Network', 'true')
     handler.end_headers()
     return True
 

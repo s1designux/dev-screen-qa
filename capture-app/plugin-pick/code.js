@@ -329,6 +329,17 @@ figma.ui.onmessage = async function (msg) {
 };
 
 async function 받은말(msg) {
+  // 포털 주소는 이 PC 의 Figma 에 기억해 둔다 — 파일마다 다시 적지 않게.
+  if (msg.갈래 === '주소묻기') {
+    var 이름 = '';
+    try { 이름 = (await figma.clientStorage.getAsync('포털주소')) || ''; } catch (e) {}
+    figma.ui.postMessage({ 갈래: '주소', 이름: 이름 || 'localhost' });
+    return;
+  }
+  if (msg.갈래 === '주소저장') {
+    try { await figma.clientStorage.setAsync('포털주소', msg.이름 || 'localhost'); } catch (e) {}
+    return;
+  }
   if (msg.갈래 === '사이트열기') {
     // 포털 '개발화면 촬영'으로 연다(창에 끼워 도는 그 화면). 과제를 모르거나 포털이 꺼져 있으면
     // 예전처럼 촬영 준비 사이트를 혼자 연다.

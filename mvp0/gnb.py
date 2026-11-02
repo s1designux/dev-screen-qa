@@ -12,6 +12,7 @@
 """
 import html
 import sys
+import threading
 from urllib.parse import urlencode
 from pathlib import Path
 
@@ -23,8 +24,19 @@ def _e(v):
     return html.escape(str(v)) if v is not None else ""
 
 
+# 지금 이 요청을 보낸 브라우저가 포털을 부른 이름(공용 PC 의 사무실 주소 등).
+# 촬영 준비 사이트도 같은 PC 에서 도니, 같은 이름에 포트만 바꿔 부른다.
+_손님 = threading.local()
+
+
+def 손님주소(이름):
+    """포털이 요청을 받을 때마다 부른 이름을 적어 둔다. 비면 이 PC(127.0.0.1)."""
+    _손님.이름 = 이름 or ""
+
+
 def _촬영주소():
-    return f"http://127.0.0.1:{설정.값('촬영준비.포트')}/"
+    이름 = getattr(_손님, "이름", "") or "127.0.0.1"
+    return f"http://{이름}:{설정.값('촬영준비.포트')}/"
 
 
 def 촬영시작주소(project_uuid, 이름, 화면코드=""):

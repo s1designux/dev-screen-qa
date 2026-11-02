@@ -187,7 +187,7 @@ def 접수(결과폴더, 작업, 고른파일=None, 검수자="촬영기"):
     자리표 = {"web": "WEB", "android": "AND", "pcapp": "APP"}[플랫폼]
     사람키 = f"{작업.get('서비스코드','APP')}-{자리표}-{첫번호}"
 
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect(db, timeout=15)   # 포털과 한 자료함을 함께 쓴다 — 겹치면 기다린다
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     지금 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

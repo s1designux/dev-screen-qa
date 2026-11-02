@@ -57,6 +57,34 @@ BIND = 설정.값("촬영준비.받는자리")
 ADB = str(설정.자리("촬영준비.adb") or "")
 포털포트 = 설정.값("포털.포트")
 
+# 지금 요청을 보낸 브라우저가 이 사이트를 부른 이름. 포털도 같은 PC 에서 도니
+# 포털로 보내는 주소는 그 이름에 포트만 바꿔 짓는다 — 자리 PC 가 제 PC(127.0.0.1)를 찾아가지 않게.
+_손님 = threading.local()
+
+
+def _포털뿌리():
+    return f"http://{getattr(_손님, '이름', '') or '127.0.0.1'}:{포털포트}"
+
+
+def _포털주소로(주소):
+    """접수 결과에 적힌 이 PC 기준 포털 주소를 지금 손님이 부르는 이름으로 바꾼다."""
+    for 앞 in (f"http://127.0.0.1:{포털포트}", "http://127.0.0.1:8765"):
+        if 주소 and 주소.startswith(앞) and 주소[len(앞):len(앞) + 1] in ("", "/", "?"):
+            return _포털뿌리() + 주소[len(앞):]
+    return 주소
+
+
+def _사무실안(주소):
+    """보낸 PC 가 사무실 안(사설·이 PC)인지. 동료 공유 때 바깥에서 온 요청은 받지 않는다."""
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(주소.split("%")[0])
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return ip.is_private or ip.is_loopback
+
 _촬영 = {"진행중": False, "폴더": None, "로그": None}
 
 
@@ -821,8 +849,8 @@ def _포털로():
     """혼자 열렸을 때 보이는 안내 한 통 — 포털의 그 자리로 곧장 보낸다."""
     작업 = 작업읽기()
     우 = 작업.get("과제uuid")
-    주소 = (f"http://127.0.0.1:{포털포트}/project/{_e(우)}?메뉴=capture" if 우
-          else f"http://127.0.0.1:{포털포트}/")
+    주소 = (f"{_포털뿌리()}/project/{_e(우)}?메뉴=capture" if 우
+          else f"{_포털뿌리()}/")
     return f'''<div class="혼자안내"><div class="혼자속">
       <h2>포털에서 엽니다</h2>
       <p>개발화면 촬영은 검수 포털 안으로 들어왔습니다.</p>
@@ -2308,7 +2336,7 @@ def 화면_촬영():
         보내기 = f"""
         <div class="card"><h2>검수로 보냈습니다 <span class="cnt">검수 묶음 {len(묶음들)}개</span></h2>
           <table><tbody>{줄}</tbody></table>
-          <div class="bar"><a class="btn" href="{_e(보냄.get("포털주소"))}" target="_blank">
+          <div class="bar"><a class="btn" href="{_e(_포털주소로(보냄.get("포털주소")))}" target="_blank">
             포털 다시 열기 →</a>
             <span class="hint" style="margin:0">보낼 때 포털을 새 창으로 열었습니다.</span></div>
         </div>"""
@@ -2371,7 +2399,24 @@ class 손님(BaseHTTPRequestHandler):
     # 브라우저가 '미리 열어 두는' 연결이 아무 말 없이 붙어 있어도 오래 붙잡지 않는다.
     timeout = 20
 
+    def _손님보기(self):
+        """요청마다 맨 먼저 — 바깥에서 온 것은 막고, 부른 이름을 적어 둔다."""
+        if not _사무실안(self.client_address[0]):
+            self.send_error(403)
+            return False
+        부른것 = self.headers.get("Host", "")
+        이름 = 부른것.rsplit(":", 1)[0] if not 부른것.endswith("]") else 부른것
+        # 부른 이름도 이 PC·사무실 주소여야 한다 — 남의 웹 페이지가 제 이름을 우리 주소로 돌려
+        # 동료 브라우저를 거쳐 들어오는 길(이름 바꿔치기)을 막는다.
+        if 이름 not in ("", "localhost") and not _사무실안(이름.strip("[]")):
+            self.send_error(403)
+            return False
+        _손님.이름 = 이름 if 이름 and not 이름.startswith("[") else ""
+        return True
+
     def do_GET(self):
+        if not self._손님보기():
+            return
         길 = unquote(urlparse(self.path).path)
         q = parse_qs(urlparse(self.path).query)
         if 길 == "/":
@@ -2471,6 +2516,8 @@ class 손님(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_OPTIONS(self):                     # 플러그인 창이 미리 물어보는 것
+        if not self._손님보기():
+            return
         self.send_response(204)
         self._곁들이기()
         self.end_headers()
@@ -2479,6 +2526,8 @@ class 손님(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        # 자리 PC 의 Figma 가 공용 PC(사무실 주소)로 보낼 때 브라우저가 따로 묻는 허락
+        self.send_header("Access-Control-Allow-Private-Network", "true")
 
     def _받기(self, 자료):
         """Figma에서 드래그로 고른 화면 꾸러미를 받아 ②로 넘긴다."""
@@ -2573,6 +2622,8 @@ class 손님(BaseHTTPRequestHandler):
         return len(고른화면)
 
     def do_POST(self):
+        if not self._손님보기():
+            return
         길 = unquote(urlparse(self.path).path)
         if 길 in ("/받기", "/pick"):
             자료 = self.rfile.read(int(self.headers.get("Content-Length", 0)))
@@ -2754,7 +2805,7 @@ class 손님(BaseHTTPRequestHandler):
                                      f'<div class="err">{_e(str(e))}</div>'
                                      + '<div class="card"><a class="btn" href="/촬영">← 돌아가기</a></div>'))
             if 그릇:
-                return self._json({"포털주소": 작업["접수결과"].get("포털주소", "")})
+                return self._json({"포털주소": _포털주소로(작업["접수결과"].get("포털주소", ""))})
             return self._이동("/촬영")
 
         if 길 == "/조건":

@@ -5,11 +5,7 @@
   여기 적는 것은 배치(간격·자리)뿐이고 값은 전부 토큰이다.
   차례: ① 프로젝트 → ② 유형 → ③ 인식된 화면 (river 확정 2026-09-30)
 -->
-<link rel="stylesheet" href="http://localhost:8765/assets/css/tokens.css">
-<link rel="stylesheet" href="http://localhost:8765/assets/css/site-base.css">
-<link rel="stylesheet" href="http://localhost:8765/assets/css/component-tokens.css">
-<link rel="stylesheet" href="http://localhost:8765/assets/css/typography.css">
-<link rel="stylesheet" href="http://localhost:8765/assets/css/s1-ui.css">
+<!-- 부품 CSS·동작은 '포털 주소' 칸에 적힌 포털에서 받는다(아래 부품받기). 공용 PC 에 포털을 두면 자리 PC 도 그리로 간다. -->
 <style>
   * { box-sizing:border-box; }
   /* 글꼴은 토큰이 없어 포털 화면과 같이 적는다(mvp0/project_view.py 선례 · 정본 부품도 Pretendard) */
@@ -40,6 +36,13 @@
 </style>
 
 <div class="칸">
+  <div class="칸머리"><label class="칸이름 typo-title-14b" for="포털주소">포털 주소</label>
+    <span class="덧 typo-body-12r">내 PC면 localhost</span></div>
+  <div data-s1-component="input" data-size="xsm" data-break="pc"><div data-s1-part="field">
+    <input data-s1-part="control" type="text" id="포털주소" placeholder="localhost" spellcheck="false" autocomplete="off"></div></div>
+</div>
+
+<div class="칸">
   <div class="칸머리"><span class="칸이름 typo-title-14b">프로젝트</span></div>
   <div id="과제자리"></div>
 </div>
@@ -66,17 +69,48 @@
   <button type="button" id="사이트" data-s1-component="button" data-variant="secondary" data-size="xsm" data-break="pc" disabled><span data-s1-part="label">검수 포털로 이동 ↗</span></button>
 </div>
 
-<!-- 정본 부품 동작(고르개 여닫기·키보드). 포털이 꺼져 있으면 못 받는다 — 그때는 아래에서 알린다. -->
-<script type="module">
-  import { autoInit } from "http://localhost:8765/assets/js/s1/s1-ui.auto.js";
-  window.s1켜기 = autoInit;
-  (window.s1켤것 || []).forEach(function (el) { autoInit(el); });
-  window.s1켤것 = [];
-</script>
-
 <script>
-  var 포털 = 'http://localhost:8765';       // Figma는 http 주소로 localhost만 허용한다(127.0.0.1은 manifest 오류)
+  // 포털과 촬영 준비 사이트는 한 PC 에서 돈다 — 그 PC 이름 하나만 받고 포트는 정해 둔 값을 붙인다.
+  // 기본은 내 PC(localhost). 127.0.0.1 은 Figma manifest 가 받지 않아 localhost 로 적는다.
+  var 포털 = 'http://localhost:8765';
   var 촬영 = 'http://localhost:8767';
+  var 주소칸 = document.getElementById('포털주소');
+  function 이름만(글) {
+    // 'http://192.168.0.10:8765/project/…' 처럼 통째로 붙여도 PC 이름만 남긴다.
+    var t = String(글 || '').trim().replace(/^[a-z]+:\/\//i, '').split(/[\/?#]/)[0].replace(/:\d+$/, '');
+    return t || 'localhost';
+  }
+  function 주소정하기(이름) {
+    포털 = 'http://' + 이름 + ':8765';
+    촬영 = 'http://' + 이름 + ':8767';
+    주소칸.value = 이름 === 'localhost' ? '' : 이름;
+    부품받기();
+  }
+  // 정본 부품 CSS·동작(고르개 여닫기·키보드). 포털이 꺼져 있으면 못 받는다 — 그때는 아래에서 알린다.
+  var 받은부품 = '';
+  function 부품받기() {
+    if (받은부품 === 포털) return;
+    받은부품 = 포털;
+    Array.prototype.forEach.call(document.querySelectorAll('link[data-부품]'), function (l) { l.remove(); });
+    ['tokens', 'site-base', 'component-tokens', 'typography', 's1-ui'].forEach(function (n) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = 포털 + '/assets/css/' + n + '.css'; l.setAttribute('data-부품', '');
+      document.head.appendChild(l);
+    });
+    if (window.s1켜기) return;
+    import(포털 + '/assets/js/s1/s1-ui.auto.js').then(function (m) {
+      window.s1켜기 = m.autoInit;
+      (window.s1켤것 || []).forEach(function (el) { m.autoInit(el); });
+      window.s1켤것 = [];
+    }).catch(function () { 받은부품 = ''; });
+  }
+  주소칸.addEventListener('change', function () {
+    var 이름 = 이름만(주소칸.value);
+    parent.postMessage({ pluginMessage: { 갈래: '주소저장', 이름: 이름 } }, '*');
+    주소정하기(이름);
+    과제 = ''; 보냈음 = false;
+    과제그리기(''); 과제받기(); 그리기();
+  });
   var 화면들 = [], 파일열쇠 = '', 파일이름 = '';
   var 짝 = {};                                   // 프레임 id → 검수 화면 page (포털이 알려준 값)
   var 선택지 = [];                               // 포털의 검수 화면 목록 [{page,label,url}]
@@ -148,7 +182,9 @@
       과제그리기(과제들.length ? '' : '포털에 프로젝트가 없습니다. 포털에서 먼저 만들어 주세요.');
     }).catch(function () {
       과제들 = [];
-      과제그리기('검수 포털이 꺼져 있습니다. 포털을 켜고 플러그인을 다시 열어 주세요.');
+      과제그리기(포털 === 'http://localhost:8765'
+        ? '검수 포털이 꺼져 있습니다. 포털을 켜고 플러그인을 다시 열어 주세요.'
+        : '이 주소의 포털에 닿지 않습니다. 포털 주소를 확인해 주세요.');
     });
   }
 
@@ -248,6 +284,12 @@
     var m = ev.data.pluginMessage;
     if (!m) return;
 
+    if (m.갈래 === '주소') {
+      주소정하기(이름만(m.이름));
+      과제받기();
+      return;
+    }
+
     if (m.갈래 === '고른것') {
       화면들 = m.화면들; 파일열쇠 = m.파일열쇠 || ''; 파일이름 = m.파일이름 || '';
       알리기('');
@@ -320,7 +362,7 @@
 
   // 포털의 '개발화면 촬영' 자리로 연다(촬영 준비 사이트는 거기 창으로 끼워 돈다).
   document.getElementById('사이트').onclick = function () {
-    var 주소 = 과제 ? 포털 + '/project/' + 과제 + '?' + encodeURIComponent('메뉴') + '=capture' : '';
+    var 주소 = 과제 ? 포털 + '/project/' + 과제 + '?' + encodeURIComponent('메뉴') + '=capture' : 촬영;
     parent.postMessage({ pluginMessage: { 갈래: '사이트열기', 주소: 주소 } }, '*');
   };
 
@@ -340,7 +382,8 @@
     촬영준비로();
   };
 
+  // 저장해 둔 포털 주소를 받은 뒤에 프로젝트를 묻는다(위 '주소' 받기).
   과제그리기('');
-  과제받기();
   그리기();
+  parent.postMessage({ pluginMessage: { 갈래: '주소묻기' } }, '*');
 </script>

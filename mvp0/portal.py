@@ -41,7 +41,7 @@ import result_doc
 import json
 import uuid as uuidmod
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import groupby
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote, unquote
@@ -1422,9 +1422,9 @@ class Handler(BaseHTTPRequestHandler):
         row = scr["row"]
         conn.close()
         키 = (human_key, scope, tuple(고른것))
-        쥔것 = _검수서품기.get("키")
-        if 쥔것 == 키 and time.time() - _검수서품기.get("때", 0) < 300:
-            data = _검수서품기["글"]
+        쥔것 = dict(_검수서품기)          # 여럿이 동시에 열면 옆 요청이 비우는 중일 수 있다 — 한 벌 떠서 본다
+        if 쥔것.get("키") == 키 and time.time() - 쥔것.get("때", 0) < 300 and "글" in 쥔것:
+            data = 쥔것["글"]
         else:
             html_doc = result_doc.build(row["project_id"], scope, db_path=REAL_DB,
                                         screen_uuid=row["uuid"], page_ids=고른것)
@@ -1483,12 +1483,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _local_host(self):
         host = self.headers.get('Host', '')
+        name = host.rsplit(':', 1)
+        # 이 요청이 부른 이름 그대로 촬영 준비 주소를 짓는다 — 자리 PC 브라우저가 제 PC(127.0.0.1)를 찾아가지 않게.
+        gnb_bar.손님주소(name[0] if len(name) == 2 else '')
+        # 부른 이름만 보지 않고 실제로 보낸 PC 도 사무실 안(또는 이 PC)인지 먼저 본다 —
+        # 바깥 PC 가 'localhost' 라고 적어 보내도 들어오지 못하게.
+        if not _is_private_ip(self.client_address[0]):
+            return False
         if host in (f'127.0.0.1:{PORT}', f'localhost:{PORT}'):
             return True
         # 동료 공유를 켜면 같은 사무실 네트워크(사설 IP)에서 들어오는 것도 받는다.
         if HOST != "0.0.0.0":
             return False
-        name = host.rsplit(':', 1)
         if len(name) != 2 or name[1] != str(PORT):
             return False
         return _is_private_ip(name[0])
@@ -1892,7 +1898,9 @@ def main():
             f"{REAL_DB} 없음. 먼저: python load_fixture.py fixtures/tb-web-001.json mvp0-real.db"
         )
     intake().init()
-    srv = HTTPServer((HOST, PORT), Handler)
+    # 여럿이 함께 쓴다 — 한 사람의 검수 화면이 오래 걸려도 다른 사람은 기다리지 않는다.
+    srv = ThreadingHTTPServer((HOST, PORT), Handler)
+    srv.daemon_threads = True
     if AUTORELOAD:
         # run_portal.py 가 사라지면 따라 꺼진다 — 홀로 남아 옛 코드를 계속 내보이지 않게.
         import threading

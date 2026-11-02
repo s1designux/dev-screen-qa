@@ -19,6 +19,8 @@ validation-image-qa/repro/*.json
 
 # 로컬 DB 생성물 (원본은 픽스처, DB는 각자 만들어 쓴다)
 *.db
+*.db-wal
+*.db-shm
 
 # 임시 평가 산출물
 eval*.html

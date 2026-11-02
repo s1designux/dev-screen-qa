@@ -20,7 +20,10 @@ try {
 
     $db = Join-Path $src 'mvp0-real.db'
     if (Test-Path $db) {
-        Copy-Item $db (Join-Path $out 'mvp0-real.db') -Force
+        # 포털이 켜진 채로 여럿이 쓰는 중이어도 온전한 한 벌을 뜬다(방금 쓴 것이 옆 파일에 남아 있을 수 있다).
+        $to = Join-Path $out 'mvp0-real.db'
+        & python -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" $db $to
+        if ($LASTEXITCODE -ne 0) { throw "검수 데이터 복사에 실패했습니다 (python $LASTEXITCODE)" }
     }
 
     $uploads = Join-Path $src 'uploads'

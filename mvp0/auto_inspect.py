@@ -179,14 +179,16 @@ def capture_sig(run):
     except OSError:
         return ''
     key = (name, st.st_size, st.st_mtime_ns)
-    if key not in _CAPTURE_SIG:
+    지문 = _CAPTURE_SIG.get(key)      # 여럿이 동시에 부르면 옆 요청이 표를 비울 수 있다 — 꺼낸 값으로 답한다
+    if 지문 is None:
         try:
-            if len(_CAPTURE_SIG) > 200:
-                _CAPTURE_SIG.clear()
-            _CAPTURE_SIG[key] = hashlib.sha1(f.read_bytes()).hexdigest()[:12]
+            지문 = hashlib.sha1(f.read_bytes()).hexdigest()[:12]
         except OSError:
             return ''
-    return _CAPTURE_SIG[key]
+        if len(_CAPTURE_SIG) > 200:
+            _CAPTURE_SIG.clear()
+        _CAPTURE_SIG[key] = 지문
+    return 지문
 
 
 def _stale(r, rev, sig):
