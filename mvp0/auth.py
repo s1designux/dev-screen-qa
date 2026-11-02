@@ -390,10 +390,6 @@ body.login{margin:0;background:var(--color-bg-level-0);min-height:100vh;display:
 .login .단추자리 [data-s1-component="button"]{width:100%}
 .login .가름{width:var(--border-width-default);height:var(--spacing-12);
   background:var(--color-icon-gray-light);display:inline-block}
-.login .막힘{margin:0 0 var(--spacing-16);padding:var(--spacing-12) var(--spacing-16);
-  border-radius:var(--radius-4);background:var(--color-surface-raised);
-  border:var(--border-width-1) solid var(--color-form-control-border-error);
-  color:var(--color-text-state-error);font-size:var(--font-size-14)}
 .login .안내{margin:0 0 var(--spacing-16);font-size:var(--font-size-14);
   color:var(--color-text-body-tertiary);text-align:center}
 /* 맨 아래 띠 — 시안 login_Footer(h120 · 위아래 여백 · 좌우 넓은 여백 · 윗줄 1px).
@@ -474,13 +470,17 @@ def _꼬리():
             '</footer>')
 
 
-def _입력(이름, 라벨, 값="", 종류="text", 안내="", 자리글="", 라벨보이기=True):
+def _입력(이름, 라벨, 값="", 종류="text", 안내="", 자리글="", 라벨보이기=True, 오류=False):
+    """오류=True 면 정본 Input error 상태 — 테두리·안내 글 색은 부품이 aria-invalid 를 보고 바꾼다."""
     칸id = f"f-{이름}"
     비번 = ('<button type="button" data-s1-part="action" data-action="password"'
             ' aria-pressed="false" aria-label="비밀번호 보기">'
             '<span data-s1-part="action-icon" aria-hidden="true"></span></button>'
             ) if 종류 == "password" else ""
-    도움 = f'<p data-s1-part="message">{_esc(안내)}</p>' if 안내 else ""
+    도움 = (f'<p data-s1-part="message" id="{칸id}-msg">{_esc(안내)}</p>' if 안내 else "")
+    상태 = ' aria-invalid="true"' if 오류 else ""
+    if 안내:
+        상태 += f' aria-describedby="{칸id}-msg"'
     라벨칸 = (f'<label data-s1-part="label" for="{칸id}">{_esc(라벨)}</label>'
             if 라벨보이기 else "")
     자리 = f' placeholder="{_esc(자리글)}"' if 자리글 else ""
@@ -489,7 +489,7 @@ def _입력(이름, 라벨, 값="", 종류="text", 안내="", 자리글="", 라�
             f'{라벨칸}'
             f'<div data-s1-part="field">'
             f'<input data-s1-part="control" type="{종류}" id="{칸id}" name="{이름}"'
-            f' value="{_esc(값)}"{자리}{이름표} autocomplete="off">{비번}'
+            f' value="{_esc(값)}"{자리}{이름표}{상태} autocomplete="off">{비번}'
             f'<button type="button" data-s1-part="action" data-action="clear"'
             f' aria-label="입력 내용 지우기" hidden>'
             f'<span data-s1-part="action-icon" aria-hidden="true"></span></button>'
@@ -526,6 +526,9 @@ def _권한고르기(고른=그룹원, 앞머리="role"):
             '</div>')
 
 
+중지안내 = "사용이 중지된 계정입니다. 관리자에게 문의해 주세요."
+
+
 def 로그인화면(막힘="", 아이디="", 다음="/"):
     """시안 `웹_로그인 화면`(2601:21357) 그대로 — 위 줄 · 가운데 상자 · 아래 띠.
 
@@ -536,13 +539,17 @@ def 로그인화면(막힘="", 아이디="", 다음="/"):
     부품은 정본에 있는 것만 쓴다(Input · Checkbox · Button · GNB).
     시안의 web tab bar 는 그림으로 그린 브라우저 창틀이라 화면에 넣지 않는다.
     """
-    말썽 = f'<p class="막힘">{_esc(막힘)}</p>' if 막힘 else ""
-    속 = (_씨아이() + 말썽
+    # 실패 안내는 따로 상자를 띄우지 않고 정본 Input error 상태로 칸 아래에 붙인다.
+    # 사용 중지는 아이디 탓이라 아이디 칸에, 그 밖의 실패는 두 칸을 다 붉히고 비밀번호 칸 아래에 적는다.
+    아이디탓 = 막힘 == 중지안내
+    속 = (_씨아이()
           + '<form method="post" action="/login" id="login-form">'
           + f'<input type="hidden" name="next" value="{_esc(다음)}">'
-          + _입력("login_id", "아이디", 아이디, 자리글="아이디를 입력해 주세요.", 라벨보이기=False)
+          + _입력("login_id", "아이디", 아이디, 자리글="아이디를 입력해 주세요.", 라벨보이기=False,
+                 안내=막힘 if 아이디탓 else "", 오류=bool(막힘))
           + _입력("password", "비밀번호", 종류="password",
-                 자리글="비밀번호를 입력해 주세요.", 라벨보이기=False)
+                 자리글="비밀번호를 입력해 주세요.", 라벨보이기=False,
+                 안내="" if 아이디탓 else 막힘, 오류=bool(막힘) and not 아이디탓)
           + '<div class="기억" data-s1-component="checkbox">'
           + '<input type="checkbox" id="remember" name="remember" data-s1-part="control"'
           + (" checked" if 아이디 else "") + '>'
@@ -747,7 +754,7 @@ def _로그인길(handler, conn, method, path, 사람):
         적는다(conn, "login-failed", row["uuid"] if row else None, 아이디, "", _아이피(handler),
               "사용 중지된 계정" if row is not None and not row["active"] else "")
         conn.commit()
-        말 = ("사용이 중지된 계정입니다. 관리자에게 문의해 주세요."
+        말 = (중지안내
              if row is not None and not row["active"] else "아이디나 비밀번호가 맞지 않습니다.")
         _보낸다(handler, 로그인화면(말, 아이디, 다음), 401, 쿠키줄)
         return True
